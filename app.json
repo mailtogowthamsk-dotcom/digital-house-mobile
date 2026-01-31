@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Digital House",
+    "slug": "digital-house",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/mobile_app/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./src/mobile_app/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B1220"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/mobile_app/assets/adaptive-icon.png",
+        "backgroundColor": "#0B1220"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./src/mobile_app/assets/favicon.png"
+    }
+  }
+}
+
