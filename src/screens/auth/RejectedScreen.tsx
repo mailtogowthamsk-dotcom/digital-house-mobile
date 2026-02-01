@@ -1,11 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ImageBackground, Image, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable, Image, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { spacing } from "../../theme/spacing";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const LANDING_BACKGROUND = require("../../../assets/landing-background.png");
-const LOGO = require("../../../assets/logo-digital-house.png");
+const LOGO = require("../../../assets/logo_digital_house.png");
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
 
 type RejectedScreenProps = { navigation: any; route?: { params?: { message?: string } } };
 
@@ -15,7 +15,8 @@ export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
     "Your account was not approved. Please contact support if you believe this is an error.";
 
   return (
-    <ImageBackground source={LANDING_BACKGROUND} style={s.background} resizeMode="cover">
+    <View style={s.background}>
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <View style={s.overlay} />
       <View style={s.content}>
         <Image source={LOGO} style={s.logo} resizeMode="contain" />
@@ -37,7 +38,7 @@ export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
           </Pressable>
         </View>
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 

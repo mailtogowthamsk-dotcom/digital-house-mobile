@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ImageBackground,
   Image,
   Dimensions,
   ActivityIndicator,
@@ -16,6 +15,7 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { register as registerApi, type RegisterPayload } from "../../api/auth.api";
+import { getAuthErrorMessage } from "../../api/client";
 import { getLocations, getKulams } from "../../api/options.api";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
@@ -25,8 +25,8 @@ import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const LANDING_BACKGROUND = require("../../../assets/landing-background.png");
-const LOGO = require("../../../assets/logo-digital-house.png");
+const LOGO = require("../../../assets/logo_digital_house.png");
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
 const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
 const STEPS = ["Personal", "Contact", "Community", "Review"];
@@ -145,18 +145,15 @@ export function RegistrationScreen({ navigation }: any) {
       await registerApi(payload);
       navigation.replace("PendingApproval");
     } catch (e: any) {
-      const backendMsg = e?.response?.data?.message;
-      const isNetwork =
-        !e?.response &&
-        (e?.message?.includes("Network") || e?.code === "ECONNREFUSED" || e?.code === "ERR_NETWORK");
-      setMsg(backendMsg || (isNetwork ? "Cannot reach server. Is backend running?" : "Registration failed."));
+      setMsg(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ImageBackground source={LANDING_BACKGROUND} style={s.background} resizeMode="cover">
+    <View style={s.background}>
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <View style={s.overlay} />
       <KeyboardAvoidingView
         style={s.keyboard}
@@ -358,7 +355,7 @@ export function RegistrationScreen({ navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </View>
   );
 }
 

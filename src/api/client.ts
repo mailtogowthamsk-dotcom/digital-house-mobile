@@ -2,18 +2,39 @@ import axios, { AxiosError } from "axios";
 import { getToken } from "../storage/token.storage";
 import { clearToken } from "../storage/token.storage";
 
-// Use your Mac's LAN IP so the phone/simulator can reach the backend.
-// Find it on Mac: Terminal → ifconfig | grep "inet " (use the 192.168.x.x or 10.0.x.x address).
-// iOS Simulator can use localhost; physical device must use Mac's IP.
-const API_BASE =
-  "http://192.168.0.2:4000/api"; /* change to your Mac IP if different, e.g. 192.168.1.5 */
+/**
+ * API base URL (must end with /api). Set EXPO_PUBLIC_API_URL in .env or app config.
+ * Examples:
+ *   Production: https://your-app.up.railway.app/api
+ *   Local:      http://192.168.1.5:4000/api  (use your machine's LAN IP for physical device)
+ */
+function getApiBase(): string {
+  let raw: string | undefined;
+  try {
+    raw =
+      (typeof process !== "undefined" && process.env?.EXPO_PUBLIC_API_URL) ||
+      undefined;
+  } catch {
+    raw = undefined;
+  }
+  const fallback = "https://digitalhouse-backend-production.up.railway.app/api";
+  const trimmed = String(raw ?? fallback).trim().replace(/\/+$/, "");
+  const base = trimmed || fallback;
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+
+const API_BASE = getApiBase();
 
 /** Server base URL (no /api) – for building absolute image URLs from relative paths */
-export const SERVER_BASE = API_BASE.replace(/\/api\/?$/, "") || "http://192.168.0.2:4000";
+export const SERVER_BASE = API_BASE.replace(/\/api\/?$/, "") || API_BASE;
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 15000
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }
 });
 
 /** Attach JWT from secure storage to every request */
@@ -44,6 +65,22 @@ export function getErrorStatus(err: unknown): number | undefined {
   return err && typeof err === "object" && "response" in err
     ? (err as AxiosError).response?.status
     : undefined;
+}
+
+/** User-friendly message for registration/login failures (network, timeout, 4xx/5xx) */
+export function getAuthErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return "Something went wrong. Please try again.";
+  const ax = err as AxiosError;
+  const msg = (ax.response?.data as { message?: string })?.message;
+  if (msg && typeof msg === "string") return msg;
+  const status = ax.response?.status;
+  if (status === 400) return "Invalid request. Please check your details.";
+  if (status === 409) return "An account with this email or mobile already exists.";
+  if (status === 500) return "Server error. Please try again in a moment.";
+  if (status === 503) return "Server is starting up. Please try again in a few seconds.";
+  if (ax.code === "ECONNABORTED" || ax.message?.toLowerCase().includes("timeout")) return "Request timed out. Please check your connection and try again.";
+  if (!ax.response && (ax.code === "ECONNREFUSED" || ax.code === "ERR_NETWORK" || ax.message?.toLowerCase().includes("network"))) return "Cannot reach server. Check your internet connection and try again.";
+  return "Registration failed. Please try again.";
 }
 
 /**

@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ImageBackground,
   Image,
   Dimensions,
   ActivityIndicator,
@@ -23,8 +22,8 @@ import { spacing } from "../../theme/spacing";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const LANDING_BACKGROUND = require("../../../assets/landing-background.png");
-const LOGO = require("../../../assets/logo-digital-house.png");
+const LOGO = require("../../../assets/logo_digital_house.png");
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
 
 const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
@@ -84,7 +83,8 @@ export function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <ImageBackground source={LANDING_BACKGROUND} style={s.background} resizeMode="cover">
+    <View style={s.background}>
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={s.overlay} />
       <KeyboardAvoidingView
@@ -173,7 +173,7 @@ export function LoginScreen({ navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </View>
   );
 }
 

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ImageBackground,
   Image,
   ActivityIndicator,
   Dimensions,
@@ -17,8 +16,8 @@ import { getLandingContent } from "../../api/landing.api";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const STATUS_BAR = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 44;
 
-const LANDING_BACKGROUND = require("../../../assets/landing-background.png");
-const LOGO = require("../../../assets/logo-digital-house.png");
+const LOGO = require("../../../assets/logo_digital_house.png");
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
 
 export function LandingScreen({ navigation }: any) {
   const [headline, setHeadline] = useState<string | null>(null);
@@ -32,11 +31,8 @@ export function LandingScreen({ navigation }: any) {
   }, []);
 
   return (
-    <ImageBackground
-      source={LANDING_BACKGROUND}
-      style={s.background}
-      resizeMode="cover"
-    >
+    <View style={s.background}>
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <View style={s.overlay} />
 
       {/* Logo at top */}
@@ -83,7 +79,7 @@ export function LandingScreen({ navigation }: any) {
           <Text style={s.signInText}>Already have an account? Sign in</Text>
         </Pressable>
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 

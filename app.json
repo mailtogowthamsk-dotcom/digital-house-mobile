@@ -1,14 +1,26 @@
 {
   "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
+    ],
     "name": "Digital House",
     "slug": "digital-house",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/mobile_app/assets/icon.png",
+    "icon": "./assets/logo_digital_house.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./src/mobile_app/assets/splash-icon.png",
+      "image": "./assets/logo_digital_house.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B1220"
     },
@@ -17,13 +29,14 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Digital House needs access to your photos so you can choose images and videos for posts.",
         "NSMicrophoneUsageDescription": "Digital House may use the microphone when recording video.",
-        "NSCameraUsageDescription": "Digital House needs camera access to take photos or videos for posts."
+        "NSCameraUsageDescription": "Digital House needs camera access to take photos or videos for posts.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.anonymous.digital-house"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/mobile_app/assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo_digital_house.png",
         "backgroundColor": "#0B1220"
       },
       "edgeToEdgeEnabled": true,
@@ -32,11 +45,25 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA"
-      ]
+      ],
+      "package": "com.thisisgowtham.digitalhouse"
     },
     "web": {
-      "favicon": "./src/mobile_app/assets/favicon.png"
+      "favicon": "./assets/logo_digital_house.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "defefaa3-71d1-495c-98f8-2489497c65ed"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/defefaa3-71d1-495c-98f8-2489497c65ed"
     }
   }
 }
