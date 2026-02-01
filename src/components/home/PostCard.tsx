@@ -73,7 +73,7 @@ export function PostCard({ post, onPress, onViewDetails }: PostCardProps) {
 
       {post.imageUri ? (
         <View style={s.bannerWrap}>
-          <PostMedia mediaUrl={post.imageUri} height={180} />
+          <PostMedia mediaUrl={post.imageUri} />
         </View>
       ) : null}
 
@@ -178,7 +178,6 @@ const s = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 14,
-    height: 180,
     backgroundColor: "#F3F4F6"
   },
   banner: {

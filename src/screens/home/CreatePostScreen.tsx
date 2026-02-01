@@ -9,7 +9,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Image
+  Image,
+  Dimensions
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -67,11 +68,18 @@ export function CreatePostScreen() {
   const [description, setDescription] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaPreviewUri, setMediaPreviewUri] = useState<string | null>(null);
+  const [previewDimensions, setPreviewDimensions] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
+
+  const screenWidth = Dimensions.get("window").width - spacing.lg * 2;
+  const PREVIEW_MAX_HEIGHT = 400;
+  const previewHeight = previewDimensions
+    ? Math.min(screenWidth * (previewDimensions.height / previewDimensions.width), PREVIEW_MAX_HEIGHT)
+    : 200;
 
   const handleSubmit = useCallback(async () => {
     const t = title.trim();
@@ -134,6 +142,7 @@ export function CreatePostScreen() {
       await uploadToR2(putUrl, uri, mime, (p) => setUploadProgress(p));
       setMediaUrl(publicUrl);
       setMediaPreviewUri(uri);
+      Image.getSize(uri, (w, h) => setPreviewDimensions({ width: w, height: h }), () => setPreviewDimensions({ width: 1, height: 1 }));
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
@@ -148,6 +157,7 @@ export function CreatePostScreen() {
   const clearMedia = useCallback(() => {
     setMediaUrl("");
     setMediaPreviewUri(null);
+    setPreviewDimensions(null);
   }, []);
 
   return (
@@ -234,8 +244,8 @@ export function CreatePostScreen() {
           </View>
         )}
         {mediaPreviewUri ? (
-          <View style={s.previewWrap}>
-            <Image source={{ uri: mediaPreviewUri }} style={s.previewImg} resizeMode="cover" />
+          <View style={[s.previewWrap, { height: previewHeight }]}>
+            <Image source={{ uri: mediaPreviewUri }} style={s.previewImg} resizeMode="contain" />
             <Pressable style={s.removeMediaBtn} onPress={clearMedia}>
               <Ionicons name="close-circle" size={28} color={colors.error} />
             </Pressable>
@@ -330,8 +340,15 @@ const s = StyleSheet.create({
   progressBar: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", backgroundColor: colors.primary },
   progressText: { ...typography.caption, color: colors.textSecondary, marginTop: 4 },
-  previewWrap: { position: "relative", marginBottom: spacing.sm, borderRadius: radius.md, overflow: "hidden" },
-  previewImg: { width: "100%", height: 180, backgroundColor: colors.surfaceElevated },
+  previewWrap: {
+    position: "relative",
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    width: "100%",
+    backgroundColor: colors.surfaceElevated
+  },
+  previewImg: { width: "100%", height: "100%", backgroundColor: "transparent" },
   removeMediaBtn: { position: "absolute", top: 8, right: 8 },
   mediaUrlRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
   mediaUrlLabel: { ...typography.caption, color: colors.success },

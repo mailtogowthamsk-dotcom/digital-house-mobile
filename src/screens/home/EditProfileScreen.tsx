@@ -297,16 +297,65 @@ export function EditProfileScreen() {
       }
 
       if (isSectionDirty("community", community)) {
-        sectionsToUpdate.push({ section: "community", payload: community });
+        sectionsToUpdate.push({
+          section: "community",
+          payload: {
+            kulam: community.kulam ?? null,
+            kulaDeivam: community.kulaDeivam ?? null,
+            nativeVillage: community.nativeVillage ?? null,
+            nativeTaluk: community.nativeTaluk ?? null
+          }
+        });
       }
       if (isSectionDirty("personal", personal)) {
-        sectionsToUpdate.push({ section: "personal", payload: personal });
+        sectionsToUpdate.push({
+          section: "personal",
+          payload: {
+            currentLocation: personal.currentLocation?.trim() || null,
+            occupation: personal.occupation?.trim() || null,
+            instagram: personal.instagram?.trim() || null,
+            facebook: personal.facebook?.trim() || null,
+            linkedin: personal.linkedin?.trim() || null,
+            hobbies: personal.hobbies?.trim() || null,
+            fatherName: personal.fatherName?.trim() || null,
+            maritalStatus: personal.maritalStatus?.trim() || null
+          }
+        });
       }
       if (isSectionDirty("matrimony", matrimony)) {
-        sectionsToUpdate.push({ section: "matrimony", payload: matrimony });
+        sectionsToUpdate.push({
+          section: "matrimony",
+          payload: {
+            matrimonyProfileActive: matrimony.matrimonyProfileActive,
+            lookingFor: matrimony.lookingFor?.trim() || null,
+            education: matrimony.education?.trim() || null,
+            maritalStatus: matrimony.maritalStatus?.trim() || null,
+            rashi: matrimony.rashi?.trim() || null,
+            nakshatram: matrimony.nakshatram?.trim() || null,
+            dosham: matrimony.dosham?.trim() || null,
+            familyType: matrimony.familyType?.trim() || null,
+            familyStatus: matrimony.familyStatus?.trim() || null,
+            motherName: matrimony.motherName?.trim() || null,
+            fatherOccupation: matrimony.fatherOccupation?.trim() || null,
+            numberOfSiblings: matrimony.numberOfSiblings ?? null,
+            partnerPreferences: matrimony.partnerPreferences?.trim() || null,
+            horoscopeDocumentUrl: matrimony.horoscopeDocumentUrl?.trim() || null
+          }
+        });
       }
       if (isSectionDirty("business", business)) {
-        sectionsToUpdate.push({ section: "business", payload: business });
+        sectionsToUpdate.push({
+          section: "business",
+          payload: {
+            businessProfileActive: business.businessProfileActive,
+            businessName: business.businessName?.trim() || null,
+            businessType: business.businessType?.trim() || null,
+            businessDescription: business.businessDescription?.trim() || null,
+            businessAddress: business.businessAddress?.trim() || null,
+            businessPhone: business.businessPhone?.trim() || null,
+            businessWebsite: business.businessWebsite?.trim() || null
+          }
+        });
       }
       if (isSectionDirty("family", family)) {
         sectionsToUpdate.push({
@@ -321,16 +370,16 @@ export function EditProfileScreen() {
         });
       }
 
-      for (const { section, payload } of sectionsToUpdate) {
-        const updated = await putProfileSection(section, payload);
-        setProfile(updated);
-        initialFormRef.current = mapProfileToForm(updated);
-      }
-
       if (sectionsToUpdate.length === 0) {
         Alert.alert("No changes", "You haven't made any changes to save.", [{ text: "OK" }]);
         setSaving(false);
         return;
+      }
+
+      for (const { section, payload } of sectionsToUpdate) {
+        const updated = await putProfileSection(section, payload);
+        setProfile(updated);
+        initialFormRef.current = mapProfileToForm(updated);
       }
 
       const includedRestricted = sectionsToUpdate.some((u) => u.section === "matrimony" || u.section === "business");

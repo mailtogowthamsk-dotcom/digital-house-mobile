@@ -196,7 +196,7 @@ export function PostDetailScreen() {
       {post.description ? <Text style={s.description}>{post.description}</Text> : null}
       {post.media_url ? (
         <View style={s.mediaWrap}>
-          <PostMedia mediaUrl={post.media_url} height={220} />
+          <PostMedia mediaUrl={post.media_url} />
         </View>
       ) : null}
 
@@ -286,7 +286,7 @@ const s = StyleSheet.create({
   moreBtn: { padding: spacing.xs },
   title: { ...typography.title2, color: colors.text, marginBottom: spacing.sm },
   description: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
-  mediaWrap: { borderRadius: radius.lg, overflow: "hidden", marginBottom: spacing.md, height: 220 },
+  mediaWrap: { borderRadius: radius.lg, overflow: "hidden", marginBottom: spacing.md },
   media: { width: "100%", height: "100%" },
   actions: { flexDirection: "row", gap: spacing.lg, marginBottom: spacing.lg },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
