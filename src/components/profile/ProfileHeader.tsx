@@ -13,17 +13,19 @@ export type ProfileHeaderProps = {
   verified: boolean;
   member_since: string;
   communityRole?: string | null;
+  completion_percentage?: number;
 };
 
-/** Profile header: avatar with ring, name, verified pill, member since. Soft gradient background. */
+/** Profile header: avatar with ring, name, verified pill, member since, optional completion %. Soft gradient background. */
 export function ProfileHeader({
   name,
   profile_image,
   verified,
   member_since,
-  communityRole
+  communityRole,
+  completion_percentage
 }: ProfileHeaderProps) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const initial = (name ?? "User").trim().charAt(0).toUpperCase() || "?";
 
   return (
     <View style={s.wrapper}>
@@ -49,6 +51,14 @@ export function ProfileHeader({
           </View>
         )}
         <Text style={s.memberSince}>Member since {member_since}</Text>
+        {completion_percentage != null && (
+          <View style={s.completionWrap}>
+            <View style={s.completionBar}>
+              <View style={[s.completionFill, { width: `${Math.min(100, completion_percentage)}%` }]} />
+            </View>
+            <Text style={s.completionText}>Profile {completion_percentage}% complete</Text>
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
@@ -109,5 +119,9 @@ const s = StyleSheet.create({
     marginBottom: spacing.sm
   },
   verifiedText: { ...typography.caption, color: colors.success, fontWeight: "600" },
-  memberSince: { ...typography.caption, color: colors.textMuted }
+  memberSince: { ...typography.caption, color: colors.textMuted },
+  completionWrap: { width: "100%", marginTop: spacing.lg, paddingHorizontal: spacing.sm },
+  completionBar: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden", marginBottom: spacing.xs },
+  completionFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
+  completionText: { ...typography.caption, color: colors.textMuted, textAlign: "center" }
 });

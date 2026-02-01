@@ -51,14 +51,23 @@ function Row({
 
 /** Read-only personal info; masked mobile & email with lock icons so sensitive data looks protected. */
 export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionProps) {
-  const address = [personal.city, personal.district].filter(Boolean).join(", ") || null;
+  const p = personal ?? {
+    masked_mobile: "—",
+    masked_email: "—",
+    gender: null,
+    dob: null,
+    blood_group: null,
+    city: null,
+    district: null
+  };
+  const address = [p.city, p.district].filter(Boolean).join(", ") || null;
   const rows: { label: string; value: string; isProtected?: boolean }[] = [
-    { label: "Full Name", value: fullName },
-    { label: "Mobile", value: personal.masked_mobile, isProtected: true },
-    { label: "Email", value: personal.masked_email, isProtected: true },
-    { label: "Gender", value: personal.gender ?? "—" },
-    { label: "Date of Birth", value: personal.dob ?? "—" },
-    ...(personal.blood_group ? [{ label: "Blood Group", value: personal.blood_group }] : []),
+    { label: "Full Name", value: fullName ?? "—" },
+    { label: "Mobile", value: p.masked_mobile, isProtected: true },
+    { label: "Email", value: p.masked_email, isProtected: true },
+    { label: "Gender", value: p.gender ?? "—" },
+    { label: "Date of Birth", value: p.dob ?? "—" },
+    ...(p.blood_group ? [{ label: "Blood Group", value: p.blood_group }] : []),
     ...(address ? [{ label: "Address", value: address }] : [])
   ];
 

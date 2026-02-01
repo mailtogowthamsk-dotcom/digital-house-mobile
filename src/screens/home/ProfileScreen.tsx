@@ -134,6 +134,7 @@ export function ProfileScreen() {
         profile_image={profile.profile_image}
         verified={profile.verified}
         member_since={profile.member_since}
+        completion_percentage={profile.completion_percentage}
       />
       <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
       <ProfessionalInfoSection professional={profile.professional_info} />

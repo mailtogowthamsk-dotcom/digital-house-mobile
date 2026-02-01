@@ -20,7 +20,14 @@ const STAT_ITEMS: { key: keyof ProfileStats; label: string; icon: keyof typeof I
 ];
 
 type StatsCardsProps = {
-  stats: ProfileStats;
+  stats: ProfileStats | null | undefined;
+};
+
+const defaultStats: ProfileStats = {
+  total_posts: 0,
+  jobs_posted: 0,
+  marketplace_items: 0,
+  help_requests: 0
 };
 
 /** Community stats: 2x2 grid, icon in colored circle, soft shadow cards */
@@ -29,6 +36,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
   const padding = spacing.xl * 2;
   const gap = spacing.md;
   const cardSize = (width - padding - gap) / 2;
+  const s_ = stats ?? defaultStats;
 
   return (
     <View style={s.section}>
@@ -44,7 +52,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
             <View style={s.iconWrap}>
               <Ionicons name={icon} size={22} color={colors.primary} />
             </View>
-            <Text style={s.value}>{stats[key]}</Text>
+            <Text style={s.value}>{s_[key]}</Text>
             <Text style={s.label} numberOfLines={2}>
               {label}
             </Text>

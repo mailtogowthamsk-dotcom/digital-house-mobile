@@ -14,7 +14,7 @@ export type ProfessionalInfo = {
 };
 
 type ProfessionalInfoSectionProps = {
-  professional: ProfessionalInfo;
+  professional: ProfessionalInfo | null | undefined;
 };
 
 function Row({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
@@ -35,8 +35,17 @@ const ROWS: { key: keyof ProfessionalInfo; label: string }[] = [
   { key: "skills", label: "Skills / Category" }
 ];
 
+const emptyProfessional: ProfessionalInfo = {
+  education: null,
+  job_title: null,
+  company_name: null,
+  work_location: null,
+  skills: null
+};
+
 /** Read-only professional info. Card with section icon and row dividers. */
 export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectionProps) {
+  const pro = professional ?? emptyProfessional;
   return (
     <View style={s.section}>
       <View style={s.sectionTitleRow}>
@@ -50,7 +59,7 @@ export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectio
           <Row
             key={key}
             label={label}
-            value={professional[key] ?? "—"}
+            value={pro[key] ?? "—"}
             isLast={i === ROWS.length - 1}
           />
         ))}

@@ -78,39 +78,42 @@ export function HighlightSection({
     <View style={s.section}>
       <Text style={s.sectionTitle}>Highlights</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalList}>
-        {hasPinned &&
-          highlights!.pinnedAnnouncements.map((item) => (
-            <HighlightCard
-              key={`pinned-${item.postId}`}
-              item={item}
-              label="Pinned"
-              icon="pin"
-              color={BLUE}
-              onPress={() => onItemPress?.(item)}
-            />
-          ))}
-        {hasMeetups &&
-          highlights!.upcomingMeetups.map((item) => (
-            <HighlightCard
-              key={`meetup-${item.postId}`}
-              item={item}
-              label="Meetup"
-              icon="calendar"
-              color={BLUE}
-              onPress={() => onItemPress?.(item)}
-            />
-          ))}
-        {hasUrgent &&
-          highlights!.urgentHelpRequests.map((item) => (
-            <HighlightCard
-              key={`urgent-${item.postId}`}
-              item={item}
-              label="Urgent"
-              icon="alert-circle"
-              color={ORANGE}
-              onPress={() => onItemPress?.(item)}
-            />
-          ))}
+        {hasPinned
+          ? highlights!.pinnedAnnouncements.map((item) => (
+              <HighlightCard
+                key={`pinned-${item.postId}`}
+                item={item}
+                label="Pinned"
+                icon="pin"
+                color={BLUE}
+                onPress={() => onItemPress?.(item)}
+              />
+            ))
+          : null}
+        {hasMeetups
+          ? highlights!.upcomingMeetups.map((item) => (
+              <HighlightCard
+                key={`meetup-${item.postId}`}
+                item={item}
+                label="Meetup"
+                icon="calendar"
+                color={BLUE}
+                onPress={() => onItemPress?.(item)}
+              />
+            ))
+          : null}
+        {hasUrgent
+          ? highlights!.urgentHelpRequests.map((item) => (
+              <HighlightCard
+                key={`urgent-${item.postId}`}
+                item={item}
+                label="Urgent"
+                icon="alert-circle"
+                color={ORANGE}
+                onPress={() => onItemPress?.(item)}
+              />
+            ))
+          : null}
       </ScrollView>
     </View>
   );
@@ -130,7 +133,7 @@ function HighlightCard({
   onPress?: () => void;
 }) {
   return (
-    <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={onPress}>
+    <Pressable style={({ pressed }) => [s.card, pressed ? s.cardPressed : null]} onPress={onPress}>
       <View style={[s.badge, { backgroundColor: color + "20" }]}>
         <Ionicons name={icon} size={14} color={color} />
         <Text style={[s.badgeText, { color }]}>{label}</Text>

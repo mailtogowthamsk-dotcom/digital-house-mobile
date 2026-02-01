@@ -5,3 +5,4 @@ export { StatsCards } from "./StatsCards";
 export { MyActivityTabs, type ActivityTab } from "./MyActivityTabs";
 export { ActionButtons } from "./ActionButtons";
 export { ProfileSkeleton } from "./ProfileSkeleton";
+export { AccordionSection } from "./AccordionSection";
