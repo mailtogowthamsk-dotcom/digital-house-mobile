@@ -63,7 +63,8 @@
     },
     "runtimeVersion": "1.0.0",
     "updates": {
-      "url": "https://u.expo.dev/defefaa3-71d1-495c-98f8-2489497c65ed"
+      "url": "https://u.expo.dev/defefaa3-71d1-495c-98f8-2489497c65ed",
+      "enabled": false
     }
   }
 }

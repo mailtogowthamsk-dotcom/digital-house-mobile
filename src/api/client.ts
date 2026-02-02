@@ -2,13 +2,14 @@ import axios, { AxiosError } from "axios";
 import { getToken } from "../storage/token.storage";
 import { clearToken } from "../storage/token.storage";
 
+const PRODUCTION_API = "https://digitalhouse-backend-production.up.railway.app/api";
+
 /**
  * API base URL (must end with /api). Set EXPO_PUBLIC_API_URL in .env or app config.
- * Examples:
- *   Production: https://your-app.up.railway.app/api
- *   Local:      http://192.168.1.5:4000/api  (use your machine's LAN IP for physical device)
+ * On web, env may be missing or point at the app origin — we force production URL so login works.
  */
 function getApiBase(): string {
+  const isWeb = typeof window !== "undefined" && typeof window.location !== "undefined";
   let raw: string | undefined;
   try {
     raw =
@@ -17,9 +18,12 @@ function getApiBase(): string {
   } catch {
     raw = undefined;
   }
-  const fallback = "https://digitalhouse-backend-production.up.railway.app/api";
-  const trimmed = String(raw ?? fallback).trim().replace(/\/+$/, "");
-  const base = trimmed || fallback;
+  const trimmed = String(raw ?? "").trim().replace(/\/+$/, "");
+  let base = trimmed || PRODUCTION_API;
+  // On web: never use same origin or relative URL (avoids 404 on login-request)
+  if (isWeb && (!trimmed || !trimmed.startsWith("http") || trimmed.startsWith(window.location.origin))) {
+    base = PRODUCTION_API;
+  }
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
@@ -39,8 +43,12 @@ export const api = axios.create({
 
 /** Attach JWT from secure storage to every request */
 api.interceptors.request.use(async (config) => {
-  const token = await getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = await getToken();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch {
+    // Avoid crash if SecureStore fails on some Android devices
+  }
   return config;
 });
 
@@ -54,7 +62,11 @@ api.interceptors.response.use(
   async (err: AxiosError) => {
     const status = err.response?.status;
     if (status === 401) {
-      await clearToken();
+      try {
+        await clearToken();
+      } catch {
+        // Avoid crash on Android
+      }
     }
     return Promise.reject(err);
   }

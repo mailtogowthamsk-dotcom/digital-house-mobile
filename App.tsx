@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
 import { RegistrationScreen } from "./src/screens/auth/RegistrationScreen";
 import { PendingApprovalScreen } from "./src/screens/auth/PendingApprovalScreen";
@@ -34,6 +35,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
+    <AppErrorBoundary>
     <SafeAreaProvider>
     <NavigationContainer>
       <StatusBar style="dark" />
@@ -84,5 +86,6 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
     </SafeAreaProvider>
+    </AppErrorBoundary>
   );
 }
