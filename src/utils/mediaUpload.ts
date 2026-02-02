@@ -1,8 +1,8 @@
 /**
  * Direct upload to R2 via pre-signed PUT URL.
  * Backend never receives file bytes; client uploads with progress.
- * Uses expo-file-system (legacy). On Android, content:// URIs are copied to a temp file://
- * before upload because uploadAsync only accepts file:// URIs.
+ * - Web: fetch + PUT (expo-file-system.uploadAsync is not available on web).
+ * - Native: expo-file-system (legacy). On Android, content:// URIs are copied to file:// first.
  */
 
 import { Platform } from "react-native";
@@ -36,6 +36,26 @@ export function validateVideoDuration(seconds: number): void {
 }
 
 /**
+ * Web: upload via fetch PUT (blob or data URL). uploadAsync is not available on web.
+ */
+async function uploadToR2Web(
+  uploadUrl: string,
+  fileUri: string,
+  contentType: string,
+  onProgress?: (progress: number) => void
+): Promise<void> {
+  const res = await fetch(fileUri);
+  const blob = await res.blob();
+  const putRes = await fetch(uploadUrl, {
+    method: "PUT",
+    body: blob,
+    headers: { "Content-Type": contentType }
+  });
+  if (onProgress) onProgress(1);
+  if (!putRes.ok) throw new Error(`Upload failed: ${putRes.status}`);
+}
+
+/**
  * On Android, uploadAsync only accepts file:// URIs. Image/video pickers often return
  * content:// URIs. Copy to a temp file in cache then upload from there.
  */
@@ -60,7 +80,7 @@ async function toUploadableUri(uri: string, contentType: string): Promise<{ uri:
 
 /**
  * Upload file from local URI to R2 via pre-signed PUT URL.
- * On Android content:// URIs are copied to a temp file:// before upload.
+ * Web: uses fetch PUT (blob/data URL). Native: uses expo-file-system.uploadAsync.
  */
 export async function uploadToR2(
   uploadUrl: string,
@@ -68,6 +88,16 @@ export async function uploadToR2(
   contentType: string,
   onProgress?: (progress: number) => void
 ): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      await uploadToR2Web(uploadUrl, fileUri, contentType, onProgress);
+    } catch (e) {
+      if (onProgress) onProgress(0);
+      throw e instanceof Error ? e : new Error("Upload failed");
+    }
+    return;
+  }
+
   const { uri: uploadUri, cleanup } = await toUploadableUri(fileUri, contentType);
   try {
     const result = await FileSystem.uploadAsync(uploadUrl, uploadUri, {
