@@ -29,6 +29,11 @@ function getApiBase(): string {
 
 const API_BASE = getApiBase();
 
+/** Expose API base for debug (e.g. show in "Cannot reach server" message in dev) */
+export function getApiBaseUrl(): string {
+  return API_BASE;
+}
+
 /** Server base URL (no /api) – for building absolute image URLs from relative paths */
 export const SERVER_BASE = API_BASE.replace(/\/api\/?$/, "") || API_BASE;
 

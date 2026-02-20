@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loginRequest } from "../../api/auth.api";
+import { getApiBaseUrl } from "../../api/client";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -68,14 +69,26 @@ export function LoginScreen({ navigation }: any) {
         setMsg(backendMsg || "No account found. Please register first.");
         return;
       }
+      if (status === 503) {
+        setMsg(backendMsg || "Server is starting up. Please try again in a few seconds.");
+        return;
+      }
+      if (status === 500 && backendMsg) {
+        setMsg(backendMsg);
+        return;
+      }
       const isNetwork =
         !e?.response &&
         (e?.message?.includes("Network") || e?.code === "ECONNREFUSED" || e?.code === "ERR_NETWORK");
+      const isTimeout = e?.code === "ECONNABORTED" || e?.message?.includes("timeout");
+      const baseHint = __DEV__ ? ` Trying: ${getApiBaseUrl()}` : "";
       setMsg(
         backendMsg ||
           (isNetwork
-            ? "Cannot reach server. Is backend running? Use same WiFi and Mac IP in src/api/client.ts"
-            : "Failed to send OTP")
+            ? `Cannot reach server. Check mobile/.env EXPO_PUBLIC_API_URL (same WiFi as backend; use Mac IP for local, or Railway URL for production).${baseHint}`
+            : isTimeout
+              ? "Request timed out. Check backend is running and EXPO_PUBLIC_API_URL in mobile/.env."
+              : "Failed to send OTP. Check backend logs and mobile/.env API URL.")
       );
     } finally {
       setLoading(false);

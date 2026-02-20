@@ -17,11 +17,13 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const STATUS_BAR = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 44;
 
 const LOGO = require("../../../assets/logo_digital_house.png");
+const LANDING_BG = require("../../../assets/landing_background.png");
 const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
 
 export function LandingScreen({ navigation }: any) {
   const [headline, setHeadline] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     getLandingContent()
@@ -33,11 +35,22 @@ export function LandingScreen({ navigation }: any) {
   return (
     <View style={s.background}>
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
+      <Image source={LANDING_BG} style={s.bgImage} resizeMode="cover" />
       <View style={s.overlay} />
 
       {/* Logo at top */}
       <View style={s.logoContainer}>
-        <Image source={LOGO} style={s.logo} resizeMode="contain" />
+        {!logoError ? (
+          <Image
+            source={LOGO}
+            style={s.logo}
+            resizeMode="contain"
+            onError={() => setLogoError(true)}
+            onLoad={() => setLogoError(false)}
+          />
+        ) : (
+          <Text style={s.logoFallback}>Digital House</Text>
+        )}
       </View>
 
       {/* Content over the image: tagline, button, sign in */}
@@ -90,6 +103,10 @@ const s = StyleSheet.create({
     height: SCREEN_HEIGHT,
     justifyContent: "space-between"
   },
+  bgImage: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.5
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.08)"
@@ -98,11 +115,20 @@ const s = StyleSheet.create({
     paddingTop: STATUS_BAR + 16,
     paddingHorizontal: 24,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    minHeight: 100
   },
   logo: {
     width: Math.min(SCREEN_WIDTH * 0.55, 220),
-    height: Math.min(SCREEN_HEIGHT * 0.2, 88)
+    height: Math.min(SCREEN_HEIGHT * 0.2, 88),
+    minWidth: 120,
+    minHeight: 48
+  },
+  logoFallback: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    textAlign: "center"
   },
   content: {
     paddingHorizontal: 24,

@@ -121,14 +121,18 @@ export function CreatePostScreen() {
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     const uri = asset.uri;
-    const mime = getMimeFromUri(uri);
+    // Use asset.mimeType when available (reliable on real device; content:// has no extension)
+    const mime = (asset as any).mimeType || getMimeFromUri(uri);
     if (!isAllowedImageType(mime)) {
       setError("Only jpg, jpeg, png allowed (≤ 5 MB)");
       return;
     }
     const fileSize = asset.fileSize ?? 0;
     if (fileSize > 0) validateImageSize(fileSize);
-    const fileName = uri.split("/").pop() ?? "image.jpg";
+    // On Android content:// URIs have no filename; use timestamp for safe upload filename
+    const fileName = uri.includes("/") && !uri.startsWith("content://")
+      ? uri.split("/").pop() ?? "image.jpg"
+      : `image_${Date.now()}.${mime.includes("png") ? "png" : "jpg"}`;
     setError(null);
     setUploading(true);
     setUploadProgress(0);
