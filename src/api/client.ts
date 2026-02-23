@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import { getToken } from "../storage/token.storage";
 import { clearToken } from "../storage/token.storage";
 
-const PRODUCTION_API = "https://digitalhouse-backend-production.up.railway.app/api";
+const PRODUCTION_API = "https://infosensetechnologies.com/digitalhouse/backend/api";
 
 /**
  * API base URL (must end with /api). Set EXPO_PUBLIC_API_URL in .env or app config.

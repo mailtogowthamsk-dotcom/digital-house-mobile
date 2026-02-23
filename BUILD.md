@@ -27,3 +27,16 @@ This project uses **Expo EAS Build** (cloud). The `preview` profile is configure
 - **First time:** EAS may ask to create/select a project; confirm with your Expo account.
 - **APK output:** The `preview` profile uses `gradleCommand: ":app:assembleRelease"`, which produces an APK. Use the downloaded file to install on any Android device.
 - **Env:** Build uses your `app.json` / `eas.json` and the latest code. For production API URL, set `EXPO_PUBLIC_API_URL` in EAS **Environment variables** (eas.json env or EAS dashboard) so the APK points at your backend.
+
+## Login OTP email not received on real device (APK)
+
+The APK talks to the **backend URL** set at build time (`EXPO_PUBLIC_API_URL` in EAS). That backend must be the one where **SMTP is configured and working** (same server where you get mail in local Expo).
+
+1. **Set EAS env** so the APK hits the correct backend:
+   - In [expo.dev](https://expo.dev) → your project → **Build** → **Environment variables**, add:
+   - `EXPO_PUBLIC_API_URL` = your production API base URL ending with `/api` (e.g. `https://infosensetechnologies.com/digitalhouse/backend/api`).
+   - Rebuild the APK after changing env so the new URL is baked in.
+
+2. **Backend SMTP (cPanel / production):** On the server the APK uses, set in backend `.env`:
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`
+   - Use a reliable SMTP (e.g. Resend, SendGrid, Mailgun, or cPanel’s mail) so OTP emails are not blocked or delayed. If mail fails, the app will now show: *"Could not send verification email. Please try again or contact support."*
