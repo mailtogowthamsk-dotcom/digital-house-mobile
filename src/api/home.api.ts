@@ -41,6 +41,9 @@ export type FeedItem = {
   createdAt: string;
   author: FeedAuthor;
   counts: { likes: number; comments: number };
+  /** Whether the current user has liked this post (backend may send as likedByMe or liked_by_me) */
+  likedByMe?: boolean;
+  liked_by_me?: boolean;
 };
 
 export type FeedResponse = {

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useMemo } from "react";
+import React, { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
 import { useTheme } from "../../theme/ThemeContext";
 import { useHome } from "../../hooks/useHome";
 import { getErrorStatus } from "../../api/client";
+import { likePost } from "../../api/posts.api";
 import { messages } from "../../theme/messages";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
@@ -43,6 +44,7 @@ export function HomeScreen() {
     state,
     refetchAll,
     loadMoreFeed,
+    updatePostLike,
     retrySummary,
     retryFeed,
     retryHighlights
@@ -50,6 +52,7 @@ export function HomeScreen() {
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [refreshing, setRefreshing] = useState(false);
+  const listRef = useRef<FlatList>(null);
 
   const {
     summary,
@@ -91,6 +94,11 @@ export function HomeScreen() {
       navigation.navigate("CreatePost");
       return;
     }
+    if (tab === "home" && activeTab === "home") {
+      onRefresh();
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      return;
+    }
     setActiveTab(tab);
     if (tab === "profile") {
       navigation.navigate("Profile");
@@ -116,10 +124,23 @@ export function HomeScreen() {
     ({ item }: { item: PostCardData }) => (
       <PostCard
         post={item}
+        onPress={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
         onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
+        onDoubleTap={() => {
+          if (item.likedByMe) return;
+          likePost(Number(item.id)).then((res) => {
+            if (res.liked) {
+              updatePostLike(item.id, res.like_count, true);
+            } else {
+              likePost(Number(item.id)).then((r) =>
+                updatePostLike(item.id, r.like_count, true)
+              );
+            }
+          }).catch(() => {});
+        }}
       />
     ),
-    [navigation]
+    [navigation, updatePostLike]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -324,6 +345,7 @@ export function HomeScreen() {
 
       {/* Single FlatList: header content + feed; pull-to-refresh + infinite scroll */}
       <FlatList
+        ref={listRef}
         data={feedItems}
         renderItem={renderFeedItem}
         keyExtractor={keyExtractor}

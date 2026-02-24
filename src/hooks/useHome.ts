@@ -8,6 +8,7 @@ import {
   type FeedResponse,
   type HighlightsResponse
 } from "../api/home.api";
+import { getPost } from "../api/posts.api";
 import { timeAgo } from "../utils/timeAgo";
 import type { PostCardData } from "../components/home/PostCard";
 
@@ -54,6 +55,7 @@ function postTypeLabel(postType: string): string {
 
 /** Map feed item from API to PostCardData */
 function feedItemToPostCard(item: FeedItem): PostCardData {
+  const likedByMe = item.likedByMe ?? item.liked_by_me ?? false;
   return {
     id: String(item.postId),
     userName: item.author.name,
@@ -64,7 +66,8 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
     description: item.description ?? "",
     imageUri: item.mediaUrl,
     likeCount: item.counts.likes,
-    commentCount: item.counts.comments
+    commentCount: item.counts.comments,
+    likedByMe
   };
 }
 
@@ -102,7 +105,7 @@ export function useHome() {
     }
   }, []);
 
-  /** Fetch feed page 1 (reset list) or next page (append) */
+  /** Fetch feed page 1 (reset list) or next page (append); then fetch liked_by_me for each post */
   const fetchFeed = useCallback(async (page: number, append: boolean) => {
     if (append) {
       setFeedLoadingMore(true);
@@ -115,14 +118,41 @@ export function useHome() {
       setFeedTotal(data.total);
       setFeedPage(data.page);
       const mapped = data.items.map(feedItemToPostCard);
+
+      const likedResults = await Promise.allSettled(
+        data.items.map((item) =>
+          getPost(item.postId).then((post) => ({
+            postId: String(item.postId),
+            likedByMe: post.liked_by_me,
+            likeCount: post.like_count
+          }))
+        )
+      );
+
+      const likedMap = new Map<string, { likedByMe: boolean; likeCount: number }>();
+      likedResults.forEach((result, index) => {
+        if (result.status === "fulfilled" && result.value) {
+          likedMap.set(result.value.postId, {
+            likedByMe: result.value.likedByMe,
+            likeCount: result.value.likeCount
+          });
+        }
+      });
+
+      const merged = mapped.map((p) => {
+        const extra = likedMap.get(p.id);
+        if (extra) return { ...p, likedByMe: extra.likedByMe, likeCount: extra.likeCount };
+        return p;
+      });
+
       if (append) {
         setFeedItems((prev) => {
           const ids = new Set(prev.map((p) => p.id));
-          const newOnes = mapped.filter((p) => !ids.has(p.id));
+          const newOnes = merged.filter((p) => !ids.has(p.id));
           return [...prev, ...newOnes];
         });
       } else {
-        setFeedItems(mapped);
+        setFeedItems(merged);
       }
     } catch (e) {
       setFeedError(e instanceof Error ? e : new Error("Failed to load feed"));
@@ -177,6 +207,18 @@ export function useHome() {
     fetchFeed(nextPage, true);
   }, [feedItems.length, feedTotal, feedLoading, feedLoadingMore, fetchFeed]);
 
+  /** Update like count and liked state for a post (e.g. after double-tap like) */
+  const updatePostLike = useCallback(
+    (postId: string, likeCount: number, likedByMe: boolean) => {
+      setFeedItems((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, likeCount, likedByMe } : p
+        )
+      );
+    },
+    []
+  );
+
   const state: HomeState = {
     summary,
     summaryLoading,
@@ -196,6 +238,7 @@ export function useHome() {
     state,
     refetchAll,
     loadMoreFeed,
+    updatePostLike,
     retrySummary: fetchSummary,
     retryFeed: () => fetchFeed(1, false),
     retryHighlights: fetchHighlights
