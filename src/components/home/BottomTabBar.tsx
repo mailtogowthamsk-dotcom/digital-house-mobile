@@ -1,13 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-
-const BLUE = "#2563EB";
-const ORANGE = "#F97316";
-const TEXT_SECONDARY = "#6B7280";
-const BADGE_RED = "#EF4444";
-const BORDER_LIGHT = "#E5E7EB";
+import { useTheme } from "../../theme/ThemeContext";
 
 export type TabId = "home" | "explore" | "create" | "notifications" | "profile";
 
@@ -39,11 +34,95 @@ type BottomTabBarProps = {
 };
 
 /**
- * Bottom tab bar: 64px, white, subtle top border.
- * flexDirection: row, justifyContent: space-around, alignItems: center.
- * Create: 56×56 floating gradient button, soft shadow. Active: icon color only.
+ * Bottom tab bar: 64px, themed surface, subtle top border.
  */
 export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border
+        },
+        bar: {
+          height: BAR_HEIGHT,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-around",
+          paddingHorizontal: 8
+        },
+        tab: {
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          minWidth: 0
+        },
+        pressed: { opacity: 0.8 },
+        iconRow: {
+          height: ICON_ROW_HEIGHT,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        iconWrap: {
+          width: 32,
+          height: 32,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        labelSpacer: { height: LABEL_GAP },
+        label: {
+          fontSize: 11,
+          fontWeight: "500",
+          color: colors.textSecondary
+        },
+        labelActive: {
+          color: colors.primary,
+          fontWeight: "600"
+        },
+        createBtnOuter: {
+          width: CREATE_BTN_SIZE + 10,
+          height: CREATE_BTN_SIZE + 10,
+          borderRadius: (CREATE_BTN_SIZE + 10) / 2,
+          backgroundColor: colors.surface,
+          alignItems: "center",
+          justifyContent: "center",
+          marginTop: -14,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
+          elevation: 6
+        },
+        createBtn: {
+          width: CREATE_BTN_SIZE,
+          height: CREATE_BTN_SIZE,
+          borderRadius: CREATE_BTN_SIZE / 2,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        badge: {
+          position: "absolute",
+          top: -4,
+          right: -8,
+          minWidth: 16,
+          height: 16,
+          borderRadius: 8,
+          backgroundColor: colors.error,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 4
+        },
+        badgeText: {
+          fontSize: 10,
+          fontWeight: "700",
+          color: colors.white
+        }
+      }),
+    [colors]
+  );
+
   return (
     <View style={s.container}>
       <View style={s.bar}>
@@ -61,12 +140,12 @@ export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
                 <View style={s.iconRow}>
                   <View style={s.createBtnOuter}>
                     <LinearGradient
-                      colors={[BLUE, ORANGE]}
+                      colors={[colors.primary, colors.accent]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={s.createBtn}
                     >
-                      <Ionicons name="add" size={28} color="#FFFFFF" />
+                      <Ionicons name="add" size={28} color={colors.white} />
                     </LinearGradient>
                   </View>
                 </View>
@@ -89,7 +168,7 @@ export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
                   <Ionicons
                     name={(isActive ? tab.iconActive : tab.icon) as any}
                     size={ICON_SIZE}
-                    color={isActive ? BLUE : TEXT_SECONDARY}
+                    color={isActive ? colors.primary : colors.textSecondary}
                   />
                   {tab.badge != null && tab.badge > 0 && (
                     <View style={s.badge}>
@@ -114,86 +193,3 @@ export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: BORDER_LIGHT
-  },
-  bar: {
-    height: BAR_HEIGHT,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingHorizontal: 8
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 0
-  },
-  pressed: { opacity: 0.8 },
-  iconRow: {
-    height: ICON_ROW_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  labelSpacer: {
-    height: LABEL_GAP
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: TEXT_SECONDARY
-  },
-  labelActive: {
-    color: BLUE,
-    fontWeight: "600"
-  },
-  createBtnOuter: {
-    width: CREATE_BTN_SIZE + 10,
-    height: CREATE_BTN_SIZE + 10,
-    borderRadius: (CREATE_BTN_SIZE + 10) / 2,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 6
-  },
-  createBtn: {
-    width: CREATE_BTN_SIZE,
-    height: CREATE_BTN_SIZE,
-    borderRadius: CREATE_BTN_SIZE / 2,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: BADGE_RED,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF"
-  }
-});

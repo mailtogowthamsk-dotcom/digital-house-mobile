@@ -1,13 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { messages } from "../../theme/messages";
+import { useTheme } from "../../theme/ThemeContext";
 import type { HighlightsResponse, HighlightItem } from "../../api/home.api";
 
-const TEXT_PRIMARY = "#111827";
-const TEXT_SECONDARY = "#6B7280";
-const BLUE = "#2563EB";
-const ORANGE = "#F97316";
 const CARD_RADIUS = 12;
 const CARD_PADDING = 14;
 
@@ -19,10 +16,6 @@ type HighlightSectionProps = {
   onItemPress?: (item: HighlightItem) => void;
 };
 
-/**
- * Displays pinned announcements, upcoming meetups, and urgent help requests.
- * Compact cards in vertical list; graceful empty state per subsection.
- */
 export function HighlightSection({
   highlights,
   loading = false,
@@ -30,12 +23,99 @@ export function HighlightSection({
   onRetry,
   onItemPress
 }: HighlightSectionProps) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        section: { marginBottom: 24 },
+        sectionTitle: {
+          fontSize: 17,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: 12
+        },
+        horizontalList: {
+          flexDirection: "row",
+          gap: 12,
+          paddingRight: 16
+        },
+        card: {
+          width: 200,
+          backgroundColor: colors.surface,
+          borderRadius: CARD_RADIUS,
+          padding: CARD_PADDING,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2
+        },
+        cardPressed: { opacity: 0.95 },
+        badge: {
+          flexDirection: "row",
+          alignItems: "center",
+          alignSelf: "flex-start",
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 8,
+          gap: 4,
+          marginBottom: 8
+        },
+        badgeText: { fontSize: 11, fontWeight: "600" },
+        title: {
+          fontSize: 15,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: 4
+        },
+        desc: {
+          fontSize: 13,
+          color: colors.textSecondary,
+          lineHeight: 18
+        },
+        errorCard: {
+          backgroundColor: colors.surface,
+          borderRadius: CARD_RADIUS,
+          padding: 24,
+          alignItems: "center",
+          gap: 8
+        },
+        errorText: { fontSize: 14, color: colors.textSecondary },
+        retryBtn: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          backgroundColor: colors.primary,
+          borderRadius: 8
+        },
+        retryText: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.white
+        },
+        skeletonCard: {
+          height: 80,
+          backgroundColor: colors.border,
+          borderRadius: CARD_RADIUS,
+          marginBottom: 10
+        },
+        emptyCard: {
+          backgroundColor: colors.surface,
+          borderRadius: CARD_RADIUS,
+          padding: 24,
+          alignItems: "center",
+          gap: 8
+        },
+        emptyText: { fontSize: 14, color: colors.textSecondary }
+      }),
+    [colors]
+  );
+
   if (error) {
     return (
       <View style={s.section}>
         <Text style={s.sectionTitle}>Highlights</Text>
         <View style={s.errorCard}>
-          <Ionicons name="alert-circle-outline" size={32} color={TEXT_SECONDARY} />
+          <Ionicons name="alert-circle-outline" size={32} color={colors.textSecondary} />
           <Text style={s.errorText}>Could not load highlights</Text>
           {onRetry && (
             <Pressable style={s.retryBtn} onPress={onRetry}>
@@ -67,7 +147,7 @@ export function HighlightSection({
       <View style={s.section}>
         <Text style={s.sectionTitle}>Highlights</Text>
         <View style={s.emptyCard}>
-          <Ionicons name="star-outline" size={28} color={TEXT_SECONDARY} />
+          <Ionicons name="star-outline" size={28} color={colors.textSecondary} />
           <Text style={s.emptyText}>{messages.empty.highlights}</Text>
         </View>
       </View>
@@ -85,8 +165,9 @@ export function HighlightSection({
                 item={item}
                 label="Pinned"
                 icon="pin"
-                color={BLUE}
+                color={colors.primary}
                 onPress={() => onItemPress?.(item)}
+                styles={s}
               />
             ))
           : null}
@@ -97,8 +178,9 @@ export function HighlightSection({
                 item={item}
                 label="Meetup"
                 icon="calendar"
-                color={BLUE}
+                color={colors.primary}
                 onPress={() => onItemPress?.(item)}
+                styles={s}
               />
             ))
           : null}
@@ -109,8 +191,9 @@ export function HighlightSection({
                 item={item}
                 label="Urgent"
                 icon="alert-circle"
-                color={ORANGE}
+                color={colors.accent}
                 onPress={() => onItemPress?.(item)}
+                styles={s}
               />
             ))
           : null}
@@ -124,97 +207,30 @@ function HighlightCard({
   label,
   icon,
   color,
-  onPress
+  onPress,
+  styles
 }: {
   item: HighlightItem;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   onPress?: () => void;
+  styles: ReturnType<typeof StyleSheet.create>;
 }) {
   return (
-    <Pressable style={({ pressed }) => [s.card, pressed ? s.cardPressed : null]} onPress={onPress}>
-      <View style={[s.badge, { backgroundColor: color + "20" }]}>
+    <Pressable style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]} onPress={onPress}>
+      <View style={[styles.badge, { backgroundColor: color + "20" }]}>
         <Ionicons name={icon} size={14} color={color} />
-        <Text style={[s.badgeText, { color }]}>{label}</Text>
+        <Text style={[styles.badgeText, { color }]}>{label}</Text>
       </View>
-      <Text style={s.title} numberOfLines={2}>
+      <Text style={styles.title} numberOfLines={2}>
         {item.title}
       </Text>
       {item.description ? (
-        <Text style={s.desc} numberOfLines={2}>
+        <Text style={styles.desc} numberOfLines={2}>
           {item.description}
         </Text>
       ) : null}
     </Pressable>
   );
 }
-
-const s = StyleSheet.create({
-  section: { marginBottom: 24 },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: TEXT_PRIMARY,
-    marginBottom: 12
-  },
-  horizontalList: {
-    flexDirection: "row",
-    gap: 12,
-    paddingRight: 16
-  },
-  card: {
-    width: 200,
-    backgroundColor: "#FFFFFF",
-    borderRadius: CARD_RADIUS,
-    padding: CARD_PADDING,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  cardPressed: { opacity: 0.95 },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-    marginBottom: 8
-  },
-  badgeText: { fontSize: 11, fontWeight: "600" },
-  title: { fontSize: 15, fontWeight: "600", color: TEXT_PRIMARY, marginBottom: 4 },
-  desc: { fontSize: 13, color: TEXT_SECONDARY, lineHeight: 18 },
-  errorCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: CARD_RADIUS,
-    padding: 24,
-    alignItems: "center",
-    gap: 8
-  },
-  errorText: { fontSize: 14, color: TEXT_SECONDARY },
-  retryBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: BLUE,
-    borderRadius: 8
-  },
-  retryText: { fontSize: 14, fontWeight: "600", color: "#FFFFFF" },
-  skeletonCard: {
-    height: 80,
-    backgroundColor: "#F3F4F6",
-    borderRadius: CARD_RADIUS,
-    marginBottom: 10
-  },
-  emptyCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: CARD_RADIUS,
-    padding: 24,
-    alignItems: "center",
-    gap: 8
-  },
-  emptyText: { fontSize: 14, color: TEXT_SECONDARY }
-});

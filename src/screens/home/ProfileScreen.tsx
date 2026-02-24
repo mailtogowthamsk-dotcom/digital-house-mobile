@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useProfile } from "../../hooks/useProfile";
 import { useProfileActivity } from "../../hooks/useProfileActivity";
 import { clearToken } from "../../storage/token.storage";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
@@ -37,6 +37,7 @@ import type { ActivityTab } from "../../components/profile";
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const { profile, loading, error, refetch } = useProfile();
   const [activityTab, setActivityTab] = useState<ActivityTab>("my");
   const { items, loading: activityLoading, refetch: refetchActivity } = useProfileActivity(
@@ -45,6 +46,36 @@ export function ProfileScreen() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        centered: { justifyContent: "center", alignItems: "center", paddingHorizontal: spacing.xxl },
+        scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
+        errorIconWrap: {
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          backgroundColor: colors.error + "12",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: spacing.lg
+        },
+        errorTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
+        errorText: { ...typography.bodySmall, color: colors.textSecondary, textAlign: "center" },
+        retryBtn: {
+          marginTop: spacing.xl,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xxl,
+          backgroundColor: colors.primary,
+          borderRadius: radius.lg
+        },
+        pressed: { opacity: 0.9 },
+        retryBtnText: { ...typography.buttonSmall, color: colors.white }
+      }),
+    [colors]
+  );
 
   /** 401 → clear token, go to Login; 403 → Approval Pending */
   useEffect(() => {
@@ -163,29 +194,3 @@ export function ProfileScreen() {
     </ScrollView>
   );
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  centered: { justifyContent: "center", alignItems: "center", paddingHorizontal: spacing.xxl },
-  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
-  errorIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: colors.error + "12",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg
-  },
-  errorTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
-  errorText: { ...typography.bodySmall, color: colors.textSecondary, textAlign: "center" },
-  retryBtn: {
-    marginTop: spacing.xl,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg
-  },
-  pressed: { opacity: 0.9 },
-  retryBtnText: { ...typography.buttonSmall, color: colors.white }
-});

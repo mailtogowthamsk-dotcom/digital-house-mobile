@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,23 +19,112 @@ import { getApiBaseUrl } from "../../api/client";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
-
-const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const gradientColors = useMemo(() => [colors.background, colors.surfaceElevated, colors.background] as const, [colors]);
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        background: { flex: 1 },
+        overlay: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: "rgba(0,0,0,0.2)"
+        },
+        keyboard: { flex: 1 },
+        scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
+        backWrap: {
+          flexDirection: "row",
+          alignItems: "center",
+          alignSelf: "flex-start",
+          paddingVertical: spacing.sm,
+          paddingRight: spacing.md,
+          marginBottom: spacing.sm
+        },
+        backText: { fontSize: 16, color: colors.white, marginLeft: spacing.xs },
+        header: { alignItems: "center", marginBottom: spacing.xl },
+        logo: {
+          width: Math.min(SCREEN_WIDTH * 0.4, 160),
+          height: Math.min(SCREEN_HEIGHT * 0.12, 56),
+          marginBottom: spacing.sm
+        },
+        brandRow: { flexDirection: "row", alignItems: "baseline", marginBottom: spacing.md },
+        brandDigital: { fontSize: 22, fontWeight: "600", color: colors.primary },
+        brandHouse: { fontSize: 22, fontWeight: "600", color: colors.accent },
+        taglineRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg },
+        line: {
+          flex: 1,
+          height: 1,
+          backgroundColor: colors.textMuted + "66",
+          marginHorizontal: spacing.sm
+        },
+        tagline: { fontSize: 14, color: colors.textSecondary, fontWeight: "400" },
+        card: {
+          backgroundColor: colors.surface,
+          borderRadius: 18,
+          padding: spacing.xxl,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          elevation: 6
+        },
+        cardTitle: {
+          fontSize: 22,
+          fontWeight: "700",
+          color: colors.text,
+          marginBottom: spacing.xs
+        },
+        cardSubtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xl },
+        messageWrap: { minHeight: 24, marginBottom: spacing.sm, justifyContent: "center" },
+        messageSuccess: { fontSize: 14, color: colors.messageSuccess },
+        messageError: { fontSize: 14, color: colors.messageError },
+        btnWrap: {
+          width: "100%",
+          marginTop: spacing.sm,
+          marginBottom: spacing.lg,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          elevation: 4
+        },
+        btnPressed: { opacity: 0.9 },
+        btnDisabled: { opacity: 0.85 },
+        loginBtn: {
+          paddingVertical: 16,
+          paddingHorizontal: 24,
+          borderRadius: 14,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        loginBtnText: { fontSize: 17, fontWeight: "600", color: colors.white },
+        loginHint: {
+          fontSize: 13,
+          color: colors.textSecondary,
+          textAlign: "center",
+          marginBottom: spacing.md
+        },
+        registerWrap: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+        registerText: { fontSize: 15, color: colors.textSecondary },
+        registerLink: { fontSize: 15, fontWeight: "600", color: colors.primary }
+      }),
+    [colors]
+  );
 
   const onSend = async () => {
     Keyboard.dismiss();
@@ -100,8 +189,8 @@ export function LoginScreen({ navigation }: any) {
 
   return (
     <View style={s.background}>
-      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+      <StatusBar translucent backgroundColor="transparent" barStyle={colors.background === "#0F172A" ? "light-content" : "dark-content"} />
       <View style={s.overlay} />
       <KeyboardAvoidingView
         style={s.keyboard}
@@ -118,7 +207,7 @@ export function LoginScreen({ navigation }: any) {
             style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
             <Text style={s.backText}>Back</Text>
           </Pressable>
 
@@ -150,7 +239,7 @@ export function LoginScreen({ navigation }: any) {
               autoCorrect={false}
               variant="light"
               editable={!loading}
-              leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
+              leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={colors.textSecondary} />}
             />
 
             <View style={s.messageWrap}>
@@ -165,13 +254,13 @@ export function LoginScreen({ navigation }: any) {
               disabled={loading}
             >
               <LinearGradient
-                colors={["#2563EB", "#F97316"]}
+                colors={[colors.primary, colors.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={s.loginBtn}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={s.loginBtnText}>Send OTP</Text>
                 )}
@@ -192,147 +281,3 @@ export function LoginScreen({ navigation }: any) {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  background: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.2)"
-  },
-  keyboard: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl
-  },
-  backWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingVertical: spacing.sm,
-    paddingRight: spacing.md,
-    marginBottom: spacing.sm
-  },
-  backText: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    marginLeft: spacing.xs
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: spacing.xl
-  },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.4, 160),
-    height: Math.min(SCREEN_HEIGHT * 0.12, 56),
-    marginBottom: spacing.sm
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: spacing.md
-  },
-  brandDigital: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#2563EB"
-  },
-  brandHouse: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#F97316"
-  },
-  taglineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(107,114,128,0.4)",
-    marginHorizontal: spacing.sm
-  },
-  tagline: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "400"
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: spacing.xxl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6
-  },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: spacing.xs
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: spacing.xl
-  },
-  messageWrap: {
-    minHeight: 24,
-    marginBottom: spacing.sm,
-    justifyContent: "center"
-  },
-  messageSuccess: {
-    fontSize: 14,
-    color: "#22C55E"
-  },
-  messageError: {
-    fontSize: 14,
-    color: "#EF4444"
-  },
-  btnWrap: {
-    width: "100%",
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4
-  },
-  btnPressed: { opacity: 0.9 },
-  btnDisabled: { opacity: 0.85 },
-  loginBtn: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  loginBtnText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#FFFFFF"
-  },
-  loginHint: {
-    fontSize: 13,
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: spacing.md
-  },
-  registerWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  registerText: {
-    fontSize: 15,
-    color: "#6B7280"
-  },
-  registerLink: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#2563EB"
-  }
-});

@@ -1,12 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-
-const BLUE = "#2563EB";
-const ORANGE = "#F97316";
-const TEXT_SECONDARY = "#6B7280";
-const BADGE_RED = "#EF4444";
+import { useTheme, type ThemeColors } from "../../theme/ThemeContext";
 
 const GAP = 12;
 const HORIZONTAL_PADDING = 16;
@@ -41,14 +37,82 @@ type QuickActionGridProps = {
   onItemPress?: (item: QuickActionItem) => void;
 };
 
-/**
- * Grid 2×4: equal 12px gap, same-size cards, rounded 15px, white, soft shadow.
- * Icon on top, label below; flexbox alignment only.
- */
 export function QuickActionGrid({ items = DEFAULT_ACTIONS, onItemPress }: QuickActionGridProps) {
   const { width } = useWindowDimensions();
+  const { colors } = useTheme();
   const contentWidth = width - HORIZONTAL_PADDING * 2;
   const cellWidth = (contentWidth - GAP * 3) / 4;
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        grid: { flexDirection: "row", flexWrap: "wrap", gap: GAP },
+        cell: {
+          backgroundColor: colors.surface,
+          borderRadius: CARD_RADIUS,
+          padding: CARD_PADDING,
+          minHeight: 92,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 2
+        },
+        cellPrimary: { overflow: "hidden" },
+        cellInner: {
+          flex: 1,
+          width: "100%",
+          minHeight: 92,
+          borderRadius: CARD_RADIUS,
+          padding: CARD_PADDING,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        cellPressed: { opacity: 0.92 },
+        iconBox: {
+          width: ICON_BOX_SIZE,
+          height: ICON_BOX_SIZE,
+          borderRadius: 12,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        iconBoxPrimary: { backgroundColor: "transparent" },
+        labelGap: { height: ICON_LABEL_GAP },
+        badge: {
+          position: "absolute",
+          top: -2,
+          right: -2,
+          minWidth: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: colors.error,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 4
+        },
+        badgeText: {
+          fontSize: 10,
+          fontWeight: "700",
+          color: colors.white
+        },
+        label: {
+          fontSize: LABEL_FONT_SIZE,
+          fontWeight: "500",
+          color: colors.textSecondary,
+          textAlign: "center"
+        },
+        labelPrimary: {
+          fontSize: LABEL_FONT_SIZE,
+          fontWeight: "600",
+          color: colors.white,
+          textAlign: "center"
+        }
+      }),
+    [colors]
+  );
 
   return (
     <View style={s.grid}>
@@ -57,6 +121,8 @@ export function QuickActionGrid({ items = DEFAULT_ACTIONS, onItemPress }: QuickA
           key={item.id}
           item={item}
           cellWidth={cellWidth}
+          styles={s}
+          colors={colors}
           onPress={() => onItemPress?.(item)}
         />
       ))}
@@ -67,15 +133,19 @@ export function QuickActionGrid({ items = DEFAULT_ACTIONS, onItemPress }: QuickA
 function QuickActionCell({
   item,
   cellWidth,
+  styles: s,
+  colors,
   onPress
 }: {
   item: QuickActionItem;
   cellWidth: number;
+  styles: ReturnType<typeof StyleSheet.create>;
+  colors: ThemeColors;
   onPress: () => void;
 }) {
   const isPrimary = item.isPrimary === true;
   const iconColor =
-    item.id === "marketplace" || item.id === "matrimony" ? ORANGE : BLUE;
+    item.id === "marketplace" || item.id === "matrimony" ? colors.accent : colors.primary;
 
   if (isPrimary) {
     return (
@@ -89,13 +159,13 @@ function QuickActionCell({
         onPress={onPress}
       >
         <LinearGradient
-          colors={[BLUE, ORANGE]}
+          colors={[colors.primary, colors.accent]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.cellInner}
         >
           <View style={[s.iconBox, s.iconBoxPrimary]}>
-            <Ionicons name="add" size={32} color="#FFFFFF" />
+            <Ionicons name="add" size={32} color={colors.white} />
           </View>
           <View style={s.labelGap} />
           <Text style={s.labelPrimary} numberOfLines={2}>
@@ -108,11 +178,7 @@ function QuickActionCell({
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        s.cell,
-        { width: cellWidth },
-        pressed && s.cellPressed
-      ]}
+      style={({ pressed }) => [s.cell, { width: cellWidth }, pressed && s.cellPressed]}
       onPress={onPress}
     >
       <View style={s.iconBox}>
@@ -132,80 +198,3 @@ function QuickActionCell({
     </Pressable>
   );
 }
-
-const s = StyleSheet.create({
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: GAP
-  },
-  cell: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: CARD_RADIUS,
-    padding: CARD_PADDING,
-    minHeight: 92,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  cellPrimary: {
-    overflow: "hidden"
-  },
-  cellInner: {
-    flex: 1,
-    width: "100%",
-    minHeight: 92,
-    borderRadius: CARD_RADIUS,
-    padding: CARD_PADDING,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  cellPressed: { opacity: 0.92 },
-  iconBox: {
-    width: ICON_BOX_SIZE,
-    height: ICON_BOX_SIZE,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  iconBoxPrimary: {
-    backgroundColor: "transparent"
-  },
-  labelGap: {
-    height: ICON_LABEL_GAP
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: BADGE_RED,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFFFFF"
-  },
-  label: {
-    fontSize: LABEL_FONT_SIZE,
-    fontWeight: "500",
-    color: TEXT_SECONDARY,
-    textAlign: "center"
-  },
-  labelPrimary: {
-    fontSize: LABEL_FONT_SIZE,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    textAlign: "center"
-  }
-});

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Pressable,
   Platform
 } from "react-native";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -24,10 +24,6 @@ type ConfirmDialogProps = {
   variant?: ConfirmDialogVariant;
 };
 
-/**
- * Reusable confirmation dialog for critical actions.
- * Clear, minimal, trust-oriented. Use for logout, delete, etc.
- */
 export function ConfirmDialog({
   visible,
   title,
@@ -38,7 +34,65 @@ export function ConfirmDialog({
   onCancel,
   variant = "default"
 }: ConfirmDialogProps) {
+  const { colors } = useTheme();
   const isDestructive = variant === "destructive";
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        backdrop: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: colors.overlay
+        },
+        centered: { width: "100%", alignItems: "center", paddingHorizontal: spacing.xl },
+        card: {
+          width: "100%",
+          maxWidth: 320,
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          padding: spacing.xxl,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 24,
+          elevation: 12
+        },
+        title: {
+          ...typography.h3,
+          color: colors.text,
+          textAlign: "center",
+          marginBottom: spacing.sm
+        },
+        message: {
+          ...typography.bodySmall,
+          color: colors.textSecondary,
+          textAlign: "center",
+          lineHeight: 22,
+          marginBottom: spacing.xl
+        },
+        actions: { flexDirection: "row", gap: spacing.md },
+        btn: {
+          flex: 1,
+          paddingVertical: spacing.md,
+          borderRadius: radius.md,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        btnCancel: {
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        btnConfirm: { backgroundColor: colors.primary },
+        btnDestructive: { backgroundColor: colors.error },
+        btnCancelText: { ...typography.buttonSmall, color: colors.textSecondary },
+        btnConfirmText: { ...typography.buttonSmall, color: colors.white },
+        pressed: { opacity: 0.9 }
+      }),
+    [colors]
+  );
 
   return (
     <Modal
@@ -77,63 +131,3 @@ export function ConfirmDialog({
     </Modal>
   );
 }
-
-const s = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: Platform.OS === "ios" ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.5)"
-  },
-  centered: { width: "100%", alignItems: "center", paddingHorizontal: spacing.xl },
-  card: {
-    width: "100%",
-    maxWidth: 320,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xxl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12
-  },
-  title: {
-    ...typography.h3,
-    color: colors.text,
-    textAlign: "center",
-    marginBottom: spacing.sm
-  },
-  message: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: spacing.xl
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.md
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  btnCancel: {
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border
-  },
-  btnConfirm: {
-    backgroundColor: colors.primary
-  },
-  btnDestructive: {
-    backgroundColor: colors.error
-  },
-  btnCancelText: { ...typography.buttonSmall, color: colors.textSecondary },
-  btnConfirmText: { ...typography.buttonSmall, color: colors.white },
-  pressed: { opacity: 0.9 }
-});

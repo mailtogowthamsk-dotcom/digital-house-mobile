@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
+import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
 import { RegistrationScreen } from "./src/screens/auth/RegistrationScreen";
 import { PendingApprovalScreen } from "./src/screens/auth/PendingApprovalScreen";
@@ -15,7 +16,8 @@ import { ProfileScreen } from "./src/screens/home/ProfileScreen";
 import { EditProfileScreen } from "./src/screens/home/EditProfileScreen";
 import { PostDetailScreen } from "./src/screens/home/PostDetailScreen";
 import { CreatePostScreen } from "./src/screens/home/CreatePostScreen";
-import { colors } from "./src/theme/colors";
+import { MenuScreen } from "./src/screens/home/MenuScreen";
+import { SettingsScreen } from "./src/screens/home/SettingsScreen";
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -29,16 +31,19 @@ export type RootStackParamList = {
   EditProfile: undefined;
   PostDetail: { postId: number };
   CreatePost: undefined;
+  Menu: { messageCount?: number };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+function StackNavigator() {
+  const { mode, colors } = useTheme();
+  const isDark = mode === "dark";
+
   return (
-    <AppErrorBoundary>
-    <SafeAreaProvider>
-    <NavigationContainer>
-      <StatusBar style="dark" />
+    <>
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack.Navigator
         initialRouteName="Landing"
         screenOptions={{
@@ -83,9 +88,23 @@ export default function App() {
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: "Post" }} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: "Create Post" }} />
+        <Stack.Screen name="Menu" component={MenuScreen} options={{ title: "Menu" }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
       </Stack.Navigator>
-    </NavigationContainer>
-    </SafeAreaProvider>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <NavigationContainer>
+            <StackNavigator />
+          </NavigationContainer>
+        </ThemeProvider>
+      </SafeAreaProvider>
     </AppErrorBoundary>
   );
 }

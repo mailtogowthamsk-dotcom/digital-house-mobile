@@ -21,7 +21,7 @@ import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.ap
 import { getErrorStatus } from "../../api/client";
 import { clearToken } from "../../storage/token.storage";
 import { uploadToR2 } from "../../utils/mediaUpload";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { Input } from "../../components/ui/Input";
@@ -201,6 +201,7 @@ function mapProfileToForm(profile: ProfileMeResponse) {
 export function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const [profile, setProfile] = useState<ProfileMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -467,6 +468,149 @@ export function EditProfileScreen() {
     setShowDobPicker(Platform.OS === "ios");
     if (date) setBasic((b) => ({ ...b, date_of_birth: date.toISOString().split("T")[0] }));
   };
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        scroll: { flex: 1 },
+        scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
+        centered: { justifyContent: "center", alignItems: "center" },
+        loadingText: {
+          ...typography.bodySmall,
+          color: colors.textSecondary,
+          marginTop: spacing.md
+        },
+        errorText: {
+          ...typography.bodySmall,
+          color: colors.error,
+          marginBottom: spacing.md,
+          textAlign: "center"
+        },
+        errorInline: {
+          ...typography.bodySmall,
+          color: colors.error,
+          marginBottom: spacing.lg
+        },
+        retryBtn: {
+          marginTop: spacing.lg,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.xxl,
+          backgroundColor: colors.primary,
+          borderRadius: radius.md
+        },
+        retryBtnText: { ...typography.buttonSmall, color: colors.white },
+        completionRow: { marginBottom: spacing.xl },
+        completionLabel: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginBottom: spacing.xs
+        },
+        completionBar: {
+          height: 6,
+          backgroundColor: colors.border,
+          borderRadius: 3,
+          overflow: "hidden",
+          marginBottom: spacing.xs
+        },
+        completionFill: {
+          height: "100%",
+          backgroundColor: colors.primary,
+          borderRadius: 3
+        },
+        completionPct: { ...typography.caption, color: colors.textMuted },
+        dateRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+          minHeight: 52,
+          paddingHorizontal: spacing.lg,
+          marginBottom: spacing.lg
+        },
+        dateLabel: { ...typography.label, color: colors.textMuted, marginBottom: 0 },
+        dateValue: { ...typography.body, color: colors.text },
+        placeholder: { color: colors.textMuted },
+        readOnlyRow: { marginBottom: spacing.lg },
+        readOnlyLabel: {
+          ...typography.label,
+          color: colors.textMuted,
+          marginBottom: 4
+        },
+        readOnlyValue: { ...typography.body, color: colors.text },
+        switchRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: spacing.lg
+        },
+        switchLabel: { ...typography.label, color: colors.text },
+        statusRow: { marginBottom: spacing.lg },
+        statusChip: {
+          alignSelf: "flex-start",
+          paddingVertical: spacing.xs,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.md,
+          marginBottom: spacing.sm
+        },
+        statusChipPending: { backgroundColor: "rgba(245, 158, 11, 0.2)" },
+        statusChipApproved: { backgroundColor: "rgba(34, 197, 94, 0.2)" },
+        statusChipRejected: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
+        statusChipText: { ...typography.caption, fontWeight: "600" },
+        bannerText: {
+          ...typography.bodySmall,
+          color: colors.textSecondary,
+          marginBottom: spacing.sm
+        },
+        remarksText: {
+          ...typography.bodySmall,
+          color: colors.error,
+          marginBottom: spacing.md
+        },
+        restrictedSectionDisabled: { opacity: 0.7 },
+        textArea: { minHeight: 88 },
+        uploadRow: { marginBottom: spacing.lg },
+        uploadLabel: {
+          ...typography.label,
+          color: colors.textMuted,
+          marginBottom: spacing.sm
+        },
+        uploadBtn: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.sm,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md
+        },
+        uploadBtnDisabled: { opacity: 0.7 },
+        uploadBtnText: { ...typography.bodySmall, color: colors.primary },
+        uploadHint: {
+          ...typography.caption,
+          color: colors.success,
+          marginTop: spacing.xs
+        },
+        stickyBar: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: colors.surface,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.md
+        },
+        saveBtn: {}
+      }),
+    [colors]
+  );
 
   if (loading && !profile) {
     return (
@@ -936,90 +1080,3 @@ export function EditProfileScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
-  centered: { justifyContent: "center", alignItems: "center" },
-  loadingText: { ...typography.bodySmall, color: colors.textSecondary, marginTop: spacing.md },
-  errorText: { ...typography.bodySmall, color: colors.error, marginBottom: spacing.md, textAlign: "center" },
-  errorInline: { ...typography.bodySmall, color: colors.error, marginBottom: spacing.lg },
-  retryBtn: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xxl,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md
-  },
-  retryBtnText: { ...typography.buttonSmall, color: colors.white },
-  completionRow: { marginBottom: spacing.xl },
-  completionLabel: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.xs },
-  completionBar: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden", marginBottom: spacing.xs },
-  completionFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
-  completionPct: { ...typography.caption, color: colors.textMuted },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: radius.lg,
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg
-  },
-  dateLabel: { ...typography.label, color: "#6B7280", marginBottom: 0 },
-  dateValue: { ...typography.body, color: colors.text },
-  placeholder: { color: "#9CA3AF" },
-  readOnlyRow: { marginBottom: spacing.lg },
-  readOnlyLabel: { ...typography.label, color: colors.textMuted, marginBottom: 4 },
-  readOnlyValue: { ...typography.body, color: colors.text },
-  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg },
-  switchLabel: { ...typography.label, color: colors.text },
-  statusRow: { marginBottom: spacing.lg },
-  statusChip: {
-    alignSelf: "flex-start",
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm
-  },
-  statusChipPending: { backgroundColor: "rgba(245, 158, 11, 0.2)" },
-  statusChipApproved: { backgroundColor: "rgba(34, 197, 94, 0.2)" },
-  statusChipRejected: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
-  statusChipText: { ...typography.caption, fontWeight: "600" },
-  bannerText: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
-  remarksText: { ...typography.bodySmall, color: colors.error, marginBottom: spacing.md },
-  restrictedSectionDisabled: { opacity: 0.7 },
-  textArea: { minHeight: 88 },
-  uploadRow: { marginBottom: spacing.lg },
-  uploadLabel: { ...typography.label, color: colors.textMuted, marginBottom: spacing.sm },
-  uploadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md
-  },
-  uploadBtnDisabled: { opacity: 0.7 },
-  uploadBtnText: { ...typography.bodySmall, color: colors.primary },
-  uploadHint: { ...typography.caption, color: colors.success, marginTop: spacing.xs },
-  stickyBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md
-  },
-  saveBtn: {}
-});

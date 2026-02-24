@@ -1,4 +1,4 @@
-export { Header } from "./Header";
+export { Header, type HeaderActionId } from "./Header";
 export { WelcomeCard } from "./WelcomeCard";
 export { QuickActionGrid, type QuickActionItem } from "./QuickActionGrid";
 export { PostCard, type PostCardData } from "./PostCard";

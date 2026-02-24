@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { View, StyleSheet, Image } from "react-native";
 import { WebView } from "react-native-webview";
 import { getImageUrl } from "../../api/client";
 import { isYouTubeUrl, getYouTubeEmbedUrl } from "../../utils/youtube";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 
 /** Same max height as CreatePostScreen preview – post image matches create preview size */
 const IMAGE_MAX_HEIGHT = 400;
@@ -23,6 +23,22 @@ type PostMediaProps = {
  * Images use same aspect-ratio logic as CreatePostScreen preview: full width, height from dimensions, max 400px.
  */
 export function PostMedia({ mediaUrl, height = 220, style }: PostMediaProps) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        wrapOuter: { width: "100%" },
+        wrap: {
+          width: "100%",
+          borderRadius: 12,
+          overflow: "hidden",
+          backgroundColor: colors.surfaceElevated
+        },
+        webview: { flex: 1, width: "100%", backgroundColor: "transparent" },
+        image: { width: "100%", height: "100%" }
+      }),
+    [colors]
+  );
   const raw = mediaUrl?.trim();
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
@@ -96,23 +112,3 @@ export function PostMedia({ mediaUrl, height = 220, style }: PostMediaProps) {
   );
 }
 
-const s = StyleSheet.create({
-  wrapOuter: {
-    width: "100%"
-  },
-  wrap: {
-    width: "100%",
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: colors.surfaceElevated
-  },
-  webview: {
-    flex: 1,
-    width: "100%",
-    backgroundColor: "transparent"
-  },
-  image: {
-    width: "100%",
-    height: "100%"
-  }
-});

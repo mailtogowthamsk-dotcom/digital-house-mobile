@@ -1,13 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { View, StyleSheet, Animated } from "react-native";
+import { useTheme } from "../../theme/ThemeContext";
 
-const SKELETON_BG = "#E5E7EB";
-const SHIMMER_BG = "#F3F4F6";
-
-/**
- * Simple skeleton placeholder: rounded rect with optional shimmer.
- * Used for welcome card, quick action grid, and feed while loading.
- */
 export function SkeletonCard({
   width,
   height,
@@ -17,6 +11,17 @@ export function SkeletonCard({
   height?: number;
   style?: object;
 }) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        box: {
+          backgroundColor: colors.border,
+          borderRadius: 12
+        }
+      }),
+    [colors]
+  );
   const opacity = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
@@ -43,8 +48,30 @@ export function SkeletonCard({
   );
 }
 
-/** Full-width skeleton for welcome card */
 export function WelcomeCardSkeleton() {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        line: { marginBottom: 8 },
+        lineShort: { marginTop: 4 },
+        welcomeWrap: {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          padding: 18,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+          elevation: 3
+        },
+        avatar: { borderRadius: 28, marginRight: 16 },
+        welcomeText: { flex: 1 }
+      }),
+    [colors]
+  );
   return (
     <View style={s.welcomeWrap}>
       <SkeletonCard width={56} height={56} style={s.avatar} />
@@ -56,30 +83,14 @@ export function WelcomeCardSkeleton() {
   );
 }
 
-/** Single line skeleton */
 export function SkeletonLine({ width = "100%" }: { width?: number | string }) {
-  return <SkeletonCard width={width} height={16} style={s.line} />;
+  const { colors } = useTheme();
+  const lineStyle = useMemo(
+    () =>
+      StyleSheet.create({
+        line: { marginBottom: 8 }
+      }),
+    []
+  );
+  return <SkeletonCard width={width} height={16} style={lineStyle.line} />;
 }
-
-const s = StyleSheet.create({
-  box: {
-    backgroundColor: SKELETON_BG,
-    borderRadius: 12
-  },
-  line: { marginBottom: 8 },
-  lineShort: { marginTop: 4 },
-  welcomeWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3
-  },
-  avatar: { borderRadius: 28, marginRight: 16 },
-  welcomeText: { flex: 1 }
-});

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from "react-native";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -9,7 +9,6 @@ type InputProps = TextInputProps & {
   error?: string;
   containerStyle?: ViewStyle;
   leftIcon?: React.ReactNode;
-  /** Light style for use on white/light cards (e.g. auth screens) */
   variant?: "default" | "light";
 };
 
@@ -25,8 +24,57 @@ export function Input({
   onBlur,
   ...props
 }: InputProps) {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const isLight = variant === "light";
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: { marginBottom: spacing.lg },
+        label: {
+          ...typography.label,
+          color: colors.textSecondary,
+          marginBottom: spacing.sm
+        },
+        labelLight: { color: colors.textSecondary },
+        inputRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+          minHeight: 52
+        },
+        inputRowLight: {
+          backgroundColor: colors.surfaceElevated,
+          borderColor: colors.border
+        },
+        inputRowLightFocused: {
+          borderColor: colors.primary,
+          backgroundColor: colors.surface
+        },
+        iconWrap: { paddingLeft: spacing.lg, paddingRight: spacing.sm },
+        input: {
+          flex: 1,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.lg,
+          ...typography.body,
+          color: colors.text
+        },
+        inputWithIcon: { paddingLeft: 0 },
+        inputLight: { color: colors.text },
+        inputError: { borderColor: colors.error },
+        error: {
+          ...typography.caption,
+          color: colors.error,
+          marginTop: spacing.xs
+        }
+      }),
+    [colors]
+  );
+
   return (
     <View style={[s.wrap, containerStyle]}>
       {label ? <Text style={[s.label, isLight && s.labelLight]}>{label}</Text> : null}
@@ -40,7 +88,7 @@ export function Input({
       >
         {leftIcon ? <View style={s.iconWrap}>{leftIcon}</View> : null}
         <TextInput
-          placeholderTextColor={placeholderTextColor ?? (isLight ? "#9CA3AF" : colors.textMuted)}
+          placeholderTextColor={placeholderTextColor ?? colors.textMuted}
           style={[s.input, leftIcon && s.inputWithIcon, isLight && s.inputLight, style]}
           onFocus={(e) => {
             setFocused(true);
@@ -57,55 +105,3 @@ export function Input({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  wrap: { marginBottom: spacing.lg },
-  label: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm
-  },
-  labelLight: {
-    color: "#6B7280"
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    minHeight: 52
-  },
-  inputRowLight: {
-    backgroundColor: "#F3F4F6",
-    borderColor: "#E5E7EB"
-  },
-  inputRowLightFocused: {
-    borderColor: "#2563EB",
-    backgroundColor: "#FFFFFF"
-  },
-  iconWrap: {
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.sm
-  },
-  input: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...typography.body,
-    color: colors.text
-  },
-  inputWithIcon: {
-    paddingLeft: 0
-  },
-  inputLight: {
-    color: "#111827"
-  },
-  inputError: { borderColor: colors.error },
-  error: {
-    ...typography.caption,
-    color: colors.error,
-    marginTop: spacing.xs
-  }
-});

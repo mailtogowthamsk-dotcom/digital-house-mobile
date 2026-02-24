@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -12,12 +12,54 @@ type ActionButtonsProps = {
   onLogoutPress: () => void;
 };
 
-/** Edit (gradient CTA), Download (secondary), Log out (destructive) */
 export function ActionButtons({
   onEditPress,
   onDownloadPress,
   onLogoutPress
 }: ActionButtonsProps) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        section: { marginBottom: spacing.xxl },
+        btnWrap: { marginBottom: spacing.sm },
+        btn: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.sm,
+          paddingVertical: spacing.lg,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radius.lg,
+          marginBottom: spacing.sm
+        },
+        btnPrimary: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.sm,
+          paddingVertical: spacing.lg,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radius.lg
+        },
+        btnSecondary: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        pressed: { opacity: 0.92 },
+        btnTextPrimary: { ...typography.button, color: colors.white },
+        btnTextSecondary: { ...typography.body, color: colors.textSecondary },
+        logoutBtn: {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.error + "40"
+        },
+        logoutText: { ...typography.body, color: colors.error, fontWeight: "600" }
+      }),
+    [colors]
+  );
+
   return (
     <View style={s.section}>
       <Pressable
@@ -35,7 +77,10 @@ export function ActionButtons({
         </LinearGradient>
       </Pressable>
       {onDownloadPress ? (
-        <Pressable style={({ pressed }) => [s.btn, s.btnSecondary, pressed && s.pressed]} onPress={onDownloadPress}>
+        <Pressable
+          style={({ pressed }) => [s.btn, s.btnSecondary, pressed && s.pressed]}
+          onPress={onDownloadPress}
+        >
           <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
           <Text style={s.btnTextSecondary}>Download Profile (PDF – coming soon)</Text>
         </Pressable>
@@ -50,41 +95,3 @@ export function ActionButtons({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  section: { marginBottom: spacing.xxl },
-  btnWrap: { marginBottom: spacing.sm },
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    marginBottom: spacing.sm
-  },
-  btnPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg
-  },
-  btnSecondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border
-  },
-  pressed: { opacity: 0.92 },
-  btnTextPrimary: { ...typography.button, color: colors.white },
-  btnTextSecondary: { ...typography.body, color: colors.textSecondary },
-  logoutBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.error + "40"
-  },
-  logoutText: { ...typography.body, color: colors.error, fontWeight: "600" }
-});

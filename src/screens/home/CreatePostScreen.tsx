@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { getUploadUrl } from "../../api/media.api";
 import type { MediaModule } from "../../api/media.api";
 import { getErrorStatus } from "../../api/client";
 import { uploadToR2, isAllowedImageType, validateImageSize } from "../../utils/mediaUpload";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -63,6 +63,7 @@ function getMimeFromUri(uri: string): string {
  */
 export function CreatePostScreen() {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const [postType, setPostType] = useState("ANNOUNCEMENT");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -75,6 +76,7 @@ export function CreatePostScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
 
+  const s = useCreatePostStyles(colors);
   const screenWidth = Dimensions.get("window").width - spacing.lg * 2;
   const PREVIEW_MAX_HEIGHT = 400;
   const previewHeight = previewDimensions
@@ -288,74 +290,109 @@ export function CreatePostScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
-  label: { ...typography.caption, fontWeight: "600", color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm },
-  input: {
-    ...typography.body,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm
-  },
-  textArea: { minHeight: 100, textAlignVertical: "top" },
-  picker: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm
-  },
-  pickerText: { ...typography.body, color: colors.text },
-  pickerOptions: { marginBottom: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, overflow: "hidden" },
-  pickerOption: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  pickerOptionActive: { backgroundColor: colors.surfaceElevated },
-  pickerOptionText: { ...typography.body, color: colors.text },
-  pickerOptionTextActive: { fontWeight: "600", color: colors.primary },
-  errorText: { ...typography.caption, color: colors.error, marginTop: spacing.sm },
-  actions: { marginTop: spacing.lg },
-  mediaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md
-  },
-  mediaBtnDisabled: { opacity: 0.6 },
-  mediaBtnText: { ...typography.caption, fontWeight: "600", color: colors.primary },
-  progressWrap: { marginBottom: spacing.sm },
-  progressBar: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", backgroundColor: colors.primary },
-  progressText: { ...typography.caption, color: colors.textSecondary, marginTop: 4 },
-  previewWrap: {
-    position: "relative",
-    marginBottom: spacing.sm,
-    borderRadius: radius.md,
-    overflow: "hidden",
-    width: "100%",
-    backgroundColor: colors.surfaceElevated
-  },
-  previewImg: { width: "100%", height: "100%", backgroundColor: "transparent" },
-  removeMediaBtn: { position: "absolute", top: 8, right: 8 },
-  mediaUrlRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  mediaUrlLabel: { ...typography.caption, color: colors.success },
-  removeMediaText: { ...typography.caption, color: colors.error, fontWeight: "600" },
-  labelSecondary: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.xs }
-});
+function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeColors) {
+  return useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        scroll: { flex: 1 },
+        content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
+        label: {
+          ...typography.caption,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: spacing.xs,
+          marginTop: spacing.sm
+        },
+        input: {
+          ...typography.body,
+          color: colors.text,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          marginBottom: spacing.sm
+        },
+        textArea: { minHeight: 100, textAlignVertical: "top" },
+        picker: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          marginBottom: spacing.sm
+        },
+        pickerText: { ...typography.body, color: colors.text },
+        pickerOptions: {
+          marginBottom: spacing.sm,
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          overflow: "hidden"
+        },
+        pickerOption: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+        pickerOptionActive: { backgroundColor: colors.surfaceElevated },
+        pickerOptionText: { ...typography.body, color: colors.text },
+        pickerOptionTextActive: { fontWeight: "600", color: colors.primary },
+        errorText: { ...typography.caption, color: colors.error, marginTop: spacing.sm },
+        actions: { marginTop: spacing.lg },
+        mediaBtn: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.xs,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          marginBottom: spacing.sm,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md
+        },
+        mediaBtnDisabled: { opacity: 0.6 },
+        mediaBtnText: { ...typography.caption, fontWeight: "600", color: colors.primary },
+        progressWrap: { marginBottom: spacing.sm },
+        progressBar: {
+          height: 6,
+          backgroundColor: colors.border,
+          borderRadius: 3,
+          overflow: "hidden"
+        },
+        progressFill: { height: "100%", backgroundColor: colors.primary },
+        progressText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: 4
+        },
+        previewWrap: {
+          position: "relative",
+          marginBottom: spacing.sm,
+          borderRadius: radius.md,
+          overflow: "hidden",
+          width: "100%",
+          backgroundColor: colors.surfaceElevated
+        },
+        previewImg: { width: "100%", height: "100%", backgroundColor: "transparent" },
+        removeMediaBtn: { position: "absolute", top: 8, right: 8 },
+        mediaUrlRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: spacing.sm
+        },
+        mediaUrlLabel: { ...typography.caption, color: colors.success },
+        removeMediaText: { ...typography.caption, color: colors.error, fontWeight: "600" },
+        labelSecondary: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginBottom: spacing.xs
+        }
+      }),
+    [colors]
+  );
+}

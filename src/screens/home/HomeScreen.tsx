@@ -1,9 +1,8 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   FlatList,
   RefreshControl,
   Pressable,
@@ -15,23 +14,19 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   Header,
   WelcomeCard,
-  QuickActionGrid,
   PostCard,
   BottomTabBar,
   HighlightSection,
   WelcomeCardSkeleton,
   SkeletonCard
 } from "../../components/home";
+import { useTheme } from "../../theme/ThemeContext";
 import { useHome } from "../../hooks/useHome";
 import { getErrorStatus } from "../../api/client";
 import { messages } from "../../theme/messages";
-import type { QuickActionItem } from "../../components/home/QuickActionGrid";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
 
-const APP_BACKGROUND = "#F9FAFB";
-const TEXT_PRIMARY = "#111827";
-const TEXT_SECONDARY = "#6B7280";
 const PADDING = 16;
 const SECTION_MARGIN = 28;
 const SECTION_TITLE_MARGIN = 12;
@@ -43,6 +38,7 @@ const SECTION_TITLE_MARGIN = 12;
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const {
     state,
     refetchAll,
@@ -59,8 +55,6 @@ export function HomeScreen() {
     summary,
     summaryLoading,
     summaryError,
-    quickActionItems,
-    quickActionsLoading,
     feedItems,
     feedTotal,
     feedLoading,
@@ -93,19 +87,20 @@ export function HomeScreen() {
   }, [feedError, handleAuthError]);
 
   const onTabPress = (tab: TabId) => {
+    if (tab === "create") {
+      navigation.navigate("CreatePost");
+      return;
+    }
     setActiveTab(tab);
     if (tab === "profile") {
       navigation.navigate("Profile");
     }
   };
 
-  const onQuickActionPress = (item: QuickActionItem) => {
-    if (item.id === "create") {
-      navigation.navigate("CreatePost");
-    }
-    if (item.id === "messages") {
-      // TODO: open messages
-    }
+  const onMenuPress = () => {
+    navigation.navigate("Menu", {
+      messageCount: summary?.unreadMessagesCount ?? 0
+    });
   };
 
   const onRefresh = useCallback(async () => {
@@ -125,6 +120,93 @@ export function HomeScreen() {
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        headerWrap: { backgroundColor: colors.surface },
+        listContent: { paddingHorizontal: PADDING, paddingTop: PADDING + 4 },
+        section: { marginBottom: SECTION_MARGIN },
+        sectionTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
+        sectionTitleGap: { height: SECTION_TITLE_MARGIN },
+        feedHeader: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: SECTION_TITLE_MARGIN
+        },
+        feedTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
+        feedMoreBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
+        feedMoreText: { fontSize: 14, fontWeight: "600", color: colors.primary },
+        feedSkeleton: { marginBottom: 14 },
+        feedSkeletonCard: { borderRadius: 16, marginBottom: 14 },
+        footerLoader: { paddingVertical: 16, alignItems: "center" },
+        errorCard: {
+          paddingVertical: 24,
+          paddingHorizontal: PADDING,
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+          gap: 12
+        },
+        errorText: { fontSize: 14, color: colors.textSecondary },
+        retryBtn: {
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          backgroundColor: colors.primary,
+          borderRadius: 10
+        },
+        retryBtnText: { fontSize: 14, fontWeight: "600", color: colors.white },
+        emptyFeed: {
+          paddingVertical: 40,
+          paddingHorizontal: PADDING,
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2
+        },
+        emptyIconWrap: {
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 16
+        },
+        emptyTitle: {
+          fontSize: 17,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: 8
+        },
+        emptySubtitle: {
+          fontSize: 14,
+          color: colors.textSecondary,
+          textAlign: "center",
+          lineHeight: 22
+        },
+        tabBarWrap: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: colors.surface
+        },
+        tabBarInner: { backgroundColor: colors.surface }
+      }),
+    [colors]
+  );
 
   const ListHeaderComponent = useCallback(
     () => (
@@ -148,21 +230,6 @@ export function HomeScreen() {
           ) : null}
         </View>
 
-        {/* Quick actions – skeleton or grid */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Quick Actions</Text>
-          <View style={s.sectionTitleGap} />
-          {quickActionsLoading && quickActionItems.length === 0 ? (
-            <View style={s.quickActionsSkeleton}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <SkeletonCard key={i} width={80} height={92} style={s.skeletonCell} />
-              ))}
-            </View>
-          ) : (
-            <QuickActionGrid items={quickActionItems} onItemPress={onQuickActionPress} />
-          )}
-        </View>
-
         {/* Highlights */}
         <View style={s.section}>
           <HighlightSection
@@ -178,7 +245,7 @@ export function HomeScreen() {
           <Text style={s.feedTitle}>Community Feed</Text>
           <Pressable style={s.feedMoreBtn} hitSlop={12} onPress={() => {}}>
             <Text style={s.feedMoreText}>See all</Text>
-            <Ionicons name="chevron-forward" size={16} color="#2563EB" />
+            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
           </Pressable>
         </View>
       </>
@@ -187,14 +254,13 @@ export function HomeScreen() {
       summary,
       summaryLoading,
       summaryError,
-      quickActionItems,
-      quickActionsLoading,
       highlights,
       highlightsLoading,
       highlightsError,
       retrySummary,
       retryHighlights,
-      onQuickActionPress
+      s,
+      colors
     ]
   );
 
@@ -202,12 +268,12 @@ export function HomeScreen() {
     if (feedLoadingMore) {
       return (
         <View style={s.footerLoader}>
-          <ActivityIndicator size="small" color="#2563EB" />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       );
     }
     return null;
-  }, [feedLoadingMore]);
+  }, [feedLoadingMore, s, colors.primary]);
 
   const ListEmptyComponent = useCallback(() => {
     if (feedLoading) {
@@ -221,7 +287,7 @@ export function HomeScreen() {
     if (feedError) {
       return (
         <View style={s.errorCard}>
-          <Ionicons name="cloud-offline-outline" size={40} color={TEXT_SECONDARY} />
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.textSecondary} />
           <Text style={s.errorText}>Could not load feed</Text>
           <Pressable style={s.retryBtn} onPress={retryFeed}>
             <Text style={s.retryBtnText}>Retry</Text>
@@ -232,13 +298,13 @@ export function HomeScreen() {
     return (
       <View style={s.emptyFeed}>
         <View style={s.emptyIconWrap}>
-          <Ionicons name="newspaper-outline" size={40} color={TEXT_SECONDARY} />
+          <Ionicons name="newspaper-outline" size={40} color={colors.textSecondary} />
         </View>
         <Text style={s.emptyTitle}>No posts yet</Text>
         <Text style={s.emptySubtitle}>{messages.empty.feed}</Text>
       </View>
     );
-  }, [feedLoading, feedError, retryFeed, messages.empty.feed]);
+  }, [feedLoading, feedError, retryFeed, messages.empty.feed, s, colors]);
 
   return (
     <View style={s.container}>
@@ -249,6 +315,7 @@ export function HomeScreen() {
           messageCount={summary?.unreadMessagesCount ?? 0}
           onNotificationPress={() => {}}
           onMessagePress={() => {}}
+          onMenuPress={onMenuPress}
         />
       </View>
 
@@ -281,139 +348,3 @@ export function HomeScreen() {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: APP_BACKGROUND
-  },
-  headerWrap: {
-    backgroundColor: "#FFFFFF"
-  },
-  listContent: {
-    paddingHorizontal: PADDING,
-    paddingTop: PADDING + 4
-  },
-  section: {
-    marginBottom: SECTION_MARGIN
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: TEXT_PRIMARY
-  },
-  sectionTitleGap: {
-    height: SECTION_TITLE_MARGIN
-  },
-  feedHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: SECTION_TITLE_MARGIN
-  },
-  feedTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: TEXT_PRIMARY
-  },
-  feedMoreBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2
-  },
-  feedMoreText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#2563EB"
-  },
-  quickActionsSkeleton: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12
-  },
-  skeletonCell: {
-    borderRadius: 15
-  },
-  feedSkeleton: {
-    marginBottom: 14
-  },
-  feedSkeletonCard: {
-    borderRadius: 16,
-    marginBottom: 14
-  },
-  footerLoader: {
-    paddingVertical: 16,
-    alignItems: "center"
-  },
-  errorCard: {
-    paddingVertical: 24,
-    paddingHorizontal: PADDING,
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12
-  },
-  errorText: {
-    fontSize: 14,
-    color: TEXT_SECONDARY
-  },
-  retryBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#2563EB",
-    borderRadius: 10
-  },
-  retryBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF"
-  },
-  emptyFeed: {
-    paddingVertical: 40,
-    paddingHorizontal: PADDING,
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  emptyIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: TEXT_PRIMARY,
-    marginBottom: 8
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: TEXT_SECONDARY,
-    textAlign: "center",
-    lineHeight: 22
-  },
-  tabBarWrap: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#FFFFFF"
-  },
-  tabBarInner: {
-    backgroundColor: "#FFFFFF"
-  }
-});

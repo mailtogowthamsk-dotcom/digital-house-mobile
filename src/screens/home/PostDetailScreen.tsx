@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import type { PostDetailResponse, CommentItem } from "../../api/posts.api";
 import { getErrorStatus, getImageUrl } from "../../api/client";
 import { PostMedia } from "../../components/home/PostMedia";
 import { timeAgo } from "../../utils/timeAgo";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
@@ -32,6 +32,7 @@ type PostDetailParams = { postId: number };
 export function PostDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ PostDetail: PostDetailParams }, "PostDetail">>();
+  const { colors } = useTheme();
   const postId = route.params?.postId;
 
   const [post, setPost] = useState<PostDetailResponse | null>(null);
@@ -131,6 +132,136 @@ export function PostDetailScreen() {
       ]
     );
   }, [postId]);
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
+        center: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: spacing.lg
+        },
+        errorText: {
+          ...typography.body,
+          color: colors.error,
+          marginBottom: spacing.sm
+        },
+        retryBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+        retryText: { ...typography.button, color: colors.primary },
+        header: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: spacing.md
+        },
+        avatarWrap: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: spacing.sm
+        },
+        avatar: { width: 44, height: 44, borderRadius: 22 },
+        avatarText: { fontSize: 18, fontWeight: "700", color: colors.primary },
+        headerText: { flex: 1, minWidth: 0 },
+        authorName: {
+          ...typography.subhead,
+          fontWeight: "600",
+          color: colors.text
+        },
+        meta: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+        moreBtn: { padding: spacing.xs },
+        title: {
+          ...typography.title2,
+          color: colors.text,
+          marginBottom: spacing.sm
+        },
+        description: {
+          ...typography.body,
+          color: colors.textSecondary,
+          marginBottom: spacing.md
+        },
+        mediaWrap: {
+          borderRadius: radius.lg,
+          overflow: "hidden",
+          marginBottom: spacing.md
+        },
+        media: { width: "100%", height: "100%" },
+        actions: {
+          flexDirection: "row",
+          gap: spacing.lg,
+          marginBottom: spacing.lg
+        },
+        actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+        actionCount: { ...typography.caption, color: colors.textSecondary },
+        commentsSection: {
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          paddingTop: spacing.md
+        },
+        commentsTitle: {
+          ...typography.subhead,
+          fontWeight: "600",
+          color: colors.text,
+          marginBottom: spacing.sm
+        },
+        commentInputRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.sm,
+          marginBottom: spacing.md
+        },
+        commentInput: {
+          flex: 1,
+          ...typography.body,
+          color: colors.text,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md
+        },
+        sendBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+        sendBtnDisabled: { opacity: 0.5 },
+        sendText: { ...typography.button, color: colors.primary },
+        commentRow: { flexDirection: "row", marginBottom: spacing.sm },
+        commentAvatar: {
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: spacing.sm
+        },
+        commentAvatarText: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: colors.primary
+        },
+        commentBody: { flex: 1, minWidth: 0 },
+        commentAuthor: {
+          ...typography.caption,
+          fontWeight: "600",
+          color: colors.text
+        },
+        commentText: {
+          ...typography.body,
+          color: colors.textSecondary
+        },
+        commentTime: {
+          ...typography.caption,
+          color: colors.textMuted,
+          marginTop: 2
+        }
+      }),
+    [colors]
+  );
 
   if (postId == null) {
     return (
@@ -256,71 +387,3 @@ export function PostDetailScreen() {
     </ScrollView>
   );
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.lg },
-  errorText: { ...typography.body, color: colors.error, marginBottom: spacing.sm },
-  retryBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  retryText: { ...typography.button, color: colors.primary },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.md
-  },
-  avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.sm
-  },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
-  avatarText: { fontSize: 18, fontWeight: "700", color: colors.primary },
-  headerText: { flex: 1, minWidth: 0 },
-  authorName: { ...typography.subhead, fontWeight: "600", color: colors.text },
-  meta: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  moreBtn: { padding: spacing.xs },
-  title: { ...typography.title2, color: colors.text, marginBottom: spacing.sm },
-  description: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
-  mediaWrap: { borderRadius: radius.lg, overflow: "hidden", marginBottom: spacing.md },
-  media: { width: "100%", height: "100%" },
-  actions: { flexDirection: "row", gap: spacing.lg, marginBottom: spacing.lg },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
-  actionCount: { ...typography.caption, color: colors.textSecondary },
-  commentsSection: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
-  commentsTitle: { ...typography.subhead, fontWeight: "600", color: colors.text, marginBottom: spacing.sm },
-  commentInputRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
-  commentInput: {
-    flex: 1,
-    ...typography.body,
-    color: colors.text,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md
-  },
-  sendBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  sendBtnDisabled: { opacity: 0.5 },
-  sendText: { ...typography.button, color: colors.primary },
-  commentRow: { flexDirection: "row", marginBottom: spacing.sm },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.sm
-  },
-  commentAvatarText: { fontSize: 14, fontWeight: "600", color: colors.primary },
-  commentBody: { flex: 1, minWidth: 0 },
-  commentAuthor: { ...typography.caption, fontWeight: "600", color: colors.text },
-  commentText: { ...typography.body, color: colors.textSecondary },
-  commentTime: { ...typography.caption, color: colors.textMuted, marginTop: 2 }
-});

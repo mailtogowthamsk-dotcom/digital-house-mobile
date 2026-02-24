@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -30,13 +30,64 @@ const defaultStats: ProfileStats = {
   help_requests: 0
 };
 
-/** Community stats: 2x2 grid, icon in colored circle, soft shadow cards */
 export function StatsCards({ stats }: StatsCardsProps) {
   const { width } = useWindowDimensions();
+  const { colors } = useTheme();
   const padding = spacing.xl * 2;
   const gap = spacing.md;
   const cardSize = (width - padding - gap) / 2;
   const s_ = stats ?? defaultStats;
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        section: { marginBottom: spacing.xl },
+        sectionTitleRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: spacing.md,
+          gap: spacing.sm
+        },
+        sectionIconWrap: {
+          width: 32,
+          height: 32,
+          borderRadius: radius.sm,
+          backgroundColor: colors.primary + "1A",
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        sectionTitle: { ...typography.label, color: colors.text },
+        grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+        card: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          padding: spacing.lg,
+          alignItems: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2
+        },
+        iconWrap: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.primary + "1A",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: spacing.sm
+        },
+        value: { ...typography.h2, color: colors.text },
+        label: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: 2,
+          textAlign: "center"
+        }
+      }),
+    [colors]
+  );
 
   return (
     <View style={s.section}>
@@ -62,40 +113,3 @@ export function StatsCards({ stats }: StatsCardsProps) {
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  section: { marginBottom: spacing.xl },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md, gap: spacing.sm },
-  sectionIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  sectionTitle: { ...typography.label, color: colors.text },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.sm
-  },
-  value: { ...typography.h2, color: colors.text },
-  label: { ...typography.caption, color: colors.textSecondary, marginTop: 2, textAlign: "center" }
-});

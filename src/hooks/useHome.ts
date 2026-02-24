@@ -1,17 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getHomeSummary,
-  getQuickActions,
   getFeed,
   getHighlights,
   type HomeSummaryResponse,
-  type QuickActionCounts,
   type FeedItem,
   type FeedResponse,
   type HighlightsResponse
 } from "../api/home.api";
 import { timeAgo } from "../utils/timeAgo";
-import type { QuickActionItem } from "../components/home/QuickActionGrid";
 import type { PostCardData } from "../components/home/PostCard";
 
 // ---------------------------------------------------------------------------
@@ -23,11 +20,6 @@ export type HomeState = {
   summary: HomeSummaryResponse | null;
   summaryLoading: boolean;
   summaryError: Error | null;
-
-  /** Quick action grid counts → items with badgeCount */
-  quickActionItems: QuickActionItem[];
-  quickActionsLoading: boolean;
-  quickActionsError: Error | null;
 
   /** Community feed (paginated) */
   feedItems: PostCardData[];
@@ -76,23 +68,6 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
   };
 }
 
-/** Build QuickActionItem[] from summary counts (and unread message badge) */
-function buildQuickActionItems(
-  counts: QuickActionCounts | null,
-  unreadMessages: number
-): QuickActionItem[] {
-  return [
-    { id: "posts", label: "Posts", icon: "megaphone-outline", badgeCount: counts?.totalPosts ?? 0 },
-    { id: "jobs", label: "Jobs", icon: "briefcase-outline", badgeCount: counts?.openJobs ?? 0 },
-    { id: "marketplace", label: "Marketplace", icon: "cart-outline", badgeCount: counts?.marketplaceItems ?? 0 },
-    { id: "matrimony", label: "Matrimony", icon: "heart-outline", badgeCount: counts?.matrimonyProfiles ?? 0 },
-    { id: "helping-hand", label: "Helping Hand", icon: "hand-left-outline", badgeCount: counts?.helpingHandRequests ?? 0 },
-    { id: "community", label: "Community Updates", icon: "newspaper-outline", badgeCount: counts?.communityUpdates ?? 0 },
-    { id: "messages", label: "Messages", icon: "chatbubble-outline", badgeCount: unreadMessages },
-    { id: "create", label: "Create Post", icon: "add", isPrimary: true }
-  ];
-}
-
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -101,10 +76,6 @@ export function useHome() {
   const [summary, setSummary] = useState<HomeSummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<Error | null>(null);
-
-  const [quickActionItems, setQuickActionItems] = useState<QuickActionItem[]>([]);
-  const [quickActionsLoading, setQuickActionsLoading] = useState(true);
-  const [quickActionsError, setQuickActionsError] = useState<Error | null>(null);
 
   const [feedItems, setFeedItems] = useState<PostCardData[]>([]);
   const [feedPage, setFeedPage] = useState(1);
@@ -130,22 +101,6 @@ export function useHome() {
       setSummaryLoading(false);
     }
   }, []);
-
-  /** Fetch quick action counts (or derive from summary if already loaded) */
-  const fetchQuickActions = useCallback(async () => {
-    setQuickActionsError(null);
-    setQuickActionsLoading(true);
-    try {
-      const counts = await getQuickActions();
-      setQuickActionItems(
-        buildQuickActionItems(counts, summary?.unreadMessagesCount ?? 0)
-      );
-    } catch (e) {
-      setQuickActionsError(e instanceof Error ? e : new Error("Failed to load quick actions"));
-    } finally {
-      setQuickActionsLoading(false);
-    }
-  }, [summary?.unreadNotificationsCount, summary?.unreadMessagesCount]);
 
   /** Fetch feed page 1 (reset list) or next page (append) */
   const fetchFeed = useCallback(async (page: number, append: boolean) => {
@@ -196,24 +151,6 @@ export function useHome() {
     fetchSummary();
   }, [fetchSummary]);
 
-  /** After summary loads, build quick action items from summary counts */
-  useEffect(() => {
-    if (summary) {
-      setQuickActionItems(
-        buildQuickActionItems(summary.quickActionCounts, summary.unreadMessagesCount)
-      );
-      setQuickActionsLoading(false);
-      setQuickActionsError(null);
-    }
-  }, [summary]);
-
-  /** Load quick actions standalone if summary failed or we want fresh counts */
-  useEffect(() => {
-    if (!summary && !summaryLoading) {
-      fetchQuickActions();
-    }
-  }, [summary, summaryLoading, fetchQuickActions]);
-
   /** Feed: load first page when component mounts */
   useEffect(() => {
     fetchFeed(1, false);
@@ -224,10 +161,9 @@ export function useHome() {
     fetchHighlights();
   }, [fetchHighlights]);
 
-  /** Pull-to-refresh: refetch all sections (quick action items update via summary useEffect) */
+  /** Pull-to-refresh: refetch all sections */
   const refetchAll = useCallback(async () => {
     setSummaryError(null);
-    setQuickActionsError(null);
     setFeedError(null);
     setHighlightsError(null);
     await Promise.all([fetchSummary(), fetchFeed(1, false), fetchHighlights()]);
@@ -245,9 +181,6 @@ export function useHome() {
     summary,
     summaryLoading,
     summaryError,
-    quickActionItems,
-    quickActionsLoading,
-    quickActionsError,
     feedItems,
     feedPage,
     feedTotal,

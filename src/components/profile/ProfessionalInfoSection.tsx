@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -17,7 +17,17 @@ type ProfessionalInfoSectionProps = {
   professional: ProfessionalInfo | null | undefined;
 };
 
-function Row({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
+function Row({
+  label,
+  value,
+  isLast,
+  s
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+  s: ReturnType<typeof StyleSheet.create>;
+}) {
   return (
     <View style={[s.row, isLast && s.rowLast]}>
       <Text style={s.rowLabel}>{label}</Text>
@@ -43,9 +53,56 @@ const emptyProfessional: ProfessionalInfo = {
   skills: null
 };
 
-/** Read-only professional info. Card with section icon and row dividers. */
 export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectionProps) {
+  const { colors } = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        section: { marginBottom: spacing.xl },
+        sectionTitleRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: spacing.md,
+          gap: spacing.sm
+        },
+        sectionIconWrap: {
+          width: 32,
+          height: 32,
+          borderRadius: radius.sm,
+          backgroundColor: colors.primary + "1A",
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        sectionTitle: { ...typography.label, color: colors.text },
+        card: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          paddingHorizontal: spacing.lg,
+          overflow: "hidden",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2
+        },
+        row: { paddingVertical: spacing.md },
+        rowLast: { paddingBottom: spacing.sm },
+        rowLabel: { ...typography.caption, color: colors.textMuted, marginBottom: 2 },
+        rowValue: { ...typography.body, color: colors.text },
+        divider: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 1,
+          backgroundColor: colors.border
+        }
+      }),
+    [colors]
+  );
+
   const pro = professional ?? emptyProfessional;
+
   return (
     <View style={s.section}>
       <View style={s.sectionTitleRow}>
@@ -61,46 +118,10 @@ export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectio
             label={label}
             value={pro[key] ?? "—"}
             isLast={i === ROWS.length - 1}
+            s={s}
           />
         ))}
       </View>
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  section: { marginBottom: spacing.xl },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md, gap: spacing.sm },
-  sectionIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  sectionTitle: { ...typography.label, color: colors.text },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  row: { paddingVertical: spacing.md },
-  rowLast: { paddingBottom: spacing.sm },
-  rowLabel: { ...typography.caption, color: colors.textMuted, marginBottom: 2 },
-  rowValue: { ...typography.body, color: colors.text },
-  divider: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 1,
-    backgroundColor: colors.border
-  }
-});

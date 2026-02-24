@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from "react-native";
-import { colors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 
@@ -23,8 +23,38 @@ export function PrimaryButton({
   style,
   textStyle
 }: PrimaryButtonProps) {
+  const { colors } = useTheme();
   const isOutline = variant === "outline";
   const isSecondary = variant === "secondary";
+
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        btn: {
+          backgroundColor: colors.primary,
+          paddingVertical: spacing.lg,
+          paddingHorizontal: spacing.xl,
+          borderRadius: radius.lg,
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 52
+        },
+        btnOutline: {
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          borderColor: colors.primary
+        },
+        btnSecondary: { backgroundColor: colors.surfaceElevated },
+        btnPressed: { opacity: 0.85 },
+        btnText: {
+          ...typography.button,
+          color: colors.white
+        },
+        btnTextOutline: { color: colors.primary },
+        btnTextSecondary: { color: colors.text }
+      }),
+    [colors]
+  );
 
   return (
     <Pressable
@@ -44,30 +74,3 @@ export function PrimaryButton({
     </Pressable>
   );
 }
-
-const s = StyleSheet.create({
-  btn: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52
-  },
-  btnOutline: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: colors.primary
-  },
-  btnSecondary: {
-    backgroundColor: colors.surfaceElevated
-  },
-  btnPressed: { opacity: 0.85 },
-  btnText: {
-    ...typography.button,
-    color: colors.white
-  },
-  btnTextOutline: { color: colors.primary },
-  btnTextSecondary: { color: colors.text }
-});
