@@ -95,6 +95,9 @@ export function HomeScreen() {
     if (tab === "profile") {
       navigation.navigate("Profile");
     }
+    if (tab === "messages") {
+      // TODO: navigate to Messages screen when available
+    }
   };
 
   const onMenuPress = () => {
@@ -342,7 +345,11 @@ export function HomeScreen() {
       {/* Fixed bottom tab bar */}
       <View style={s.tabBarWrap}>
         <View style={[s.tabBarInner, { paddingBottom: insets.bottom }]}>
-          <BottomTabBar activeTab={activeTab} onTabPress={onTabPress} />
+          <BottomTabBar
+            activeTab={activeTab}
+            onTabPress={onTabPress}
+            messageCount={summary?.unreadMessagesCount ?? 0}
+          />
         </View>
       </View>
     </View>

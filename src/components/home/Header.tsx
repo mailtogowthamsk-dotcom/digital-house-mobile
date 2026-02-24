@@ -65,10 +65,12 @@ export function Header({
           justifyContent: "center"
         },
         center: {
-          flex: 1,
+          position: "absolute",
+          left: 0,
+          right: 0,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 8
+          paddingHorizontal: 60
         },
         title: {
           fontSize: 18,
@@ -118,7 +120,7 @@ export function Header({
       </View>
       <View style={s.center}>
         <Text style={s.title} numberOfLines={1}>
-          Digital House
+          Vettuva Gounder
         </Text>
       </View>
       <View style={s.right}>
@@ -136,7 +138,7 @@ export function Header({
             </View>
           )}
         </Pressable>
-        <Pressable
+        {/* <Pressable
           style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
           onPress={onMessagePress}
           hitSlop={8}
@@ -149,7 +151,7 @@ export function Header({
               </Text>
             </View>
           )}
-        </Pressable>
+        </Pressable> */}
         <Pressable
           style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
           onPress={onMenuPress}

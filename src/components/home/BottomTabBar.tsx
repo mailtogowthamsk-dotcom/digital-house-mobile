@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 
-export type TabId = "home" | "explore" | "create" | "notifications" | "profile";
+export type TabId = "home" | "explore" | "create" | "messages" | "profile";
 
 type TabItem = {
   id: TabId;
@@ -18,7 +18,7 @@ const TABS: TabItem[] = [
   { id: "home", label: "Home", icon: "home-outline", iconActive: "home" },
   { id: "explore", label: "Explore", icon: "search-outline", iconActive: "search" },
   { id: "create", label: "Create", icon: "add" },
-  { id: "notifications", label: "Notifications", icon: "notifications-outline", iconActive: "notifications", badge: 1 },
+  { id: "messages", label: "Messages", icon: "chatbubble-outline", iconActive: "chatbubble" },
   { id: "profile", label: "Profile", icon: "person-outline", iconActive: "person" }
 ];
 
@@ -31,13 +31,24 @@ const LABEL_GAP = 6;
 type BottomTabBarProps = {
   activeTab: TabId;
   onTabPress: (tab: TabId) => void;
+  /** Unread message count for the Messages tab badge */
+  messageCount?: number;
 };
 
 /**
  * Bottom tab bar: 64px, themed surface, subtle top border.
  */
-export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: BottomTabBarProps) {
   const { colors } = useTheme();
+  const tabsWithBadge = useMemo(
+    () =>
+      TABS.map((tab) =>
+        tab.id === "messages" && messageCount > 0
+          ? { ...tab, badge: messageCount }
+          : tab
+      ),
+    [messageCount]
+  );
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -126,7 +137,7 @@ export function BottomTabBar({ activeTab, onTabPress }: BottomTabBarProps) {
   return (
     <View style={s.container}>
       <View style={s.bar}>
-        {TABS.map((tab) => {
+        {tabsWithBadge.map((tab) => {
           const isActive = activeTab === tab.id;
           const isCreate = tab.id === "create";
 
