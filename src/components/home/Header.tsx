@@ -120,7 +120,7 @@ export function Header({
       </View>
       <View style={s.center}>
         <Text style={s.title} numberOfLines={1}>
-          Vettuva Gounder
+          Digital House
         </Text>
       </View>
       <View style={s.right}>

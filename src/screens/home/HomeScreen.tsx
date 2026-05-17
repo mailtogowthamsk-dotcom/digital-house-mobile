@@ -8,7 +8,7 @@ import {
   Pressable,
   ActivityIndicator
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
@@ -81,6 +81,12 @@ export function HomeScreen() {
     [navigation]
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      retrySummary();
+    }, [retrySummary])
+  );
+
   useEffect(() => {
     if (summaryError) handleAuthError(summaryError);
   }, [summaryError, handleAuthError]);
@@ -104,7 +110,7 @@ export function HomeScreen() {
       navigation.navigate("Profile");
     }
     if (tab === "messages") {
-      // TODO: navigate to Messages screen when available
+      navigation.navigate("Messages");
     }
   };
 
@@ -338,7 +344,7 @@ export function HomeScreen() {
           notificationCount={summary?.unreadNotificationsCount ?? 0}
           messageCount={summary?.unreadMessagesCount ?? 0}
           onNotificationPress={() => {}}
-          onMessagePress={() => {}}
+          onMessagePress={() => navigation.navigate("Messages")}
           onMenuPress={onMenuPress}
         />
       </View>

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { getToken } from "../storage/token.storage";
 import { clearToken } from "../storage/token.storage";
+import { disconnectSocket } from "../realtime/socket";
 
 const PRODUCTION_API = "https://infosensetechnologies.com/digitalhouse/backend/api";
 
@@ -68,6 +69,7 @@ api.interceptors.response.use(
     const status = err.response?.status;
     if (status === 401) {
       try {
+        disconnectSocket();
         await clearToken();
       } catch {
         // Avoid crash on Android

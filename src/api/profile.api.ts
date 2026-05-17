@@ -118,14 +118,18 @@ const defaultStats = {
   help_requests: 0
 };
 
-/** GET /api/profile/me – full profile (masked email/mobile) + stats + sections + completion */
+/** GET /api/profile/me – full profile (masked email/mobile) + stats + sections + completion. No cache so image URL is always fresh (signed). */
 export async function getProfile(): Promise<ProfileMeResponse> {
-  const { data } = await api.get<{ ok: boolean } & ProfileMeResponse>("/profile/me");
+  const { data } = await api.get<{ ok: boolean } & ProfileMeResponse>("/profile/me", {
+    headers: { "Cache-Control": "no-cache", Pragma: "no-cache" }
+  });
   if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to load profile");
+  const raw = data as Record<string, unknown>;
+  const profileImageFromServer = raw.profile_image ?? raw.profileImage ?? null;
   return {
     id: data.id ?? 0,
     name: data.name?.trim() || "User",
-    profile_image: data.profile_image ?? null,
+    profile_image: typeof profileImageFromServer === "string" ? profileImageFromServer : null,
     verified: data.verified ?? false,
     member_since: data.member_since ?? "—",
     personal_info: data.personal_info
@@ -148,10 +152,12 @@ export async function getProfile(): Promise<ProfileMeResponse> {
 export async function updateProfile(payload: ProfileUpdatePayload): Promise<ProfileMeResponse> {
   const { data } = await api.put<{ ok: boolean } & ProfileMeResponse>("/profile/me", payload);
   if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to update profile");
+  const raw = data as Record<string, unknown>;
+  const profileImageFromServer = raw.profile_image ?? raw.profileImage ?? null;
   return {
     id: data.id ?? 0,
     name: data.name?.trim() || "User",
-    profile_image: data.profile_image ?? null,
+    profile_image: typeof profileImageFromServer === "string" ? profileImageFromServer : null,
     verified: data.verified ?? false,
     member_since: data.member_since ?? "—",
     personal_info: data.personal_info
@@ -223,6 +229,19 @@ export async function getHoroscopeUploadUrl(payload: {
   fileSize: number;
 }): Promise<HoroscopeUploadUrlResponse> {
   const { data } = await api.post<{ ok: boolean } & HoroscopeUploadUrlResponse>("/profile/me/horoscope-upload-url", payload);
+  if (!data.ok) throw new Error("Failed to get upload URL");
+  return { uploadUrl: (data as any).uploadUrl, publicUrl: (data as any).publicUrl };
+}
+
+export type ProfilePhotoUploadUrlResponse = { uploadUrl: string; publicUrl: string };
+
+/** POST /api/profile/me/profile-photo-upload-url – get presigned URL for profile photo (R2 profile-photos folder); client uploads then PUT /profile/me with profile_image: publicUrl */
+export async function getProfilePhotoUploadUrl(payload: {
+  fileName: string;
+  fileType: "image/jpeg" | "image/png";
+  fileSize: number;
+}): Promise<ProfilePhotoUploadUrlResponse> {
+  const { data } = await api.post<{ ok: boolean } & ProfilePhotoUploadUrlResponse>("/profile/me/profile-photo-upload-url", payload);
   if (!data.ok) throw new Error("Failed to get upload URL");
   return { uploadUrl: (data as any).uploadUrl, publicUrl: (data as any).publicUrl };
 }

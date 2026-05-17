@@ -9,18 +9,21 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Switch
+  Switch,
+  Image
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
-import { getProfile, putProfileSection, getHoroscopeUploadUrl } from "../../api/profile.api";
+import { getProfile, putProfileSection, getHoroscopeUploadUrl, getProfilePhotoUploadUrl, updateProfile } from "../../api/profile.api";
+import { getUploadUrl as getMediaUploadUrl } from "../../api/media.api";
 import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.api";
-import { getErrorStatus } from "../../api/client";
+import { getErrorStatus, getImageUrl } from "../../api/client";
 import { clearToken } from "../../storage/token.storage";
-import { uploadToR2 } from "../../utils/mediaUpload";
+import { disconnectSocket } from "../../realtime/socket";
+import { uploadToR2, isAllowedImageType, validateImageSize } from "../../utils/mediaUpload";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -208,6 +211,7 @@ export function EditProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [horoscopeUploading, setHoroscopeUploading] = useState(false);
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
 
   const [basic, setBasic] = useState<BasicSectionForm>(emptyBasic());
   const [community, setCommunity] = useState<CommunitySectionForm>(emptyCommunity());
@@ -235,6 +239,7 @@ export function EditProfileScreen() {
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) {
+        disconnectSocket();
         await clearToken();
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         return;
@@ -401,6 +406,7 @@ export function EditProfileScreen() {
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) {
+        disconnectSocket();
         await clearToken();
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         return;
@@ -463,6 +469,74 @@ export function EditProfileScreen() {
     }
   }, []);
 
+  const handleProfilePhotoUpload = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Allow access to photos to set your profile photo.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const fileSize = asset.fileSize ?? 0;
+      if (fileSize <= 0) {
+        Alert.alert("Error", "Could not get file size.");
+        return;
+      }
+      const mime = asset.mimeType ?? "image/jpeg";
+      const fileType = mime === "image/png" ? "image/png" : "image/jpeg";
+      if (!isAllowedImageType(fileType)) {
+        Alert.alert("Invalid format", "Profile photo must be JPEG or PNG.");
+        return;
+      }
+      validateImageSize(fileSize);
+      const ext = fileType === "image/png" ? ".png" : ".jpg";
+      const fileName = `profile_${Date.now()}${ext}`;
+      setProfilePhotoUploading(true);
+      let uploadUrl: string;
+      let publicUrl: string;
+      try {
+        const res = await getProfilePhotoUploadUrl({
+          fileName,
+          fileType,
+          fileSize
+        });
+        uploadUrl = res.uploadUrl;
+        publicUrl = res.publicUrl;
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          const res = await getMediaUploadUrl({
+            fileName,
+            fileType,
+            fileSize,
+            module: "profile"
+          });
+          uploadUrl = res.uploadUrl;
+          publicUrl = res.publicUrl;
+        } else {
+          throw err;
+        }
+      }
+      await uploadToR2(uploadUrl, uri, fileType);
+      const updated = await updateProfile({ profile_image: publicUrl });
+      setProfile(updated);
+      if (initialFormRef.current) {
+        initialFormRef.current = mapProfileToForm(updated);
+      }
+    } catch (e) {
+      Alert.alert("Upload failed", (e as Error).message ?? "Could not upload profile photo.");
+    } finally {
+      setProfilePhotoUploading(false);
+    }
+  }, []);
+
   const dobDate = basic.date_of_birth ? new Date(basic.date_of_birth) : new Date();
   const onDobChange = (_: any, date?: Date) => {
     setShowDobPicker(Platform.OS === "ios");
@@ -500,6 +574,45 @@ export function EditProfileScreen() {
           borderRadius: radius.md
         },
         retryBtnText: { ...typography.buttonSmall, color: colors.white },
+        profilePhotoRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginBottom: spacing.xl,
+          gap: spacing.lg
+        },
+        profilePhotoWrap: {
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden"
+        },
+        profilePhotoImg: { width: 88, height: 88, borderRadius: 44 },
+        profilePhotoPlaceholder: {
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        profilePhotoInitial: { ...typography.h3, color: colors.textMuted },
+        profilePhotoBtn: {
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.sm,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md
+        },
+        profilePhotoBtnDisabled: { opacity: 0.7 },
+        profilePhotoBtnText: { ...typography.bodySmall, color: colors.primary },
         completionRow: { marginBottom: spacing.xl },
         completionLabel: {
           ...typography.caption,
@@ -656,6 +769,34 @@ export function EditProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={s.profilePhotoRow}>
+          <View style={s.profilePhotoWrap}>
+            {getImageUrl(profile.profile_image) ? (
+              <Image key={profile.profile_image} source={{ uri: getImageUrl(profile.profile_image)! }} style={s.profilePhotoImg} />
+            ) : (
+              <View style={s.profilePhotoPlaceholder}>
+                <Text style={s.profilePhotoInitial}>
+                  {(profile.name ?? "U").trim().charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Pressable
+            style={[s.profilePhotoBtn, profilePhotoUploading ? s.profilePhotoBtnDisabled : null]}
+            onPress={handleProfilePhotoUpload}
+            disabled={profilePhotoUploading}
+          >
+            {profilePhotoUploading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="camera-outline" size={20} color={colors.primary} />
+            )}
+            <Text style={s.profilePhotoBtnText}>
+              {profile.profile_image ? "Change photo" : "Upload photo"}
+            </Text>
+          </Pressable>
+        </View>
+
         {profile.completion_percentage != null ? (
           <View style={s.completionRow}>
             <Text style={s.completionLabel}>Profile completion</Text>

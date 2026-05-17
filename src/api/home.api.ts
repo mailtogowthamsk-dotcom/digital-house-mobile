@@ -79,8 +79,15 @@ export type HighlightsResponse = {
 export async function getHomeSummary(): Promise<HomeSummaryResponse> {
   const { data } = await api.get<{ ok: boolean } & HomeSummaryResponse>("/home/summary");
   if (!data.ok) throw new Error("Failed to load home summary");
+  const u = data.user as Record<string, unknown> | undefined;
+  const profileImage = u && (u.profileImage ?? u.profile_image);
+  const user: HomeUserBasic = {
+    name: (u?.name as string) ?? "User",
+    profileImage: typeof profileImage === "string" ? profileImage : null,
+    verified: !!(u?.verified ?? false)
+  };
   return {
-    user: data.user!,
+    user,
     quickActionCounts: data.quickActionCounts!,
     unreadNotificationsCount: data.unreadNotificationsCount ?? 0,
     unreadMessagesCount: data.unreadMessagesCount ?? 0

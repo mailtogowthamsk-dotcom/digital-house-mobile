@@ -131,7 +131,7 @@ export function MenuScreen() {
 
   const onActionPress = (actionId: HeaderActionId) => {
     if (actionId === "create") navigation.navigate("CreatePost");
-    if (actionId === "messages") {}
+    if (actionId === "messages") navigation.navigate("Messages");
     if (actionId === "settings") navigation.navigate("Settings");
   };
 

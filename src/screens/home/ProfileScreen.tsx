@@ -7,12 +7,13 @@ import {
   Pressable,
   RefreshControl
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useProfile } from "../../hooks/useProfile";
 import { useProfileActivity } from "../../hooks/useProfileActivity";
 import { clearToken } from "../../storage/token.storage";
+import { disconnectSocket } from "../../realtime/socket";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -40,6 +41,9 @@ export function ProfileScreen() {
   const { colors } = useTheme();
   const { profile, loading, error, refetch } = useProfile();
   const [activityTab, setActivityTab] = useState<ActivityTab>("my");
+
+  /** Refetch profile when screen is focused so we get a fresh signed image URL. */
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
   const { items, loading: activityLoading, refetch: refetchActivity } = useProfileActivity(
     activityTab,
     !!profile
@@ -82,6 +86,7 @@ export function ProfileScreen() {
     if (!error) return;
     const status = error.status;
     if (status === 401) {
+      disconnectSocket();
       clearToken().then(() => {
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       });
@@ -109,6 +114,7 @@ export function ProfileScreen() {
 
   const onLogoutConfirm = useCallback(async () => {
     setLogoutDialogVisible(false);
+    disconnectSocket();
     await clearToken();
     navigation.reset({ index: 0, routes: [{ name: "Landing" }] });
   }, [navigation]);

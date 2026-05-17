@@ -18,6 +18,8 @@ import { PostDetailScreen } from "./src/screens/home/PostDetailScreen";
 import { CreatePostScreen } from "./src/screens/home/CreatePostScreen";
 import { MenuScreen } from "./src/screens/home/MenuScreen";
 import { SettingsScreen } from "./src/screens/home/SettingsScreen";
+import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
+import { ChatScreen } from "./src/screens/messages/ChatScreen";
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -33,6 +35,8 @@ export type RootStackParamList = {
   CreatePost: undefined;
   Menu: { messageCount?: number };
   Settings: undefined;
+  Messages: undefined;
+  Chat: { otherUserId: number; name: string; profileImage?: string | null };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -90,6 +94,8 @@ function StackNavigator() {
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: "Create Post" }} />
         <Stack.Screen name="Menu" component={MenuScreen} options={{ title: "Menu" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+        <Stack.Screen name="Messages" component={MessagesHubScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </>
   );

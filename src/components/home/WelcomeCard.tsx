@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Image } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 
 type WelcomeCardProps = {
@@ -10,6 +11,7 @@ type WelcomeCardProps = {
 
 export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
   const { colors, mode } = useTheme();
+  const avatarUrl = getImageUrl(avatarUri ?? null);
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -32,8 +34,10 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
           backgroundColor: mode === "dark" ? "#1E3A5F" : "#EFF6FF",
           alignItems: "center",
           justifyContent: "center",
-          marginRight: 16
+          marginRight: 16,
+          overflow: "hidden"
         },
+        avatarImg: { width: 56, height: 56, borderRadius: 28 },
         avatarText: {
           fontSize: 24,
           fontWeight: "700",
@@ -73,7 +77,11 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
   return (
     <View style={s.card}>
       <View style={s.avatarWrap}>
-        <Text style={s.avatarText}>{initial}</Text>
+        {avatarUrl ? (
+          <Image key={avatarUrl} source={{ uri: avatarUrl }} style={s.avatarImg} />
+        ) : (
+          <Text style={s.avatarText}>{initial}</Text>
+        )}
       </View>
       <View style={s.textWrap}>
         <Text style={s.greeting} numberOfLines={1}>

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -99,17 +99,31 @@ export function ProfileHeader({
   );
 
   const initial = (name ?? "User").trim().charAt(0).toUpperCase() || "?";
+  const avatarUri = getImageUrl(profile_image);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [profile_image]);
+
+  const showPlaceholder = !avatarUri || imageLoadFailed;
 
   return (
     <View style={s.wrapper}>
       <LinearGradient colors={gradientColors} style={s.gradient}>
         <View style={s.avatarRing}>
-          {getImageUrl(profile_image) ? (
-            <Image source={{ uri: getImageUrl(profile_image)! }} style={s.avatar} />
-          ) : (
+          {showPlaceholder ? (
             <View style={s.avatarPlaceholder}>
               <Text style={s.avatarText}>{initial}</Text>
             </View>
+          ) : (
+            <Image
+              key={profile_image}
+              source={{ uri: avatarUri }}
+              style={s.avatar}
+              onError={() => setImageLoadFailed(true)}
+              onLoad={() => setImageLoadFailed(false)}
+            />
           )}
         </View>
         <Text style={s.name}>{name}</Text>
