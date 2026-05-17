@@ -3,41 +3,53 @@ import * as SecureStore from "expo-secure-store";
 
 const KEY = "dh_access_token";
 
-/** On web, SecureStore is not supported – use localStorage so /home/summary etc. get the JWT. */
 const isWeb = Platform.OS === "web";
 
-export async function setToken(token: string) {
-  try {
-    if (isWeb && typeof localStorage !== "undefined") {
-      localStorage.setItem(KEY, token);
-      return;
-    }
-    await SecureStore.setItemAsync(KEY, token);
-  } catch {
-    // Avoid crash on Android if SecureStore fails (e.g. keystore not ready)
+const secureOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED
+};
+
+/** Persist JWT — survives app restart and device reboot (SecureStore / localStorage). */
+export async function setToken(token: string): Promise<void> {
+  const trimmed = token?.trim();
+  if (!trimmed) {
+    throw new Error("Cannot store empty token");
   }
+
+  if (isWeb && typeof localStorage !== "undefined") {
+    localStorage.setItem(KEY, trimmed);
+    return;
+  }
+
+  await SecureStore.setItemAsync(KEY, trimmed, secureOptions);
 }
 
-export async function getToken() {
+export async function getToken(): Promise<string | null> {
   try {
     if (isWeb && typeof localStorage !== "undefined") {
-      return localStorage.getItem(KEY);
+      const v = localStorage.getItem(KEY);
+      return v?.trim() || null;
     }
-    return await SecureStore.getItemAsync(KEY);
+    const v = await SecureStore.getItemAsync(KEY, secureOptions);
+    return v?.trim() || null;
   } catch {
     return null;
   }
 }
 
-export async function clearToken() {
+export async function hasToken(): Promise<boolean> {
+  const t = await getToken();
+  return !!t;
+}
+
+export async function clearToken(): Promise<void> {
   try {
     if (isWeb && typeof localStorage !== "undefined") {
       localStorage.removeItem(KEY);
       return;
     }
-    await SecureStore.deleteItemAsync(KEY);
+    await SecureStore.deleteItemAsync(KEY, secureOptions);
   } catch {
-    // Avoid crash on Android
+    // ignore — best effort
   }
 }
-

@@ -41,9 +41,18 @@ export type FeedItem = {
   createdAt: string;
   author: FeedAuthor;
   counts: { likes: number; comments: number };
-  /** Whether the current user has liked this post (backend may send as likedByMe or liked_by_me) */
   likedByMe?: boolean;
   liked_by_me?: boolean;
+  savedByMe?: boolean;
+  engagementScore?: number;
+  isTrending?: boolean;
+};
+
+export type FeedQueryParams = {
+  page?: number;
+  limit: number;
+  cursor?: number;
+  sort?: "recent" | "popular";
 };
 
 export type FeedResponse = {
@@ -51,6 +60,8 @@ export type FeedResponse = {
   page: number;
   limit: number;
   total: number;
+  nextCursor?: number | null;
+  sort?: "recent" | "popular";
 };
 
 export type HighlightItem = {
@@ -108,17 +119,23 @@ export async function getQuickActions(): Promise<QuickActionCounts> {
   };
 }
 
-/** GET /api/home/feed – paginated community feed */
-export async function getFeed(page: number, limit: number): Promise<FeedResponse> {
+/** GET /api/home/feed – ranked community feed (cursor or page) */
+export async function getFeed(params: FeedQueryParams): Promise<FeedResponse> {
   const { data } = await api.get<{ ok: boolean } & FeedResponse>("/home/feed", {
-    params: { page, limit }
+    params: {
+      limit: params.limit,
+      sort: params.sort ?? "recent",
+      ...(params.cursor != null ? { cursor: params.cursor } : { page: params.page ?? 1 })
+    }
   });
   if (!data.ok) throw new Error("Failed to load feed");
   return {
     items: data.items ?? [],
-    page: data.page ?? page,
-    limit: data.limit ?? limit,
-    total: data.total ?? 0
+    page: data.page ?? params.page ?? 1,
+    limit: data.limit ?? params.limit,
+    total: data.total ?? 0,
+    nextCursor: data.nextCursor ?? null,
+    sort: data.sort ?? params.sort ?? "recent"
   };
 }
 

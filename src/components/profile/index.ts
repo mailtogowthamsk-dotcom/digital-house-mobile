@@ -3,6 +3,8 @@ export { PersonalInfoSection } from "./PersonalInfoSection";
 export { ProfessionalInfoSection } from "./ProfessionalInfoSection";
 export { StatsCards } from "./StatsCards";
 export { MyActivityTabs, type ActivityTab } from "./MyActivityTabs";
+export { ProfilePostsSection } from "./ProfilePostsSection";
+export { ProfilePostGridCard } from "./ProfilePostGridCard";
 export { ActionButtons } from "./ActionButtons";
 export { ProfileSkeleton } from "./ProfileSkeleton";
 export { AccordionSection } from "./AccordionSection";

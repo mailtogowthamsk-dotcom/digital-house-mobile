@@ -5,6 +5,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
+import { AuthProvider, useAuth, type RootAuthRoute } from "./src/context/AuthContext";
+import { AuthSplash } from "./src/components/auth/AuthSplash";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
 import { RegistrationScreen } from "./src/screens/auth/RegistrationScreen";
 import { PendingApprovalScreen } from "./src/screens/auth/PendingApprovalScreen";
@@ -41,7 +43,7 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function StackNavigator() {
+function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
   const { mode, colors } = useTheme();
   const isDark = mode === "dark";
 
@@ -49,7 +51,7 @@ function StackNavigator() {
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
       <Stack.Navigator
-        initialRouteName="Landing"
+        initialRouteName={initialRoute}
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
@@ -101,14 +103,28 @@ function StackNavigator() {
   );
 }
 
+function AppNavigation() {
+  const { status, initialRoute } = useAuth();
+
+  if (status === "loading") {
+    return <AuthSplash />;
+  }
+
+  return (
+    <NavigationContainer>
+      <StackNavigator key={initialRoute} initialRoute={initialRoute} />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <AppErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
-          <NavigationContainer>
-            <StackNavigator />
-          </NavigationContainer>
+          <AuthProvider>
+            <AppNavigation />
+          </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </AppErrorBoundary>

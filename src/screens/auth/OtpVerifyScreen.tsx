@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp } from "../../api/auth.api";
-import { setToken } from "../../storage/token.storage";
+import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
@@ -30,6 +30,7 @@ const BOX_GAP = 10;
 
 export function OtpVerifyScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { signIn } = useAuth();
   const email = route.params.email as string;
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,10 @@ export function OtpVerifyScreen({ route, navigation }: any) {
     setLoading(true);
     try {
       const res = await verifyOtp(email, otp);
-      await setToken(res.accessToken);
+      await signIn(res.accessToken, {
+        ...res.user,
+        createdAt: (res.user as { createdAt?: string }).createdAt ?? new Date().toISOString()
+      });
       navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (e: any) {
       setMsg(e?.response?.data?.message || "OTP verification failed");

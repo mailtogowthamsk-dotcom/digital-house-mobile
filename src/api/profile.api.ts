@@ -89,6 +89,27 @@ export type ProfileActivityResponse = {
   total: number;
 };
 
+export type ProfilePostItem = {
+  postId: number;
+  postType: string;
+  title: string;
+  description: string | null;
+  mediaUrl: string | null;
+  createdAt: string;
+  visibility: string;
+  status: string;
+  counts: { likes: number; comments: number; views: number };
+  likedByMe: boolean;
+  savedByMe: boolean;
+};
+
+export type ProfilePostsResponse = {
+  items: ProfilePostItem[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
 // ---------------------------------------------------------------------------
 // API – JWT required; 401/403 handled by caller
 // ---------------------------------------------------------------------------
@@ -173,6 +194,20 @@ export async function updateProfile(payload: ProfileUpdatePayload): Promise<Prof
     sections: data.sections,
     pending_matrimony: data.pending_matrimony,
     pending_business: data.pending_business
+  };
+}
+
+/** GET /api/profile/posts?page=1&limit=12 – paginated posts owned by the user */
+export async function getProfilePosts(page: number, limit: number): Promise<ProfilePostsResponse> {
+  const { data } = await api.get<{ ok: boolean } & ProfilePostsResponse>("/profile/posts", {
+    params: { page, limit }
+  });
+  if (!data.ok) throw new Error("Failed to load posts");
+  return {
+    items: data.items ?? [],
+    page: data.page ?? page,
+    limit: data.limit ?? limit,
+    total: data.total ?? 0
   };
 }
 

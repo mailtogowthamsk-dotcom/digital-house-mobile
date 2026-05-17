@@ -23,6 +23,9 @@ type MyActivityTabsProps = {
   onTabChange: (tab: ActivityTab) => void;
   items: ProfileActivityItem[];
   loading: boolean;
+  /** Replaces default list when "My Posts" tab is active */
+  myPostsContent?: React.ReactNode;
+  onActivityItemPress?: (postId: number) => void;
 };
 
 const TABS: { id: ActivityTab; label: string }[] = [
@@ -31,7 +34,14 @@ const TABS: { id: ActivityTab; label: string }[] = [
   { id: "liked", label: "Liked" }
 ];
 
-export function MyActivityTabs({ activeTab, onTabChange, items, loading }: MyActivityTabsProps) {
+export function MyActivityTabs({
+  activeTab,
+  onTabChange,
+  items,
+  loading,
+  myPostsContent,
+  onActivityItemPress
+}: MyActivityTabsProps) {
   const { colors } = useTheme();
   const s = useMemo(
     () =>
@@ -150,6 +160,9 @@ export function MyActivityTabs({ activeTab, onTabChange, items, loading }: MyAct
           </Pressable>
         ))}
       </View>
+      {activeTab === "my" && myPostsContent ? (
+        myPostsContent
+      ) : (
       <View style={s.card}>
         {loading ? (
           <ActivityIndicator size="small" color={colors.primary} style={s.loader} />
@@ -163,9 +176,10 @@ export function MyActivityTabs({ activeTab, onTabChange, items, loading }: MyAct
           </View>
         ) : (
           items.map((item, index) => (
-            <View
+            <Pressable
               key={item.postId}
-              style={[s.item, index === items.length - 1 && s.itemLast]}
+              style={({ pressed }) => [s.item, index === items.length - 1 && s.itemLast, pressed && { opacity: 0.9 }]}
+              onPress={() => onActivityItemPress?.(item.postId)}
             >
               <View style={s.itemAccent} />
               <View style={s.itemContent}>
@@ -180,10 +194,11 @@ export function MyActivityTabs({ activeTab, onTabChange, items, loading }: MyAct
                   </View>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </View>
+      )}
     </View>
   );
 }

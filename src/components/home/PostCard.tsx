@@ -1,5 +1,14 @@
-import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, Image, Animated, Easing } from "react-native";
+import React, { useMemo, useRef, useCallback, useEffect, useState, memo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  Animated,
+  Easing,
+  Share
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getImageUrl } from "../../api/client";
 import { PostMedia } from "./PostMedia";
@@ -16,29 +25,43 @@ export type PostCardData = {
   imageUri?: string | null;
   likeCount: number;
   commentCount: number;
-  /** True if the current user has liked this post (double-tap only adds like, never removes) */
   likedByMe?: boolean;
+  savedByMe?: boolean;
+  isTrending?: boolean;
+  engagementScore?: number;
 };
 
 const DOUBLE_TAP_DELAY_MS = 400;
-
-type PostCardProps = {
-  post: PostCardData;
-  onPress?: () => void;
-  onViewDetails?: () => void;
-  /** Called when user double-taps the card (e.g. to like) */
-  onDoubleTap?: () => void;
-};
-
 const HEART_SIZE = 88;
 const GLOW_SIZE = 120;
 const HEART_COLOR = "#E91E63";
 const GLOW_COLOR = "rgba(233, 30, 99, 0.45)";
 
-export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCardProps) {
+type PostCardProps = {
+  post: PostCardData;
+  onPress?: () => void;
+  onViewDetails?: () => void;
+  onDoubleTap?: () => void;
+  onLikePress?: () => void;
+  onCommentPress?: () => void;
+  onSavePress?: () => void;
+  onSharePress?: () => void;
+};
+
+function PostCardInner({
+  post,
+  onPress,
+  onViewDetails,
+  onDoubleTap,
+  onLikePress,
+  onCommentPress,
+  onSavePress,
+  onSharePress
+}: PostCardProps) {
   const { colors, mode } = useTheme();
   const lastTapTime = useRef(0);
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const likeScale = useRef(new Animated.Value(1)).current;
   const [heartVisible, setHeartVisible] = useState(false);
   const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -52,10 +75,6 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
     glowScale.setValue(0);
     glowOpacity.setValue(0.6);
     setHeartVisible(true);
-
-    const popDuration = 380;
-    const fadeStartDelay = 220;
-    const fadeDuration = 480;
 
     Animated.parallel([
       Animated.spring(heartScale, {
@@ -77,10 +96,10 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
         useNativeDriver: true
       }),
       Animated.sequence([
-        Animated.delay(fadeStartDelay),
+        Animated.delay(220),
         Animated.timing(heartOpacity, {
           toValue: 0,
-          duration: fadeDuration,
+          duration: 480,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true
         })
@@ -89,6 +108,14 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
       if (finished) setHeartVisible(false);
     });
   }, [heartScale, heartOpacity, glowScale, glowOpacity]);
+
+  const bumpLikeIcon = useCallback(() => {
+    likeScale.setValue(1);
+    Animated.sequence([
+      Animated.spring(likeScale, { toValue: 1.35, friction: 4, useNativeDriver: true }),
+      Animated.spring(likeScale, { toValue: 1, friction: 5, useNativeDriver: true })
+    ]).start();
+  }, [likeScale]);
 
   const handlePress = useCallback(
     (ev: { nativeEvent: { locationX: number; locationY: number } }) => {
@@ -101,11 +128,12 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
           singleTapTimer.current = null;
         }
         lastTapTime.current = 0;
-        if (post.likedByMe) return;
-        const overlaySize = GLOW_SIZE * 1.2;
-        setHeartPosition({ x: x - overlaySize / 2, y: y - overlaySize / 2 });
-        runHeartAnimation();
-        onDoubleTap();
+        if (!post.likedByMe) {
+          const overlaySize = GLOW_SIZE * 1.2;
+          setHeartPosition({ x: x - overlaySize / 2, y: y - overlaySize / 2 });
+          runHeartAnimation();
+          onDoubleTap();
+        }
         return;
       }
       lastTapTime.current = now;
@@ -121,13 +149,28 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
     if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
   }, []);
 
+  const handleLike = useCallback(() => {
+    bumpLikeIcon();
+    onLikePress?.();
+  }, [bumpLikeIcon, onLikePress]);
+
+  const handleShare = useCallback(async () => {
+    onSharePress?.();
+    try {
+      await Share.share({
+        message: `${post.title}\n\n— ${post.userName} on Digital House`
+      });
+    } catch {
+      // cancelled
+    }
+  }, [onSharePress, post.title, post.userName]);
+
   const s = useMemo(
     () =>
       StyleSheet.create({
         card: {
           backgroundColor: colors.surface,
           borderRadius: 16,
-          padding: 18,
           marginBottom: 14,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
@@ -140,7 +183,9 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
         header: {
           flexDirection: "row",
           alignItems: "center",
-          marginBottom: 14
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          marginBottom: 12
         },
         avatarWrap: {
           width: 44,
@@ -153,37 +198,22 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
           overflow: "hidden"
         },
         avatarImg: { width: 44, height: 44, borderRadius: 22 },
-        avatarText: {
-          fontSize: 18,
-          fontWeight: "700",
-          color: colors.primary
-        },
+        avatarText: { fontSize: 18, fontWeight: "700", color: colors.primary },
         headerText: { flex: 1, minWidth: 0 },
-        nameRow: {
+        userName: { fontSize: 16, fontWeight: "600", color: colors.text, marginBottom: 2 },
+        meta: { fontSize: 12, color: colors.textSecondary },
+        trending: {
           flexDirection: "row",
           alignItems: "center",
-          gap: 6,
-          marginBottom: 2
+          gap: 4,
+          backgroundColor: mode === "dark" ? "#3D2A10" : "#FFF7ED",
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 12
         },
-        userName: {
-          fontSize: 16,
-          fontWeight: "600",
-          color: colors.text,
-          flex: 1
-        },
-        verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 2 },
-        verifiedText: {
-          fontSize: 11,
-          fontWeight: "600",
-          color: colors.success
-        },
-        meta: { fontSize: 12, color: colors.textSecondary },
-        title: {
-          fontSize: 17,
-          fontWeight: "600",
-          color: colors.text,
-          marginBottom: 8
-        },
+        trendingText: { fontSize: 11, fontWeight: "700", color: "#EA580C" },
+        body: { paddingHorizontal: 16 },
+        title: { fontSize: 17, fontWeight: "600", color: colors.text, marginBottom: 8 },
         description: {
           fontSize: 14,
           color: colors.textSecondary,
@@ -191,36 +221,41 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
           marginBottom: 14
         },
         bannerWrap: {
+          marginHorizontal: 16,
           borderRadius: 12,
           overflow: "hidden",
-          marginBottom: 14,
+          marginBottom: 12,
           backgroundColor: colors.border
         },
-        banner: { width: "100%", height: "100%" },
-        footerDivider: {
-          height: 1,
-          backgroundColor: colors.border,
-          marginBottom: 12
-        },
-        footer: {
+        actionBar: {
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between"
+          justifyContent: "space-between",
+          paddingHorizontal: 8,
+          paddingVertical: 8,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border
         },
-        footerLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
-        footerCount: { fontSize: 13, color: colors.textSecondary },
-        footerSpacer: { width: 16 },
+        actionGroup: { flexDirection: "row", alignItems: "center" },
+        actionBtn: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          borderRadius: 10
+        },
+        actionBtnPressed: { opacity: 0.65 },
+        actionCount: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        actionCountActive: { color: HEART_COLOR },
         viewDetailsBtn: {
           flexDirection: "row",
           alignItems: "center",
-          gap: 4
+          gap: 4,
+          paddingHorizontal: 12,
+          paddingVertical: 10
         },
-        viewDetailsBtnPressed: { opacity: 0.8 },
-        viewDetailsText: {
-          fontSize: 14,
-          fontWeight: "600",
-          color: colors.primary
-        },
+        viewDetailsText: { fontSize: 13, fontWeight: "600", color: colors.primary },
         heartOverlay: {
           position: "absolute",
           width: GLOW_SIZE * 1.2,
@@ -239,15 +274,7 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
           borderRadius: GLOW_SIZE / 2,
           backgroundColor: GLOW_COLOR
         },
-        heartIconWrap: {
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: HEART_COLOR,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.5,
-          shadowRadius: 12,
-          elevation: 8
-        }
+        heartIconWrap: { alignItems: "center", justifyContent: "center" }
       }),
     [colors, mode]
   );
@@ -255,37 +282,23 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
   const initial = post.userName.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <Pressable
-      style={({ pressed }) => [s.card, pressed && s.cardPressed]}
-      onPress={handlePress}
-    >
+    <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={handlePress}>
       {heartVisible && (
         <View
           style={[s.heartOverlay, { left: heartPosition.x, top: heartPosition.y }]}
           pointerEvents="none"
         >
           <Animated.View
-            style={[
-              s.heartGlow,
-              {
-                transform: [{ scale: glowScale }],
-                opacity: glowOpacity
-              }
-            ]}
+            style={[s.heartGlow, { transform: [{ scale: glowScale }], opacity: glowOpacity }]}
           />
           <Animated.View
-            style={[
-              s.heartIconWrap,
-              {
-                transform: [{ scale: heartScale }],
-                opacity: heartOpacity
-              }
-            ]}
+            style={[s.heartIconWrap, { transform: [{ scale: heartScale }], opacity: heartOpacity }]}
           >
             <Ionicons name="heart" size={HEART_SIZE} color={HEART_COLOR} />
           </Animated.View>
         </View>
       )}
+
       <View style={s.header}>
         <View style={s.avatarWrap}>
           {getImageUrl(post.userAvatarUri) ? (
@@ -295,27 +308,29 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
           )}
         </View>
         <View style={s.headerText}>
-          <View style={s.nameRow}>
-            <Text style={s.userName} numberOfLines={1}>
-              {post.userName}
-            </Text>
-            <View style={s.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-              <Text style={s.verifiedText}>Verified</Text>
-            </View>
-          </View>
+          <Text style={s.userName} numberOfLines={1}>
+            {post.userName}
+          </Text>
           <Text style={s.meta}>
-            {post.timeAgo} • {post.postType}
+            {post.timeAgo} · {post.postType}
           </Text>
         </View>
+        {post.isTrending ? (
+          <View style={s.trending}>
+            <Ionicons name="flame" size={14} color="#EA580C" />
+            <Text style={s.trendingText}>Trending</Text>
+          </View>
+        ) : null}
       </View>
 
-      <Text style={s.title} numberOfLines={2}>
-        {post.title}
-      </Text>
-      <Text style={s.description} numberOfLines={4}>
-        {post.description}
-      </Text>
+      <View style={s.body}>
+        <Text style={s.title} numberOfLines={2}>
+          {post.title}
+        </Text>
+        <Text style={s.description} numberOfLines={4}>
+          {post.description}
+        </Text>
+      </View>
 
       {post.imageUri ? (
         <View style={s.bannerWrap}>
@@ -323,30 +338,78 @@ export function PostCard({ post, onPress, onViewDetails, onDoubleTap }: PostCard
         </View>
       ) : null}
 
-      <View style={s.footerDivider} />
-      <View style={s.footer}>
-        <View style={s.footerLeft}>
-          <Ionicons
-            name={post.likedByMe ? "heart" : "heart-outline"}
-            size={20}
-            color={post.likedByMe ? HEART_COLOR : colors.textSecondary}
-          />
-          <Text style={s.footerCount}>{post.likeCount}</Text>
-          <View style={s.footerSpacer} />
-          <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-          <Text style={s.footerCount}>{post.commentCount}</Text>
+      <View style={s.actionBar}>
+        <View style={s.actionGroup}>
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleLike();
+            }}
+            hitSlop={8}
+          >
+            <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+              <Ionicons
+                name={post.likedByMe ? "heart" : "heart-outline"}
+                size={22}
+                color={post.likedByMe ? HEART_COLOR : colors.textSecondary}
+              />
+            </Animated.View>
+            <Text style={[s.actionCount, post.likedByMe && s.actionCountActive]}>{post.likeCount}</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onCommentPress?.();
+            }}
+            hitSlop={8}
+          >
+            <Ionicons name="chatbubble-outline" size={21} color={colors.textSecondary} />
+            <Text style={s.actionCount}>{post.commentCount}</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onSavePress?.();
+            }}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={post.savedByMe ? "bookmark" : "bookmark-outline"}
+              size={21}
+              color={post.savedByMe ? colors.primary : colors.textSecondary}
+            />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            onPress={(e) => {
+              e.stopPropagation();
+              void handleShare();
+            }}
+            hitSlop={8}
+          >
+            <Ionicons name="share-outline" size={21} color={colors.textSecondary} />
+          </Pressable>
         </View>
+
         <Pressable
-          style={({ pressed }) => [s.viewDetailsBtn, pressed && s.viewDetailsBtnPressed]}
+          style={({ pressed }) => [s.viewDetailsBtn, pressed && s.actionBtnPressed]}
           onPress={(e) => {
             e.stopPropagation();
             onViewDetails?.();
           }}
         >
-          <Text style={s.viewDetailsText}>View Details</Text>
-          <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          <Text style={s.viewDetailsText}>Details</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
         </Pressable>
       </View>
     </Pressable>
   );
 }
+
+export const PostCard = memo(PostCardInner);

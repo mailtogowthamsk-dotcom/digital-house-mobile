@@ -3,17 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   Pressable,
-  RefreshControl
+  RefreshControl,
+  ActivityIndicator
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useProfile } from "../../hooks/useProfile";
 import { useProfileActivity } from "../../hooks/useProfileActivity";
-import { clearToken } from "../../storage/token.storage";
-import { disconnectSocket } from "../../realtime/socket";
+import { useProfilePosts } from "../../hooks/useProfilePosts";
+import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -25,6 +26,7 @@ import {
   ProfessionalInfoSection,
   StatsCards,
   MyActivityTabs,
+  ProfilePostsSection,
   ActionButtons,
   ProfileSkeleton
 } from "../../components/profile";
@@ -32,22 +34,39 @@ import type { ActivityTab } from "../../components/profile";
 
 /**
  * Profile Screen – read-only by default; Edit opens separate screen.
- * Data from useProfile + useProfileActivity; no API calls in UI.
- * 401 → Login; 403 → Approval Pending.
+ * My Posts: paginated grid via GET /api/profile/posts; saved/liked use activity API.
  */
 export function ProfileScreen() {
+  const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const { profile, loading, error, refetch } = useProfile();
   const [activityTab, setActivityTab] = useState<ActivityTab>("my");
 
-  /** Refetch profile when screen is focused so we get a fresh signed image URL. */
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
-  const { items, loading: activityLoading, refetch: refetchActivity } = useProfileActivity(
-    activityTab,
-    !!profile
+  const {
+    items: posts,
+    loading: postsLoading,
+    loadingMore: postsLoadingMore,
+    error: postsError,
+    refetch: refetchPosts,
+    loadMore: loadMorePosts,
+    removePost
+  } = useProfilePosts(!!profile && activityTab === "my");
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+      if (activityTab === "my") refetchPosts();
+    }, [refetch, refetchPosts, activityTab])
   );
+
+  const {
+    items: activityItems,
+    loading: activityLoading,
+    refetch: refetchActivity
+  } = useProfileActivity(activityTab, !!profile && activityTab !== "my");
+
   const [refreshing, setRefreshing] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
@@ -56,7 +75,11 @@ export function ProfileScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         centered: { justifyContent: "center", alignItems: "center", paddingHorizontal: spacing.xxl },
-        scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.xxxl },
+        listContent: {
+          flexGrow: 1,
+          paddingHorizontal: spacing.xl,
+          paddingBottom: spacing.xxxl
+        },
         errorIconWrap: {
           width: 88,
           height: 88,
@@ -76,56 +99,139 @@ export function ProfileScreen() {
           borderRadius: radius.lg
         },
         pressed: { opacity: 0.9 },
-        retryBtnText: { ...typography.buttonSmall, color: colors.white }
+        retryBtnText: { ...typography.buttonSmall, color: colors.white },
+        footerLoader: { paddingVertical: spacing.lg }
       }),
     [colors]
   );
 
-  /** 401 → clear token, go to Login; 403 → Approval Pending */
   useEffect(() => {
     if (!error) return;
     const status = error.status;
     if (status === 401) {
-      disconnectSocket();
-      clearToken().then(() => {
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+      signOut().then(() => {
+        navigation.reset({ index: 0, routes: [{ name: "Landing" }] });
       });
       return;
     }
     if (status === 403) {
       navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
     }
-  }, [error, navigation]);
+  }, [error, navigation, signOut]);
 
   useEffect(() => {
-    if (profile) refetchActivity();
+    if (profile && activityTab !== "my") refetchActivity();
   }, [activityTab, profile, refetchActivity]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
-    refetchActivity();
+    if (activityTab === "my") await refetchPosts();
+    else refetchActivity();
     setRefreshing(false);
-  }, [refetch, refetchActivity]);
+  }, [refetch, activityTab, refetchPosts, refetchActivity]);
 
-  const onLogoutPress = useCallback(() => {
-    setLogoutDialogVisible(true);
-  }, []);
+  const onPostPress = useCallback(
+    (postId: number) => {
+      navigation.navigate("PostDetail", { postId });
+    },
+    [navigation]
+  );
 
+  const onLogoutPress = useCallback(() => setLogoutDialogVisible(true), []);
   const onLogoutConfirm = useCallback(async () => {
     setLogoutDialogVisible(false);
-    disconnectSocket();
-    await clearToken();
+    await signOut();
     navigation.reset({ index: 0, routes: [{ name: "Landing" }] });
-  }, [navigation]);
+  }, [navigation, signOut]);
+  const onLogoutCancel = useCallback(() => setLogoutDialogVisible(false), []);
+  const onEditPress = useCallback(() => navigation.navigate("EditProfile"), [navigation]);
 
-  const onLogoutCancel = useCallback(() => {
-    setLogoutDialogVisible(false);
-  }, []);
+  const listHeader = useMemo(() => {
+    if (!profile) return null;
+    return (
+      <>
+        <ProfileHeader
+          name={profile.name}
+          profile_image={profile.profile_image}
+          verified={profile.verified}
+          member_since={profile.member_since}
+          completion_percentage={profile.completion_percentage}
+        />
+        <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
+        <ProfessionalInfoSection professional={profile.professional_info} />
+        <StatsCards stats={profile.stats} />
+        <MyActivityTabs
+          activeTab={activityTab}
+          onTabChange={setActivityTab}
+          items={activityItems}
+          loading={activityLoading}
+          onActivityItemPress={onPostPress}
+          myPostsContent={
+            activityTab === "my" ? (
+              <ProfilePostsSection
+                items={posts}
+                loading={postsLoading}
+                loadingMore={postsLoadingMore}
+                error={postsError}
+                onRetry={refetchPosts}
+                onPostPress={onPostPress}
+                onDeleted={removePost}
+              />
+            ) : undefined
+          }
+        />
+      </>
+    );
+  }, [
+    profile,
+    activityTab,
+    activityItems,
+    activityLoading,
+    posts,
+    postsLoading,
+    postsLoadingMore,
+    postsError,
+    refetchPosts,
+    onPostPress,
+    removePost
+  ]);
 
-  const onEditPress = useCallback(() => {
-    navigation.navigate("EditProfile");
-  }, [navigation]);
+  const listFooter = useMemo(
+    () => (
+      <>
+        {activityTab === "my" && postsLoadingMore ? (
+          <ActivityIndicator size="small" color={colors.primary} style={s.footerLoader} />
+        ) : null}
+        <ActionButtons
+          onEditPress={onEditPress}
+          onDownloadPress={() => {}}
+          onLogoutPress={onLogoutPress}
+        />
+        <ConfirmDialog
+          visible={logoutDialogVisible}
+          title={messages.confirm.logoutTitle}
+          message={messages.confirm.logoutMessage}
+          confirmLabel={messages.confirm.logoutConfirm}
+          cancelLabel={messages.confirm.logoutCancel}
+          onConfirm={onLogoutConfirm}
+          onCancel={onLogoutCancel}
+          variant="destructive"
+        />
+      </>
+    ),
+    [
+      activityTab,
+      postsLoadingMore,
+      colors.primary,
+      s.footerLoader,
+      onEditPress,
+      onLogoutPress,
+      logoutDialogVisible,
+      onLogoutConfirm,
+      onLogoutCancel
+    ]
+  );
 
   if (loading && !profile) {
     return (
@@ -155,48 +261,23 @@ export function ProfileScreen() {
   if (!profile) return null;
 
   return (
-    <ScrollView
+    <FlatList
       style={s.container}
-      contentContainerStyle={[
-        s.scrollContent,
-        { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xxl }
-      ]}
+      data={[]}
+      renderItem={() => null}
+      ListHeaderComponent={
+        <View style={{ paddingTop: insets.top + spacing.lg }}>{listHeader}</View>
+      }
+      ListFooterComponent={
+        <View style={{ paddingBottom: insets.bottom + spacing.xxl }}>{listFooter}</View>
+      }
+      contentContainerStyle={s.listContent}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
+      onEndReached={activityTab === "my" ? loadMorePosts : undefined}
+      onEndReachedThreshold={0.35}
       showsVerticalScrollIndicator={false}
-    >
-      <ProfileHeader
-        name={profile.name}
-        profile_image={profile.profile_image}
-        verified={profile.verified}
-        member_since={profile.member_since}
-        completion_percentage={profile.completion_percentage}
-      />
-      <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
-      <ProfessionalInfoSection professional={profile.professional_info} />
-      <StatsCards stats={profile.stats} />
-      <MyActivityTabs
-        activeTab={activityTab}
-        onTabChange={setActivityTab}
-        items={items}
-        loading={activityLoading}
-      />
-      <ActionButtons
-        onEditPress={onEditPress}
-        onDownloadPress={() => {}}
-        onLogoutPress={onLogoutPress}
-      />
-      <ConfirmDialog
-        visible={logoutDialogVisible}
-        title={messages.confirm.logoutTitle}
-        message={messages.confirm.logoutMessage}
-        confirmLabel={messages.confirm.logoutConfirm}
-        cancelLabel={messages.confirm.logoutCancel}
-        onConfirm={onLogoutConfirm}
-        onCancel={onLogoutCancel}
-        variant="destructive"
-      />
-    </ScrollView>
+    />
   );
 }

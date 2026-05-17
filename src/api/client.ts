@@ -1,7 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { getToken } from "../storage/token.storage";
-import { clearToken } from "../storage/token.storage";
-import { disconnectSocket } from "../realtime/socket";
+import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
 
 const PRODUCTION_API = "https://infosensetechnologies.com/digitalhouse/backend/api";
 
@@ -67,10 +66,9 @@ api.interceptors.response.use(
   (res) => res,
   async (err: AxiosError) => {
     const status = err.response?.status;
-    if (status === 401) {
+    if (status === 401 && shouldAutoClearOn401()) {
       try {
-        disconnectSocket();
-        await clearToken();
+        await invokeAuthSignOut();
       } catch {
         // Avoid crash on Android
       }

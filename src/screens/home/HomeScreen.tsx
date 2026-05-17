@@ -13,24 +13,29 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   Header,
-  WelcomeCard,
+  DismissibleWelcomeCard,
   PostCard,
   BottomTabBar,
   HighlightSection,
   WelcomeCardSkeleton,
-  SkeletonCard
+  FeedPostSkeleton,
+  hasHighlightsData
 } from "../../components/home";
+import { CommentSheet } from "../../components/feed/CommentSheet";
 import { useTheme } from "../../theme/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import { useHome } from "../../hooks/useHome";
+import { useFeedInteractions } from "../../hooks/useFeedInteractions";
+import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { getErrorStatus } from "../../api/client";
-import { likePost } from "../../api/posts.api";
 import { messages } from "../../theme/messages";
+import { trackFeedAction } from "../../utils/feedAnalytics";
+import { openMessagesInbox } from "../../navigation/openMessages";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
-const SECTION_TITLE_MARGIN = 12;
 
 /**
  * Home Screen – community feed, welcome card, quick actions, highlights, bottom tabs.
@@ -39,20 +44,35 @@ const SECTION_TITLE_MARGIN = 12;
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { signOut } = useAuth();
   const { colors } = useTheme();
   const {
     state,
     refetchAll,
     loadMoreFeed,
-    updatePostLike,
+    updatePost,
     retrySummary,
     retryFeed,
     retryHighlights
   } = useHome();
 
+  const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
+
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [refreshing, setRefreshing] = useState(false);
+  const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
+  const commentPostIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList>(null);
+
+  commentPostIdRef.current = commentPost?.id ?? null;
+
+  const handleCommentCountChange = useCallback(
+    (count: number) => {
+      const id = commentPostIdRef.current;
+      if (id) updatePost(id, { commentCount: count });
+    },
+    [updatePost]
+  );
 
   const {
     summary,
@@ -68,17 +88,17 @@ export function HomeScreen() {
     highlightsError
   } = state;
 
-  /** 401 → clear token and go to Login; 403 → Approval Pending */
+  /** 401 → sign out (app returns to Landing); 403 → Approval Pending */
   const handleAuthError = useCallback(
     (err: unknown) => {
       const status = getErrorStatus(err);
       if (status === 401) {
-        navigation.replace("Login");
+        signOut().catch(() => {});
       } else if (status === 403) {
         navigation.replace("PendingApproval");
       }
     },
-    [navigation]
+    [navigation, signOut]
   );
 
   useFocusEffect(
@@ -110,7 +130,7 @@ export function HomeScreen() {
       navigation.navigate("Profile");
     }
     if (tab === "messages") {
-      navigation.navigate("Messages");
+      openMessagesInbox(navigation);
     }
   };
 
@@ -126,27 +146,39 @@ export function HomeScreen() {
     setRefreshing(false);
   }, [refetchAll]);
 
+  const realtimeHandlers = useMemo(
+    () => ({
+      onLike: (p: { postId: number; likeCount: number }) => {
+        updatePost(String(p.postId), { likeCount: p.likeCount });
+      },
+      onComment: (p: { postId: number; commentCount: number }) => {
+        updatePost(String(p.postId), { commentCount: p.commentCount });
+      }
+    }),
+    [updatePost]
+  );
+  useFeedRealtime(realtimeHandlers);
+
   const renderFeedItem = useCallback(
     ({ item }: { item: PostCardData }) => (
       <PostCard
         post={item}
-        onPress={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
-        onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
-        onDoubleTap={() => {
-          if (item.likedByMe) return;
-          likePost(Number(item.id)).then((res) => {
-            if (res.liked) {
-              updatePostLike(item.id, res.like_count, true);
-            } else {
-              likePost(Number(item.id)).then((r) =>
-                updatePostLike(item.id, r.like_count, true)
-              );
-            }
-          }).catch(() => {});
+        onPress={() => {
+          trackFeedAction("post_open", Number(item.id));
+          navigation.navigate("PostDetail", { postId: Number(item.id) });
         }}
+        onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
+        onDoubleTap={() => addLike(item.id, item)}
+        onLikePress={() => toggleLike(item.id, item)}
+        onCommentPress={() => {
+          trackFeedAction("comment_sheet_open", Number(item.id));
+          setCommentPost(item);
+        }}
+        onSavePress={() => toggleSave(item.id, item)}
+        onSharePress={() => trackFeedAction("share", Number(item.id))}
       />
     ),
-    [navigation, updatePostLike]
+    [navigation, addLike, toggleLike, toggleSave]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -158,17 +190,6 @@ export function HomeScreen() {
         headerWrap: { backgroundColor: colors.surface },
         listContent: { paddingHorizontal: PADDING, paddingTop: PADDING + 4 },
         section: { marginBottom: SECTION_MARGIN },
-        sectionTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
-        sectionTitleGap: { height: SECTION_TITLE_MARGIN },
-        feedHeader: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: SECTION_TITLE_MARGIN
-        },
-        feedTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
-        feedMoreBtn: { flexDirection: "row", alignItems: "center", gap: 2 },
-        feedMoreText: { fontSize: 14, fontWeight: "600", color: colors.primary },
         feedSkeleton: { marginBottom: 14 },
         feedSkeletonCard: { borderRadius: 16, marginBottom: 14 },
         footerLoader: { paddingVertical: 16, alignItems: "center" },
@@ -241,43 +262,35 @@ export function HomeScreen() {
   const ListHeaderComponent = useCallback(
     () => (
       <>
-        {/* Welcome card – skeleton or content */}
-        <View style={s.section}>
-          {summaryLoading && !summary ? (
+        {/* Welcome card – skeleton or content; dismissible card owns margin to avoid empty gap */}
+        {summaryLoading && !summary ? (
+          <View style={s.section}>
             <WelcomeCardSkeleton />
-          ) : summaryError ? (
+          </View>
+        ) : summaryError ? (
+          <View style={s.section}>
             <View style={s.errorCard}>
               <Text style={s.errorText}>Could not load your info</Text>
               <Pressable style={s.retryBtn} onPress={retrySummary}>
                 <Text style={s.retryBtnText}>Retry</Text>
               </Pressable>
             </View>
-          ) : summary ? (
-            <WelcomeCard
-              userName={summary.user.name}
-              avatarUri={summary.user.profileImage}
-            />
-          ) : null}
-        </View>
+          </View>
+        ) : summary ? (
+          <DismissibleWelcomeCard
+            userName={summary.user.name}
+            avatarUri={summary.user.profileImage}
+          />
+        ) : null}
 
-        {/* Highlights */}
-        <View style={s.section}>
+        {hasHighlightsData(highlights) ? (
           <HighlightSection
             highlights={highlights}
             loading={highlightsLoading}
             error={highlightsError}
             onRetry={retryHighlights}
           />
-        </View>
-
-        {/* Feed section header */}
-        <View style={s.feedHeader}>
-          <Text style={s.feedTitle}>Community Feed</Text>
-          <Pressable style={s.feedMoreBtn} hitSlop={12} onPress={() => {}}>
-            <Text style={s.feedMoreText}>See all</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-          </Pressable>
-        </View>
+        ) : null}
       </>
     ),
     [
@@ -285,8 +298,6 @@ export function HomeScreen() {
       summaryLoading,
       summaryError,
       highlights,
-      highlightsLoading,
-      highlightsError,
       retrySummary,
       retryHighlights,
       s,
@@ -309,8 +320,8 @@ export function HomeScreen() {
     if (feedLoading) {
       return (
         <View style={s.feedSkeleton}>
-          <SkeletonCard height={180} style={s.feedSkeletonCard} />
-          <SkeletonCard height={180} style={s.feedSkeletonCard} />
+          <FeedPostSkeleton />
+          <FeedPostSkeleton />
         </View>
       );
     }
@@ -344,7 +355,7 @@ export function HomeScreen() {
           notificationCount={summary?.unreadNotificationsCount ?? 0}
           messageCount={summary?.unreadMessagesCount ?? 0}
           onNotificationPress={() => {}}
-          onMessagePress={() => navigation.navigate("Messages")}
+          onMessagePress={() => openMessagesInbox(navigation)}
           onMenuPress={onMenuPress}
         />
       </View>
@@ -360,6 +371,10 @@ export function HomeScreen() {
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={loadMoreFeed}
         onEndReachedThreshold={0.3}
+        removeClippedSubviews
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        initialNumToRender={6}
         contentContainerStyle={[
           s.listContent,
           { paddingBottom: insets.bottom + 100 }
@@ -369,6 +384,16 @@ export function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
+
+      {commentPost ? (
+        <CommentSheet
+          visible
+          postId={Number(commentPost.id)}
+          postTitle={commentPost.title}
+          onClose={() => setCommentPost(null)}
+          onCommentCountChange={handleCommentCountChange}
+        />
+      ) : null}
 
       {/* Fixed bottom tab bar */}
       <View style={s.tabBarWrap}>

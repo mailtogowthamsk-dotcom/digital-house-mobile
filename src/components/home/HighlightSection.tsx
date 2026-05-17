@@ -1,9 +1,16 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { messages } from "../../theme/messages";
 import { useTheme } from "../../theme/ThemeContext";
 import type { HighlightsResponse, HighlightItem } from "../../api/home.api";
+export function hasHighlightsData(highlights: HighlightsResponse | null | undefined): boolean {
+  if (!highlights) return false;
+  return (
+    (highlights.pinnedAnnouncements?.length ?? 0) > 0 ||
+    (highlights.upcomingMeetups?.length ?? 0) > 0 ||
+    (highlights.urgentHelpRequests?.length ?? 0) > 0
+  );
+}
 
 const CARD_RADIUS = 12;
 const CARD_PADDING = 14;
@@ -73,86 +80,17 @@ export function HighlightSection({
           color: colors.textSecondary,
           lineHeight: 18
         },
-        errorCard: {
-          backgroundColor: colors.surface,
-          borderRadius: CARD_RADIUS,
-          padding: 24,
-          alignItems: "center",
-          gap: 8
-        },
-        errorText: { fontSize: 14, color: colors.textSecondary },
-        retryBtn: {
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          backgroundColor: colors.primary,
-          borderRadius: 8
-        },
-        retryText: {
-          fontSize: 14,
-          fontWeight: "600",
-          color: colors.white
-        },
-        skeletonCard: {
-          height: 80,
-          backgroundColor: colors.border,
-          borderRadius: CARD_RADIUS,
-          marginBottom: 10
-        },
-        emptyCard: {
-          backgroundColor: colors.surface,
-          borderRadius: CARD_RADIUS,
-          padding: 24,
-          alignItems: "center",
-          gap: 8
-        },
-        emptyText: { fontSize: 14, color: colors.textSecondary }
       }),
     [colors]
   );
 
-  if (error) {
-    return (
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>Highlights</Text>
-        <View style={s.errorCard}>
-          <Ionicons name="alert-circle-outline" size={32} color={colors.textSecondary} />
-          <Text style={s.errorText}>Could not load highlights</Text>
-          {onRetry && (
-            <Pressable style={s.retryBtn} onPress={onRetry}>
-              <Text style={s.retryText}>Retry</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    );
+  if (loading || error || !hasHighlightsData(highlights)) {
+    return null;
   }
 
-  if (loading && !highlights) {
-    return (
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>Highlights</Text>
-        <View style={s.skeletonCard} />
-        <View style={s.skeletonCard} />
-      </View>
-    );
-  }
-
-  const hasPinned = highlights?.pinnedAnnouncements?.length;
-  const hasMeetups = highlights?.upcomingMeetups?.length;
-  const hasUrgent = highlights?.urgentHelpRequests?.length;
-  const hasAny = hasPinned || hasMeetups || hasUrgent;
-
-  if (!hasAny) {
-    return (
-      <View style={s.section}>
-        <Text style={s.sectionTitle}>Highlights</Text>
-        <View style={s.emptyCard}>
-          <Ionicons name="star-outline" size={28} color={colors.textSecondary} />
-          <Text style={s.emptyText}>{messages.empty.highlights}</Text>
-        </View>
-      </View>
-    );
-  }
+  const hasPinned = highlights!.pinnedAnnouncements?.length;
+  const hasMeetups = highlights!.upcomingMeetups?.length;
+  const hasUrgent = highlights!.urgentHelpRequests?.length;
 
   return (
     <View style={s.section}>

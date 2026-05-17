@@ -95,10 +95,25 @@ export function MessagesHubScreen() {
     setMeId(me.id);
   }, []);
 
+  const threadsLoadGenRef = useRef(0);
+
   const loadThreads = useCallback(async () => {
+    const gen = ++threadsLoadGenRef.current;
     setThreadsError(null);
-    const data = await listThreads();
-    setThreads(data);
+    setLoadingThreads(true);
+    try {
+      const data = await listThreads();
+      if (gen !== threadsLoadGenRef.current) return;
+      setThreads(data);
+    } catch (e: unknown) {
+      if (gen === threadsLoadGenRef.current) {
+        setThreadsError(e instanceof Error ? e.message : "Failed to load conversations");
+      }
+    } finally {
+      if (gen === threadsLoadGenRef.current) {
+        setLoadingThreads(false);
+      }
+    }
   }, []);
 
   const loadSearch = useCallback(async (q: string) => {
@@ -118,22 +133,26 @@ export function MessagesHubScreen() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        setLoadingThreads(true);
-        await Promise.all([loadMe(), loadThreads()]);
-      } catch (e: unknown) {
-        setThreadsError(e instanceof Error ? e.message : "Failed to load conversations");
-      } finally {
-        setLoadingThreads(false);
-      }
-    })();
-  }, [loadMe, loadThreads]);
+    loadMe().catch(() => {});
+  }, [loadMe]);
 
+  /** Reset list UI when returning from Chat (e.g. after "New chat") and refresh threads. */
   useFocusEffect(
     useCallback(() => {
-      loadThreads().catch(() => {});
-    }, [loadThreads])
+      setSearchMode(false);
+      setQuery("");
+      setResults([]);
+      setResultsError(null);
+      if (!layout.isSplit) {
+        setSelectedUser(null);
+        setSelectedThreadUserId(null);
+        setMessages([]);
+        setChatError(null);
+        setSendError(null);
+        setLoadingChat(false);
+      }
+      void loadThreads();
+    }, [loadThreads, layout.isSplit])
   );
 
   useEffect(() => {
@@ -149,6 +168,9 @@ export function MessagesHubScreen() {
   const openUser = useCallback(
     async (u: DirectoryUser) => {
       if (!layout.isSplit) {
+        setSearchMode(false);
+        setQuery("");
+        setResults([]);
         navigation.navigate("Chat", {
           otherUserId: u.id,
           name: u.fullName,
@@ -404,13 +426,25 @@ export function MessagesHubScreen() {
   }, [emitTyping, input, loadThreads, meId, selectedUser, sending]);
 
   const toggleSearch = useCallback(() => {
-    setSearchMode((v) => {
-      if (v) loadThreads().catch(() => {});
-      return !v;
+    setSearchMode((wasSearch) => {
+      const next = !wasSearch;
+      if (wasSearch) {
+        setQuery("");
+        setResults([]);
+        setResultsError(null);
+        void loadThreads();
+      } else {
+        setQuery("");
+        setResults([]);
+        if (layout.isSplit) {
+          setSelectedUser(null);
+          setSelectedThreadUserId(null);
+          setMessages([]);
+        }
+      }
+      return next;
     });
-    setQuery("");
-    setResults([]);
-  }, [loadThreads]);
+  }, [loadThreads, layout.isSplit]);
 
   const renderThread = useCallback(
     ({ item }: { item: Thread }) => {

@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import type { HeaderActionId } from "../../components/home/Header";
+import { openMessagesInbox } from "../../navigation/openMessages";
 
 type MenuRouteParams = { messageCount?: number };
 
@@ -131,7 +132,7 @@ export function MenuScreen() {
 
   const onActionPress = (actionId: HeaderActionId) => {
     if (actionId === "create") navigation.navigate("CreatePost");
-    if (actionId === "messages") navigation.navigate("Messages");
+    if (actionId === "messages") openMessagesInbox(navigation);
     if (actionId === "settings") navigation.navigate("Settings");
   };
 

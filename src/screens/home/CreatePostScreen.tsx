@@ -16,10 +16,11 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { createPost } from "../../api/posts.api";
-import { getUploadUrl } from "../../api/media.api";
+import { emitPostCreated } from "../../utils/postSync";
+import { postDetailToProfileItem } from "../../utils/postMappers";
 import type { MediaModule } from "../../api/media.api";
 import { getErrorStatus } from "../../api/client";
-import { uploadToR2, isAllowedImageType, validateImageSize } from "../../utils/mediaUpload";
+import { uploadOptimizedImage, isAllowedImageType, getMimeFromUri } from "../../utils/mediaUpload";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -49,12 +50,6 @@ function postTypeToModule(postType: string): MediaModule {
     HELP_REQUEST: "help"
   };
   return map[postType] ?? "posts";
-}
-
-function getMimeFromUri(uri: string): string {
-  const ext = uri.split(".").pop()?.toLowerCase();
-  if (ext === "png") return "image/png";
-  return "image/jpeg";
 }
 
 /**
@@ -92,12 +87,13 @@ export function CreatePostScreen() {
     setSaving(true);
     setError(null);
     try {
-      await createPost({
+      const created = await createPost({
         post_type: postType,
         title: t,
         description: description.trim() || null,
         media_url: mediaUrl.trim() || null
       });
+      emitPostCreated(postDetailToProfileItem(created));
       navigation.goBack();
     } catch (e) {
       const status = getErrorStatus(e);
@@ -126,29 +122,21 @@ export function CreatePostScreen() {
     // Use asset.mimeType when available (reliable on real device; content:// has no extension)
     const mime = (asset as any).mimeType || getMimeFromUri(uri);
     if (!isAllowedImageType(mime)) {
-      setError("Only jpg, jpeg, png allowed (≤ 5 MB)");
+      setError("Only JPEG, PNG, or WebP images are allowed");
       return;
     }
-    const fileSize = asset.fileSize ?? 0;
-    if (fileSize > 0) validateImageSize(fileSize);
-    // On Android content:// URIs have no filename; use timestamp for safe upload filename
-    const fileName = uri.includes("/") && !uri.startsWith("content://")
-      ? uri.split("/").pop() ?? "image.jpg"
-      : `image_${Date.now()}.${mime.includes("png") ? "png" : "jpg"}`;
     setError(null);
     setUploading(true);
     setUploadProgress(0);
     try {
-      const { uploadUrl: putUrl, publicUrl } = await getUploadUrl({
-        fileName,
-        fileType: mime,
-        fileSize: fileSize || 1024,
-        module: postTypeToModule(postType)
-      });
-      await uploadToR2(putUrl, uri, mime, (p) => setUploadProgress(p));
+      const { publicUrl, width, height } = await uploadOptimizedImage(
+        uri,
+        postTypeToModule(postType),
+        (p) => setUploadProgress(p)
+      );
       setMediaUrl(publicUrl);
       setMediaPreviewUri(uri);
-      Image.getSize(uri, (w, h) => setPreviewDimensions({ width: w, height: h }), () => setPreviewDimensions({ width: 1, height: 1 }));
+      setPreviewDimensions({ width, height });
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
@@ -239,7 +227,9 @@ export function CreatePostScreen() {
           disabled={uploading || saving}
         >
           <Ionicons name="image-outline" size={22} color={colors.primary} />
-          <Text style={s.mediaBtnText}>Pick image from gallery</Text>
+          <Text style={s.mediaBtnText}>
+            {uploading ? "Optimizing & uploading…" : "Pick image from gallery"}
+          </Text>
         </Pressable>
         {uploading && (
           <View style={s.progressWrap}>

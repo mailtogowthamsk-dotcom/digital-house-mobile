@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 
@@ -50,22 +49,10 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
           color: colors.text,
           marginBottom: 4
         },
-        welcomeRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 8
-        },
         welcome: {
           fontSize: 14,
           fontWeight: "500",
           color: colors.textSecondary
-        },
-        verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
-        verifiedText: {
-          fontSize: 12,
-          fontWeight: "600",
-          color: colors.success
         }
       }),
     [colors, mode]
@@ -87,15 +74,9 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
         <Text style={s.greeting} numberOfLines={1}>
           Hello, {displayName} 👋
         </Text>
-        <View style={s.welcomeRow}>
-          <Text style={s.welcome} numberOfLines={1}>
-            Welcome to Digital House
-          </Text>
-          <View style={s.verifiedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-            <Text style={s.verifiedText}>Verified</Text>
-          </View>
-        </View>
+        <Text style={s.welcome} numberOfLines={1}>
+          Welcome to Digital House
+        </Text>
       </View>
     </View>
   );

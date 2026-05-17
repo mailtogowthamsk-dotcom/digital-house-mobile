@@ -17,6 +17,21 @@ export type UploadUrlResponse = {
   mediaFileId: number;
 };
 
+export type MediaVariants = {
+  thumb: string;
+  medium: string;
+  full: string;
+};
+
+export type FinalizeMediaResponse = {
+  mediaFileId: number;
+  publicUrl: string;
+  variants: MediaVariants;
+  width: number;
+  height: number;
+  byteSize: number;
+};
+
 /**
  * POST /api/media/upload-url
  * Get pre-signed PUT URL and CDN public URL for direct upload to R2.
@@ -30,5 +45,23 @@ export async function getUploadUrl(payload: UploadUrlRequest): Promise<UploadUrl
     publicUrl: (data as any).publicUrl,
     key: (data as any).key,
     mediaFileId: (data as any).mediaFileId
+  };
+}
+
+/**
+ * POST /api/media/finalize – server optimizes uploaded image into WebP variants.
+ */
+export async function finalizeMedia(mediaFileId: number): Promise<FinalizeMediaResponse> {
+  const { data } = await api.post<{ ok: boolean } & FinalizeMediaResponse>("/media/finalize", {
+    mediaFileId
+  });
+  if (!data.ok) throw new Error("Failed to process image");
+  return {
+    mediaFileId: data.mediaFileId,
+    publicUrl: data.publicUrl,
+    variants: data.variants,
+    width: data.width,
+    height: data.height,
+    byteSize: data.byteSize
   };
 }

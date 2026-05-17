@@ -17,13 +17,11 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
-import { getProfile, putProfileSection, getHoroscopeUploadUrl, getProfilePhotoUploadUrl, updateProfile } from "../../api/profile.api";
-import { getUploadUrl as getMediaUploadUrl } from "../../api/media.api";
+import { getProfile, putProfileSection, getHoroscopeUploadUrl, updateProfile } from "../../api/profile.api";
 import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.api";
 import { getErrorStatus, getImageUrl } from "../../api/client";
-import { clearToken } from "../../storage/token.storage";
-import { disconnectSocket } from "../../realtime/socket";
-import { uploadToR2, isAllowedImageType, validateImageSize } from "../../utils/mediaUpload";
+import { useAuth } from "../../context/AuthContext";
+import { uploadOptimizedImage, uploadToR2, isAllowedImageType } from "../../utils/mediaUpload";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -204,6 +202,7 @@ function mapProfileToForm(profile: ProfileMeResponse) {
 export function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { signOut } = useAuth();
   const { colors } = useTheme();
   const [profile, setProfile] = useState<ProfileMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,9 +238,8 @@ export function EditProfileScreen() {
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) {
-        disconnectSocket();
-        await clearToken();
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        await signOut();
+        navigation.reset({ index: 0, routes: [{ name: "Landing" }] });
         return;
       }
       if (status === 403) {
@@ -406,9 +404,8 @@ export function EditProfileScreen() {
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) {
-        disconnectSocket();
-        await clearToken();
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        await signOut();
+        navigation.reset({ index: 0, routes: [{ name: "Landing" }] });
         return;
       }
       if (status === 403) {
@@ -452,15 +449,21 @@ export function EditProfileScreen() {
         Alert.alert("Error", "Could not get file size.");
         return;
       }
-      const fileType = "image/jpeg";
-      const fileName = `horoscope_${Date.now()}.jpg`;
+      const mime = asset.mimeType ?? "image/jpeg";
       setHoroscopeUploading(true);
-      const { uploadUrl, publicUrl } = await getHoroscopeUploadUrl({
-        fileName,
-        fileType: "image/jpeg",
-        fileSize
-      });
-      await uploadToR2(uploadUrl, uri, fileType);
+      let publicUrl: string;
+      if (mime.startsWith("image/") && isAllowedImageType(mime)) {
+        ({ publicUrl } = await uploadOptimizedImage(uri, "matrimony"));
+      } else {
+        const fileName = `horoscope_${Date.now()}.jpg`;
+        const { uploadUrl, publicUrl: url } = await getHoroscopeUploadUrl({
+          fileName,
+          fileType: "image/jpeg",
+          fileSize
+        });
+        await uploadToR2(uploadUrl, uri, "image/jpeg");
+        publicUrl = url;
+      }
       setMatrimony((m) => ({ ...m, horoscopeDocumentUrl: publicUrl }));
     } catch (e) {
       Alert.alert("Upload failed", (e as Error).message ?? "Could not upload horoscope.");
@@ -485,46 +488,13 @@ export function EditProfileScreen() {
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
       const uri = asset.uri;
-      const fileSize = asset.fileSize ?? 0;
-      if (fileSize <= 0) {
-        Alert.alert("Error", "Could not get file size.");
-        return;
-      }
       const mime = asset.mimeType ?? "image/jpeg";
-      const fileType = mime === "image/png" ? "image/png" : "image/jpeg";
-      if (!isAllowedImageType(fileType)) {
-        Alert.alert("Invalid format", "Profile photo must be JPEG or PNG.");
+      if (!isAllowedImageType(mime)) {
+        Alert.alert("Invalid format", "Profile photo must be JPEG, PNG, or WebP.");
         return;
       }
-      validateImageSize(fileSize);
-      const ext = fileType === "image/png" ? ".png" : ".jpg";
-      const fileName = `profile_${Date.now()}${ext}`;
       setProfilePhotoUploading(true);
-      let uploadUrl: string;
-      let publicUrl: string;
-      try {
-        const res = await getProfilePhotoUploadUrl({
-          fileName,
-          fileType,
-          fileSize
-        });
-        uploadUrl = res.uploadUrl;
-        publicUrl = res.publicUrl;
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          const res = await getMediaUploadUrl({
-            fileName,
-            fileType,
-            fileSize,
-            module: "profile"
-          });
-          uploadUrl = res.uploadUrl;
-          publicUrl = res.publicUrl;
-        } else {
-          throw err;
-        }
-      }
-      await uploadToR2(uploadUrl, uri, fileType);
+      const { publicUrl } = await uploadOptimizedImage(uri, "profile");
       const updated = await updateProfile({ profile_image: publicUrl });
       setProfile(updated);
       if (initialFormRef.current) {
