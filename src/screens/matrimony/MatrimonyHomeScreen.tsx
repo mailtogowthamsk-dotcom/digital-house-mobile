@@ -164,16 +164,35 @@ export function MatrimonyHomeScreen() {
           <>
             <View style={[s.banner, { backgroundColor: "#DCFCE7", borderLeftColor: "#16A34A" }]}>
               <Text style={[s.bannerText, { color: "#14532D" }]}>
-                Your matrimony profile is approved. Browse matches will be available in the next update (Phase 2).
+                Your matrimony profile is approved. Browse verified candidates and send interest safely.
               </Text>
             </View>
             <View style={s.card}>
               <Text style={s.cardTitle}>You are live</Text>
               <Text style={s.muted}>
-                Other approved members will see your profile in matrimony browse once matching is enabled.
+                Discovery shows bride/groom profiles only. Mutual match unlocks chat, horoscope, and contact.
               </Text>
             </View>
-            <PrimaryButton title="Update matrimony details" onPress={goSetup} variant="outline" />
+            {hub.can_browse && (
+              <>
+                <PrimaryButton
+                  title="Browse matrimony profiles"
+                  onPress={() => navigation.navigate("MatrimonyBrowse")}
+                />
+                <PrimaryButton
+                  title="Interests & matches"
+                  onPress={() => navigation.navigate("MatrimonyInterests")}
+                  variant="outline"
+                  style={{ marginTop: spacing.sm }}
+                />
+              </>
+            )}
+            <PrimaryButton
+              title="Update matrimony details"
+              onPress={goSetup}
+              variant="outline"
+              style={{ marginTop: spacing.sm }}
+            />
           </>
         )}
 

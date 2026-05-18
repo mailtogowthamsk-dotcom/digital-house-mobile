@@ -513,6 +513,26 @@ export function MatrimonySetupScreen() {
                   }
                 }}
               />
+              {form.lookingFor && form.lookingFor !== "SELF" && (
+                <>
+                  <Text style={s.label}>Bride/groom name *</Text>
+                  <Input
+                    value={form.candidateName ?? ""}
+                    onChangeText={(t) => patch({ candidateName: t || null })}
+                    placeholder="Candidate full name"
+                  />
+                  <Text style={s.label}>Bride/groom age *</Text>
+                  <Input
+                    value={form.candidateAge != null ? String(form.candidateAge) : ""}
+                    onChangeText={(t) => {
+                      const n = parseInt(t, 10);
+                      patch({ candidateAge: Number.isNaN(n) ? null : n });
+                    }}
+                    placeholder="Age"
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
               <BrideGroomPhotosSection
                 form={form}
                 accountProfilePhoto={accountProfilePhoto}

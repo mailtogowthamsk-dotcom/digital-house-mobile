@@ -24,6 +24,10 @@ import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
 import { ChatScreen } from "./src/screens/messages/ChatScreen";
 import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen";
 import { MatrimonySetupScreen } from "./src/screens/matrimony/MatrimonySetupScreen";
+import { MatrimonyBrowseScreen } from "./src/screens/matrimony/MatrimonyBrowseScreen";
+import { MatrimonyCandidateScreen } from "./src/screens/matrimony/MatrimonyCandidateScreen";
+import { MatrimonyInterestsScreen } from "./src/screens/matrimony/MatrimonyInterestsScreen";
+import { MatrimonyMatchesScreen } from "./src/screens/matrimony/MatrimonyMatchesScreen";
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -43,6 +47,10 @@ export type RootStackParamList = {
   Chat: { otherUserId: number; name: string; profileImage?: string | null };
   MatrimonyHome: undefined;
   MatrimonySetup: undefined;
+  MatrimonyBrowse: undefined;
+  MatrimonyCandidate: { userId: number; interestId?: number };
+  MatrimonyInterests: undefined;
+  MatrimonyMatches: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -104,6 +112,10 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ title: "Matrimony" }} />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
+        <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonyCandidate" component={MatrimonyCandidateScreen} options={{ title: "Profile" }} />
+        <Stack.Screen name="MatrimonyInterests" component={MatrimonyInterestsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonyMatches" component={MatrimonyMatchesScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </>
   );
