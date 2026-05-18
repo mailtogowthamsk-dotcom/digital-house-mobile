@@ -22,6 +22,8 @@ import { MenuScreen } from "./src/screens/home/MenuScreen";
 import { SettingsScreen } from "./src/screens/home/SettingsScreen";
 import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
 import { ChatScreen } from "./src/screens/messages/ChatScreen";
+import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen";
+import { MatrimonySetupScreen } from "./src/screens/matrimony/MatrimonySetupScreen";
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -39,6 +41,8 @@ export type RootStackParamList = {
   Settings: undefined;
   Messages: undefined;
   Chat: { otherUserId: number; name: string; profileImage?: string | null };
+  MatrimonyHome: undefined;
+  MatrimonySetup: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -98,6 +102,8 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen name="Messages" component={MessagesHubScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ title: "Matrimony" }} />
+        <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
       </Stack.Navigator>
     </>
   );

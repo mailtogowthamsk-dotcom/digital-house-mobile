@@ -93,9 +93,11 @@ export const MARITAL_STATUS_OPTIONS: { label: string; value: string }[] = [
 ];
 
 export const LOOKING_FOR_OPTIONS: { label: string; value: string }[] = [
-  { label: "Self", value: "SELF" },
+  { label: "Myself", value: "SELF" },
   { label: "Son", value: "SON" },
-  { label: "Daughter", value: "DAUGHTER" }
+  { label: "Daughter", value: "DAUGHTER" },
+  { label: "Brother", value: "BROTHER" },
+  { label: "Sister", value: "SISTER" }
 ];
 
 export const RASHI_OPTIONS: { label: string; value: string }[] = [

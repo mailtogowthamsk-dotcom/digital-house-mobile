@@ -134,6 +134,7 @@ export function MenuScreen() {
     if (actionId === "create") navigation.navigate("CreatePost");
     if (actionId === "messages") openMessagesInbox(navigation);
     if (actionId === "settings") navigation.navigate("Settings");
+    if (actionId === "matrimony") navigation.navigate("MatrimonyHome");
   };
 
   return (

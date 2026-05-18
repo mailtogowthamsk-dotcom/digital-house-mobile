@@ -17,11 +17,13 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
-import { getProfile, putProfileSection, getHoroscopeUploadUrl, updateProfile } from "../../api/profile.api";
+import { getProfile, putProfileSection, updateProfile } from "../../api/profile.api";
+import { getMatrimonyHub, type MatrimonyHub } from "../../api/matrimony.api";
 import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.api";
 import { getErrorStatus, getImageUrl } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
-import { uploadOptimizedImage, uploadToR2, isAllowedImageType } from "../../utils/mediaUpload";
+import { uploadOptimizedImage, isAllowedImageType } from "../../utils/mediaUpload";
+import { MatrimonyEditProfileCard } from "../../components/matrimony/MatrimonyEditProfileCard";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -41,12 +43,6 @@ import {
   GENDER_OPTIONS,
   ROLE_OPTIONS,
   MARITAL_STATUS_OPTIONS,
-  LOOKING_FOR_OPTIONS,
-  RASHI_OPTIONS,
-  NAKSHATRAM_OPTIONS,
-  DOSHAM_OPTIONS,
-  FAMILY_TYPE_OPTIONS,
-  FAMILY_STATUS_OPTIONS,
   BUSINESS_TYPE_OPTIONS
 } from "../../types/profile.types";
 
@@ -209,13 +205,13 @@ export function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDobPicker, setShowDobPicker] = useState(false);
-  const [horoscopeUploading, setHoroscopeUploading] = useState(false);
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+  const [matrimonyHub, setMatrimonyHub] = useState<MatrimonyHub | null>(null);
+  const [matrimonyHubLoading, setMatrimonyHubLoading] = useState(true);
 
   const [basic, setBasic] = useState<BasicSectionForm>(emptyBasic());
   const [community, setCommunity] = useState<CommunitySectionForm>(emptyCommunity());
   const [personal, setPersonal] = useState<PersonalSectionForm>(emptyPersonal());
-  const [matrimony, setMatrimony] = useState<MatrimonySectionForm>(emptyMatrimony());
   const [business, setBusiness] = useState<BusinessSectionForm>(emptyBusiness());
   const [family, setFamily] = useState<FamilySectionForm>(emptyFamily());
 
@@ -223,16 +219,20 @@ export function EditProfileScreen() {
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
+    setMatrimonyHubLoading(true);
     setError(null);
     try {
-      const data = await getProfile();
+      const [data, hub] = await Promise.all([
+        getProfile(),
+        getMatrimonyHub().catch(() => null)
+      ]);
       setProfile(data);
+      setMatrimonyHub(hub);
       const form = mapProfileToForm(data);
       initialFormRef.current = form;
       setBasic(form.basic);
       setCommunity(form.community);
       setPersonal(form.personal);
-      setMatrimony(form.matrimony);
       setBusiness(form.business);
       setFamily(form.family);
     } catch (e) {
@@ -249,6 +249,7 @@ export function EditProfileScreen() {
       setError((e as any)?.response?.data?.message ?? "Failed to load profile");
     } finally {
       setLoading(false);
+      setMatrimonyHubLoading(false);
     }
   }, [navigation]);
 
@@ -271,7 +272,7 @@ export function EditProfileScreen() {
 
   const isSectionDirty = useCallback(
     (
-      section: "community" | "personal" | "matrimony" | "business" | "family",
+      section: "community" | "personal" | "business" | "family",
       current: Record<string, unknown>
     ) => {
       const init = initialFormRef.current?.[section] as Record<string, unknown> | undefined;
@@ -326,27 +327,6 @@ export function EditProfileScreen() {
           }
         });
       }
-      if (isSectionDirty("matrimony", matrimony)) {
-        sectionsToUpdate.push({
-          section: "matrimony",
-          payload: {
-            matrimonyProfileActive: matrimony.matrimonyProfileActive,
-            lookingFor: matrimony.lookingFor?.trim() || null,
-            education: matrimony.education?.trim() || null,
-            maritalStatus: matrimony.maritalStatus?.trim() || null,
-            rashi: matrimony.rashi?.trim() || null,
-            nakshatram: matrimony.nakshatram?.trim() || null,
-            dosham: matrimony.dosham?.trim() || null,
-            familyType: matrimony.familyType?.trim() || null,
-            familyStatus: matrimony.familyStatus?.trim() || null,
-            motherName: matrimony.motherName?.trim() || null,
-            fatherOccupation: matrimony.fatherOccupation?.trim() || null,
-            numberOfSiblings: matrimony.numberOfSiblings ?? null,
-            partnerPreferences: matrimony.partnerPreferences?.trim() || null,
-            horoscopeDocumentUrl: matrimony.horoscopeDocumentUrl?.trim() || null
-          }
-        });
-      }
       if (isSectionDirty("business", business)) {
         sectionsToUpdate.push({
           section: "business",
@@ -386,12 +366,12 @@ export function EditProfileScreen() {
         initialFormRef.current = mapProfileToForm(updated);
       }
 
-      const includedRestricted = sectionsToUpdate.some((u) => u.section === "matrimony" || u.section === "business");
+      const includedBusiness = sectionsToUpdate.some((u) => u.section === "business");
       navigation.goBack();
-      if (includedRestricted) {
+      if (includedBusiness) {
         Alert.alert(
           "Submitted for Review",
-          "Your Matrimony/Business details have been submitted for admin review. You will see status updates on this page.",
+          "Your business details have been submitted for admin review.",
           [{ text: "OK" }]
         );
       } else if (!profile.verified) {
@@ -421,7 +401,6 @@ export function EditProfileScreen() {
     basic,
     community,
     personal,
-    matrimony,
     business,
     family,
     isBasicDirty,
@@ -429,48 +408,9 @@ export function EditProfileScreen() {
     navigation
   ]);
 
-  const handleHoroscopeUpload = useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow access to photos to upload horoscope image.");
-        return;
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: false,
-        quality: 0.9
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      const uri = asset.uri;
-      const fileSize = asset.fileSize ?? 0;
-      if (fileSize <= 0) {
-        Alert.alert("Error", "Could not get file size.");
-        return;
-      }
-      const mime = asset.mimeType ?? "image/jpeg";
-      setHoroscopeUploading(true);
-      let publicUrl: string;
-      if (mime.startsWith("image/") && isAllowedImageType(mime)) {
-        ({ publicUrl } = await uploadOptimizedImage(uri, "matrimony"));
-      } else {
-        const fileName = `horoscope_${Date.now()}.jpg`;
-        const { uploadUrl, publicUrl: url } = await getHoroscopeUploadUrl({
-          fileName,
-          fileType: "image/jpeg",
-          fileSize
-        });
-        await uploadToR2(uploadUrl, uri, "image/jpeg");
-        publicUrl = url;
-      }
-      setMatrimony((m) => ({ ...m, horoscopeDocumentUrl: publicUrl }));
-    } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message ?? "Could not upload horoscope.");
-    } finally {
-      setHoroscopeUploading(false);
-    }
-  }, []);
+  const openMatrimony = useCallback(() => {
+    navigation.navigate("MatrimonyHome");
+  }, [navigation]);
 
   const handleProfilePhotoUpload = useCallback(async () => {
     try {
@@ -719,9 +659,7 @@ export function EditProfileScreen() {
   if (!profile) return null;
 
   const readOnlyEmailMobile = profile.verified;
-  const pendingMatrimony = profile.pending_matrimony;
   const pendingBusiness = profile.pending_business;
-  const matrimonyPending = pendingMatrimony?.status === "PENDING";
   const businessPending = pendingBusiness?.status === "PENDING";
 
   return (
@@ -932,146 +870,12 @@ export function EditProfileScreen() {
           />
         </AccordionSection>
 
-        <AccordionSection title="Matrimony Details" icon="heart-outline">
-          {pendingMatrimony ? (
-            <View style={s.statusRow}>
-              <View style={[s.statusChip, pendingMatrimony.status === "PENDING" && s.statusChipPending, pendingMatrimony.status === "APPROVED" && s.statusChipApproved, pendingMatrimony.status === "REJECTED" && s.statusChipRejected]}>
-                <Text style={s.statusChipText}>
-                  {pendingMatrimony.status === "PENDING" ? "🟡 Pending Approval" : pendingMatrimony.status === "APPROVED" ? "🟢 Approved" : "🔴 Rejected"}
-                </Text>
-              </View>
-              {pendingMatrimony.status === "PENDING" && (
-                <Text style={s.bannerText}>Your Matrimony details are under admin review.</Text>
-              )}
-              {pendingMatrimony.status === "REJECTED" && pendingMatrimony.admin_remarks ? (
-                <Text style={s.remarksText}>Admin: {pendingMatrimony.admin_remarks}</Text>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={s.switchRow}>
-            <Text style={s.switchLabel}>Matrimony Profile</Text>
-            <Switch
-              value={matrimony.matrimonyProfileActive}
-              onValueChange={(v) => setMatrimony((m) => ({ ...m, matrimonyProfileActive: v }))}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.surface}
-              disabled={matrimonyPending}
-            />
-          </View>
-          {matrimony.matrimonyProfileActive ? (
-            <View style={matrimonyPending ? s.restrictedSectionDisabled : undefined} pointerEvents={matrimonyPending ? "none" : "auto"}>
-              <Input
-                label="Education"
-                value={matrimony.education ?? ""}
-                onChangeText={(t) => setMatrimony((m) => ({ ...m, education: t || null }))}
-                placeholder="Education"
-                variant="light"
-              />
-              <Dropdown
-                label="Looking For"
-                placeholder="Self / Son / Daughter"
-                value={matrimony.lookingFor ?? ""}
-                options={LOOKING_FOR_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, lookingFor: v || null }))}
-                variant="light"
-              />
-              <Dropdown
-                label="Rashi"
-                placeholder="Select Rashi"
-                value={matrimony.rashi ?? ""}
-                options={RASHI_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, rashi: v || null }))}
-                variant="light"
-              />
-              <Dropdown
-                label="Nakshatram"
-                placeholder="Select Nakshatram"
-                value={matrimony.nakshatram ?? ""}
-                options={NAKSHATRAM_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, nakshatram: v || null }))}
-                variant="light"
-              />
-              <Dropdown
-                label="Dosham"
-                placeholder="Yes / No / Not Sure"
-                value={matrimony.dosham ?? ""}
-                options={DOSHAM_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, dosham: v || null }))}
-                variant="light"
-              />
-              <Dropdown
-                label="Family Type"
-                placeholder="Joint / Nuclear"
-                value={matrimony.familyType ?? ""}
-                options={FAMILY_TYPE_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, familyType: v || null }))}
-                variant="light"
-              />
-              <Dropdown
-                label="Family Status"
-                placeholder="Select"
-                value={matrimony.familyStatus ?? ""}
-                options={FAMILY_STATUS_OPTIONS}
-                onSelect={(v) => setMatrimony((m) => ({ ...m, familyStatus: v || null }))}
-                variant="light"
-              />
-              <Input
-                label="Mother Name"
-                value={matrimony.motherName ?? ""}
-                onChangeText={(t) => setMatrimony((m) => ({ ...m, motherName: t || null }))}
-                placeholder="Mother's name"
-                variant="light"
-              />
-              <Input
-                label="Father Occupation"
-                value={matrimony.fatherOccupation ?? ""}
-                onChangeText={(t) => setMatrimony((m) => ({ ...m, fatherOccupation: t || null }))}
-                placeholder="Father's occupation"
-                variant="light"
-              />
-              <Input
-                label="Number of Siblings"
-                value={matrimony.numberOfSiblings != null ? String(matrimony.numberOfSiblings) : ""}
-                onChangeText={(t) => {
-                  const n = t.trim() === "" ? null : parseInt(t, 10);
-                  setMatrimony((m) => ({ ...m, numberOfSiblings: n ?? null }));
-                }}
-                placeholder="0"
-                variant="light"
-                keyboardType="number-pad"
-              />
-              <Input
-                label="Partner Preferences"
-                value={matrimony.partnerPreferences ?? ""}
-                onChangeText={(t) => setMatrimony((m) => ({ ...m, partnerPreferences: t || null }))}
-                placeholder="Describe partner preferences"
-                variant="light"
-                multiline
-                numberOfLines={4}
-                style={s.textArea}
-              />
-              <View style={s.uploadRow}>
-                <Text style={s.uploadLabel}>Horoscope Document</Text>
-                <Pressable
-                  style={[s.uploadBtn, horoscopeUploading ? s.uploadBtnDisabled : null]}
-                  onPress={handleHoroscopeUpload}
-                  disabled={horoscopeUploading}
-                >
-                  {horoscopeUploading ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Ionicons name="cloud-upload-outline" size={20} color={colors.primary} />
-                  )}
-                  <Text style={s.uploadBtnText}>
-                    {matrimony.horoscopeDocumentUrl ? "Re-upload (PDF/Image)" : "Upload PDF/Image"}
-                  </Text>
-                </Pressable>
-                {matrimony.horoscopeDocumentUrl ? (
-                  <Text style={s.uploadHint} numberOfLines={1}>Uploaded</Text>
-                ) : null}
-              </View>
-            </View>
-          ) : null}
+        <AccordionSection title="Matrimony" icon="heart-outline" defaultExpanded>
+          <MatrimonyEditProfileCard
+            hub={matrimonyHub}
+            loading={matrimonyHubLoading}
+            onOpen={openMatrimony}
+          />
         </AccordionSection>
 
         <AccordionSection title="Business Details" icon="briefcase-outline">
