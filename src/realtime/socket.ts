@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { getToken } from "../storage/token.storage";
-import { SERVER_BASE } from "../api/client";
+import { getServerBaseUrl } from "../api/client";
 
 let socket: Socket | null = null;
 let socketToken: string | null = null;
@@ -46,7 +46,7 @@ export async function getSocket(): Promise<Socket> {
   }
 
   socketToken = token;
-  socket = io(SERVER_BASE, {
+  socket = io(getServerBaseUrl(), {
     transports: ["websocket", "polling"],
     autoConnect: true,
     reconnection: true,

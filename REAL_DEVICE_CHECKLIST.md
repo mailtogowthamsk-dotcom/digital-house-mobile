@@ -7,7 +7,7 @@ Use this to verify the app works on a **physical Android or iOS device**.
 - **Real device cannot use `localhost`.** Use your computer’s LAN IP so the phone and Mac are on the same Wi‑Fi.
 - In `mobile/.env` set:
   - **Local backend:** `EXPO_PUBLIC_API_URL=http://YOUR_MAC_IP:4000/api`
-  - **Production:** `EXPO_PUBLIC_API_URL=https://digitalhouse-backend-production.up.railway.app/api`
+  - **Production:** `EXPO_PUBLIC_API_URL=https://www.infosensetechnologies.com/digitalhouse/backend/api` (must include **www**)
 - Get your Mac IP: `ifconfig | grep "inet " | grep -v 127.0.0.1`
 - Restart Expo after changing `.env`: `npx expo start -c`
 
