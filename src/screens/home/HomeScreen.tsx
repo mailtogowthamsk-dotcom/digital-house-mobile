@@ -188,7 +188,8 @@ export function HomeScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         headerWrap: { backgroundColor: colors.surface },
-        listContent: { paddingHorizontal: PADDING, paddingTop: PADDING + 4 },
+        listContent: { paddingTop: PADDING + 4 },
+        headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
         feedSkeleton: { marginBottom: 14 },
         feedSkeletonCard: { borderRadius: 16, marginBottom: 14 },
@@ -264,11 +265,11 @@ export function HomeScreen() {
       <>
         {/* Welcome card – skeleton or content; dismissible card owns margin to avoid empty gap */}
         {summaryLoading && !summary ? (
-          <View style={s.section}>
+          <View style={[s.section, s.headerPad]}>
             <WelcomeCardSkeleton />
           </View>
         ) : summaryError ? (
-          <View style={s.section}>
+          <View style={[s.section, s.headerPad]}>
             <View style={s.errorCard}>
               <Text style={s.errorText}>Could not load your info</Text>
               <Pressable style={s.retryBtn} onPress={retrySummary}>
@@ -277,19 +278,23 @@ export function HomeScreen() {
             </View>
           </View>
         ) : summary ? (
-          <DismissibleWelcomeCard
-            userName={summary.user.name}
-            avatarUri={summary.user.profileImage}
-          />
+          <View style={s.headerPad}>
+            <DismissibleWelcomeCard
+              userName={summary.user.name}
+              avatarUri={summary.user.profileImage}
+            />
+          </View>
         ) : null}
 
         {hasHighlightsData(highlights) ? (
+          <View style={s.headerPad}>
           <HighlightSection
             highlights={highlights}
             loading={highlightsLoading}
             error={highlightsError}
             onRetry={retryHighlights}
           />
+          </View>
         ) : null}
       </>
     ),
@@ -354,7 +359,7 @@ export function HomeScreen() {
         <Header
           notificationCount={summary?.unreadNotificationsCount ?? 0}
           messageCount={summary?.unreadMessagesCount ?? 0}
-          onNotificationPress={() => {}}
+          onNotificationPress={() => navigation.navigate("Notifications")}
           onMessagePress={() => openMessagesInbox(navigation)}
           onMenuPress={onMenuPress}
         />
@@ -377,7 +382,7 @@ export function HomeScreen() {
         initialNumToRender={6}
         contentContainerStyle={[
           s.listContent,
-          { paddingBottom: insets.bottom + 100 }
+          { paddingBottom: insets.bottom + 72 }
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -397,7 +402,7 @@ export function HomeScreen() {
 
       {/* Fixed bottom tab bar */}
       <View style={s.tabBarWrap}>
-        <View style={[s.tabBarInner, { paddingBottom: insets.bottom }]}>
+        <View style={[s.tabBarInner, { paddingBottom: Math.max(insets.bottom - 4, 4) }]}>
           <BottomTabBar
             activeTab={activeTab}
             onTabPress={onTabPress}

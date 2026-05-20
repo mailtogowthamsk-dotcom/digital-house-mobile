@@ -2,6 +2,7 @@ import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
+import { rootLinking } from "./src/navigation/linking";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
@@ -28,6 +29,10 @@ import { MatrimonyBrowseScreen } from "./src/screens/matrimony/MatrimonyBrowseSc
 import { MatrimonyCandidateScreen } from "./src/screens/matrimony/MatrimonyCandidateScreen";
 import { MatrimonyInterestsScreen } from "./src/screens/matrimony/MatrimonyInterestsScreen";
 import { MatrimonyMatchesScreen } from "./src/screens/matrimony/MatrimonyMatchesScreen";
+import { MatrimonySavedScreen } from "./src/screens/matrimony/MatrimonySavedScreen";
+import { MatrimonyPlansScreen } from "./src/screens/matrimony/MatrimonyPlansScreen";
+import { MatrimonyViewsScreen } from "./src/screens/matrimony/MatrimonyViewsScreen";
+import { NotificationsScreen } from "./src/screens/home/NotificationsScreen";
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -51,6 +56,10 @@ export type RootStackParamList = {
   MatrimonyCandidate: { userId: number; interestId?: number };
   MatrimonyInterests: undefined;
   MatrimonyMatches: undefined;
+  MatrimonySaved: undefined;
+  MatrimonyPlans: undefined;
+  MatrimonyViews: undefined;
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -108,14 +117,18 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: "Create Post" }} />
         <Stack.Screen name="Menu" component={MenuScreen} options={{ title: "Menu" }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
         <Stack.Screen name="Messages" component={MessagesHubScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ title: "Matrimony" }} />
+        <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
         <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyCandidate" component={MatrimonyCandidateScreen} options={{ title: "Profile" }} />
         <Stack.Screen name="MatrimonyInterests" component={MatrimonyInterestsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyMatches" component={MatrimonyMatchesScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonySaved" component={MatrimonySavedScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonyPlans" component={MatrimonyPlansScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MatrimonyViews" component={MatrimonyViewsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </>
   );
@@ -129,7 +142,7 @@ function AppNavigation() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={rootLinking as any}>
       <StackNavigator key={initialRoute} initialRoute={initialRoute} />
     </NavigationContainer>
   );

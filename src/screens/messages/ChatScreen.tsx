@@ -274,7 +274,10 @@ export function ChatScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
+    <SafeAreaView
+      style={[styles.fill, { backgroundColor: colors.background }]}
+      edges={["top", "left", "right"]}
+    >
       <ChatPanel
         title={name}
         subtitle={otherTyping ? "Typing…" : " "}
@@ -290,7 +293,7 @@ export function ChatScreen() {
         fontSize={layout.fontSize}
         horizontalPadding={layout.horizontalPadding}
         composerPaddingBottom={layout.composerPaddingBottom}
-        keyboardVerticalOffset={layout.keyboardVerticalOffset}
+        chatKeyboardInset={layout.chatKeyboardInset}
         otherAvatarUri={otherAvatarUri}
         headerAvatarUri={otherAvatarUri}
         colors={panelColors}

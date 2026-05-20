@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
-import { getImageUrl } from "../../api/client";
+import { View, Text, StyleSheet } from "react-native";
+import { AvatarImage } from "../ui/AvatarImage";
 import { useTheme } from "../../theme/ThemeContext";
 
 type WelcomeCardProps = {
@@ -10,7 +10,6 @@ type WelcomeCardProps = {
 
 export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
   const { colors, mode } = useTheme();
-  const avatarUrl = getImageUrl(avatarUri ?? null);
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -58,18 +57,18 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
     [colors, mode]
   );
 
-  const initial = userName.trim().charAt(0).toUpperCase() || "U";
   const displayName = userName.trim() || "User";
 
   return (
     <View style={s.card}>
-      <View style={s.avatarWrap}>
-        {avatarUrl ? (
-          <Image key={avatarUrl} source={{ uri: avatarUrl }} style={s.avatarImg} />
-        ) : (
-          <Text style={s.avatarText}>{initial}</Text>
-        )}
-      </View>
+      <AvatarImage
+        uri={avatarUri}
+        name={displayName}
+        size={56}
+        placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
+        textColor={colors.primary}
+        containerStyle={s.avatarWrap}
+      />
       <View style={s.textWrap}>
         <Text style={s.greeting} numberOfLines={1}>
           Hello, {displayName} 👋

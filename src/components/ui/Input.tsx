@@ -89,7 +89,7 @@ export function Input({
         {leftIcon ? <View style={s.iconWrap}>{leftIcon}</View> : null}
         <TextInput
           placeholderTextColor={placeholderTextColor ?? colors.textMuted}
-          style={[s.input, leftIcon && s.inputWithIcon, isLight && s.inputLight, style]}
+          style={[s.input, leftIcon ? s.inputWithIcon : undefined, isLight && s.inputLight, style]}
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);

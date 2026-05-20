@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getImageUrl } from "../../api/client";
+import { AvatarImage } from "../ui/AvatarImage";
 import type { Thread } from "../../api/messages.api";
 import type { DirectoryUser } from "../../api/users.api";
 
@@ -49,6 +50,7 @@ type ThreadListPanelProps = {
   renderResult: ListRenderItem<DirectoryUser>;
   keyThread: (t: Thread) => string;
   keyUser: (u: DirectoryUser) => string;
+  onBack?: () => void;
 };
 
 function ThreadListPanelComponent(props: ThreadListPanelProps) {
@@ -71,7 +73,8 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     queryTrimmed,
     renderResult,
     keyThread,
-    keyUser
+    keyUser,
+    onBack
   } = props;
 
   return (
@@ -96,6 +99,11 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     >
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.titleRow}>
+          {onBack ? (
+            <Pressable onPress={onBack} hitSlop={8} style={styles.backBtn} accessibilityLabel="Go back">
+              <Ionicons name="chevron-back" size={24} color={colors.text} />
+            </Pressable>
+          ) : null}
           <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
           <Pressable onPress={onToggleSearch} style={[styles.toggleBtn, { backgroundColor: colors.surfaceElevated }]}>
             <Ionicons name={searchMode ? "chatbubbles-outline" : "add"} size={16} color={colors.text} />
@@ -228,9 +236,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8
   },
+  backBtn: {
+    marginRight: 2,
+    paddingVertical: 4,
+    flexShrink: 0
+  },
   title: {
     fontWeight: "800",
-    flex: 1
+    flex: 1,
+    minWidth: 0
   },
   toggleBtn: {
     paddingHorizontal: 12,
@@ -323,11 +337,13 @@ export function ThreadRow({
       ]}
     >
       <View style={rowStyles.avatarWrap}>
-        {avatarUri ? (
-          <Image source={{ uri: avatarUri }} style={rowStyles.avatar} />
-        ) : (
-          <View style={[rowStyles.avatar, { backgroundColor: colors.surfaceElevated }]} />
-        )}
+        <AvatarImage
+          uri={avatarUri}
+          name={name}
+          size={48}
+          placeholderColor={colors.surfaceElevated}
+          textColor={colors.textMuted}
+        />
         {online ? <View style={[rowStyles.dot, { borderColor: colors.surface }]} /> : null}
       </View>
       <View style={rowStyles.center}>

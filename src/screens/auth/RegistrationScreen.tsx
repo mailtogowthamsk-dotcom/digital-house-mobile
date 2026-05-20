@@ -26,7 +26,7 @@ import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationO
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
 const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
 const STEPS = ["Personal", "Contact", "Community", "Review"];

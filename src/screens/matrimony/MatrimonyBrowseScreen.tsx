@@ -3,72 +3,35 @@ import {
   View,
   Text,
   FlatList,
-  Image,
-  Pressable,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Pressable
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { discoverMatrimonyProfiles, type DiscoverCard } from "../../api/matrimony.api";
-import { getImageUrl } from "../../api/client";
+import {
+  discoverMatrimonyProfiles,
+  getMatrimonyHub,
+  type DiscoverCard,
+  type MatrimonySubscriptionSummary
+} from "../../api/matrimony.api";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../theme/ThemeContext";
-import { spacing, radius } from "../../theme/spacing";
+import { spacing } from "../../theme/spacing";
+import {
+  MatrimonyBrowseFilters,
+  emptyBrowseFilters,
+  hasActiveFilters,
+  toDiscoverParams,
+  type BrowseFilterState
+} from "../../components/matrimony/MatrimonyBrowseFilters";
+import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
+import { MatrimonyMatchCard } from "../../components/matrimony/MatrimonyMatchCard";
+import { MatrimonyQuickFilterBar } from "../../components/matrimony/MatrimonyQuickFilterBar";
+import { buildDiscoverChips, type QuickBrowseFilter } from "../../components/matrimony/matrimonyUi";
 
-function DiscoverCardItem({
-  item,
-  onPress
-}: {
-  item: DiscoverCard;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  const uri = item.photoUrl ? getImageUrl(item.photoUrl) ?? item.photoUrl : null;
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
-      {uri ? (
-        <Image source={{ uri }} style={styles.photo} />
-      ) : (
-        <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: colors.border }]}>
-          <Text style={{ fontSize: 28 }}>👤</Text>
-        </View>
-      )}
-      <View style={styles.cardBody}>
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-          {item.name}
-          {item.age != null ? `, ${item.age}` : ""}
-        </Text>
-        <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-          {[item.district, item.occupation].filter(Boolean).join(" · ")}
-        </Text>
-        {item.education ? (
-          <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.education}
-          </Text>
-        ) : null}
-        <View style={styles.badges}>
-          {item.verified && (
-            <Text style={styles.badgeVerified}>✓ Verified</Text>
-          )}
-          {item.horoscopeAvailable && (
-            <Text style={styles.badgeHoroscope}>Horoscope available</Text>
-          )}
-          {item.familyManaged && (
-            <Text style={[styles.badgeFamily, { color: colors.textSecondary }]}>Family managed</Text>
-          )}
-        </View>
-        {item.kulamLabel ? (
-          <Text style={[styles.kulam, { color: colors.primary }]}>{item.kulamLabel}</Text>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
+const PAGE_SIZE = 20;
 
 export function MatrimonyBrowseScreen() {
   const navigation = useNavigation<any>();
@@ -76,95 +39,226 @@ export function MatrimonyBrowseScreen() {
   const { colors } = useTheme();
   const [items, setItems] = useState<DiscoverCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [filters, setFilters] = useState<BrowseFilterState>(emptyBrowseFilters());
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickBrowseFilter>("all");
+  const [viewerDistrict, setViewerDistrict] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<MatrimonySubscriptionSummary | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await discoverMatrimonyProfiles({ page: 1, limit: 40 });
-      setItems(res.items);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const hasMore = items.length < total;
+
+  const mergeQuickFilter = useCallback(
+    (base: BrowseFilterState, quick: QuickBrowseFilter): BrowseFilterState => {
+      if (quick === "horoscope") return { ...base, horoscopeOnly: true };
+      if (quick === "myDistrict" && viewerDistrict) return { ...base, district: viewerDistrict };
+      return base;
+    },
+    [viewerDistrict]
+  );
+
+  const effectiveFilters = useCallback(
+    (base?: BrowseFilterState, quick?: QuickBrowseFilter) => {
+      const b = base ?? filters;
+      return mergeQuickFilter(b, quick ?? quickFilter);
+    },
+    [filters, quickFilter, mergeQuickFilter]
+  );
+
+  const load = useCallback(
+    async (pageNum = 1, append = false, filterState?: BrowseFilterState) => {
+      const active = effectiveFilters(filterState);
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const res = await discoverMatrimonyProfiles(toDiscoverParams(active, pageNum, PAGE_SIZE));
+        setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+        setTotal(res.total);
+        setPage(res.page);
+      } catch (e) {
+        if (!append) {
+          setError(e instanceof Error ? e.message : "Failed to load");
+          setItems([]);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [effectiveFilters]
+  );
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      getMatrimonyHub()
+        .then((h) => {
+          setViewerDistrict(h.user_context?.district ?? null);
+          setSubscription(h.subscription ?? null);
+        })
+        .catch(() => {
+          setViewerDistrict(null);
+          setSubscription(null);
+        });
+      void load(1, false);
     }, [load])
   );
 
+  const onQuickFilter = (q: QuickBrowseFilter) => {
+    setQuickFilter(q);
+    void load(1, false, effectiveFilters(filters, q));
+  };
+
+  const onApplyFilters = (next: BrowseFilterState) => {
+    setFilters(next);
+    setQuickFilter("all");
+    setFiltersVisible(false);
+    void load(1, false, next);
+  };
+
+  const onClearFilters = () => {
+    const cleared = emptyBrowseFilters();
+    setFilters(cleared);
+    setQuickFilter("all");
+    setFiltersVisible(false);
+    void load(1, false, cleared);
+  };
+
+  const sheetFiltersActive = hasActiveFilters(filters);
+  const activeFilters = sheetFiltersActive || quickFilter !== "all";
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>← Back</Text>
+      <MatrimonyScreenHeader
+        title="Browse profiles"
+        onBack={() => navigation.goBack()}
+        rightLabel="Interests"
+        onRightPress={() => navigation.navigate("MatrimonyInterests")}
+      />
+
+      <MatrimonyQuickFilterBar
+        active={quickFilter}
+        onChange={onQuickFilter}
+        onOpenFilters={() => setFiltersVisible(true)}
+        filtersActive={sheetFiltersActive}
+      />
+
+      {subscription && subscription.plan !== "FREE" && subscription.quota.limit > 0 ? (
+        <View style={[styles.quotaBar, { backgroundColor: "#EFF6FF", borderColor: "#DBEAFE" }]}>
+          <Text style={{ color: "#1D4ED8", fontSize: 12, fontWeight: "600" }}>
+            Profile opens: {subscription.quota.used} of {subscription.quota.limit} used
+          </Text>
+          <Text style={{ color: "#1D4ED8", fontSize: 11 }}>
+            Resets {new Date(subscription.quota.resetsAt).toLocaleDateString()}
+          </Text>
+        </View>
+      ) : null}
+
+      {subscription?.plan === "FREE" ? (
+        <Pressable
+          onPress={() => navigation.navigate("MatrimonyPlans")}
+          style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
+        >
+          <LinearGradient
+            colors={["#EFF6FF", "#FEF3C7"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.upgradeStrip}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: "800", fontSize: 13, color: colors.text }}>Unlock full profiles</Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                Photos, horoscope & details · from ₹699
+              </Text>
+            </View>
+            <Text style={{ fontWeight: "800", color: "#D97706", fontSize: 12 }}>Upgrade</Text>
+          </LinearGradient>
         </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Browse profiles</Text>
-        <Pressable onPress={() => navigation.navigate("MatrimonyInterests")}>
-          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>Interests</Text>
-        </Pressable>
-      </View>
-      <Text style={[styles.sub, { color: colors.textSecondary, paddingHorizontal: spacing.lg }]}>
-        Verified matrimony candidates only · Same kulam excluded
+      ) : null}
+
+      <Text style={[styles.sub, { color: colors.textSecondary }]}>
+        {activeFilters ? "Filters active · " : ""}
+        {total > 0
+          ? `${total} profile${total === 1 ? "" : "s"}`
+          : "Verified candidates · same kulam excluded"}
       </Text>
 
       {loading && !items.length ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : error ? (
-        <Text style={{ color: colors.error, textAlign: "center", marginTop: 24 }}>{error}</Text>
+        <Text style={{ color: colors.error, textAlign: "center", marginTop: 24, paddingHorizontal: 24 }}>
+          {error}
+        </Text>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => String(i.userId)}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }}
+          refreshControl={
+            <RefreshControl refreshing={loading && !loadingMore} onRefresh={() => load(1, false)} />
+          }
+          onEndReached={() => {
+            if (!loadingMore && hasMore && !loading) void load(page + 1, true);
+          }}
+          onEndReachedThreshold={0.35}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32 }}>
-              No compatible profiles right now. Check back soon.
+            <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32, lineHeight: 22 }}>
+              No profiles match your filters. Try &quot;All&quot; or adjust more filters.
             </Text>
           }
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator style={{ marginVertical: 16 }} color={colors.primary} />
+            ) : hasMore && items.length > 0 ? (
+              <Text style={{ textAlign: "center", color: colors.textMuted, marginVertical: 12, fontSize: 12 }}>
+                Scroll for more
+              </Text>
+            ) : null
+          }
           renderItem={({ item }) => (
-            <DiscoverCardItem
+            <MatrimonyMatchCard
               item={item}
+              chips={buildDiscoverChips(item, viewerDistrict)}
               onPress={() => navigation.navigate("MatrimonyCandidate", { userId: item.userId })}
             />
           )}
         />
       )}
+
+      <MatrimonyBrowseFilters
+        visible={filtersVisible}
+        initial={filters}
+        onClose={() => setFiltersVisible(false)}
+        onApply={onApplyFilters}
+        onClear={onClearFilters}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  sub: { fontSize: 12, marginBottom: spacing.sm, paddingHorizontal: spacing.lg },
+  quotaBar: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  upgradeStrip: {
+    borderRadius: 12,
+    padding: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md
-  },
-  title: { fontSize: 18, fontWeight: "800" },
-  sub: { fontSize: 12, marginBottom: spacing.sm },
-  card: {
-    flexDirection: "row",
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    marginBottom: spacing.md,
-    overflow: "hidden"
-  },
-  photo: { width: 100, height: 120 },
-  photoPlaceholder: { alignItems: "center", justifyContent: "center" },
-  cardBody: { flex: 1, padding: spacing.md },
-  name: { fontSize: 16, fontWeight: "800" },
-  meta: { fontSize: 13, marginTop: 2 },
-  badges: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  badgeVerified: { fontSize: 11, fontWeight: "700", color: "#15803D" },
-  badgeHoroscope: { fontSize: 11, fontWeight: "600", color: "#7C3AED" },
-  badgeFamily: { fontSize: 11 },
-  kulam: { fontSize: 12, fontWeight: "600", marginTop: 4 }
+    gap: 10
+  }
 });

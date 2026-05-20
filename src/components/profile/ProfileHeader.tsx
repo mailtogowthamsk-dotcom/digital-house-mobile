@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { AvatarImage } from "../ui/AvatarImage";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -25,7 +25,8 @@ export function ProfileHeader({
   completion_percentage
 }: ProfileHeaderProps) {
   const { colors, mode } = useTheme();
-  const gradientColors = mode === "dark" ? [colors.surface, colors.surfaceElevated] : ["#EFF6FF", "#FFFFFF"];
+  const gradientColors: readonly [string, string, ...string[]] =
+    mode === "dark" ? [colors.surface, colors.surfaceElevated] : ["#EFF6FF", "#FFFFFF"];
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -98,33 +99,17 @@ export function ProfileHeader({
     [colors, mode]
   );
 
-  const initial = (name ?? "User").trim().charAt(0).toUpperCase() || "?";
-  const avatarUri = getImageUrl(profile_image);
-  const [imageLoadFailed, setImageLoadFailed] = useState(false);
-
-  useEffect(() => {
-    setImageLoadFailed(false);
-  }, [profile_image]);
-
-  const showPlaceholder = !avatarUri || imageLoadFailed;
-
   return (
     <View style={s.wrapper}>
       <LinearGradient colors={gradientColors} style={s.gradient}>
         <View style={s.avatarRing}>
-          {showPlaceholder ? (
-            <View style={s.avatarPlaceholder}>
-              <Text style={s.avatarText}>{initial}</Text>
-            </View>
-          ) : (
-            <Image
-              key={profile_image}
-              source={{ uri: avatarUri }}
-              style={s.avatar}
-              onError={() => setImageLoadFailed(true)}
-              onLoad={() => setImageLoadFailed(false)}
-            />
-          )}
+          <AvatarImage
+            uri={profile_image}
+            name={name}
+            size={92}
+            placeholderColor={colors.primary}
+            textColor={colors.white}
+          />
         </View>
         <Text style={s.name}>{name}</Text>
         {communityRole ? <Text style={s.role}>{communityRole}</Text> : null}

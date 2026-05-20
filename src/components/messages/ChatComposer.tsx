@@ -1,6 +1,17 @@
 import React, { memo } from "react";
-import { View, TextInput, Pressable, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  Platform
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+
+const MIN_INPUT_HEIGHT = 44;
+const MAX_INPUT_HEIGHT = 120;
+const SEND_SIZE = 40;
 
 type Props = {
   value: string;
@@ -38,7 +49,7 @@ function ChatComposerComponent({
         {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          paddingBottom: paddingBottom + 8,
+          paddingBottom,
           paddingHorizontal: horizontalPadding
         }
       ]}
@@ -49,7 +60,8 @@ function ChatComposerComponent({
             styles.input,
             {
               backgroundColor: colors.surfaceElevated,
-              color: colors.text
+              color: colors.text,
+              borderColor: colors.border
             }
           ]}
           value={value}
@@ -57,8 +69,12 @@ function ChatComposerComponent({
           placeholder="Message"
           placeholderTextColor={colors.textMuted}
           multiline
+          blurOnSubmit={false}
           maxLength={5000}
-          textAlignVertical="center"
+          selectionColor={colors.primary}
+          cursorColor={colors.primary}
+          underlineColorAndroid="transparent"
+          allowFontScaling
           {...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : {})}
         />
         <Pressable
@@ -75,7 +91,7 @@ function ChatComposerComponent({
           {sending ? (
             <ActivityIndicator size="small" color={colors.white} />
           ) : (
-            <Ionicons name="send" size={18} color={colors.white} />
+            <Ionicons name="send" size={17} color={colors.white} />
           )}
         </Pressable>
       </View>
@@ -86,34 +102,38 @@ function ChatComposerComponent({
 const styles = StyleSheet.create({
   wrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 10,
-    flexShrink: 0
+    paddingTop: 8,
+    flexShrink: 0,
+    flexGrow: 0
   },
   row: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
-    maxWidth: "100%"
+    gap: 8
   },
   input: {
     flex: 1,
     minWidth: 0,
-    minHeight: 44,
-    maxHeight: 120,
+    minHeight: MIN_INPUT_HEIGHT,
+    maxHeight: MAX_INPUT_HEIGHT,
     borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 12 : 10,
-    fontSize: 15
+    paddingTop: Platform.OS === "ios" ? 12 : 10,
+    paddingBottom: Platform.OS === "ios" ? 12 : 10,
+    fontSize: 16,
+    ...(Platform.OS === "android" ? { includeFontPadding: false, textAlignVertical: "top" } : {})
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: SEND_SIZE,
+    height: SEND_SIZE,
+    borderRadius: SEND_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0
+    flexShrink: 0,
+    marginBottom: 2
   },
-  sendDisabled: { opacity: 0.55 }
+  sendDisabled: { opacity: 0.45 }
 });
 
 export const ChatComposer = memo(ChatComposerComponent);

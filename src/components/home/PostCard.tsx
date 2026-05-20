@@ -4,13 +4,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Image,
   Animated,
   Easing,
-  Share
 } from "react-native";
+import { AvatarImage } from "../ui/AvatarImage";
+import { sharePost } from "../../utils/sharePost";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getImageUrl } from "../../api/client";
 import { PostMedia } from "./PostMedia";
 import { useTheme } from "../../theme/ThemeContext";
 
@@ -156,27 +155,23 @@ function PostCardInner({
 
   const handleShare = useCallback(async () => {
     onSharePress?.();
-    try {
-      await Share.share({
-        message: `${post.title}\n\n— ${post.userName} on Digital House`
-      });
-    } catch {
-      // cancelled
-    }
-  }, [onSharePress, post.title, post.userName]);
+    await sharePost({
+      postId: Number(post.id),
+      title: post.title,
+      authorName: post.userName,
+      description: post.description
+    });
+  }, [onSharePress, post.id, post.title, post.userName, post.description]);
 
   const s = useMemo(
     () =>
       StyleSheet.create({
         card: {
           backgroundColor: colors.surface,
-          borderRadius: 16,
-          marginBottom: 14,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 3,
+          borderRadius: 0,
+          marginBottom: 1,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
           overflow: "hidden"
         },
         cardPressed: { opacity: 0.98 },
@@ -221,10 +216,9 @@ function PostCardInner({
           marginBottom: 14
         },
         bannerWrap: {
-          marginHorizontal: 16,
-          borderRadius: 12,
+          width: "100%",
           overflow: "hidden",
-          marginBottom: 12,
+          marginBottom: 0,
           backgroundColor: colors.border
         },
         actionBar: {
@@ -279,8 +273,6 @@ function PostCardInner({
     [colors, mode]
   );
 
-  const initial = post.userName.trim().charAt(0).toUpperCase() || "?";
-
   return (
     <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={handlePress}>
       {heartVisible && (
@@ -300,13 +292,14 @@ function PostCardInner({
       )}
 
       <View style={s.header}>
-        <View style={s.avatarWrap}>
-          {getImageUrl(post.userAvatarUri) ? (
-            <Image source={{ uri: getImageUrl(post.userAvatarUri)! }} style={s.avatarImg} />
-          ) : (
-            <Text style={s.avatarText}>{initial}</Text>
-          )}
-        </View>
+        <AvatarImage
+          uri={post.userAvatarUri}
+          name={post.userName}
+          size={44}
+          placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
+          textColor={colors.primary}
+          containerStyle={{ marginRight: 12 }}
+        />
         <View style={s.headerText}>
           <Text style={s.userName} numberOfLines={1}>
             {post.userName}
@@ -334,7 +327,7 @@ function PostCardInner({
 
       {post.imageUri ? (
         <View style={s.bannerWrap}>
-          <PostMedia mediaUrl={post.imageUri} />
+          <PostMedia mediaUrl={post.imageUri} feedMode />
         </View>
       ) : null}
 

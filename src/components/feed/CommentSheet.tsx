@@ -34,10 +34,18 @@ type Props = {
   onCommentCountChange?: (count: number) => void;
 };
 
-function MentionText({ body, color }: { body: string; color: string }) {
+function MentionText({
+  body,
+  color,
+  textColor
+}: {
+  body: string;
+  color: string;
+  textColor: string;
+}) {
   const parts = body.split(/(@\w[\w\s]*\w|@\w+)/g);
   return (
-    <Text style={{ fontSize: 14, lineHeight: 20 }}>
+    <Text style={{ fontSize: 14, lineHeight: 20, color: textColor }}>
       {parts.map((part, i) =>
         part.startsWith("@") ? (
           <Text key={i} style={{ color, fontWeight: "600" }}>
@@ -75,7 +83,6 @@ const CommentRow = memo(function CommentRow({
           borderBottomColor: colors.border
         },
         meta: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
-        body: { color: colors.text },
         actions: { flexDirection: "row", gap: 16, marginTop: 8 },
         action: { fontSize: 12, fontWeight: "600", color: colors.primary }
       }),
@@ -88,9 +95,7 @@ const CommentRow = memo(function CommentRow({
         {item.author.name} · {timeAgo(item.created_at)}
         {item.updated_at !== item.created_at ? " · edited" : ""}
       </Text>
-      <View style={s.body}>
-        <MentionText body={item.body} color={colors.primary} />
-      </View>
+      <MentionText body={item.body} color={colors.primary} textColor={colors.text} />
       <View style={s.actions}>
         {depth === 0 && (
           <Pressable onPress={() => onReply(item)} hitSlop={8}>

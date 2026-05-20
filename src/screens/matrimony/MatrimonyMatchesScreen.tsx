@@ -5,12 +5,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMatrimonyMatches } from "../../api/matrimony.api";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
-import { spacing } from "../../theme/spacing";
+import { spacing, radius } from "../../theme/spacing";
+import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 
 type MatchRow = {
   matchId: number;
   chatEnabled: boolean;
-  candidate: { userId: number; name: string; photoUrl?: string | null };
+  horoscopeShared?: boolean;
+  candidate: {
+    userId: number;
+    name: string;
+    photoUrl?: string | null;
+    district?: string | null;
+  };
 };
 
 export function MatrimonyMatchesScreen() {
@@ -31,30 +38,39 @@ export function MatrimonyMatchesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
     }, [load])
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>← Back</Text>
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>Mutual matches</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <MatrimonyScreenHeader title="Mutual matches" onBack={() => navigation.goBack()} />
       {loading ? (
         <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => String(i.matchId)}
-          contentContainerStyle={{ padding: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+          ListHeaderComponent={
+            items.length > 0 ? (
+              <View style={styles.banner}>
+                <Text style={styles.bannerEmoji}>🎉</Text>
+                <Text style={styles.bannerTitle}>Mutual interests</Text>
+                <Text style={styles.bannerBody}>
+                  Open a match to chat, share horoscope, or reveal contact when both have accepted.
+                </Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", color: colors.textSecondary, lineHeight: 22 }}>
-              Mutual matches appear when both parties send and accept interest.
-            </Text>
+            <View style={styles.empty}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>💑</Text>
+              <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>No mutual matches yet</Text>
+              <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 }}>
+                When you and another member both send and accept interest, they appear here with chat unlocked.
+              </Text>
+            </View>
           }
           renderItem={({ item }) => {
             const uri = item.candidate.photoUrl
@@ -62,18 +78,37 @@ export function MatrimonyMatchesScreen() {
               : null;
             return (
               <Pressable
-                style={[styles.row, { borderColor: colors.border }]}
+                style={[styles.card, { backgroundColor: colors.surface, borderColor: "#86EFAC" }]}
                 onPress={() =>
                   navigation.navigate("MatrimonyCandidate", { userId: item.candidate.userId })
                 }
               >
-                {uri ? <Image source={{ uri }} style={styles.thumb} /> : null}
+                {uri ? (
+                  <Image source={{ uri }} style={styles.thumb} />
+                ) : (
+                  <View style={[styles.thumb, styles.thumbPh, { backgroundColor: colors.border }]}>
+                    <Text style={{ fontSize: 22 }}>👤</Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "800", color: colors.text }}>{item.candidate.name}</Text>
-                  {item.chatEnabled && (
-                    <Text style={{ color: colors.primary, fontSize: 12, marginTop: 4 }}>Chat unlocked</Text>
-                  )}
+                  <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>
+                    {item.candidate.name}
+                  </Text>
+                  {item.candidate.district ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                      {item.candidate.district}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                    <Text style={styles.matchedPill}>✅ Matched</Text>
+                    {item.chatEnabled ? (
+                      <Text style={[styles.matchedPill, { backgroundColor: "#EFF6FF", color: "#2563EB" }]}>
+                        Chat on
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>View →</Text>
               </Pressable>
             );
           }}
@@ -84,20 +119,37 @@ export function MatrimonyMatchesScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: spacing.lg
+  banner: {
+    backgroundColor: "#DCFCE7",
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: "#86EFAC"
   },
-  row: {
+  bannerEmoji: { fontSize: 24, marginBottom: 4 },
+  bannerTitle: { fontSize: 15, fontWeight: "800", color: "#14532D" },
+  bannerBody: { fontSize: 12, color: "#166534", marginTop: 4, lineHeight: 18 },
+  card: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm
   },
-  thumb: { width: 56, height: 56, borderRadius: 8 }
+  thumb: { width: 56, height: 56, borderRadius: radius.md },
+  thumbPh: { alignItems: "center", justifyContent: "center" },
+  matchedPill: {
+    fontSize: 10,
+    fontWeight: "700",
+    backgroundColor: "#DCFCE7",
+    color: "#16A34A",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: "hidden"
+  },
+  empty: { alignItems: "center", marginTop: 48, paddingHorizontal: spacing.lg }
 });

@@ -90,6 +90,35 @@ export type MatrimonyHub = {
   matrimony_candidate_photo?: string | null;
   profile_for_self?: boolean;
   message?: string;
+  subscription?: MatrimonySubscriptionSummary;
+  plans?: MatrimonyPlanCatalogItem[];
+};
+
+export type MatrimonyPlanCode = "FREE" | "GOLD" | "PLATINUM";
+
+export type MatrimonySubscriptionSummary = {
+  plan: MatrimonyPlanCode;
+  planLabel: string;
+  expiresAt: string | null;
+  quota: { used: number; limit: number; period: string; resetsAt: string };
+  features: {
+    canOpenOneStar: boolean;
+    canOpenTwoStar: boolean;
+    whoViewedMe: boolean;
+  };
+};
+
+export type MatrimonyPlanCatalogItem = {
+  plan: MatrimonyPlanCode;
+  label: string;
+  tagline: string;
+  priceInr: number;
+  durationMonths: number;
+  opensPerMonth: number;
+  canOpenOneStar: boolean;
+  canOpenTwoStar: boolean;
+  whoViewedMe: boolean;
+  popular?: boolean;
 };
 
 export type MatrimonyFormOptions = {
@@ -146,6 +175,26 @@ export type DiscoverCard = {
   verified: boolean;
   interestSent: boolean;
   interestReceived: boolean;
+  starLevel: 1 | 2;
+  starLabel: string;
+  matchTags: string[];
+  profileOpened: boolean;
+  canOpen: boolean;
+  openRequiresPlan: "GOLD" | "PLATINUM" | null;
+  photoBlurred: boolean;
+};
+
+export type ProfileLockedTeaser = {
+  userId: number;
+  name: string;
+  age: number | null;
+  district: string | null;
+  occupation: string | null;
+  starLevel: 1 | 2;
+  starLabel: string;
+  matchTags: string[];
+  openRequiresPlan: "GOLD" | "PLATINUM" | null;
+  canOpen: boolean;
 };
 
 export type CandidateDetail = DiscoverCard & {
@@ -166,12 +215,49 @@ export type CandidateDetail = DiscoverCard & {
   chatEnabled: boolean;
   contactVisible: boolean;
   horoscopeVisible: boolean;
+  saved: boolean;
+  blocked: boolean;
+  starLevel?: 1 | 2;
+  starLabel?: string;
+  matchTags?: string[];
+  profileOpened?: boolean;
+  contactPaymentStatus?: "NONE" | "PENDING" | "PAID";
 };
 
-export async function discoverMatrimonyProfiles(params?: {
+export type MatrimonyCandidateResult =
+  | { locked: false; profile: CandidateDetail }
+  | { locked: true; teaser: ProfileLockedTeaser };
+
+export type SavedProfileItem = {
+  userId: number;
+  name: string;
+  age: number | null;
+  district: string | null;
+  photoUrl: string | null;
+  savedAt: string;
+};
+
+export const MATRIMONY_REPORT_REASONS = [
+  { code: "FAKE_PROFILE", label: "Fake or misleading profile" },
+  { code: "INAPPROPRIATE_PHOTO", label: "Inappropriate photo" },
+  { code: "HARASSMENT", label: "Harassment or abuse" },
+  { code: "SPAM", label: "Spam or solicitation" },
+  { code: "WRONG_IDENTITY", label: "Wrong person / impersonation" },
+  { code: "OTHER", label: "Other" }
+] as const;
+
+export type DiscoverFilters = {
   page?: number;
   limit?: number;
-}): Promise<{ items: DiscoverCard[]; total: number; page: number; limit: number }> {
+  district?: string;
+  ageMin?: number;
+  ageMax?: number;
+  horoscopeOnly?: boolean;
+};
+
+export async function discoverMatrimonyProfiles(
+  params?: DiscoverFilters
+): Promise<{ items: DiscoverCard[]; total: number; page: number; limit: number }> {
   const { data } = await api.get<{ ok: boolean; items: DiscoverCard[]; total: number; page: number; limit: number }>(
     "/matrimony/discover",
     { params }
@@ -180,10 +266,68 @@ export async function discoverMatrimonyProfiles(params?: {
   return data;
 }
 
-export async function getMatrimonyCandidate(userId: number): Promise<CandidateDetail> {
-  const { data } = await api.get<{ ok: boolean } & CandidateDetail>(`/matrimony/candidates/${userId}`);
-  if (!data?.ok) throw new Error("Failed to load profile");
+export async function getMatrimonyCandidate(userId: number): Promise<MatrimonyCandidateResult> {
+  try {
+    const { data } = await api.get<{ ok: boolean } & CandidateDetail>(`/matrimony/candidates/${userId}`);
+    if (!data?.ok) throw new Error("Failed to load profile");
+    const { ok: _ok, ...profile } = data;
+    return { locked: false, profile: profile as CandidateDetail };
+  } catch (e: unknown) {
+    const err = e as { response?: { status?: number; data?: { code?: string; teaser?: ProfileLockedTeaser } } };
+    if (err.response?.status === 403 && err.response.data?.code === "PROFILE_LOCKED" && err.response.data.teaser) {
+      return { locked: true, teaser: err.response.data.teaser };
+    }
+    throw e instanceof Error ? e : new Error("Failed to load profile");
+  }
+}
+
+export async function openMatrimonyProfile(userId: number): Promise<CandidateDetail> {
+  const { data } = await api.post<{ ok: boolean } & CandidateDetail>(`/matrimony/candidates/${userId}/open`);
+  if (!data?.ok) throw new Error((data as { message?: string })?.message ?? "Could not open profile");
+  const { ok: _ok, ...profile } = data;
+  return profile as CandidateDetail;
+}
+
+export async function subscribeMatrimonyPlan(plan: "GOLD" | "PLATINUM", durationMonths = 6) {
+  const { data } = await api.post<{ ok: boolean; subscription: MatrimonySubscriptionSummary; message?: string }>(
+    "/matrimony/subscription/subscribe",
+    { plan, durationMonths }
+  );
+  if (!data?.ok) throw new Error("Subscription failed");
   return data;
+}
+
+export async function startMatrimonyContactPayment(otherUserId: number) {
+  const { data } = await api.post<{
+    ok: boolean;
+    payment: { id: number; amountPaise: number; amountInr: number; status: string };
+  }>(`/matrimony/matches/${otherUserId}/contact/pay`);
+  if (!data?.ok) throw new Error("Could not start payment");
+  return data.payment;
+}
+
+export async function confirmMatrimonyContactPayment(otherUserId: number) {
+  const { data } = await api.post<{ ok: boolean; mobile: string | null; message?: string }>(
+    `/matrimony/matches/${otherUserId}/contact/confirm`
+  );
+  if (!data?.ok) throw new Error("Payment confirmation failed");
+  return data;
+}
+
+export async function getMatrimonyProfileViews() {
+  const { data } = await api.get<{
+    ok: boolean;
+    items: {
+      viewerId: number;
+      name: string;
+      age: number | null;
+      district: string | null;
+      viewedAt: string;
+      starLabel: string;
+    }[];
+  }>("/matrimony/views");
+  if (!data?.ok) throw new Error("Failed to load views");
+  return data.items ?? [];
 }
 
 export async function sendMatrimonyInterest(toUserId: number, introMessage?: string) {
@@ -222,6 +366,22 @@ export async function getMatrimonyMatches() {
   return data.items ?? [];
 }
 
+export async function requestMatrimonyHoroscope(otherUserId: number) {
+  const { data } = await api.post<{ ok: boolean; requested: boolean }>(
+    `/matrimony/matches/${otherUserId}/horoscope/request`
+  );
+  if (!data?.ok) throw new Error("Could not request horoscope");
+  return data;
+}
+
+export async function shareMatrimonyHoroscope(otherUserId: number) {
+  const { data } = await api.post<{ ok: boolean; shared: boolean }>(
+    `/matrimony/matches/${otherUserId}/horoscope/share`
+  );
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Could not share horoscope");
+  return data;
+}
+
 export async function getMatrimonyHoroscope(otherUserId: number) {
   const { data } = await api.get<{ ok: boolean; url: string | null; available: boolean }>(
     `/matrimony/matches/${otherUserId}/horoscope`
@@ -235,5 +395,41 @@ export async function revealMatrimonyContact(otherUserId: number) {
     `/matrimony/matches/${otherUserId}/contact`
   );
   if (!data?.ok) throw new Error("Contact not available");
+  return data;
+}
+
+export async function getMatrimonySavedProfiles() {
+  const { data } = await api.get<{ ok: boolean; items: SavedProfileItem[] }>("/matrimony/saved");
+  if (!data?.ok) throw new Error("Failed to load saved profiles");
+  return data.items ?? [];
+}
+
+export async function saveMatrimonyProfile(userId: number) {
+  const { data } = await api.post<{ ok: boolean; saved: boolean }>(`/matrimony/saved/${userId}`);
+  if (!data?.ok) throw new Error("Could not save profile");
+  return data;
+}
+
+export async function unsaveMatrimonyProfile(userId: number) {
+  const { data } = await api.delete<{ ok: boolean }>(`/matrimony/saved/${userId}`);
+  if (!data?.ok) throw new Error("Could not remove saved profile");
+}
+
+export async function blockMatrimonyProfile(userId: number) {
+  const { data } = await api.post<{ ok: boolean; blocked: boolean }>(`/matrimony/blocks/${userId}`);
+  if (!data?.ok) throw new Error("Could not block profile");
+  return data;
+}
+
+export async function reportMatrimonyProfile(
+  userId: number,
+  reasonCode: string,
+  details?: string
+) {
+  const { data } = await api.post<{ ok: boolean; id: number; status: string }>(
+    `/matrimony/reports/${userId}`,
+    { reasonCode, details }
+  );
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Could not submit report");
   return data;
 }

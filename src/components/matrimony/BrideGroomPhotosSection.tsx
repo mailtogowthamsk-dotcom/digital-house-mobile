@@ -127,7 +127,7 @@ export function BrideGroomPhotosSection({
             onPress={onUploadMatrimonyPhoto}
             disabled={photoUploading}
             loading={photoUploading}
-            style={[styles.btn, { marginTop: spacing.sm }]}
+            style={{ ...styles.btn, marginTop: spacing.sm }}
           />
         </>
       )}

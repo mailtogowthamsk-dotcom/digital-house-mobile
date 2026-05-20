@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingBottom: 56
+    paddingBottom: 12
   },
   contentEmpty: {
     flex: 1,

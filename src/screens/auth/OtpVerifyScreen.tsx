@@ -23,7 +23,7 @@ import { spacing } from "../../theme/spacing";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"];
+const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
 const OTP_LENGTH = 6;
 const BOX_SIZE = 48;
 const BOX_GAP = 10;

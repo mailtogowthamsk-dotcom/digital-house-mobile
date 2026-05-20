@@ -495,6 +495,7 @@ export function MessagesHubScreen() {
     <ThreadListPanel
       width={layout.sidebarWidth}
       fullWidth={layout.isPhone}
+      onBack={() => navigation.goBack()}
       colors={threadColors}
       titleSize={layout.titleSize}
       searchMode={searchMode}
@@ -551,7 +552,7 @@ export function MessagesHubScreen() {
               fontSize={layout.fontSize}
               horizontalPadding={layout.horizontalPadding}
               composerPaddingBottom={layout.composerPaddingBottom}
-              keyboardVerticalOffset={layout.keyboardVerticalOffset}
+              chatKeyboardInset={layout.chatKeyboardInset}
               otherAvatarUri={getImageUrl(selectedUser.profileImage)}
               headerAvatarUri={getImageUrl(selectedUser.profileImage)}
               colors={panelColors}

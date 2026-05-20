@@ -18,6 +18,7 @@ import {
 import { getToken, setToken, clearToken } from "../storage/token.storage";
 import { setUserSnapshot, getUserSnapshot, clearUserSnapshot } from "../storage/user.storage";
 import { disconnectSocket, getSocket } from "../realtime/socket";
+import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
 
 export type AuthStatus = "loading" | "signedOut" | "home" | "pending" | "rejected";
 
@@ -153,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (accessToken: string, userFromApi: MeUser) => {
+      beginWelcomeSession();
       await setToken(accessToken);
       await setUserSnapshot(userFromApi);
       applySession(userFromApi, false);
@@ -164,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAllowAutoClearOn401(false);
     try {
       disconnectSocket();
+      clearWelcomeSession();
       await clearToken();
       await clearUserSnapshot();
       applySession(null, true);

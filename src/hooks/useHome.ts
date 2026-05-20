@@ -12,6 +12,8 @@ import {
   type HighlightsResponse
 } from "../api/home.api";
 import type { PostCardData } from "../components/home/PostCard";
+import { getImageUrl } from "../api/client";
+import { prefetchAspectRatios } from "../utils/imageDimensions";
 
 export type HomeState = {
   summary: HomeSummaryResponse | null;
@@ -122,6 +124,10 @@ export function useHome() {
       } else {
         setFeedItems(mapped);
       }
+      const mediaUris = mapped
+        .map((p) => getImageUrl(p.imageUri))
+        .filter((u): u is string => !!u);
+      if (mediaUris.length) prefetchAspectRatios(mediaUris);
     } catch (e) {
       setFeedError(e instanceof Error ? e : new Error("Failed to load feed"));
     } finally {

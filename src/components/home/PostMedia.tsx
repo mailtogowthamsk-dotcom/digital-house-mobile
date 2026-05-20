@@ -1,74 +1,94 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, StyleSheet, Image } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { View, StyleSheet, Image, useWindowDimensions } from "react-native";
 import { WebView } from "react-native-webview";
 import { getImageUrl } from "../../api/client";
 import { isYouTubeUrl, getYouTubeEmbedUrl } from "../../utils/youtube";
 import { useTheme } from "../../theme/ThemeContext";
+import { Shimmer } from "../ui/Shimmer";
+import {
+  DEFAULT_FEED_ASPECT_RATIO,
+  getCachedAspectRatio,
+  prefetchAspectRatio,
+  setCachedAspectRatio
+} from "../../utils/imageDimensions";
 
-/** Same max height as CreatePostScreen preview – post image matches create preview size */
-const IMAGE_MAX_HEIGHT = 400;
-const IMAGE_PLACEHOLDER_HEIGHT = 200;
+const IMAGE_MAX_HEIGHT = 520;
+const YOUTUBE_HEIGHT = 220;
 
 type PostMediaProps = {
-  /** Raw media URL from API (image URL or YouTube sharing link) */
   mediaUrl: string | null | undefined;
-  /** Height for YouTube embed only; images use aspect ratio (same as create preview) */
   height?: number;
-  /** Optional style for the container */
   style?: object;
+  /** Full-bleed feed image (cover, edge-to-edge) */
+  feedMode?: boolean;
 };
 
-/**
- * Renders post media: YouTube embed (playable) or image.
- * Images use same aspect-ratio logic as CreatePostScreen preview: full width, height from dimensions, max 400px.
- */
-export function PostMedia({ mediaUrl, height = 220, style }: PostMediaProps) {
+function PostMediaInner({ mediaUrl, height = YOUTUBE_HEIGHT, style, feedMode = false }: PostMediaProps) {
   const { colors } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const raw = mediaUrl?.trim();
+  const imageUri = raw && !isYouTubeUrl(raw) ? getImageUrl(raw) : null;
+
+  const [loaded, setLoaded] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(() =>
+    imageUri ? getCachedAspectRatio(imageUri) : null
+  );
+
+  const contentWidth = feedMode ? screenWidth : screenWidth - 32;
+
+  useEffect(() => {
+    if (!imageUri) {
+      setAspectRatio(null);
+      setLoaded(false);
+      return;
+    }
+    const cached = getCachedAspectRatio(imageUri);
+    if (cached != null) {
+      setAspectRatio(cached);
+      return;
+    }
+    let cancelled = false;
+    prefetchAspectRatio(imageUri).then((ratio) => {
+      if (!cancelled) setAspectRatio(ratio);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUri]);
+
+  const imageHeight = useMemo(() => {
+    const ratio = aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO;
+    return Math.min(contentWidth * ratio, IMAGE_MAX_HEIGHT);
+  }, [aspectRatio, contentWidth]);
+
   const s = useMemo(
     () =>
       StyleSheet.create({
         wrapOuter: { width: "100%" },
         wrap: {
           width: "100%",
-          borderRadius: 12,
           overflow: "hidden",
-          backgroundColor: colors.surfaceElevated
+          backgroundColor: colors.surfaceElevated,
+          ...(feedMode ? {} : { borderRadius: 0 })
         },
         webview: { flex: 1, width: "100%", backgroundColor: "transparent" },
-        image: { width: "100%", height: "100%" }
+        image: { width: "100%", height: "100%" },
+        shimmer: { ...StyleSheet.absoluteFillObject }
       }),
-    [colors]
+    [colors, feedMode]
   );
-  const raw = mediaUrl?.trim();
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
-  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  const imageUri = raw && !isYouTubeUrl(raw) ? getImageUrl(raw) : null;
-
-  useEffect(() => {
-    if (!imageUri) {
-      setImageDimensions(null);
-      return;
-    }
-    let cancelled = false;
-    Image.getSize(
-      imageUri,
-      (w, h) => {
-        if (!cancelled) setImageDimensions({ width: w, height: h });
-      },
-      () => {
-        if (!cancelled) setImageDimensions({ width: 1, height: 1 });
+  const onImageLoad = useCallback(
+    (e: { nativeEvent: { source: { width: number; height: number } } }) => {
+      const { width: w, height: h } = e.nativeEvent.source;
+      if (imageUri && w > 0 && h > 0) {
+        setCachedAspectRatio(imageUri, w, h);
+        setAspectRatio(h / w);
       }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [imageUri]);
-
-  const onLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) setContainerWidth(w);
-  }, []);
+      setLoaded(true);
+    },
+    [imageUri]
+  );
 
   if (!raw) return null;
 
@@ -98,17 +118,20 @@ export function PostMedia({ mediaUrl, height = 220, style }: PostMediaProps) {
 
   if (!imageUri) return null;
 
-  const imageHeight =
-    containerWidth != null && imageDimensions
-      ? Math.min(containerWidth * (imageDimensions.height / imageDimensions.width), IMAGE_MAX_HEIGHT)
-      : IMAGE_PLACEHOLDER_HEIGHT;
-
   return (
-    <View style={[s.wrapOuter, style]} onLayout={onLayout}>
+    <View style={[s.wrapOuter, style]}>
       <View style={[s.wrap, { height: imageHeight }]}>
-        <Image source={{ uri: imageUri }} style={s.image} resizeMode="contain" />
+        {!loaded ? <Shimmer height={imageHeight} borderRadius={0} style={s.shimmer} /> : null}
+        <Image
+          source={{ uri: imageUri }}
+          style={[s.image, { opacity: loaded ? 1 : 0 }]}
+          resizeMode={feedMode ? "cover" : "contain"}
+          onLoad={onImageLoad}
+          fadeDuration={0}
+        />
       </View>
     </View>
   );
 }
 
+export const PostMedia = memo(PostMediaInner);

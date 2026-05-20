@@ -4,13 +4,27 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMatrimonyInterestsReceived, getMatrimonyInterestsSent } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
-import { spacing } from "../../theme/spacing";
+import { spacing, radius } from "../../theme/spacing";
+import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 
 type InterestRow = {
   id: number;
   status: string;
-  candidate: { userId: number; name: string };
+  candidate: { userId: number; name: string; district?: string | null; age?: number | null };
 };
+
+function statusStyle(status: string): { bg: string; fg: string; label: string } {
+  switch (status) {
+    case "PENDING":
+      return { bg: "#FEF3C7", fg: "#D97706", label: "Pending" };
+    case "ACCEPTED":
+      return { bg: "#DCFCE7", fg: "#16A34A", label: "Accepted" };
+    case "DECLINED":
+      return { bg: "#FEE2E2", fg: "#DC2626", label: "Declined" };
+    default:
+      return { bg: "#F3F4F6", fg: "#6B7280", label: status };
+  }
+}
 
 export function MatrimonyInterestsScreen() {
   const navigation = useNavigation<any>();
@@ -35,22 +49,19 @@ export function MatrimonyInterestsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
     }, [load])
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>← Back</Text>
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>Interests</Text>
-        <Pressable onPress={() => navigation.navigate("MatrimonyMatches")}>
-          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>Matches</Text>
-        </Pressable>
-      </View>
-      <View style={styles.tabs}>
+      <MatrimonyScreenHeader
+        title="Interests"
+        onBack={() => navigation.goBack()}
+        rightLabel="Matches"
+        onRightPress={() => navigation.navigate("MatrimonyMatches")}
+      />
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {(["received", "sent"] as const).map((t) => (
           <Pressable
             key={t}
@@ -69,24 +80,49 @@ export function MatrimonyInterestsScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => String(i.id)}
-          contentContainerStyle={{ padding: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", color: colors.textSecondary }}>No interests yet</Text>
+            <View style={styles.empty}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>💌</Text>
+              <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>No interests yet</Text>
+              <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 }}>
+                Browse profiles and tap Express interest. Received interests appear here for you to accept.
+              </Text>
+            </View>
           }
-          renderItem={({ item }) => (
-            <Pressable
-              style={[styles.row, { borderColor: colors.border }]}
-              onPress={() =>
-                navigation.navigate("MatrimonyCandidate", {
-                  userId: item.candidate.userId,
-                  interestId: tab === "received" && item.status === "PENDING" ? item.id : undefined
-                })
-              }
-            >
-              <Text style={{ fontWeight: "700", color: colors.text }}>{item.candidate.name}</Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>{item.status}</Text>
-            </Pressable>
-          )}
+          renderItem={({ item }) => {
+            const st = statusStyle(item.status);
+            const initial = item.candidate.name?.charAt(0) ?? "?";
+            return (
+              <Pressable
+                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() =>
+                  navigation.navigate("MatrimonyCandidate", {
+                    userId: item.candidate.userId,
+                    interestId: tab === "received" && item.status === "PENDING" ? item.id : undefined
+                  })
+                }
+              >
+                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 18 }}>{initial}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>
+                    {item.candidate.name}
+                    {item.candidate.age != null ? ` · ${item.candidate.age}` : ""}
+                  </Text>
+                  {item.candidate.district ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                      {item.candidate.district}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={{ backgroundColor: st.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 }}>
+                  <Text style={{ color: st.fg, fontSize: 11, fontWeight: "700" }}>{st.label}</Text>
+                </View>
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
@@ -94,18 +130,23 @@ export function MatrimonyInterestsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  tabs: { flexDirection: "row", paddingHorizontal: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth },
+  tab: { flex: 1, paddingVertical: 12, alignItems: "center" },
+  card: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: spacing.lg
-  },
-  tabs: { flexDirection: "row", paddingHorizontal: spacing.lg },
-  tab: { flex: 1, paddingVertical: 10, alignItems: "center" },
-  row: {
+    gap: 12,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm
-  }
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  empty: { alignItems: "center", marginTop: 48, paddingHorizontal: spacing.lg }
 });

@@ -17,6 +17,8 @@ import { getPost, likePost, addComment, getComments, reportPost } from "../../ap
 import type { PostDetailResponse, CommentItem } from "../../api/posts.api";
 import { getErrorStatus, getImageUrl } from "../../api/client";
 import { PostMedia } from "../../components/home/PostMedia";
+import { AvatarImage } from "../../components/ui/AvatarImage";
+import { sharePost } from "../../utils/sharePost";
 import { timeAgo } from "../../utils/timeAgo";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -110,6 +112,16 @@ export function PostDetailScreen() {
     setSubmittingComment(false);
   }, [postId, commentText, post, submittingComment]);
 
+  const handleShare = useCallback(async () => {
+    if (!post || postId == null) return;
+    await sharePost({
+      postId,
+      title: post.title,
+      authorName: post.author?.name,
+      description: post.description ?? undefined
+    });
+  }, [post, postId]);
+
   const handleReport = useCallback(() => {
     if (postId == null) return;
     Alert.alert(
@@ -169,14 +181,14 @@ export function PostDetailScreen() {
         avatarText: { fontSize: 18, fontWeight: "700", color: colors.primary },
         headerText: { flex: 1, minWidth: 0 },
         authorName: {
-          ...typography.subhead,
+          ...typography.h3,
           fontWeight: "600",
           color: colors.text
         },
         meta: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
         moreBtn: { padding: spacing.xs },
         title: {
-          ...typography.title2,
+          ...typography.h2,
           color: colors.text,
           marginBottom: spacing.sm
         },
@@ -204,7 +216,7 @@ export function PostDetailScreen() {
           paddingTop: spacing.md
         },
         commentsTitle: {
-          ...typography.subhead,
+          ...typography.h3,
           fontWeight: "600",
           color: colors.text,
           marginBottom: spacing.sm
@@ -292,8 +304,6 @@ export function PostDetailScreen() {
 
   if (!post) return null;
 
-  const initial = post.author.name.trim().charAt(0).toUpperCase() || "?";
-
   return (
     <ScrollView
       style={s.container}
@@ -303,13 +313,12 @@ export function PostDetailScreen() {
       }
     >
       <View style={s.header}>
-        <View style={s.avatarWrap}>
-          {getImageUrl(post.author.profile_image) ? (
-            <Image source={{ uri: getImageUrl(post.author.profile_image)! }} style={s.avatar} />
-          ) : (
-            <Text style={s.avatarText}>{initial}</Text>
-          )}
-        </View>
+        <AvatarImage
+          uri={post.author.profile_image}
+          name={post.author.name}
+          size={44}
+          containerStyle={{ marginRight: spacing.sm }}
+        />
         <View style={s.headerText}>
           <Text style={s.authorName} numberOfLines={1}>
             {post.author.name}
@@ -327,7 +336,7 @@ export function PostDetailScreen() {
       {post.description ? <Text style={s.description}>{post.description}</Text> : null}
       {post.media_url ? (
         <View style={s.mediaWrap}>
-          <PostMedia mediaUrl={post.media_url} />
+          <PostMedia mediaUrl={post.media_url} feedMode />
         </View>
       ) : null}
 
@@ -348,6 +357,10 @@ export function PostDetailScreen() {
           <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} />
           <Text style={s.actionCount}>{post.comment_count}</Text>
         </View>
+        <Pressable style={s.actionBtn} onPress={() => void handleShare()}>
+          <Ionicons name="share-outline" size={22} color={colors.textSecondary} />
+          <Text style={s.actionCount}>Share</Text>
+        </Pressable>
       </View>
 
       <View style={s.commentsSection}>

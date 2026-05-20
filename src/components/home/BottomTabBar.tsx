@@ -22,11 +22,11 @@ const TABS: TabItem[] = [
   { id: "profile", label: "Profile", icon: "person-outline", iconActive: "person" }
 ];
 
-const BAR_HEIGHT = 64;
-const CREATE_BTN_SIZE = 56;
-const ICON_SIZE = 24;
-const ICON_ROW_HEIGHT = 36;
-const LABEL_GAP = 6;
+const BAR_HEIGHT = 52;
+const CREATE_BTN_SIZE = 48;
+const ICON_SIZE = 22;
+const ICON_ROW_HEIGHT = 28;
+const LABEL_GAP = 2;
 
 type BottomTabBarProps = {
   activeTab: TabId;
@@ -62,7 +62,8 @@ export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: Bottom
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-around",
-          paddingHorizontal: 8
+          paddingHorizontal: 4,
+          paddingTop: 4
         },
         tab: {
           flex: 1,
@@ -84,7 +85,7 @@ export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: Bottom
         },
         labelSpacer: { height: LABEL_GAP },
         label: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "500",
           color: colors.textSecondary
         },
@@ -93,13 +94,13 @@ export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: Bottom
           fontWeight: "600"
         },
         createBtnOuter: {
-          width: CREATE_BTN_SIZE + 10,
-          height: CREATE_BTN_SIZE + 10,
-          borderRadius: (CREATE_BTN_SIZE + 10) / 2,
+          width: CREATE_BTN_SIZE + 8,
+          height: CREATE_BTN_SIZE + 8,
+          borderRadius: (CREATE_BTN_SIZE + 8) / 2,
           backgroundColor: colors.surface,
           alignItems: "center",
           justifyContent: "center",
-          marginTop: -14,
+          marginTop: -10,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
@@ -156,7 +157,7 @@ export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: Bottom
                       end={{ x: 1, y: 1 }}
                       style={s.createBtn}
                     >
-                      <Ionicons name="add" size={28} color={colors.white} />
+                      <Ionicons name="add" size={26} color={colors.white} />
                     </LinearGradient>
                   </View>
                 </View>

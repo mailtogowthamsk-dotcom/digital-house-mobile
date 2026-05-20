@@ -1,5 +1,6 @@
 import React, { memo, useRef } from "react";
-import { View, Text, StyleSheet, Image, Platform, KeyboardAvoidingView } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { AvatarImage } from "../ui/AvatarImage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ChatMessageList, type ChatMessageListHandle } from "./ChatMessageList";
 import { ChatComposer } from "./ChatComposer";
@@ -23,7 +24,7 @@ type Props = {
   fontSize: number;
   horizontalPadding: number;
   composerPaddingBottom: number;
-  keyboardVerticalOffset: number;
+  chatKeyboardInset?: number;
   otherAvatarUri?: string | null;
   headerAvatarUri?: string | null;
   colors: {
@@ -58,7 +59,7 @@ function ChatPanelComponent({
   fontSize,
   horizontalPadding,
   composerPaddingBottom,
-  keyboardVerticalOffset,
+  chatKeyboardInset = 0,
   otherAvatarUri,
   headerAvatarUri,
   colors,
@@ -75,23 +76,59 @@ function ChatPanelComponent({
     white: colors.white
   };
 
-  const avatarUri = headerAvatarUri ?? otherAvatarUri;
+  const composer = !loading && !error ? (
+    <View style={styles.composerDock}>
+      <ChatComposer
+        value={input}
+        onChangeText={onChangeText}
+        onSend={onSend}
+        sending={sending}
+        paddingBottom={composerPaddingBottom}
+        horizontalPadding={horizontalPadding}
+        colors={{
+          surface: colors.surface,
+          border: colors.border,
+          surfaceElevated: colors.surfaceElevated,
+          text: colors.text,
+          textMuted: colors.textMuted,
+          primary: colors.primary,
+          white: colors.white
+        }}
+      />
+    </View>
+  ) : null;
+
+  const messageBody = loading ? (
+    <ChatMessagesSkeleton />
+  ) : error ? (
+    <View style={styles.centered}>
+      <Ionicons name="cloud-offline-outline" size={40} color={colors.textSecondary} />
+      <Text style={[styles.errorTitle, { color: colors.text }]}>{error}</Text>
+    </View>
+  ) : (
+    <ChatMessageList
+      ref={listRef}
+      messages={messages}
+      meId={meId}
+      bubbleMaxWidth={bubbleMaxWidth}
+      fontSize={fontSize}
+      horizontalPadding={horizontalPadding}
+      otherAvatarUri={otherAvatarUri}
+      colors={bubbleColors}
+    />
+  );
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={keyboardVerticalOffset}
-    >
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {headerLeft}
-        {avatarUri ? (
-          <Image source={{ uri: avatarUri }} style={styles.headerAvatar} />
-        ) : (
-          <View style={[styles.headerAvatar, styles.headerAvatarPh, { backgroundColor: colors.surfaceElevated }]}>
-            <Ionicons name="person" size={18} color={colors.textMuted} />
-          </View>
-        )}
+        <AvatarImage
+          uri={headerAvatarUri ?? otherAvatarUri}
+          name={title}
+          size={40}
+          placeholderColor={colors.surfaceElevated}
+          textColor={colors.textMuted}
+        />
         <View style={styles.headerText}>
           <Text style={[styles.title, { color: colors.text, fontSize: fontSize + 2 }]} numberOfLines={1}>
             {title}
@@ -108,48 +145,11 @@ function ChatPanelComponent({
         </View>
       ) : null}
 
-      <View style={styles.body}>
-        {loading ? (
-          <ChatMessagesSkeleton />
-        ) : error ? (
-          <View style={styles.centered}>
-            <Ionicons name="cloud-offline-outline" size={40} color={colors.textSecondary} />
-            <Text style={[styles.errorTitle, { color: colors.text }]}>{error}</Text>
-          </View>
-        ) : (
-          <ChatMessageList
-            ref={listRef}
-            messages={messages}
-            meId={meId}
-            bubbleMaxWidth={bubbleMaxWidth}
-            fontSize={fontSize}
-            horizontalPadding={horizontalPadding}
-            otherAvatarUri={otherAvatarUri}
-            colors={bubbleColors}
-          />
-        )}
+      <View style={[styles.chatColumn, chatKeyboardInset > 0 && { marginBottom: chatKeyboardInset }]}>
+        <View style={styles.body}>{messageBody}</View>
+        {composer}
       </View>
-
-      {!loading && !error ? (
-        <ChatComposer
-          value={input}
-          onChangeText={onChangeText}
-          onSend={onSend}
-          sending={sending}
-          paddingBottom={composerPaddingBottom}
-          horizontalPadding={horizontalPadding}
-          colors={{
-            surface: colors.surface,
-            border: colors.border,
-            surfaceElevated: colors.surfaceElevated,
-            text: colors.text,
-            textMuted: colors.textMuted,
-            primary: colors.primary,
-            white: colors.white
-          }}
-        />
-      ) : null}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -157,8 +157,15 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     minHeight: 0,
-    minWidth: 0,
-    overflow: "hidden"
+    minWidth: 0
+  },
+  chatColumn: {
+    flex: 1,
+    minHeight: 0
+  },
+  composerDock: {
+    flexGrow: 0,
+    flexShrink: 0
   },
   header: {
     flexDirection: "row",
@@ -168,16 +175,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexShrink: 0,
     gap: 10
-  },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    flexShrink: 0
-  },
-  headerAvatarPh: {
-    alignItems: "center",
-    justifyContent: "center"
   },
   headerText: {
     flex: 1,
