@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp, useNavigation, useIsFocused } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -9,11 +8,13 @@ import { getImageUrl } from "../../api/client";
 import { getMe } from "../../api/auth.api";
 import { hapticSendMessage } from "../../utils/chatHaptics";
 import { ChatMessagesSkeleton } from "../../components/messages/ChatSkeleton";
+import { ChatHeader } from "../../components/messages/ChatHeader";
 import { getHistory, markRead, sendMessage, type MessageItem } from "../../api/messages.api";
 import { getSocket } from "../../realtime/socket";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
+import { getMatrimonyChatAccess } from "../../api/matrimony.api";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 
 type ChatParams = { otherUserId: number; name: string; profileImage?: string | null };
@@ -40,6 +41,7 @@ export function ChatScreen() {
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
+  const [matrimonyChatLock, setMatrimonyChatLock] = useState<string | null>(null);
 
   const scrollToBottomIfNeeded = useCallback((animated = true) => {
     if (listRef.current?.shouldAutoScroll() !== false) {
@@ -81,6 +83,18 @@ export function ChatScreen() {
   useEffect(() => {
     navigation.setOptions?.({ title: name });
   }, [navigation, name]);
+
+  useEffect(() => {
+    void getMatrimonyChatAccess(otherUserId)
+      .then((access) => {
+        if (access.matrimonyGateApplies && !access.allowed) {
+          setMatrimonyChatLock(access.message ?? "Chat available after mutual match.");
+        } else {
+          setMatrimonyChatLock(null);
+        }
+      })
+      .catch(() => setMatrimonyChatLock(null));
+  }, [otherUserId]);
 
   useEffect(() => {
     (async () => {
@@ -132,7 +146,7 @@ export function ChatScreen() {
   const markReadNowRef = useRef(markReadNow);
   markReadNowRef.current = markReadNow;
 
-  useChatSocket(otherUserId, isFocused && !loading && meId != null, {
+  useChatSocket(otherUserId, isFocused, {
     onMessage: mergeIncomingMessage,
     onDelivered: ({ messageId, deliveredAt }) => {
       setMessages((prev) =>
@@ -230,27 +244,43 @@ export function ChatScreen() {
     error: colors.error
   };
 
+  const backButton = (
+    <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+      <Ionicons name="chevron-back" size={24} color={colors.text} />
+    </Pressable>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
-        <View style={[styles.fill, { backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", padding: 12, gap: 10 }}>
-            <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-              <Ionicons name="chevron-back" size={24} color={colors.text} />
-            </Pressable>
-            <Text style={{ flex: 1, fontWeight: "800", color: colors.text }} numberOfLines={1}>
-              {name}
-            </Text>
-          </View>
-        </View>
+      <View style={[styles.fill, { backgroundColor: colors.background }]}>
+        <ChatHeader
+          title={name}
+          avatarUri={otherAvatarUri}
+          left={backButton}
+          backgroundColor={colors.surface}
+          borderColor={colors.border}
+          textColor={colors.text}
+          textSecondary={colors.textSecondary}
+          placeholderColor={colors.surfaceElevated}
+        />
         <ChatMessagesSkeleton />
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (loadError) {
     return (
-      <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
+      <View style={[styles.fill, { backgroundColor: colors.background }]}>
+        <ChatHeader
+          title={name}
+          avatarUri={otherAvatarUri}
+          left={backButton}
+          backgroundColor={colors.surface}
+          borderColor={colors.border}
+          textColor={colors.text}
+          textSecondary={colors.textSecondary}
+          placeholderColor={colors.surfaceElevated}
+        />
         <View style={styles.centered}>
           <Ionicons name="cloud-offline-outline" size={44} color={colors.textSecondary} />
           <Text style={{ color: colors.text, fontWeight: "800", marginTop: spacing.md }}>Couldn’t load chat</Text>
@@ -269,46 +299,61 @@ export function ChatScreen() {
             <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
+  const matrimonyLockBanner = matrimonyChatLock ? (
+    <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+      <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>{matrimonyChatLock}</Text>
+    </View>
+  ) : undefined;
+
   return (
-    <SafeAreaView
-      style={[styles.fill, { backgroundColor: colors.background }]}
-      edges={["top", "left", "right"]}
-    >
+    <View style={[styles.fill, { backgroundColor: colors.background }]}>
       <ChatPanel
         title={name}
         subtitle={otherTyping ? "Typing…" : " "}
         messages={messages}
         meId={meId}
         sendError={sendError}
-        input={input}
+        input={matrimonyChatLock ? "" : input}
         sending={sending}
-        onChangeText={onChangeText}
-        onSend={send}
+        onChangeText={matrimonyChatLock ? () => {} : onChangeText}
+        onSend={matrimonyChatLock ? () => {} : send}
         listRef={listRef}
         bubbleMaxWidth={layout.bubbleMaxWidth}
         fontSize={layout.fontSize}
         horizontalPadding={layout.horizontalPadding}
         composerPaddingBottom={layout.composerPaddingBottom}
         chatKeyboardInset={layout.chatKeyboardInset}
+        keyboardVisible={layout.keyboardVisible}
         otherAvatarUri={otherAvatarUri}
         headerAvatarUri={otherAvatarUri}
         colors={panelColors}
-        headerLeft={
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </Pressable>
-        }
+        headerLeft={backButton}
+        headerBanner={matrimonyLockBanner}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  lockBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10
+  },
+  lockBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17
+  },
   centered: {
     flex: 1,
     alignItems: "center",

@@ -46,9 +46,19 @@ function hubStatusChip(status: MatrimonyHubStatus): { label: string; bg: string;
   }
 }
 
-function hubStatusDescription(status: MatrimonyHubStatus): string {
+function hubStatusDescription(
+  status: MatrimonyHubStatus,
+  canBrowse: boolean,
+  completionPct: number
+): string {
   switch (status) {
     case "APPROVED":
+      if (!canBrowse && completionPct < 100) {
+        return "Finish all required fields (100%) before browsing profiles again.";
+      }
+      if (!canBrowse) {
+        return "Your profile is approved but browsing is paused until requirements are met.";
+      }
       return "Your profile is live. Browse verified candidates and connect after mutual match.";
     case "PENDING":
       return "Profile under admin review. You will be notified when approved.";
@@ -139,11 +149,17 @@ export function MatrimonyHomeScreen() {
         onPress: () => navigation.navigate("MatrimonySaved")
       },
       {
+        key: "my-subscription",
+        label: "My subscription",
+        icon: "card-outline",
+        onPress: () => navigation.navigate("MatrimonyMySubscription"),
+        badge: hasPaidPlan ? hub.subscription?.planLabel : undefined
+      },
+      {
         key: "plans",
         label: "Subscription plans",
         icon: "card-outline",
-        onPress: () => navigation.navigate("MatrimonyPlans"),
-        badge: hasPaidPlan ? hub.subscription?.planLabel : undefined
+        onPress: () => navigation.navigate("MatrimonyPlans")
       },
       {
         key: "views",
@@ -324,14 +340,17 @@ export function MatrimonyHomeScreen() {
     hub.status === "CHANGES_REQUESTED" ||
     hub.status === "REJECTED" ||
     hub.status === "NOT_STARTED" ||
-    hub.status === "DRAFT";
+    hub.status === "DRAFT" ||
+    (hub.status === "APPROVED" && !hub.can_browse);
 
   const setupLabel =
     hub.status === "CHANGES_REQUESTED"
       ? "Continue application"
-      : hub.completion_percentage >= 100
-        ? "Submit for approval"
-        : "Complete matrimony profile";
+      : hub.status === "APPROVED" && !hub.can_browse
+        ? "Finish profile updates"
+        : hub.completion_percentage >= 100
+          ? "Submit for approval"
+          : "Complete matrimony profile";
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -356,9 +375,15 @@ export function MatrimonyHomeScreen() {
             <Text style={s.pct}>{hub.completion_percentage}% complete</Text>
           </View>
           <Text style={s.statusTitle}>
-            {hub.status === "APPROVED" ? "Approved & live" : chip.label}
+            {hub.status === "APPROVED"
+              ? hub.can_browse
+                ? "Approved & live"
+                : "Approved — complete profile"
+              : chip.label}
           </Text>
-          <Text style={s.statusBody}>{hubStatusDescription(hub.status)}</Text>
+          <Text style={s.statusBody}>
+            {hubStatusDescription(hub.status, hub.can_browse, hub.completion_percentage)}
+          </Text>
           <View style={s.progressBg}>
             <View style={[s.progressFill, { width: `${hub.completion_percentage}%` }]} />
           </View>

@@ -1,0 +1,28 @@
+export type RootStackParamList = {
+  Landing: undefined;
+  Registration: undefined;
+  PendingApproval: undefined;
+  Rejected: { message?: string };
+  Login: undefined;
+  OtpVerify: { email: string };
+  Home: undefined;
+  Profile: undefined;
+  EditProfile: undefined;
+  PostDetail: { postId: number };
+  CreatePost: undefined;
+  Menu: { messageCount?: number };
+  Settings: undefined;
+  Messages: undefined;
+  Chat: { otherUserId: number; name: string; profileImage?: string | null };
+  MatrimonyHome: undefined;
+  MatrimonySetup: undefined;
+  MatrimonyBrowse: undefined;
+  MatrimonyCandidate: { userId: number; interestId?: number; fromWhoViewedMe?: boolean };
+  MatrimonyInterests: undefined;
+  MatrimonyMatches: undefined;
+  MatrimonySaved: undefined;
+  MatrimonyPlans: undefined;
+  MatrimonyMySubscription: undefined;
+  MatrimonyViews: undefined;
+  Notifications: undefined;
+};

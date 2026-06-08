@@ -1,7 +1,27 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { getToken } from "../storage/token.storage";
 import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
+
+type RetryableConfig = InternalAxiosRequestConfig & { __retryCount?: number };
+
+function isLocalLanApiUrl(url: string): boolean {
+  return /\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.0\.0\.1)/i.test(url);
+}
+
+function isTransientNetworkError(err: AxiosError): boolean {
+  if (err.response) return false;
+  const code = err.code ?? "";
+  const msg = (err.message ?? "").toLowerCase();
+  return (
+    code === "ERR_NETWORK" ||
+    code === "ECONNABORTED" ||
+    code === "ETIMEDOUT" ||
+    msg.includes("network") ||
+    msg.includes("timeout")
+  );
+}
 
 const PRODUCTION_API = "https://www.infosensetechnologies.com/digitalhouse/backend/api";
 
@@ -82,8 +102,27 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (res) => res,
   async (err: AxiosError) => {
-    const status = err.response?.status;
-    if (status === 401 && shouldAutoClearOn401()) {
+    const config = err.config as RetryableConfig | undefined;
+
+    if (
+      Platform.OS === "android" &&
+      config &&
+      !config.__retryCount &&
+      isTransientNetworkError(err) &&
+      (config.method ?? "get").toLowerCase() === "get"
+    ) {
+      config.__retryCount = 1;
+      await new Promise((r) => setTimeout(r, 900));
+      config.baseURL = getApiBaseUrl();
+      try {
+        return await api.request(config);
+      } catch (retryErr) {
+        err = retryErr as AxiosError;
+      }
+    }
+
+    const retryStatus = err.response?.status;
+    if (retryStatus === 401 && shouldAutoClearOn401()) {
       try {
         await invokeAuthSignOut();
       } catch {
@@ -122,7 +161,11 @@ export function getAuthErrorMessage(err: unknown): string {
       ax.code === "ERR_NETWORK" ||
       ax.message?.toLowerCase().includes("network"))
   ) {
-    const hint = __DEV__ ? ` (${getApiBaseUrl()})` : "";
+    const base = getApiBaseUrl();
+    const hint = __DEV__ ? ` (${base})` : "";
+    if (Platform.OS === "android" && isLocalLanApiUrl(base)) {
+      return `Cannot reach your dev server${hint}. On Realme/Oppo: turn off "Wi‑Fi assistant" / "Smart network switch", keep phone on the same Wi‑Fi as your computer, and disable battery restrictions for this app. Or use the production HTTPS API URL in mobile/.env.`;
+    }
     return `Cannot reach server. Check internet and API URL${hint}.`;
   }
   return "Request failed. Please try again.";

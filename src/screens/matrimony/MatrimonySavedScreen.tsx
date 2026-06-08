@@ -12,10 +12,11 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getMatrimonySavedProfiles, type SavedProfileItem } from "../../api/matrimony.api";
+import { getMatrimonySavedProfiles, unsaveMatrimonyProfile, type SavedProfileItem } from "../../api/matrimony.api";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
 
 export function MatrimonySavedScreen() {
   const navigation = useNavigation<any>();
@@ -42,7 +43,13 @@ export function MatrimonySavedScreen() {
     }, [load])
   );
 
+  const onUnsave = async (userId: number) => {
+    await unsaveMatrimonyProfile(userId);
+    setItems((prev) => prev.filter((x) => x.userId !== userId));
+  };
+
   return (
+    <MatrimonyBrowseGate>
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
@@ -57,7 +64,7 @@ export function MatrimonySavedScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(i) => String(i.userId)}
+          keyExtractor={(i, index) => `saved-${i.userId}-${index}`}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
           ListEmptyComponent={
@@ -86,13 +93,20 @@ export function MatrimonySavedScreen() {
                     <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{item.district}</Text>
                   ) : null}
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                <Pressable
+                  onPress={() => void onUnsave(item.userId)}
+                  hitSlop={8}
+                  style={styles.unsaveBtn}
+                >
+                  <Ionicons name="bookmark" size={22} color={colors.primary} />
+                </Pressable>
               </Pressable>
             );
           }}
         />
       )}
     </View>
+    </MatrimonyBrowseGate>
   );
 }
 
@@ -117,5 +131,6 @@ const styles = StyleSheet.create({
   },
   photo: { width: 56, height: 56, borderRadius: radius.md },
   body: { flex: 1 },
-  name: { fontSize: 16, fontWeight: "700" }
+  name: { fontSize: 16, fontWeight: "700" },
+  unsaveBtn: { padding: 6 }
 });

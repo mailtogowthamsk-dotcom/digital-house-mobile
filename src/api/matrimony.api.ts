@@ -108,6 +108,32 @@ export type MatrimonySubscriptionSummary = {
   };
 };
 
+export type MyMatrimonySubscriptionDetail = MatrimonySubscriptionSummary & {
+  subscriptionStatus: "FREE" | "ACTIVE" | "EXPIRED";
+  startedAt: string | null;
+  daysRemaining: number | null;
+  amountPaidPaise: number | null;
+  amountPaidInr: number | null;
+  paymentId: string | null;
+  razorpayOrderId: string | null;
+  canRenew: boolean;
+};
+
+export type MatrimonyPaymentHistoryItem = {
+  id: number;
+  type: "SUBSCRIPTION" | "CONTACT_REVEAL";
+  purpose: MatrimonyPaymentPurpose;
+  planLabel: string;
+  amountPaise: number;
+  amountInr: number;
+  status: "CREATED" | "PAID" | "FAILED";
+  razorpayOrderId: string;
+  razorpayPaymentId: string | null;
+  createdAt: string;
+  paidAt: string | null;
+  targetUserId: number | null;
+};
+
 export type MatrimonyPlanCatalogItem = {
   plan: MatrimonyPlanCode;
   label: string;
@@ -182,6 +208,7 @@ export type DiscoverCard = {
   canOpen: boolean;
   openRequiresPlan: "GOLD" | "PLATINUM" | null;
   photoBlurred: boolean;
+  photoPlaceholder?: boolean;
 };
 
 export type ProfileLockedTeaser = {
@@ -257,8 +284,15 @@ export type DiscoverFilters = {
 
 export async function discoverMatrimonyProfiles(
   params?: DiscoverFilters
-): Promise<{ items: DiscoverCard[]; total: number; page: number; limit: number }> {
-  const { data } = await api.get<{ ok: boolean; items: DiscoverCard[]; total: number; page: number; limit: number }>(
+): Promise<{ items: DiscoverCard[]; total: number; page: number; limit: number; emptyHint?: string }> {
+  const { data } = await api.get<{
+    ok: boolean;
+    items: DiscoverCard[];
+    total: number;
+    page: number;
+    limit: number;
+    emptyHint?: string;
+  }>(
     "/matrimony/discover",
     { params }
   );
@@ -286,6 +320,121 @@ export async function openMatrimonyProfile(userId: number): Promise<CandidateDet
   if (!data?.ok) throw new Error((data as { message?: string })?.message ?? "Could not open profile");
   const { ok: _ok, ...profile } = data;
   return profile as CandidateDetail;
+}
+
+export type MatrimonyPaymentPurpose =
+  | "SUBSCRIPTION_GOLD"
+  | "SUBSCRIPTION_PLATINUM"
+  | "CONTACT_REVEAL";
+
+export type MatrimonyPaymentsConfig = {
+  razorpayEnabled: boolean;
+  keyId: string | null;
+  devPaymentsAllowed: boolean;
+  currency: "INR";
+  contactAmountPaise: number;
+};
+
+export type MatrimonyPaymentOrderPayload = {
+  orderId: number;
+  razorpayOrderId: string;
+  amountPaise: number;
+  currency: string;
+  keyId: string;
+  description: string;
+};
+
+export async function getMatrimonyChatAccess(otherUserId: number): Promise<{
+  matrimonyGateApplies: boolean;
+  allowed: boolean;
+  code?: string;
+  message?: string;
+}> {
+  const { data } = await api.get<{
+    ok: boolean;
+    matrimonyGateApplies: boolean;
+    allowed: boolean;
+    code?: string;
+    message?: string;
+  }>(`/matrimony/chat-access/${otherUserId}`);
+  if (!data?.ok) throw new Error("Could not check chat access");
+  return data;
+}
+
+export async function withdrawMatrimonyProfile(): Promise<MatrimonyHub> {
+  const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/withdraw", {});
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Withdraw failed");
+  return data;
+}
+
+export async function getMatrimonyPaymentsConfig(): Promise<MatrimonyPaymentsConfig> {
+  const { data } = await api.get<{ ok: boolean } & MatrimonyPaymentsConfig>(
+    "/matrimony/payments/config"
+  );
+  if (!data?.ok) throw new Error("Could not load payment config");
+  return data;
+}
+
+export async function createMatrimonyPaymentOrder(
+  purpose: MatrimonyPaymentPurpose,
+  targetUserId?: number
+): Promise<{ order: MatrimonyPaymentOrderPayload }> {
+  const { data } = await api.post<{ ok: boolean; order: MatrimonyPaymentOrderPayload }>(
+    "/matrimony/payments/orders",
+    { purpose, ...(targetUserId != null ? { targetUserId } : {}) }
+  );
+  if (!data?.ok || !data.order) throw new Error("Could not create payment order");
+  return { order: data.order };
+}
+
+export async function verifyMatrimonyPayment(body: {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}): Promise<{
+  fulfilled: boolean;
+  purpose: MatrimonyPaymentPurpose;
+  subscription?: MatrimonySubscriptionSummary;
+  contact?: { mobile: string | null };
+  message?: string;
+}> {
+  const { data } = await api.post<{
+    ok: boolean;
+    fulfilled: boolean;
+    purpose: MatrimonyPaymentPurpose;
+    subscription?: MatrimonySubscriptionSummary;
+    contact?: { mobile: string | null };
+    message?: string;
+  }>("/matrimony/payments/verify", body);
+  if (!data?.ok) throw new Error("Payment verification failed");
+  return data;
+}
+
+export async function getMatrimonySubscription(): Promise<{
+  subscription: MatrimonySubscriptionSummary;
+  mySubscription: MyMatrimonySubscriptionDetail;
+  plans: MatrimonyPlanCatalogItem[];
+}> {
+  const { data } = await api.get<{
+    ok: boolean;
+    subscription: MatrimonySubscriptionSummary;
+    mySubscription: MyMatrimonySubscriptionDetail;
+    plans: MatrimonyPlanCatalogItem[];
+  }>("/matrimony/subscription");
+  if (!data?.ok) throw new Error("Failed to load subscription");
+  return {
+    subscription: data.subscription,
+    mySubscription: data.mySubscription,
+    plans: data.plans ?? []
+  };
+}
+
+export async function getMatrimonyPaymentHistory(): Promise<MatrimonyPaymentHistoryItem[]> {
+  const { data } = await api.get<{ ok: boolean; items: MatrimonyPaymentHistoryItem[] }>(
+    "/matrimony/payments/history"
+  );
+  if (!data?.ok) throw new Error("Failed to load payment history");
+  return data.items ?? [];
 }
 
 export async function subscribeMatrimonyPlan(plan: "GOLD" | "PLATINUM", durationMonths = 6) {
@@ -339,10 +488,14 @@ export async function sendMatrimonyInterest(toUserId: number, introMessage?: str
   return data;
 }
 
-export async function respondMatrimonyInterest(interestId: number, action: "ACCEPT" | "DECLINE") {
+export async function respondMatrimonyInterest(
+  interestId: number,
+  action: "ACCEPT" | "DECLINE",
+  introMessage?: string
+) {
   const { data } = await api.post<{ ok: boolean; mutualMatch: boolean }>(
     `/matrimony/interests/${interestId}/respond`,
-    { action }
+    { action, introMessage }
   );
   if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to respond");
   return data;

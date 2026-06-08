@@ -48,11 +48,11 @@ function MentionText({
     <Text style={{ fontSize: 14, lineHeight: 20, color: textColor }}>
       {parts.map((part, i) =>
         part.startsWith("@") ? (
-          <Text key={i} style={{ color, fontWeight: "600" }}>
+          <Text key={`m-${i}-a`} style={{ color, fontWeight: "600" }}>
             {part}
           </Text>
         ) : (
-          <Text key={i}>{part}</Text>
+          <Text key={`m-${i}-t`}>{part}</Text>
         )
       )}
     </Text>

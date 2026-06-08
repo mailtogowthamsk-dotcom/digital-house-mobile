@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { dedupeLabels } from "./matrimonyUi";
 
 export function MatrimonyChip({ label }: { label: string }) {
   return (
@@ -10,11 +11,12 @@ export function MatrimonyChip({ label }: { label: string }) {
 }
 
 export function MatrimonyChipRow({ labels }: { labels: string[] }) {
-  if (!labels.length) return null;
+  const unique = dedupeLabels(labels);
+  if (!unique.length) return null;
   return (
     <View style={styles.row}>
-      {labels.map((l) => (
-        <MatrimonyChip key={l} label={l} />
+      {unique.map((l, index) => (
+        <MatrimonyChip key={`${l}-${index}`} label={l} />
       ))}
     </View>
   );

@@ -1,6 +1,7 @@
 import React, {
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   forwardRef,
@@ -41,6 +42,7 @@ type Props = {
     textMuted: string;
     white: string;
   };
+  keyboardVisible?: boolean;
   onAutoScrollChange?: (enabled: boolean) => void;
 };
 
@@ -53,6 +55,7 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     horizontalPadding,
     otherAvatarUri,
     colors,
+    keyboardVisible = false,
     onAutoScrollChange
   },
   ref
@@ -102,6 +105,12 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
       scrollToBottom(false);
     }
   }, [scrollToBottom]);
+
+  useEffect(() => {
+    if (keyboardVisible && autoScrollRef.current) {
+      scrollToBottom(true);
+    }
+  }, [keyboardVisible, scrollToBottom]);
 
   const renderItem: ListRenderItem<ChatListRow> = useCallback(
     ({ item }) => {
@@ -153,7 +162,7 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
-        removeClippedSubviews={Platform.OS === "android"}
+        removeClippedSubviews={false}
         initialNumToRender={20}
         maxToRenderPerBatch={14}
         windowSize={9}

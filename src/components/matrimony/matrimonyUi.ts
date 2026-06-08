@@ -1,5 +1,18 @@
 import type { DiscoverCard } from "../../api/matrimony.api";
 
+/** Stable list keys when labels may repeat (e.g. Verified in chips + kulam label). */
+export function dedupeLabels(labels: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const l of labels) {
+    const t = l.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 /** Chip labels for browse / profile cards (mockup: Same District, Horoscope, etc.) */
 export function buildDiscoverChips(
   item: Pick<
@@ -20,7 +33,7 @@ export function buildDiscoverChips(
   if (item.verified) chips.push("Verified");
   if (item.kulamLabel) chips.push(item.kulamLabel);
   if (item.familyManaged) chips.push("Family managed");
-  return chips;
+  return dedupeLabels(chips);
 }
 
 export type QuickBrowseFilter = "all" | "horoscope" | "myDistrict";

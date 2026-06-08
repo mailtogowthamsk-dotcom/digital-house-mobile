@@ -97,11 +97,11 @@ function ChipMultiSelect({
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
       {items
         .filter((i) => !excludeIds.includes(i.id))
-        .map((item) => {
+        .map((item, index) => {
           const active = selected.includes(item.id);
           return (
             <Pressable
-              key={item.id}
+              key={`kulam-${item.id}-${index}`}
               onPress={() => onToggle(item.id)}
               style={{
                 paddingHorizontal: 12,

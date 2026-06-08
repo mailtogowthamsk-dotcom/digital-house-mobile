@@ -15,7 +15,7 @@ import {
   setAllowAutoClearOn401,
   invokeAuthSignOut
 } from "../auth/authSession";
-import { getToken, setToken, clearToken } from "../storage/token.storage";
+import { getTokenReliable, setToken, clearToken } from "../storage/token.storage";
 import { setUserSnapshot, getUserSnapshot, clearUserSnapshot } from "../storage/user.storage";
 import { disconnectSocket, getSocket } from "../realtime/socket";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
@@ -65,6 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MeUser | null>(null);
   const bootstrapDone = useRef(false);
   const restoringRef = useRef(false);
+  const userRef = useRef<MeUser | null>(null);
+  userRef.current = user;
 
   const applySession = useCallback((nextUser: MeUser | null, signedOut: boolean) => {
     setUser(nextUser);
@@ -80,8 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAllowAutoClearOn401(false);
 
     try {
-      const token = await getToken();
+      const token = await getTokenReliable();
       if (!token) {
+        const snapshot = await getUserSnapshot();
+        if (snapshot) {
+          applySession(snapshot, false);
+          return;
+        }
         applySession(null, true);
         return;
       }
@@ -107,11 +114,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         const snapshot = await getUserSnapshot();
-        const token = await getToken();
+        const token = await getTokenReliable();
         if (token && snapshot) {
           applySession(snapshot, false);
-        } else if (token) {
-          applySession(null, true);
+        } else if (token && userRef.current) {
+          applySession(userRef.current, false);
+        } else if (snapshot) {
+          applySession(snapshot, false);
         } else {
           applySession(null, true);
         }
@@ -143,13 +152,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [applySession]);
 
   useEffect(() => {
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
     const onAppState = (next: AppStateStatus) => {
       if (next === "active" && bootstrapDone.current && status === "home") {
-        restoreSession().catch(() => {});
+        if (resumeTimer) clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(() => {
+          restoreSession().catch(() => {});
+        }, 400);
       }
     };
     const sub = AppState.addEventListener("change", onAppState);
-    return () => sub.remove();
+    return () => {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      sub.remove();
+    };
   }, [restoreSession, status]);
 
   const signIn = useCallback(

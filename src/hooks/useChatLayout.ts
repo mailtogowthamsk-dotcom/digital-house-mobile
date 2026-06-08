@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Platform, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardHeight } from "./useKeyboardHeight";
@@ -22,21 +23,42 @@ export function useChatLayout() {
   const fontSize = width < 360 ? 13 : 14;
   const titleSize = isPhone ? 17 : 18;
 
-  /**
-   * iOS: lift the chat column above the keyboard (same pattern as CommentSheet).
-   * Android: window resize handles keyboard (app.json softwareKeyboardLayoutMode).
-   */
-  const chatKeyboardInset = Platform.OS === "ios" ? keyboardHeight : 0;
+  const keyboardVisible = keyboardHeight > 0;
+  const windowHeightBeforeKeyboardRef = useRef(height);
 
-  const composerPaddingBottom =
-    keyboardHeight > 0 ? 8 : Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6);
+  useEffect(() => {
+    if (!keyboardVisible) {
+      windowHeightBeforeKeyboardRef.current = height;
+    }
+  }, [height, keyboardVisible]);
+
+  /** How many px the root window already shrank when adjustResize is active. */
+  const windowShrunkBy = keyboardVisible
+    ? Math.max(0, windowHeightBeforeKeyboardRef.current - height)
+    : 0;
+
+  /**
+   * Lift the composer above the keyboard without moving the header.
+   * iOS: keyboard overlays the window.
+   * Android: subtract any height adjustResize already reclaimed.
+   */
+  const chatKeyboardInset =
+    Platform.OS === "ios"
+      ? keyboardHeight
+      : keyboardVisible
+        ? Math.max(0, keyboardHeight - windowShrunkBy)
+        : 0;
+
+  const composerPaddingBottom = keyboardVisible
+    ? 8
+    : Math.max(insets.bottom, Platform.OS === "ios" ? 8 : 6);
 
   return {
     width,
     height,
     insets,
     keyboardHeight,
-    keyboardVisible: keyboardHeight > 0,
+    keyboardVisible,
     isPhone,
     isTablet,
     isDesktop,

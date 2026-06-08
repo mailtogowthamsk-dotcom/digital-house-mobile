@@ -4,10 +4,11 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getMatrimonyHub,
-  subscribeMatrimonyPlan,
   type MatrimonyPlanCatalogItem,
   type MatrimonySubscriptionSummary
 } from "../../api/matrimony.api";
+import { useAuth } from "../../context/AuthContext";
+import { checkoutMatrimonySubscription } from "../../services/matrimonyCheckout";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
@@ -17,6 +18,7 @@ export function MatrimonyPlansScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [plans, setPlans] = useState<MatrimonyPlanCatalogItem[]>([]);
   const [subscription, setSubscription] = useState<MatrimonySubscriptionSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,28 +42,27 @@ export function MatrimonyPlansScreen() {
   );
 
   const onSubscribe = (plan: "GOLD" | "PLATINUM") => {
-    Alert.alert(
-      `Subscribe to ${plan}`,
-      "Development mode: activates plan without real payment. Connect Razorpay for production.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Activate",
-          onPress: async () => {
-            setActing(true);
-            try {
-              const res = await subscribeMatrimonyPlan(plan);
-              Alert.alert("Success", res.message ?? `${plan} plan activated.`);
-              await load();
-            } catch (e) {
-              Alert.alert("Error", e instanceof Error ? e.message : "Failed");
-            } finally {
-              setActing(false);
-            }
+    Alert.alert(`Subscribe to ${plan}`, "You will complete payment in Razorpay (or dev mode if enabled).", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Continue",
+        onPress: async () => {
+          setActing(true);
+          try {
+            const res = await checkoutMatrimonySubscription(plan, {
+              name: user?.fullName ?? undefined,
+              email: user?.email ?? undefined
+            });
+            Alert.alert("Success", res.message ?? `${plan} plan activated.`);
+            await load();
+          } catch (e) {
+            Alert.alert("Payment", e instanceof Error ? e.message : "Failed");
+          } finally {
+            setActing(false);
           }
         }
-      ]
-    );
+      }
+    ]);
   };
 
   return (

@@ -1,6 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { getToken } from "../storage/token.storage";
 import { getServerBaseUrl } from "../api/client";
+import { runRealtimeTeardowns } from "./teardown";
 
 let socket: Socket | null = null;
 let socketToken: string | null = null;
@@ -8,6 +9,7 @@ let socketToken: string | null = null;
 function teardownSocket() {
   if (!socket) return;
   try {
+    runRealtimeTeardowns();
     socket.removeAllListeners();
     socket.disconnect();
   } catch {
@@ -22,8 +24,37 @@ export function disconnectSocket() {
   teardownSocket();
 }
 
+function waitForConnect(sock: Socket, timeoutMs = 12_000): Promise<void> {
+  if (sock.connected) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Socket connect timeout"));
+    }, timeoutMs);
+
+    const onConnect = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      sock.off("connect", onConnect);
+      sock.off("connect_error", onError);
+    };
+
+    sock.once("connect", onConnect);
+    sock.once("connect_error", onError);
+  });
+}
+
 /**
  * Authenticated Socket.IO client. Recreates when token changes or connection is dead.
+ * Resolves only when the socket is connected (ready for emit/on).
  */
 export async function getSocket(): Promise<Socket> {
   const token = await getToken().catch(() => null);
@@ -35,13 +66,12 @@ export async function getSocket(): Promise<Socket> {
     teardownSocket();
   }
 
-  if (socket && !socket.connected) {
+  if (socket) {
     socket.auth = { token };
-    socket.connect();
-    return socket;
-  }
-
-  if (socket?.connected) {
+    if (!socket.connected) {
+      socket.connect();
+      await waitForConnect(socket);
+    }
     return socket;
   }
 
@@ -50,9 +80,10 @@ export async function getSocket(): Promise<Socket> {
     transports: ["websocket", "polling"],
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: Infinity,
     auth: { token }
   });
 
+  await waitForConnect(socket);
   return socket;
 }

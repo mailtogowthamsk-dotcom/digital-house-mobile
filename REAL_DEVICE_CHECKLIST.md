@@ -14,9 +14,20 @@ Use this to verify the app works on a **physical Android or iOS device**.
 ## 2. Android
 
 - **Permissions:** App has `READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`, `CAMERA` in `app.json`. Grant when prompted.
-- **HTTP (local testing):** Android 9+ blocks plain HTTP by default. Expo dev builds usually allow it. If API calls fail with “cleartext not permitted”, use a production HTTPS URL or a tunnel (e.g. ngrok) for local backend.
+- **HTTP (local testing):** Android 9+ blocks plain HTTP by default. `usesCleartextTraffic` is enabled in `app.json` for dev builds. If API calls fail with “cleartext not permitted”, use a production HTTPS URL or a tunnel (e.g. ngrok) for local backend.
 - **Image upload:** Picker may return `content://` URIs. Code copies to a temp `file://` before upload; no change needed.
 - **SecureStore:** Wrapped in try/catch to avoid crashes if keystore isn’t ready.
+
+### Realme / Oppo / ColorOS (common “works on iPhone, fails on Android”)
+
+If login works once then feed/messages stop loading:
+
+1. **Wi‑Fi assistant / Smart network switch** — Settings → Wi‑Fi → disable “Wi‑Fi assistant” or “Auto switch to mobile data”. When enabled, the phone may use **mobile data** while Wi‑Fi is on, so `http://192.168.x.x` (your Mac) becomes unreachable.
+2. **Battery optimization** — Settings → Battery → App battery management → Digital House → **Don’t optimize** / Allow background activity.
+3. **Same Wi‑Fi** — Phone and computer must be on the same network; confirm Mac IP with `ifconfig` and update `mobile/.env`.
+4. **Production testing** — On Realme away from your desk, use  
+   `EXPO_PUBLIC_API_URL=https://www.infosensetechnologies.com/digitalhouse/backend/api`  
+   then `npx expo start -c`.
 
 ## 3. iOS
 

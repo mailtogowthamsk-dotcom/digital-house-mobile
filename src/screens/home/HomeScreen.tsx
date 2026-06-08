@@ -25,14 +25,17 @@ import { CommentSheet } from "../../components/feed/CommentSheet";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useHome } from "../../hooks/useHome";
+import { useAppResume } from "../../hooks/useAppResume";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { getErrorStatus } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { openMessagesInbox } from "../../navigation/openMessages";
+import { useNotificationsOptional } from "../../context/NotificationContext";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
+import { shouldShowWelcomeCard } from "../../session/welcomeSession";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
@@ -46,6 +49,7 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const { signOut } = useAuth();
   const { colors } = useTheme();
+  const notifCtx = useNotificationsOptional();
   const {
     state,
     refetchAll,
@@ -106,6 +110,10 @@ export function HomeScreen() {
       retrySummary();
     }, [retrySummary])
   );
+
+  useAppResume(() => {
+    void refetchAll();
+  });
 
   useEffect(() => {
     if (summaryError) handleAuthError(summaryError);
@@ -183,12 +191,17 @@ export function HomeScreen() {
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
 
+  const showWelcomeCard = Boolean(summary && shouldShowWelcomeCard());
+  const showHighlights = hasHighlightsData(highlights);
+  const hasScrollHeader =
+    showWelcomeCard || showHighlights || (summaryLoading && !summary) || Boolean(summaryError);
+
   const s = useMemo(
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         headerWrap: { backgroundColor: colors.surface },
-        listContent: { paddingTop: PADDING + 4 },
+        feedList: { flex: 1, backgroundColor: colors.background },
         headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
         feedSkeleton: { marginBottom: 14 },
@@ -277,7 +290,7 @@ export function HomeScreen() {
               </Pressable>
             </View>
           </View>
-        ) : summary ? (
+        ) : showWelcomeCard && summary ? (
           <View style={s.headerPad}>
             <DismissibleWelcomeCard
               userName={summary.user.name}
@@ -302,6 +315,7 @@ export function HomeScreen() {
       summary,
       summaryLoading,
       summaryError,
+      showWelcomeCard,
       highlights,
       retrySummary,
       retryHighlights,
@@ -357,7 +371,9 @@ export function HomeScreen() {
       {/* Fixed header – user summary (notification/message counts) */}
       <View style={[s.headerWrap, { paddingTop: insets.top }]}>
         <Header
-          notificationCount={summary?.unreadNotificationsCount ?? 0}
+          notificationCount={
+            notifCtx?.counts.total ?? summary?.unreadNotificationsCount ?? 0
+          }
           messageCount={summary?.unreadMessagesCount ?? 0}
           onNotificationPress={() => navigation.navigate("Notifications")}
           onMessagePress={() => openMessagesInbox(navigation)}
@@ -368,10 +384,11 @@ export function HomeScreen() {
       {/* Single FlatList: header content + feed; pull-to-refresh + infinite scroll */}
       <FlatList
         ref={listRef}
+        style={s.feedList}
         data={feedItems}
         renderItem={renderFeedItem}
         keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={hasScrollHeader ? ListHeaderComponent : null}
         ListFooterComponent={ListFooterComponent}
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={loadMoreFeed}
@@ -380,10 +397,10 @@ export function HomeScreen() {
         maxToRenderPerBatch={8}
         windowSize={7}
         initialNumToRender={6}
-        contentContainerStyle={[
-          s.listContent,
-          { paddingBottom: insets.bottom + 72 }
-        ]}
+        contentContainerStyle={{
+          paddingTop: hasScrollHeader ? PADDING : 0,
+          paddingBottom: insets.bottom + 72
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

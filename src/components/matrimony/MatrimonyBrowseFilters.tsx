@@ -323,12 +323,12 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                       : "Popular districts"}
                   </Text>
                   <View style={styles.chipRow}>
-                    {filteredLocations.map((loc) => {
+                    {filteredLocations.map((loc, index) => {
                       const selected =
                         draft.district.trim().toLowerCase() === loc.name.toLowerCase();
                       return (
                         <Pressable
-                          key={loc.id}
+                          key={`loc-${loc.id}-${index}`}
                           style={[
                             styles.chip,
                             {

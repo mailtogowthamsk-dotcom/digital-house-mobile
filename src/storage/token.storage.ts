@@ -5,8 +5,12 @@ const KEY = "dh_access_token";
 
 const isWeb = Platform.OS === "web";
 
+/**
+ * AFTER_FIRST_UNLOCK: survives brief background/lock on Android better than WHEN_UNLOCKED,
+ * which can return null right after the app resumes and trigger a false logout.
+ */
 const secureOptions: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
 /** Persist JWT — survives app restart and device reboot (SecureStore / localStorage). */
@@ -35,6 +39,14 @@ export async function getToken(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Retry once after resume — SecureStore can be briefly unavailable on Android. */
+export async function getTokenReliable(): Promise<string | null> {
+  const first = await getToken();
+  if (first || isWeb) return first;
+  await new Promise((r) => setTimeout(r, 150));
+  return getToken();
 }
 
 export async function hasToken(): Promise<boolean> {

@@ -24,8 +24,8 @@ export function MatrimonyProfileSection({ title, icon, fields, children }: Props
         {icon ? `${icon} ` : ""}
         {title}
       </Text>
-      {visible.map((f) => (
-        <View key={f.label} style={[styles.row, { borderBottomColor: colors.border }]}>
+      {visible.map((f, index) => (
+        <View key={`${f.label}-${index}`} style={[styles.row, { borderBottomColor: colors.border }]}>
           <Text style={[styles.label, { color: colors.textMuted }]}>{f.label}</Text>
           <Text style={[styles.value, { color: colors.text }]}>{f.value}</Text>
         </View>

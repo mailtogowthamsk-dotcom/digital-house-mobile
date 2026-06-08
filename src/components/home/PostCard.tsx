@@ -179,7 +179,7 @@ function PostCardInner({
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 16,
-          paddingTop: 16,
+          paddingTop: 12,
           marginBottom: 12
         },
         avatarWrap: {

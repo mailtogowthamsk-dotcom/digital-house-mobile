@@ -1,6 +1,5 @@
 import React from "react";
-import { View, Text, Image, Pressable, StyleSheet, Platform } from "react-native";
-import { BlurView } from "expo-blur";
+import { View, Text, Image, Pressable, StyleSheet } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyChipRow } from "./MatrimonyChip";
@@ -15,7 +14,9 @@ type Props = {
 
 export function MatrimonyMatchCard({ item, chips, onPress }: Props) {
   const { colors } = useTheme();
-  const uri = item.photoUrl ? getImageUrl(item.photoUrl) ?? item.photoUrl : null;
+  const lockedPhoto = item.photoBlurred || item.photoPlaceholder;
+  const uri =
+    !lockedPhoto && item.photoUrl ? getImageUrl(item.photoUrl) ?? item.photoUrl : null;
   const meta = [item.district, item.occupation].filter(Boolean).join(" · ");
   const footer =
     item.interestSent ? "Interest sent" : item.interestReceived ? "Interest received" : null;
@@ -34,13 +35,6 @@ export function MatrimonyMatchCard({ item, chips, onPress }: Props) {
               <Text style={{ fontSize: 28 }}>👤</Text>
             </View>
           )}
-          {item.photoBlurred && uri ? (
-            Platform.OS === "ios" ? (
-              <BlurView intensity={28} style={StyleSheet.absoluteFill} tint="light" />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, styles.androidBlur]} />
-            )
-          ) : null}
         </View>
         <View style={styles.body}>
           <View style={styles.nameRow}>

@@ -30,6 +30,7 @@ import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScree
 import { MatrimonyMatchCard } from "../../components/matrimony/MatrimonyMatchCard";
 import { MatrimonyQuickFilterBar } from "../../components/matrimony/MatrimonyQuickFilterBar";
 import { buildDiscoverChips, type QuickBrowseFilter } from "../../components/matrimony/matrimonyUi";
+import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
 
 const PAGE_SIZE = 20;
 
@@ -48,6 +49,7 @@ export function MatrimonyBrowseScreen() {
   const [quickFilter, setQuickFilter] = useState<QuickBrowseFilter>("all");
   const [viewerDistrict, setViewerDistrict] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<MatrimonySubscriptionSummary | null>(null);
+  const [emptyHint, setEmptyHint] = useState<string | null>(null);
 
   const hasMore = items.length < total;
 
@@ -81,6 +83,7 @@ export function MatrimonyBrowseScreen() {
         setItems((prev) => (append ? [...prev, ...res.items] : res.items));
         setTotal(res.total);
         setPage(res.page);
+        setEmptyHint(res.emptyHint ?? null);
       } catch (e) {
         if (!append) {
           setError(e instanceof Error ? e.message : "Failed to load");
@@ -133,6 +136,7 @@ export function MatrimonyBrowseScreen() {
   const activeFilters = sheetFiltersActive || quickFilter !== "all";
 
   return (
+    <MatrimonyBrowseGate>
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <MatrimonyScreenHeader
         title="Browse profiles"
@@ -197,7 +201,7 @@ export function MatrimonyBrowseScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(i) => String(i.userId)}
+          keyExtractor={(i, index) => `browse-${i.userId}-${index}`}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }}
           refreshControl={
             <RefreshControl refreshing={loading && !loadingMore} onRefresh={() => load(1, false)} />
@@ -207,8 +211,9 @@ export function MatrimonyBrowseScreen() {
           }}
           onEndReachedThreshold={0.35}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32, lineHeight: 22 }}>
-              No profiles match your filters. Try &quot;All&quot; or adjust more filters.
+            <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32, lineHeight: 22, paddingHorizontal: spacing.lg }}>
+              {emptyHint ??
+                "No profiles match your filters. Tap All, or update partner age, gender, and districts in Matrimony setup."}
             </Text>
           }
           ListFooterComponent={
@@ -238,6 +243,7 @@ export function MatrimonyBrowseScreen() {
         onClear={onClearFilters}
       />
     </View>
+    </MatrimonyBrowseGate>
   );
 }
 

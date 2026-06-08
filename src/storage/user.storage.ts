@@ -7,7 +7,7 @@ const KEY = "dh_user_snapshot";
 const isWeb = Platform.OS === "web";
 
 const secureOptions: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
 export async function setUserSnapshot(user: MeUser): Promise<void> {

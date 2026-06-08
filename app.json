@@ -2,12 +2,21 @@
   "expo": {
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo_digital_house.png",
+          "color": "#0B1220",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
+            "buildToolsVersion": "35.0.0",
+            "usesCleartextTraffic": true
           }
         }
       ]
@@ -19,7 +28,6 @@
     "orientation": "portrait",
     "icon": "./assets/logo_digital_house.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/logo_digital_house.png",
       "resizeMode": "contain",

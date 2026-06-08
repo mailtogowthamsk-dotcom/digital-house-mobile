@@ -97,9 +97,9 @@ export function HighlightSection({
       <Text style={s.sectionTitle}>Highlights</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalList}>
         {hasPinned
-          ? highlights!.pinnedAnnouncements.map((item) => (
+          ? highlights!.pinnedAnnouncements.map((item, index) => (
               <HighlightCard
-                key={`pinned-${item.postId}`}
+                key={`pinned-${item.postId}-${index}`}
                 item={item}
                 label="Pinned"
                 icon="pin"
@@ -110,9 +110,9 @@ export function HighlightSection({
             ))
           : null}
         {hasMeetups
-          ? highlights!.upcomingMeetups.map((item) => (
+          ? highlights!.upcomingMeetups.map((item, index) => (
               <HighlightCard
-                key={`meetup-${item.postId}`}
+                key={`meetup-${item.postId}-${index}`}
                 item={item}
                 label="Meetup"
                 icon="calendar"
@@ -123,9 +123,9 @@ export function HighlightSection({
             ))
           : null}
         {hasUrgent
-          ? highlights!.urgentHelpRequests.map((item) => (
+          ? highlights!.urgentHelpRequests.map((item, index) => (
               <HighlightCard
-                key={`urgent-${item.postId}`}
+                key={`urgent-${item.postId}-${index}`}
                 item={item}
                 label="Urgent"
                 icon="alert-circle"

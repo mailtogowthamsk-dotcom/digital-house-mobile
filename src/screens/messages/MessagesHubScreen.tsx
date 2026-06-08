@@ -20,6 +20,7 @@ import { getSocket } from "../../realtime/socket";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
 import { useChatLayout } from "../../hooks/useChatLayout";
+import { useAppResume } from "../../hooks/useAppResume";
 import { ThreadListPanel, ThreadRow } from "../../components/messages/ThreadListPanel";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
@@ -155,6 +156,10 @@ export function MessagesHubScreen() {
     }, [loadThreads, layout.isSplit])
   );
 
+  useAppResume(() => {
+    void loadThreads();
+  });
+
   useEffect(() => {
     if (!searchMode) return;
     const t = setTimeout(() => {
@@ -234,6 +239,30 @@ export function MessagesHubScreen() {
     [emitTyping]
   );
 
+  const mergeSplitMessage = useCallback(
+    (incoming: MessageItem) => {
+      setMessages((prev) => {
+        const incomingClientId =
+          typeof incoming.clientId === "string" ? incoming.clientId : null;
+        if (incomingClientId && pendingClientIdsRef.current.has(incomingClientId)) {
+          pendingClientIdsRef.current.delete(incomingClientId);
+          const replaced = prev.map((x) =>
+            x.clientId === incomingClientId ? incoming : x
+          );
+          if (replaced.some((x) => x.id === incoming.id)) return replaced;
+          return replaced;
+        }
+        if (prev.some((x) => x.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+      scrollToBottomIfNeeded(true);
+    },
+    [scrollToBottomIfNeeded]
+  );
+
+  const mergeSplitMessageRef = useRef(mergeSplitMessage);
+  mergeSplitMessageRef.current = mergeSplitMessage;
+
   useEffect(() => {
     if (meId == null) return;
     let disposed = false;
@@ -262,6 +291,9 @@ export function MessagesHubScreen() {
           if (!raw || typeof raw !== "object") return;
           const m = raw as MessageItem;
           const otherId = m.senderId === meId ? m.recipientId : m.senderId;
+          if (layout.isSplit && selectedUser?.id === otherId) {
+            mergeSplitMessageRef.current(m);
+          }
           setThreads((prev) => {
             const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
             if (needsFullReload) loadThreads().catch(() => {});
@@ -292,27 +324,6 @@ export function MessagesHubScreen() {
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
 
-  const mergeSplitMessage = useCallback(
-    (incoming: MessageItem) => {
-      setMessages((prev) => {
-        const incomingClientId =
-          typeof incoming.clientId === "string" ? incoming.clientId : null;
-        if (incomingClientId && pendingClientIdsRef.current.has(incomingClientId)) {
-          pendingClientIdsRef.current.delete(incomingClientId);
-          const replaced = prev.map((x) =>
-            x.clientId === incomingClientId ? incoming : x
-          );
-          if (replaced.some((x) => x.id === incoming.id)) return replaced;
-          return replaced;
-        }
-        if (prev.some((x) => x.id === incoming.id)) return prev;
-        return [...prev, incoming];
-      });
-      scrollToBottomIfNeeded(true);
-    },
-    [scrollToBottomIfNeeded]
-  );
-
   const markReadSplitRef = useRef<(id: number) => void>(() => {});
   markReadSplitRef.current = (otherUserId: number) => {
     markRead(otherUserId)
@@ -325,7 +336,7 @@ export function MessagesHubScreen() {
 
   useChatSocket(
     selectedUser?.id ?? null,
-    layout.isSplit && !!selectedUser && !loadingChat && meId != null,
+    layout.isSplit && !!selectedUser,
     {
       onMessage: mergeSplitMessage,
       onDelivered: ({ messageId, deliveredAt }) => {
@@ -553,9 +564,11 @@ export function MessagesHubScreen() {
               horizontalPadding={layout.horizontalPadding}
               composerPaddingBottom={layout.composerPaddingBottom}
               chatKeyboardInset={layout.chatKeyboardInset}
+              keyboardVisible={layout.keyboardVisible}
               otherAvatarUri={getImageUrl(selectedUser.profileImage)}
               headerAvatarUri={getImageUrl(selectedUser.profileImage)}
               colors={panelColors}
+              headerTopInset={0}
             />
           ) : (
             <View style={[styles.emptyChat, { backgroundColor: colors.background }]}>

@@ -14,6 +14,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
 
 function parseApiError(e: unknown): { message: string; code?: string } {
   const err = e as {
@@ -66,6 +67,7 @@ export function MatrimonyViewsScreen() {
   );
 
   return (
+    <MatrimonyBrowseGate>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <MatrimonyScreenHeader title="Who viewed me" onBack={() => navigation.goBack()} />
 
@@ -116,7 +118,12 @@ export function MatrimonyViewsScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => navigation.navigate("MatrimonyCandidate", { userId: item.viewerId })}
+              onPress={() =>
+                navigation.navigate("MatrimonyCandidate", {
+                  userId: item.viewerId,
+                  fromWhoViewedMe: true
+                })
+              }
             >
               <View style={[styles.av, { backgroundColor: colors.primary }]}>
                 <Text style={{ color: "#fff", fontWeight: "800" }}>{item.name.charAt(0)}</Text>
@@ -139,6 +146,7 @@ export function MatrimonyViewsScreen() {
         />
       )}
     </View>
+    </MatrimonyBrowseGate>
   );
 }
 

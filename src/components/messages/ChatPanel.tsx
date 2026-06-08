@@ -1,7 +1,7 @@
-import React, { memo, useRef } from "react";
+import React, { memo, useEffect, useRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { AvatarImage } from "../ui/AvatarImage";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { ChatHeader } from "./ChatHeader";
 import { ChatMessageList, type ChatMessageListHandle } from "./ChatMessageList";
 import { ChatComposer } from "./ChatComposer";
 import { ChatMessagesSkeleton } from "./ChatSkeleton";
@@ -25,6 +25,7 @@ type Props = {
   horizontalPadding: number;
   composerPaddingBottom: number;
   chatKeyboardInset?: number;
+  keyboardVisible?: boolean;
   otherAvatarUri?: string | null;
   headerAvatarUri?: string | null;
   colors: {
@@ -40,6 +41,10 @@ type Props = {
     error: string;
   };
   headerLeft?: React.ReactNode;
+  /** Renders inside the header, below the status bar (e.g. matrimony lock notice). */
+  headerBanner?: React.ReactNode;
+  /** Set to 0 when a parent SafeAreaView already applied the top inset (split inbox). */
+  headerTopInset?: number;
 };
 
 function ChatPanelComponent({
@@ -60,10 +65,13 @@ function ChatPanelComponent({
   horizontalPadding,
   composerPaddingBottom,
   chatKeyboardInset = 0,
+  keyboardVisible = false,
   otherAvatarUri,
   headerAvatarUri,
   colors,
-  headerLeft
+  headerLeft,
+  headerBanner,
+  headerTopInset
 }: Props) {
   const internalRef = useRef<ChatMessageListHandle>(null);
   const listRef = externalListRef ?? internalRef;
@@ -76,8 +84,25 @@ function ChatPanelComponent({
     white: colors.white
   };
 
+  useEffect(() => {
+    if (!keyboardVisible || loading || error) return;
+    const t1 = requestAnimationFrame(() => {
+      listRef.current?.scrollToBottom(true);
+    });
+    const t2 = setTimeout(() => listRef.current?.scrollToBottom(false), 120);
+    return () => {
+      cancelAnimationFrame(t1);
+      clearTimeout(t2);
+    };
+  }, [keyboardVisible, chatKeyboardInset, loading, error, listRef]);
+
   const composer = !loading && !error ? (
-    <View style={styles.composerDock}>
+    <View
+      style={[
+        styles.composerDock,
+        chatKeyboardInset > 0 && { marginBottom: chatKeyboardInset }
+      ]}
+    >
       <ChatComposer
         value={input}
         onChangeText={onChangeText}
@@ -115,29 +140,26 @@ function ChatPanelComponent({
       horizontalPadding={horizontalPadding}
       otherAvatarUri={otherAvatarUri}
       colors={bubbleColors}
+      keyboardVisible={keyboardVisible}
     />
   );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        {headerLeft}
-        <AvatarImage
-          uri={headerAvatarUri ?? otherAvatarUri}
-          name={title}
-          size={40}
-          placeholderColor={colors.surfaceElevated}
-          textColor={colors.textMuted}
-        />
-        <View style={styles.headerText}>
-          <Text style={[styles.title, { color: colors.text, fontSize: fontSize + 2 }]} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-            {subtitle || " "}
-          </Text>
-        </View>
-      </View>
+      <ChatHeader
+        title={title}
+        subtitle={subtitle}
+        avatarUri={headerAvatarUri ?? otherAvatarUri}
+        left={headerLeft}
+        banner={headerBanner}
+        topInset={headerTopInset}
+        backgroundColor={colors.surface}
+        borderColor={colors.border}
+        textColor={colors.text}
+        textSecondary={colors.textSecondary}
+        placeholderColor={colors.surfaceElevated}
+        titleFontSize={fontSize + 2}
+      />
 
       {sendError ? (
         <View style={[styles.banner, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
@@ -145,7 +167,7 @@ function ChatPanelComponent({
         </View>
       ) : null}
 
-      <View style={[styles.chatColumn, chatKeyboardInset > 0 && { marginBottom: chatKeyboardInset }]}>
+      <View style={styles.chatColumn}>
         <View style={styles.body}>{messageBody}</View>
         {composer}
       </View>
@@ -166,26 +188,6 @@ const styles = StyleSheet.create({
   composerDock: {
     flexGrow: 0,
     flexShrink: 0
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexShrink: 0,
-    gap: 10
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0
-  },
-  title: {
-    fontWeight: "800"
-  },
-  subtitle: {
-    marginTop: 2,
-    fontSize: 12
   },
   banner: {
     paddingHorizontal: 14,

@@ -7,6 +7,7 @@ import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
+import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
 
 type MatchRow = {
   matchId: number;
@@ -43,6 +44,7 @@ export function MatrimonyMatchesScreen() {
   );
 
   return (
+    <MatrimonyBrowseGate>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <MatrimonyScreenHeader title="Mutual matches" onBack={() => navigation.goBack()} />
       {loading ? (
@@ -50,7 +52,7 @@ export function MatrimonyMatchesScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(i) => String(i.matchId)}
+          keyExtractor={(i, index) => `match-${i.matchId}-${index}`}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
           ListHeaderComponent={
             items.length > 0 ? (
@@ -108,13 +110,31 @@ export function MatrimonyMatchesScreen() {
                     ) : null}
                   </View>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>View →</Text>
+                <View style={{ alignItems: "flex-end", gap: 8 }}>
+                  {item.chatEnabled ? (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        navigation.navigate("Chat", {
+                          otherUserId: item.candidate.userId,
+                          name: item.candidate.name,
+                          profileImage: item.candidate.photoUrl
+                        });
+                      }}
+                      style={[styles.chatBtn, { backgroundColor: colors.primary }]}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Chat</Text>
+                    </Pressable>
+                  ) : null}
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>Profile →</Text>
+                </View>
               </Pressable>
             );
           }}
         />
       )}
     </View>
+    </MatrimonyBrowseGate>
   );
 }
 
@@ -151,5 +171,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden"
   },
-  empty: { alignItems: "center", marginTop: 48, paddingHorizontal: spacing.lg }
+  empty: { alignItems: "center", marginTop: 48, paddingHorizontal: spacing.lg },
+  chatBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }
 });
