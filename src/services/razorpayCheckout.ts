@@ -14,34 +14,17 @@ export type RazorpayCheckoutOptions = {
 };
 
 export class RazorpayUnavailableError extends Error {
-  constructor(message = "Razorpay native checkout is not available. Use a dev build (not Expo Go).") {
+  constructor(
+    message = "In-app Razorpay checkout is not available in this build. Use dev payments or add react-native-razorpay for native checkout."
+  ) {
     super(message);
     this.name = "RazorpayUnavailableError";
   }
 }
 
-/** Opens Razorpay native checkout. Requires dev build with react-native-razorpay linked. */
+/** Native Razorpay SDK removed — matrimony checkout falls back when devPaymentsAllowed. */
 export async function openRazorpayCheckout(
-  options: RazorpayCheckoutOptions
+  _options: RazorpayCheckoutOptions
 ): Promise<RazorpayCheckoutResult> {
-  let RazorpayCheckout: { open: (opts: Record<string, unknown>) => Promise<RazorpayCheckoutResult> };
-  try {
-    RazorpayCheckout = require("react-native-razorpay").default;
-  } catch {
-    throw new RazorpayUnavailableError();
-  }
-  if (!RazorpayCheckout?.open) {
-    throw new RazorpayUnavailableError();
-  }
-
-  return RazorpayCheckout.open({
-    key: options.keyId,
-    order_id: options.razorpayOrderId,
-    amount: options.amountPaise,
-    currency: "INR",
-    name: options.name ?? "Digital House",
-    description: options.description,
-    prefill: options.prefill,
-    theme: { color: "#1D4ED8" }
-  });
+  throw new RazorpayUnavailableError();
 }
