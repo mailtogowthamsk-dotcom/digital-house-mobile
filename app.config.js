@@ -17,10 +17,22 @@ function normalizeApiUrl(url) {
   }
 }
 
-module.exports = ({ config }) => ({
-  ...config,
-  extra: {
-    ...config.extra,
-    apiUrl: normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || DEFAULT_API)
-  }
-});
+module.exports = ({ config }) => {
+  const owner = config.owner || "thisisgowtham";
+  const slug = config.slug || "digital-house";
+  return {
+    ...config,
+    owner,
+    extra: {
+      ...config.extra,
+      apiUrl: normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || DEFAULT_API),
+      googleWebClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || config.extra?.googleWebClientId || "",
+      googleIosClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || config.extra?.googleIosClientId || "",
+      googleAndroidClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || config.extra?.googleAndroidClientId || "",
+      expoGoogleRedirectUri: `https://auth.expo.io/@${owner}/${slug}`
+    }
+  };
+};

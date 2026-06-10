@@ -4,6 +4,7 @@ export type RootStackParamList = {
   PendingApproval: undefined;
   Rejected: { message?: string };
   Login: undefined;
+  GoogleCompleteProfile: undefined;
   OtpVerify: { email: string };
   Home: undefined;
   Profile: undefined;

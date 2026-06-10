@@ -17,6 +17,7 @@ import { PendingApprovalScreen } from "./src/screens/auth/PendingApprovalScreen"
 import { RejectedScreen } from "./src/screens/auth/RejectedScreen";
 import { LoginScreen } from "./src/screens/auth/LoginScreen";
 import { OtpVerifyScreen } from "./src/screens/auth/OtpVerifyScreen";
+import { GoogleCompleteProfileScreen } from "./src/screens/auth/GoogleCompleteProfileScreen";
 import { HomeScreen } from "./src/screens/home/HomeScreen";
 import { ProfileScreen } from "./src/screens/home/ProfileScreen";
 import { EditProfileScreen } from "./src/screens/home/EditProfileScreen";
@@ -90,6 +91,11 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen
           name="OtpVerify"
           component={OtpVerifyScreen}
+          options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
+        />
+        <Stack.Screen
+          name="GoogleCompleteProfile"
+          component={GoogleCompleteProfileScreen}
           options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
         />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />

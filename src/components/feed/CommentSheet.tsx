@@ -226,7 +226,6 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
         if (gen !== loadGenRef.current) return;
         setComments(res.items);
         setTotal(res.total);
-        onCountChangeRef.current?.(res.total);
         showInitialSpinnerRef.current = false;
       } catch {
         if (gen === loadGenRef.current) setComments([]);
@@ -259,6 +258,11 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     void fetchComments(sort);
   }, [visible, postId, sort, fetchComments]);
 
+  useEffect(() => {
+    if (!visible || initialLoading) return;
+    onCountChangeRef.current?.(total);
+  }, [visible, total, initialLoading]);
+
   const submit = useCallback(async () => {
     const body = text.trim();
     if (!body || submitting) return;
@@ -282,11 +286,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           }
           return [created, ...prev];
         });
-        setTotal((t) => {
-          const next = t + 1;
-          onCountChangeRef.current?.(next);
-          return next;
-        });
+        setTotal((t) => t + 1);
       }
       setText("");
       Keyboard.dismiss();

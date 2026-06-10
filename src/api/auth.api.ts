@@ -38,7 +38,69 @@ export async function verifyOtp(email: string, otp: string) {
   };
 }
 
-export type MeUser = { id: number; fullName: string; email: string; status: string; createdAt: string };
+export type AuthProviderCode = "EXISTING_LOGIN" | "GOOGLE";
+
+export type MeUser = {
+  id: number;
+  fullName: string;
+  email: string;
+  status: string;
+  createdAt: string;
+  profileComplete?: boolean;
+  signupProvider?: AuthProviderCode;
+  linkedProviders?: AuthProviderCode[];
+  emailVerified?: boolean;
+  profilePhoto?: string | null;
+};
+
+export type GoogleAuthResponse = {
+  accessToken: string;
+  user: MeUser;
+  isNewUser: boolean;
+  linkedExistingAccount: boolean;
+  needsProfileCompletion: boolean;
+};
+
+export async function googleAuth(idToken: string): Promise<GoogleAuthResponse> {
+  const { data } = await api.post("/auth/google", { idToken });
+  if (!data?.accessToken || !data?.user) {
+    throw new Error((data as any)?.message ?? "Google sign-in failed");
+  }
+  return data as GoogleAuthResponse;
+}
+
+export type CompleteGoogleProfilePayload = {
+  gender: string;
+  dob: string;
+  district: string;
+  kulam: string;
+  community?: string | null;
+  location?: string | null;
+  mobile?: string | null;
+  profilePhoto?: string | null;
+};
+
+export async function completeGoogleProfile(payload: CompleteGoogleProfilePayload) {
+  const { data } = await api.post<{ ok: boolean; user: MeUser }>(
+    "/auth/complete-google-profile",
+    payload
+  );
+  if (!data?.ok || !data.user) throw new Error("Failed to complete profile");
+  return data;
+}
+
+export type LinkedAccountsResponse = {
+  providers: AuthProviderCode[];
+  googleConnected: boolean;
+  existingLoginConnected: boolean;
+  loginSource: string;
+};
+
+export async function getLinkedAccounts(): Promise<LinkedAccountsResponse> {
+  const { data } = await api.get<{ ok: boolean } & LinkedAccountsResponse>("/auth/linked-accounts");
+  if (!data?.ok) throw new Error("Failed to load linked accounts");
+  return data;
+}
 
 export async function getMe(): Promise<MeUser> {
   const { data } = await api.get<{ ok: boolean; user: MeUser }>("/auth/me");

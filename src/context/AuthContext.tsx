@@ -22,7 +22,12 @@ import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSess
 
 export type AuthStatus = "loading" | "signedOut" | "home" | "pending" | "rejected";
 
-export type RootAuthRoute = "Landing" | "Home" | "PendingApproval" | "Rejected";
+export type RootAuthRoute =
+  | "Landing"
+  | "Home"
+  | "PendingApproval"
+  | "Rejected"
+  | "GoogleCompleteProfile";
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -38,6 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
   if (signedOut || !user) return "Landing";
+  if (user.profileComplete === false) return "GoogleCompleteProfile";
   if (user.status === "APPROVED") return "Home";
   if (user.status === "PENDING") return "PendingApproval";
   if (user.status === "REJECTED") return "Rejected";
@@ -46,6 +52,7 @@ function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
 
 function statusForUser(user: MeUser | null, signedOut: boolean): AuthStatus {
   if (signedOut || !user) return "signedOut";
+  if (user.profileComplete === false) return "pending";
   if (user.status === "APPROVED") return "home";
   if (user.status === "PENDING") return "pending";
   if (user.status === "REJECTED") return "rejected";

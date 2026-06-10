@@ -23,12 +23,15 @@ import {
   requestPushPermissions,
   syncPushTokenWithBackend
 } from "../../services/pushNotifications";
+import { getLinkedAccounts, type LinkedAccountsResponse } from "../../api/auth.api";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { mode, setMode, colors } = useTheme();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loadingPrefs, setLoadingPrefs] = useState(true);
+  const [linked, setLinked] = useState<LinkedAccountsResponse | null>(null);
+  const [loadingLinked, setLoadingLinked] = useState(true);
 
   const loadPrefs = useCallback(async () => {
     setLoadingPrefs(true);
@@ -44,6 +47,19 @@ export function SettingsScreen() {
   useEffect(() => {
     void loadPrefs();
   }, [loadPrefs]);
+
+  useEffect(() => {
+    void (async () => {
+      setLoadingLinked(true);
+      try {
+        setLinked(await getLinkedAccounts());
+      } catch {
+        setLinked(null);
+      } finally {
+        setLoadingLinked(false);
+      }
+    })();
+  }, []);
 
   const patch = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!prefs) return;
@@ -80,7 +96,32 @@ export function SettingsScreen() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account security</Text>
+      {loadingLinked ? (
+        <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
+      ) : (
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.linkedHeading, { color: colors.text }]}>Linked accounts</Text>
+          <LinkedRow
+            label="Google"
+            connected={linked?.googleConnected ?? false}
+            colors={colors}
+          />
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <LinkedRow
+            label="Email OTP login"
+            connected={linked?.existingLoginConnected ?? true}
+            colors={colors}
+          />
+          <Text style={[styles.linkedHint, { color: colors.textMuted }]}>
+            More sign-in options (e.g. Apple) can be added here in future updates.
+          </Text>
+        </View>
+      )}
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
+        Appearance
+      </Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <OptionRow
           label="Light mode"
@@ -200,6 +241,30 @@ function OptionRow({
   );
 }
 
+function LinkedRow({
+  label,
+  connected,
+  colors
+}: {
+  label: string;
+  connected: boolean;
+  colors: import("../../theme/ThemeContext").ThemeColors;
+}) {
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rowLabel, { color: colors.text, flex: 1 }]}>{label}</Text>
+      {connected ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+          <Text style={{ color: "#16A34A", fontWeight: "700", fontSize: 13 }}>Connected</Text>
+        </View>
+      ) : (
+        <Text style={{ color: colors.textMuted, fontSize: 13 }}>Not linked</Text>
+      )}
+    </View>
+  );
+}
+
 function ToggleRow({
   label,
   subtitle,
@@ -253,6 +318,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     gap: spacing.lg
+  },
+  linkedHeading: {
+    fontSize: 15,
+    fontWeight: "800",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs
+  },
+  linkedHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg
   },
   iconWrap: {
     width: 40,

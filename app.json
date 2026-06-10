@@ -1,6 +1,7 @@
 {
   "expo": {
     "plugins": [
+      "expo-web-browser",
       [
         "expo-notifications",
         {
@@ -22,6 +23,7 @@
       ]
     ],
     "name": "Digital House",
+    "owner": "thisisgowtham",
     "slug": "digital-house",
     "scheme": "digitalhouse",
     "version": "1.0.0",
@@ -69,7 +71,15 @@
     "extra": {
       "eas": {
         "projectId": "defefaa3-71d1-495c-98f8-2489497c65ed"
-      }
+      },
+      "googleWebClientId": "",
+      "googleIosClientId": "",
+      "googleAndroidClientId": ""
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/defefaa3-71d1-495c-98f8-2489497c65ed",
+      "enabled": false
     }
   }
 }

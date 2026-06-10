@@ -14,8 +14,10 @@ import {
   StatusBar
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { loginRequest } from "../../api/auth.api";
-import { getApiBaseUrl } from "../../api/client";
+import { googleAuth, loginRequest } from "../../api/auth.api";
+import { getApiBaseUrl, getAuthErrorMessage } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
+import { EXPO_GO_GOOGLE_MESSAGE, useGoogleSignIn } from "../../hooks/useGoogleSignIn";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -33,9 +35,54 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { signIn } = useAuth();
+  const {
+    signIn: getGoogleToken,
+    configured: googleConfigured,
+    available: googleAvailable,
+    isExpoGo,
+    ready: googleReady
+  } = useGoogleSignIn();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const onGoogleSignIn = async () => {
+    Keyboard.dismiss();
+    setMsg(null);
+    setGoogleLoading(true);
+    try {
+      const idToken = await getGoogleToken();
+      if (!idToken) return;
+      const result = await googleAuth(idToken);
+      await signIn(result.accessToken, result.user);
+      if (result.needsProfileCompletion) {
+        navigation.reset({ index: 0, routes: [{ name: "GoogleCompleteProfile" }] });
+        return;
+      }
+      if (result.user.status === "APPROVED") {
+        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+      } else if (result.user.status === "PENDING") {
+        navigation.replace("PendingApproval");
+      } else if (result.user.status === "REJECTED") {
+        navigation.replace("Rejected", { message: "Your account was not approved." });
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number; data?: { message?: string } } };
+      const status = err.response?.status;
+      if (status === 403) {
+        const backendMsg = err.response?.data?.message ?? "";
+        if (backendMsg.includes("not approved") || backendMsg.includes("rejected")) {
+          navigation.replace("Rejected", { message: backendMsg });
+          return;
+        }
+      }
+      setMsg(getAuthErrorMessage(e));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const onSend = async () => {
     Keyboard.dismiss();
@@ -100,9 +147,9 @@ export function LoginScreen({ navigation }: any) {
 
   return (
     <View style={s.background}>
-      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <View style={s.overlay} />
+      <View style={s.overlay} pointerEvents="none" />
       <KeyboardAvoidingView
         style={s.keyboard}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -137,7 +184,43 @@ export function LoginScreen({ navigation }: any) {
 
           <View style={s.card}>
             <Text style={s.cardTitle}>Login</Text>
-            <Text style={s.cardSubtitle}>Sign in to your account</Text>
+            <Text style={s.cardSubtitle}>Choose how you want to sign in</Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                s.googleBtn,
+                pressed && s.btnPressed,
+                (googleLoading || loading || !googleAvailable) && s.btnDisabled
+              ]}
+              onPress={() => void onGoogleSignIn()}
+              disabled={googleLoading || loading || !googleAvailable}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color="#111827" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
+                  <Text style={s.googleBtnText}>Continue with Google</Text>
+                </>
+              )}
+            </Pressable>
+            {isExpoGo ? (
+              <Text style={s.googleHint}>{EXPO_GO_GOOGLE_MESSAGE}</Text>
+            ) : !googleConfigured ? (
+              <Text style={s.googleHint}>
+                Google Sign-In is not configured. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to mobile/.env.
+              </Text>
+            ) : !googleReady ? (
+              <Text style={s.googleHint}>Preparing Google Sign-In…</Text>
+            ) : null}
+
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>OR</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            <Text style={s.existingLabel}>Existing login (email OTP)</Text>
 
             <Input
               placeholder="Email"
@@ -274,7 +357,52 @@ const s = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     color: "#6B7280",
-    marginBottom: spacing.xl
+    marginBottom: spacing.lg
+  },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 14,
+    paddingVertical: 14,
+    backgroundColor: "#FFFFFF"
+  },
+  googleBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827"
+  },
+  googleHint: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginTop: spacing.sm
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.lg,
+    gap: spacing.sm
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB"
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9CA3AF",
+    letterSpacing: 1
+  },
+  existingLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: spacing.sm
   },
   messageWrap: {
     minHeight: 24,
