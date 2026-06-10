@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
-  Keyboard
+  Keyboard,
+  KeyboardAvoidingView,
+  Dimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -25,6 +27,7 @@ import { timeAgo } from "../../utils/timeAgo";
 import { hapticComment } from "../../utils/feedHaptics";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { useTheme } from "../../theme/ThemeContext";
+import { spacing, radius } from "../../theme/spacing";
 
 type Props = {
   visible: boolean;
@@ -45,7 +48,7 @@ function MentionText({
 }) {
   const parts = body.split(/(@\w[\w\s]*\w|@\w+)/g);
   return (
-    <Text style={{ fontSize: 14, lineHeight: 20, color: textColor }}>
+    <Text style={{ fontSize: 15, lineHeight: 22, color: textColor }}>
       {parts.map((part, i) =>
         part.startsWith("@") ? (
           <Text key={`m-${i}-a`} style={{ color, fontWeight: "600" }}>
@@ -72,43 +75,89 @@ const CommentRow = memo(function CommentRow({
   onDelete: (c: CommentItem) => void;
   depth?: number;
 }) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const s = useMemo(
     () =>
       StyleSheet.create({
         row: {
-          paddingVertical: 10,
-          paddingLeft: depth > 0 ? 20 : 0,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border
+          paddingVertical: spacing.md,
+          marginLeft: depth > 0 ? spacing.lg : 0,
+          paddingLeft: depth > 0 ? spacing.md : 0,
+          borderLeftWidth: depth > 0 ? 2 : 0,
+          borderLeftColor: depth > 0 ? colors.border : "transparent"
         },
-        meta: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
-        actions: { flexDirection: "row", gap: 16, marginTop: 8 },
-        action: { fontSize: 12, fontWeight: "600", color: colors.primary }
+        metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
+        avatar: {
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: colors.primary + (mode === "dark" ? "33" : "18"),
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        avatarText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+        meta: { fontSize: 13, color: colors.textSecondary, flex: 1 },
+        bodyWrap: { paddingLeft: 34 },
+        actions: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.sm, paddingLeft: 34 },
+        actionBtn: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 6,
+          borderRadius: radius.sm
+        },
+        actionLabel: { fontSize: 13, fontWeight: "600", color: colors.textSecondary }
       }),
-    [colors, depth]
+    [colors, mode, depth]
   );
+
+  const initial = (item.author.name?.trim()?.[0] ?? "?").toUpperCase();
 
   return (
     <View style={s.row}>
-      <Text style={s.meta}>
-        {item.author.name} · {timeAgo(item.created_at)}
-        {item.updated_at !== item.created_at ? " · edited" : ""}
-      </Text>
-      <MentionText body={item.body} color={colors.primary} textColor={colors.text} />
+      <View style={s.metaRow}>
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{initial}</Text>
+        </View>
+        <Text style={s.meta} numberOfLines={1}>
+          <Text style={{ fontWeight: "600", color: colors.text }}>{item.author.name}</Text>
+          {" · "}
+          {timeAgo(item.created_at)}
+          {item.updated_at !== item.created_at ? " · edited" : ""}
+        </Text>
+      </View>
+      <View style={s.bodyWrap}>
+        <MentionText body={item.body} color={colors.primary} textColor={colors.text} />
+      </View>
       <View style={s.actions}>
         {depth === 0 && (
-          <Pressable onPress={() => onReply(item)} hitSlop={8}>
-            <Text style={s.action}>Reply</Text>
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, pressed && { opacity: 0.6 }]}
+            onPress={() => onReply(item)}
+            hitSlop={6}
+          >
+            <Ionicons name="arrow-undo-outline" size={16} color={colors.textSecondary} />
+            <Text style={s.actionLabel}>Reply</Text>
           </Pressable>
         )}
         {item.is_mine && (
           <>
-            <Pressable onPress={() => onEdit(item)} hitSlop={8}>
-              <Text style={s.action}>Edit</Text>
+            <Pressable
+              style={({ pressed }) => [s.actionBtn, pressed && { opacity: 0.6 }]}
+              onPress={() => onEdit(item)}
+              hitSlop={6}
+            >
+              <Ionicons name="create-outline" size={16} color={colors.primary} />
+              <Text style={[s.actionLabel, { color: colors.primary }]}>Edit</Text>
             </Pressable>
-            <Pressable onPress={() => onDelete(item)} hitSlop={8}>
-              <Text style={[s.action, { color: colors.error }]}>Delete</Text>
+            <Pressable
+              style={({ pressed }) => [s.actionBtn, pressed && { opacity: 0.6 }]}
+              onPress={() => onDelete(item)}
+              hitSlop={6}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={[s.actionLabel, { color: colors.error }]}>Delete</Text>
             </Pressable>
           </>
         )}
@@ -129,7 +178,7 @@ const CommentRow = memo(function CommentRow({
 
 export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCountChange }: Props) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const inputRef = useRef<TextInput>(null);
   const onCountChangeRef = useRef(onCommentCountChange);
   onCountChangeRef.current = onCommentCountChange;
@@ -152,7 +201,8 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const onShow = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
+      const height = e.endCoordinates?.height ?? 0;
+      setKeyboardHeight(height);
     });
     const onHide = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
@@ -291,71 +341,124 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     [handleReply, handleEdit, handleDelete]
   );
 
-  const sheetBottomInset =
-    keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8);
+  const windowHeight = Dimensions.get("window").height;
+  const keyboardOpen = keyboardHeight > 0;
+  const sheetHeight = keyboardOpen
+    ? Math.max(windowHeight - keyboardHeight - insets.top - 8, 260)
+    : Math.min(windowHeight * 0.78, 620);
+
+  const composerBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
 
   const s = useMemo(
     () =>
       StyleSheet.create({
         overlay: {
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.45)",
+          backgroundColor: "rgba(0,0,0,0.5)",
           justifyContent: "flex-end"
         },
         sheet: {
           backgroundColor: colors.surface,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          height: "72%",
-          maxHeight: 560,
-          overflow: "hidden"
+          borderTopLeftRadius: radius.xl,
+          borderTopRightRadius: radius.xl,
+          overflow: "hidden",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: mode === "dark" ? 0.35 : 0.12,
+          shadowRadius: 16,
+          elevation: 24
         },
-        sheetBody: { flex: 1 },
+        handleWrap: { alignItems: "center", paddingTop: spacing.sm, paddingBottom: 4 },
+        handle: {
+          width: 40,
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: colors.border
+        },
         header: {
           flexDirection: "row",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
-          paddingHorizontal: 16,
-          paddingTop: 14,
-          paddingBottom: 10,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.md
         },
-        title: { fontSize: 16, fontWeight: "600", color: colors.text, flex: 1, marginRight: 8 },
-        sortRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
+        headerText: { flex: 1, marginRight: spacing.md },
+        title: { fontSize: 18, fontWeight: "700", color: colors.text },
+        subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+        closeBtn: {
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: colors.surfaceElevated,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        sortRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.sm,
+          paddingHorizontal: spacing.lg,
+          paddingBottom: spacing.md
+        },
         sortChip: {
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          borderRadius: 16,
+          paddingHorizontal: spacing.md,
+          paddingVertical: 7,
+          borderRadius: radius.full,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: "transparent"
+        },
+        sortChipActive: {
+          backgroundColor: mode === "dark" ? colors.primary + "33" : "#EFF6FF",
+          borderColor: colors.primary + "55"
+        },
+        sortText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        sortTextActive: { color: colors.primary },
+        countBadge: {
+          marginLeft: "auto",
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 4,
+          borderRadius: radius.full,
           backgroundColor: colors.surfaceElevated
         },
-        sortChipActive: { backgroundColor: colors.primary },
-        sortText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
-        sortTextActive: { color: colors.white },
+        countText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         list: { flex: 1 },
-        listContent: { paddingHorizontal: 16, paddingBottom: 8 },
-        listEmpty: { textAlign: "center", color: colors.textSecondary, padding: 24 },
+        listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+        separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+        listEmpty: {
+          textAlign: "center",
+          color: colors.textSecondary,
+          paddingVertical: spacing.xxxl,
+          paddingHorizontal: spacing.lg,
+          lineHeight: 22
+        },
         refreshOverlay: {
           ...StyleSheet.absoluteFillObject,
           alignItems: "center",
-          paddingTop: 8,
+          paddingTop: spacing.sm,
           pointerEvents: "none"
         },
         composer: {
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          backgroundColor: colors.surface,
-          paddingTop: 8,
-          paddingHorizontal: 16
+          backgroundColor: colors.surfaceElevated,
+          paddingTop: spacing.sm,
+          paddingHorizontal: spacing.lg
         },
-        replyBanner: {
+        contextBanner: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 8
+          marginBottom: spacing.sm,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.md,
+          backgroundColor: mode === "dark" ? colors.background : "#EFF6FF",
+          borderLeftWidth: 3,
+          borderLeftColor: colors.primary
         },
-        replyText: { fontSize: 12, color: colors.textSecondary, flex: 1 },
-        inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+        contextText: { fontSize: 13, color: colors.text, flex: 1, fontWeight: "500" },
+        inputRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
         input: {
           flex: 1,
           minHeight: 44,
@@ -363,12 +466,12 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: 22,
-          paddingHorizontal: 16,
+          paddingHorizontal: spacing.lg,
           paddingTop: Platform.OS === "ios" ? 12 : 10,
           paddingBottom: Platform.OS === "ios" ? 12 : 10,
           fontSize: 15,
           color: colors.text,
-          backgroundColor: colors.background
+          backgroundColor: colors.surface
         },
         sendBtn: {
           width: 44,
@@ -376,23 +479,33 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           borderRadius: 22,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: colors.surfaceElevated,
-          marginBottom: 2
+          backgroundColor: colors.surfaceElevated
         },
-        sendBtnDisabled: { opacity: 0.4 }
+        sendBtnActive: { backgroundColor: colors.primary },
+        sendBtnDisabled: { opacity: 0.45 }
       }),
-    [colors]
+    [colors, mode]
   );
 
   const listEmpty = useMemo(
     () =>
       initialLoading ? (
-        <ActivityIndicator style={{ marginVertical: 32 }} color={colors.primary} />
+        <ActivityIndicator style={{ marginVertical: spacing.xxxl }} color={colors.primary} />
       ) : (
-        <Text style={s.listEmpty}>No comments yet. Start the conversation!</Text>
+        <View style={{ alignItems: "center", paddingVertical: spacing.xxxl }}>
+          <Ionicons name="chatbubble-outline" size={40} color={colors.textSecondary} style={{ opacity: 0.5 }} />
+          <Text style={[s.listEmpty, { paddingTop: spacing.md, paddingBottom: 0 }]}>
+            No comments yet
+          </Text>
+          <Text style={[s.listEmpty, { paddingTop: 4, fontSize: 13 }]}>
+            Be the first to share your thoughts
+          </Text>
+        </View>
       ),
-    [initialLoading, colors.primary, s.listEmpty]
+    [initialLoading, colors.primary, colors.textSecondary, s.listEmpty]
   );
+
+  const canSend = !!text.trim() && !submitting;
 
   return (
     <Modal
@@ -405,14 +518,30 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
       <View style={s.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close comments" />
 
-        <View style={[s.sheet, { marginBottom: sheetBottomInset }]}>
-          <View style={s.sheetBody}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ width: "100%" }}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[s.sheet, { height: sheetHeight }]}>
+            <View style={s.handleWrap}>
+              <View style={s.handle} />
+            </View>
+
             <View style={s.header}>
-              <Text style={s.title} numberOfLines={1}>
-                Comments · {postTitle}
-              </Text>
-              <Pressable onPress={onClose} hitSlop={12}>
-                <Ionicons name="close" size={24} color={colors.text} />
+              <View style={s.headerText}>
+                <Text style={s.title}>Comments</Text>
+                <Text style={s.subtitle} numberOfLines={1}>
+                  {postTitle}
+                </Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [s.closeBtn, pressed && { opacity: 0.7 }]}
+                onPress={onClose}
+                hitSlop={8}
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
 
@@ -428,7 +557,9 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
                   </Text>
                 </Pressable>
               ))}
-              <Text style={[s.sortText, { marginLeft: "auto" }]}>{total} total</Text>
+              <View style={s.countBadge}>
+                <Text style={s.countText}>{total}</Text>
+              </View>
             </View>
 
             <View style={{ flex: 1 }}>
@@ -438,6 +569,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
                 data={comments}
                 keyExtractor={(c) => String(c.id)}
                 renderItem={renderItem}
+                ItemSeparatorComponent={() => <View style={s.separator} />}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 ListEmptyComponent={listEmpty}
@@ -449,66 +581,70 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
                 </View>
               ) : null}
             </View>
-          </View>
 
-          <View style={s.composer}>
-            {replyTo ? (
-              <View style={s.replyBanner}>
-                <Text style={s.replyText} numberOfLines={1}>
-                  Replying to {replyTo.author.name}
-                </Text>
-                <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
-                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-            ) : null}
-            {editing ? (
-              <View style={s.replyBanner}>
-                <Text style={s.replyText}>Editing your comment</Text>
+            <View style={[s.composer, { paddingBottom: composerBottomPad }]}>
+              {replyTo ? (
+                <View style={s.contextBanner}>
+                  <Text style={s.contextText} numberOfLines={1}>
+                    Replying to {replyTo.author.name}
+                  </Text>
+                  <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  </Pressable>
+                </View>
+              ) : null}
+              {editing ? (
+                <View style={s.contextBanner}>
+                  <Text style={s.contextText}>Editing your comment</Text>
+                  <Pressable
+                    onPress={() => {
+                      setEditing(null);
+                      setText("");
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View style={s.inputRow}>
+                <TextInput
+                  ref={inputRef}
+                  style={s.input}
+                  placeholder={
+                    editing ? "Edit your comment…" : replyTo ? "Write a reply…" : "Add a comment…"
+                  }
+                  placeholderTextColor={colors.textSecondary}
+                  value={text}
+                  onChangeText={setText}
+                  multiline
+                  blurOnSubmit={false}
+                />
                 <Pressable
-                  onPress={() => {
-                    setEditing(null);
-                    setText("");
-                  }}
+                  style={[
+                    s.sendBtn,
+                    canSend && s.sendBtnActive,
+                    !canSend && s.sendBtnDisabled
+                  ]}
+                  onPress={submit}
+                  disabled={!canSend}
                   hitSlop={8}
                 >
-                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                  {submitting ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Ionicons
+                      name="send"
+                      size={20}
+                      color={canSend ? colors.white : colors.textSecondary}
+                    />
+                  )}
                 </Pressable>
               </View>
-            ) : null}
-
-            <View style={s.inputRow}>
-              <TextInput
-                ref={inputRef}
-                style={s.input}
-                placeholder={
-                  editing ? "Edit your comment…" : replyTo ? "Write a reply…" : "Add a comment…"
-                }
-                placeholderTextColor={colors.textSecondary}
-                value={text}
-                onChangeText={setText}
-                multiline
-                blurOnSubmit={false}
-              />
-              <Pressable
-                style={[s.sendBtn, (!text.trim() || submitting) && s.sendBtnDisabled]}
-                onPress={submit}
-                disabled={submitting || !text.trim()}
-                hitSlop={8}
-              >
-                {submitting ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons
-                    name="send"
-                    size={22}
-                    color={text.trim() ? colors.primary : colors.textSecondary}
-                  />
-                )}
-              </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
