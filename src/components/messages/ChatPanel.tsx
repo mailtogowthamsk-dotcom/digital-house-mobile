@@ -41,6 +41,7 @@ type Props = {
     error: string;
   };
   headerLeft?: React.ReactNode;
+  headerRight?: React.ReactNode;
   /** Renders inside the header, below the status bar (e.g. matrimony lock notice). */
   headerBanner?: React.ReactNode;
   /** Set to 0 when a parent SafeAreaView already applied the top inset (split inbox). */
@@ -70,6 +71,7 @@ function ChatPanelComponent({
   headerAvatarUri,
   colors,
   headerLeft,
+  headerRight,
   headerBanner,
   headerTopInset
 }: Props) {
@@ -151,6 +153,7 @@ function ChatPanelComponent({
         subtitle={subtitle}
         avatarUri={headerAvatarUri ?? otherAvatarUri}
         left={headerLeft}
+        right={headerRight}
         banner={headerBanner}
         topInset={headerTopInset}
         backgroundColor={colors.surface}

@@ -47,6 +47,7 @@ export function RegistrationScreen({ navigation }: any) {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [gender, setGender] = useState("");
   const [dob, setDob] = useState<Date | null>(null);
   const [showDobPicker, setShowDobPicker] = useState(false);
@@ -84,7 +85,7 @@ export function RegistrationScreen({ navigation }: any) {
     };
   }, []);
 
-  const canNextStep0 = fullName.trim().length > 0;
+  const canNextStep0 = fullName.trim().length > 0 && username.trim().length >= 3;
   const canNextStep1 =
     email.trim().length > 0 &&
     EMAIL_REGEX.test(email.trim()) &&
@@ -113,6 +114,10 @@ export function RegistrationScreen({ navigation }: any) {
       setMsg("Please enter your full name.");
       return;
     }
+    if (username.trim().length < 3) {
+      setMsg("Please choose a username (at least 3 characters).");
+      return;
+    }
     if (!EMAIL_REGEX.test(email.trim())) {
       setMsg("Please enter a valid email.");
       return;
@@ -133,6 +138,7 @@ export function RegistrationScreen({ navigation }: any) {
     try {
       const payload: RegisterPayload = {
         fullName: fullName.trim(),
+        username: username.trim().toLowerCase(),
         email: email.trim().toLowerCase(),
         gender: gender.trim() || null,
         dob: dob ? formatDate(dob) : null,
@@ -200,6 +206,15 @@ export function RegistrationScreen({ navigation }: any) {
                   onChangeText={setFullName}
                   variant="light"
                   leftIcon={<Ionicons name="person-outline" size={ICON_SIZE} color={ICON_COLOR} />}
+                />
+                <Input
+                  placeholder="@username *"
+                  value={username}
+                  onChangeText={setUsername}
+                  variant="light"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  leftIcon={<Ionicons name="at-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
                 <Dropdown
                   placeholder="Select gender"

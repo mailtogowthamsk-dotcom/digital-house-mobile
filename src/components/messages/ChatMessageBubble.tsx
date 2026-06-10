@@ -1,9 +1,10 @@
 import React, { memo, useCallback } from "react";
-import { View, Text, StyleSheet, Image, Pressable, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import type { MessageItem } from "../../api/messages.api";
 import { hapticCopyMessage } from "../../utils/chatHaptics";
+import { appAlert } from "../../utils/appAlert";
 
 type ThemeColors = {
   primary: string;
@@ -53,7 +54,7 @@ function ChatMessageBubbleComponent({
       copy().catch(() => {});
       return;
     }
-    Alert.alert("Message", undefined, [
+    appAlert("Message", undefined, [
       { text: "Copy text", onPress: () => copy().catch(() => {}) },
       { text: "Cancel", style: "cancel" }
     ]);

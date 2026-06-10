@@ -1,13 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Pressable,
-  useWindowDimensions,
-  Alert
-} from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Pressable, useWindowDimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -17,6 +9,7 @@ import { ProfilePostGridCard } from "./ProfilePostGridCard";
 import { deletePost } from "../../api/posts.api";
 import { emitPostDeleted } from "../../utils/postSync";
 import type { ProfilePostItem } from "../../api/profile.api";
+import { appAlert } from "../../utils/appAlert";
 
 type ProfilePostsSectionProps = {
   items: ProfilePostItem[];
@@ -96,7 +89,7 @@ export function ProfilePostsSection({
   );
 
   const openMenu = useCallback((postId: number) => {
-    Alert.alert("Post options", undefined, [
+    appAlert("Post options", undefined, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete post",

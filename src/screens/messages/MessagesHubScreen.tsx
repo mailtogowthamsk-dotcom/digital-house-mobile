@@ -6,13 +6,14 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { getImageUrl } from "../../api/client";
 import { hapticSendMessage } from "../../utils/chatHaptics";
-import { searchUsers, type DirectoryUser } from "../../api/users.api";
 import { getMe } from "../../api/auth.api";
 import {
   getHistory,
+  getMessageAccess,
   listThreads,
   markRead,
   sendMessage,
+  type MessageAccess,
   type MessageItem,
   type Thread
 } from "../../api/messages.api";
@@ -27,25 +28,28 @@ import type { ChatMessageListHandle } from "../../components/messages/ChatMessag
 
 const HISTORY_LIMIT = 50;
 
+type SelectedChat = {
+  id: number;
+  fullName: string;
+  profileImage: string | null;
+  online?: boolean;
+};
+
 export function MessagesHubScreen() {
   const navigation = useNavigation<any>();
   const layout = useChatLayout();
   const { colors } = useTheme();
 
   const [meId, setMeId] = useState<number | null>(null);
-  const [searchMode, setSearchMode] = useState(false);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [threadsError, setThreadsError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<DirectoryUser[]>([]);
-  const [loadingResults, setLoadingResults] = useState(false);
-  const [resultsError, setResultsError] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<DirectoryUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<SelectedChat | null>(null);
   const [selectedThreadUserId, setSelectedThreadUserId] = useState<number | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [loadingChat, setLoadingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -53,6 +57,9 @@ export function MessagesHubScreen() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const listRef = useRef<ChatMessageListHandle>(null);
+
+  const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
+  const chatLockMessage = chatAccess?.message ?? null;
 
   const panelColors = useMemo(
     () => ({
@@ -117,39 +124,19 @@ export function MessagesHubScreen() {
     }
   }, []);
 
-  const loadSearch = useCallback(async (q: string) => {
-    setResultsError(null);
-    const trimmed = q.trim();
-    if (!trimmed) {
-      setResults([]);
-      return;
-    }
-    setLoadingResults(true);
-    try {
-      const data = await searchUsers(trimmed);
-      setResults(data);
-    } finally {
-      setLoadingResults(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadMe().catch(() => {});
   }, [loadMe]);
 
-  /** Reset list UI when returning from Chat (e.g. after "New chat") and refresh threads. */
   useFocusEffect(
     useCallback(() => {
-      setSearchMode(false);
-      setQuery("");
-      setResults([]);
-      setResultsError(null);
       if (!layout.isSplit) {
         setSelectedUser(null);
         setSelectedThreadUserId(null);
         setMessages([]);
         setChatError(null);
         setSendError(null);
+        setChatAccess(null);
         setLoadingChat(false);
       }
       void loadThreads();
@@ -160,43 +147,48 @@ export function MessagesHubScreen() {
     void loadThreads();
   });
 
-  useEffect(() => {
-    if (!searchMode) return;
-    const t = setTimeout(() => {
-      loadSearch(query).catch((e: unknown) =>
-        setResultsError(e instanceof Error ? e.message : "Failed to search users")
-      );
-    }, 200);
-    return () => clearTimeout(t);
-  }, [query, loadSearch, searchMode]);
+  const openThread = useCallback(
+    async (t: Thread) => {
+      const other = t.otherUser;
+      const chatUser: SelectedChat = {
+        id: other.id,
+        fullName: other.name,
+        profileImage: other.profileImage,
+        online: other.online
+      };
 
-  const openUser = useCallback(
-    async (u: DirectoryUser) => {
       if (!layout.isSplit) {
-        setSearchMode(false);
-        setQuery("");
-        setResults([]);
         navigation.navigate("Chat", {
-          otherUserId: u.id,
-          name: u.fullName,
-          profileImage: u.profileImage ?? null
+          otherUserId: other.id,
+          name: other.name,
+          profileImage: other.profileImage ?? null
         });
         return;
       }
 
-      setSelectedUser(u);
+      setSelectedUser(chatUser);
+      setSelectedThreadUserId(other.id);
       setLoadingChat(true);
       setChatError(null);
       setSendError(null);
       setMessages([]);
+      setChatAccess(null);
+
       try {
-        const hist = await getHistory(u.id, HISTORY_LIMIT);
+        const access = await getMessageAccess(other.id);
+        setChatAccess(access);
+        if (!access.canViewHistory) {
+          setChatError(access.message ?? "You cannot view this conversation.");
+          return;
+        }
+
+        const hist = await getHistory(other.id, HISTORY_LIMIT);
         setMessages(hist.messages);
         listRef.current?.scrollToBottom(false);
-        await markRead(u.id).catch(() => {});
-        setThreads((prev) => clearThreadUnread(prev, u.id));
+        await markRead(other.id).catch(() => {});
+        setThreads((prev) => clearThreadUnread(prev, other.id));
         const sock = await getSocket();
-        sock.emit("message:read", { withUserId: u.id });
+        sock.emit("message:read", { withUserId: other.id });
       } catch (e: unknown) {
         setChatError(e instanceof Error ? e.message : "Failed to load chat");
       } finally {
@@ -206,37 +198,24 @@ export function MessagesHubScreen() {
     [layout.isSplit, navigation]
   );
 
-  const openThread = useCallback(
-    async (t: Thread) => {
-      const other = t.otherUser;
-      setSelectedThreadUserId(other.id);
-      await openUser({
-        id: other.id,
-        fullName: other.name,
-        profileImage: other.profileImage,
-        online: other.online
-      });
-    },
-    [openUser]
-  );
-
   const emitTyping = useCallback(async (typing: boolean) => {
-    if (!selectedUser) return;
+    if (!selectedUser || chatLocked) return;
     try {
       const sock = await getSocket();
       sock.emit("typing", { toUserId: selectedUser.id, typing });
     } catch {
       // offline
     }
-  }, [selectedUser]);
+  }, [chatLocked, selectedUser]);
 
   const onChangeComposer = useCallback(
     (t: string) => {
+      if (chatLocked) return;
       setInput(t);
       setSendError(null);
       emitTyping(t.trim().length > 0).catch(() => {});
     },
-    [emitTyping]
+    [chatLocked, emitTyping]
   );
 
   const mergeSplitMessage = useCallback(
@@ -284,7 +263,6 @@ export function MessagesHubScreen() {
             )
           );
           setSelectedUser((prev) => (prev && prev.id === uid ? { ...prev, online } : prev));
-          setResults((prev) => prev.map((x) => (x.id === uid ? { ...x, online } : x)));
         };
 
         const onThreadMessage = (raw: unknown) => {
@@ -371,7 +349,7 @@ export function MessagesHubScreen() {
 
   const send = useCallback(async () => {
     const body = input.trim();
-    if (!selectedUser || !body || !meId || sending) return;
+    if (!selectedUser || !body || !meId || sending || chatLocked) return;
     setSending(true);
     setSendError(null);
     setInput("");
@@ -426,36 +404,19 @@ export function MessagesHubScreen() {
           });
         }
         listRef.current?.scrollToBottom(true);
-      } catch {
+      } catch (e: unknown) {
         removeOptimistic();
         setInput(body);
-        setSendError("Could not send message. Check your connection and try again.");
+        setSendError(
+          e instanceof Error
+            ? e.message
+            : "Could not send message. Check your connection and try again."
+        );
       }
     } finally {
       setSending(false);
     }
-  }, [emitTyping, input, loadThreads, meId, selectedUser, sending]);
-
-  const toggleSearch = useCallback(() => {
-    setSearchMode((wasSearch) => {
-      const next = !wasSearch;
-      if (wasSearch) {
-        setQuery("");
-        setResults([]);
-        setResultsError(null);
-        void loadThreads();
-      } else {
-        setQuery("");
-        setResults([]);
-        if (layout.isSplit) {
-          setSelectedUser(null);
-          setSelectedThreadUserId(null);
-          setMessages([]);
-        }
-      }
-      return next;
-    });
-  }, [loadThreads, layout.isSplit]);
+  }, [chatLocked, emitTyping, input, loadThreads, meId, selectedUser, sending]);
 
   const renderThread = useCallback(
     ({ item }: { item: Thread }) => {
@@ -476,6 +437,8 @@ export function MessagesHubScreen() {
           online={item.otherUser.online}
           selected={selectedThreadUserId === item.otherUser.id}
           unreadCount={item.unreadCount}
+          chatLanes={item.chatLanes}
+          muted={item.muted}
           onPress={() => openThread(item)}
           colors={threadColors}
         />
@@ -484,23 +447,7 @@ export function MessagesHubScreen() {
     [openThread, selectedThreadUserId, threadColors]
   );
 
-  const renderResult = useCallback(
-    ({ item }: { item: DirectoryUser }) => (
-      <ThreadRow
-        name={item.fullName}
-        preview="Tap to start chat"
-        avatarUri={getImageUrl(item.profileImage)}
-        online={item.online}
-        selected={selectedUser?.id === item.id}
-        onPress={() => openUser(item)}
-        colors={threadColors}
-      />
-    ),
-    [openUser, selectedUser?.id, threadColors]
-  );
-
   const keyThread = useCallback((t: Thread) => String(t.otherUser.id), []);
-  const keyUser = useCallback((u: DirectoryUser) => String(u.id), []);
 
   const threadPanel = (
     <ThreadListPanel
@@ -509,23 +456,21 @@ export function MessagesHubScreen() {
       onBack={() => navigation.goBack()}
       colors={threadColors}
       titleSize={layout.titleSize}
-      searchMode={searchMode}
-      onToggleSearch={toggleSearch}
-      query={query}
-      onQueryChange={setQuery}
       loadingThreads={loadingThreads}
       threadsError={threadsError}
       threads={threads}
       renderThread={renderThread}
-      loadingResults={loadingResults}
-      resultsError={resultsError}
-      results={results}
-      queryTrimmed={query.trim()}
-      renderResult={renderResult}
       keyThread={keyThread}
-      keyUser={keyUser}
     />
   );
+
+  const lockBanner =
+    chatLockMessage && selectedUser ? (
+      <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+        <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+        <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>{chatLockMessage}</Text>
+      </View>
+    ) : undefined;
 
   if (!layout.isSplit) {
     return (
@@ -554,10 +499,10 @@ export function MessagesHubScreen() {
               loading={loadingChat}
               error={chatError}
               sendError={sendError}
-              input={input}
+              input={chatLocked ? "" : input}
               sending={sending}
-              onChangeText={onChangeComposer}
-              onSend={send}
+              onChangeText={chatLocked ? () => {} : onChangeComposer}
+              onSend={chatLocked ? () => {} : send}
               listRef={listRef}
               bubbleMaxWidth={layout.bubbleMaxWidth}
               fontSize={layout.fontSize}
@@ -569,15 +514,14 @@ export function MessagesHubScreen() {
               headerAvatarUri={getImageUrl(selectedUser.profileImage)}
               colors={panelColors}
               headerTopInset={0}
+              headerBanner={lockBanner}
             />
           ) : (
             <View style={[styles.emptyChat, { backgroundColor: colors.background }]}>
               <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyChatTitle, { color: colors.text }]}>Start chatting</Text>
+              <Text style={[styles.emptyChatTitle, { color: colors.text }]}>Your conversations</Text>
               <Text style={[styles.emptyChatSub, { color: colors.textSecondary }]}>
-                {searchMode
-                  ? "Search and pick a user to start messaging."
-                  : "Pick a conversation on the left."}
+                Pick a conversation on the left. New chats open after connection or mutual matrimony match.
               </Text>
             </View>
           )}
@@ -616,5 +560,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     lineHeight: 20
+  },
+  lockBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10
+  },
+  lockBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17
   }
 });

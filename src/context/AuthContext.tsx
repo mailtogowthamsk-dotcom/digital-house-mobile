@@ -27,7 +27,8 @@ export type RootAuthRoute =
   | "Home"
   | "PendingApproval"
   | "Rejected"
-  | "GoogleCompleteProfile";
+  | "GoogleCompleteProfile"
+  | "SetUsername";
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
   if (signedOut || !user) return "Landing";
   if (user.profileComplete === false) return "GoogleCompleteProfile";
+  if (user.status === "APPROVED" && user.needsUsernameSetup) return "SetUsername";
   if (user.status === "APPROVED") return "Home";
   if (user.status === "PENDING") return "PendingApproval";
   if (user.status === "REJECTED") return "Rejected";
@@ -100,12 +102,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const me = await getMe();
+      let me: MeUser;
+      try {
+        me = await getMe();
+      } catch (firstErr) {
+        if (getErrorStatus(firstErr) === 401) {
+          await new Promise((r) => setTimeout(r, 350));
+          me = await getMe();
+        } else {
+          throw firstErr;
+        }
+      }
       await setUserSnapshot(me);
       applySession(me, false);
     } catch (err) {
       const httpStatus = getErrorStatus(err);
       if (httpStatus === 401) {
+        const msg =
+          err && typeof err === "object" && "response" in err
+            ? ((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "")
+            : "";
+        if (msg === "Unauthorized") {
+          const snapshot = await getUserSnapshot();
+          const token = await getTokenReliable();
+          if (token && snapshot) {
+            applySession(snapshot, false);
+            return;
+          }
+        }
         disconnectSocket();
         await clearToken();
         await clearUserSnapshot();

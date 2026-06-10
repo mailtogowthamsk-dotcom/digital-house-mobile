@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import { getToken } from "../storage/token.storage";
+import { getTokenReliable } from "../storage/token.storage";
 import { getServerBaseUrl } from "../api/client";
 import { runRealtimeTeardowns } from "./teardown";
 
@@ -57,7 +57,7 @@ function waitForConnect(sock: Socket, timeoutMs = 12_000): Promise<void> {
  * Resolves only when the socket is connected (ready for emit/on).
  */
 export async function getSocket(): Promise<Socket> {
-  const token = await getToken().catch(() => null);
+  const token = await getTokenReliable().catch(() => null);
   if (!token) {
     throw new Error("Not signed in");
   }

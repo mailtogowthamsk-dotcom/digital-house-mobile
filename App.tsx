@@ -9,6 +9,7 @@ import { rootLinking } from "./src/navigation/linking";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
+import { AppAlertProvider } from "./src/context/AppAlertContext";
 import { AuthProvider, useAuth, type RootAuthRoute } from "./src/context/AuthContext";
 import { AuthSplash } from "./src/components/auth/AuthSplash";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
@@ -18,6 +19,10 @@ import { RejectedScreen } from "./src/screens/auth/RejectedScreen";
 import { LoginScreen } from "./src/screens/auth/LoginScreen";
 import { OtpVerifyScreen } from "./src/screens/auth/OtpVerifyScreen";
 import { GoogleCompleteProfileScreen } from "./src/screens/auth/GoogleCompleteProfileScreen";
+import { SetUsernameScreen } from "./src/screens/auth/SetUsernameScreen";
+import { SearchMembersScreen } from "./src/screens/members/SearchMembersScreen";
+import { MemberProfileScreen } from "./src/screens/members/MemberProfileScreen";
+import { ConnectionsScreen } from "./src/screens/members/ConnectionsScreen";
 import { HomeScreen } from "./src/screens/home/HomeScreen";
 import { ProfileScreen } from "./src/screens/home/ProfileScreen";
 import { EditProfileScreen } from "./src/screens/home/EditProfileScreen";
@@ -98,7 +103,15 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
           component={GoogleCompleteProfileScreen}
           options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
         />
+        <Stack.Screen
+          name="SetUsername"
+          component={SetUsernameScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="SearchMembers" component={SearchMembersScreen} options={{ title: "Find Members" }} />
+        <Stack.Screen name="Connections" component={ConnectionsScreen} options={{ title: "Connections" }} />
+        <Stack.Screen name="MemberProfile" component={MemberProfileScreen} options={{ title: "Member Profile" }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: "Post" }} />
@@ -156,11 +169,13 @@ export default function App() {
       <AppErrorBoundary>
         <SafeAreaProvider initialWindowMetrics={initialWindowMetrics}>
           <ThemeProvider>
-            <AuthProvider>
-              <NotificationProvider>
-                <AppNavigation />
-              </NotificationProvider>
-            </AuthProvider>
+            <AppAlertProvider>
+              <AuthProvider>
+                <NotificationProvider>
+                  <AppNavigation />
+                </NotificationProvider>
+              </AuthProvider>
+            </AppAlertProvider>
           </ThemeProvider>
         </SafeAreaProvider>
       </AppErrorBoundary>

@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Image,
-  ActivityIndicator
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Image, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -39,6 +28,7 @@ import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { BrideGroomPhotosSection } from "../../components/matrimony/BrideGroomPhotosSection";
+import { appAlert } from "../../utils/appAlert";
 import {
   LOOKING_FOR_OPTIONS,
   MARITAL_STATUS_OPTIONS,
@@ -185,7 +175,7 @@ export function MatrimonySetupScreen() {
       setForm(merged);
       setAccountProfilePhoto(hub.account_profile_photo ?? hub.user_context.profile_image ?? null);
       if (hub.status === "PENDING" || hub.status === "RESUBMITTED") {
-        Alert.alert(
+        appAlert(
           "Under review",
           hub.status === "RESUBMITTED"
             ? "Your corrected profile is awaiting admin review."
@@ -195,7 +185,7 @@ export function MatrimonySetupScreen() {
         return;
       }
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to load");
+      appAlert("Error", e instanceof Error ? e.message : "Failed to load");
     } finally {
       setLoading(false);
     }
@@ -222,7 +212,7 @@ export function MatrimonySetupScreen() {
   const pickAndUploadMatrimonyPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow photo access to upload bride/groom photos.");
+      appAlert("Permission needed", "Allow photo access to upload bride/groom photos.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -235,7 +225,7 @@ export function MatrimonySetupScreen() {
     const asset = result.assets[0];
     const mime = asset.mimeType ?? "image/jpeg";
     if (!isAllowedImageType(mime)) {
-      Alert.alert("Invalid format", "Photo must be JPEG, PNG, or WebP.");
+      appAlert("Invalid format", "Photo must be JPEG, PNG, or WebP.");
       return;
     }
     try {
@@ -248,7 +238,7 @@ export function MatrimonySetupScreen() {
         candidatePhotoStatus: "PENDING_REVIEW"
       });
     } catch (e) {
-      Alert.alert("Upload failed", e instanceof Error ? e.message : "Could not upload photo");
+      appAlert("Upload failed", e instanceof Error ? e.message : "Could not upload photo");
     } finally {
       setPhotoUploading(false);
     }
@@ -256,7 +246,7 @@ export function MatrimonySetupScreen() {
 
   const useAccountPhotoForMatrimony = () => {
     if (!accountProfilePhoto) {
-      Alert.alert("No account photo", "Upload a profile photo in Edit Profile first, or upload a matrimony photo.");
+      appAlert("No account photo", "Upload a profile photo in Edit Profile first, or upload a matrimony photo.");
       return;
     }
     patch({
@@ -284,7 +274,7 @@ export function MatrimonySetupScreen() {
         }
       }
       if (fileSize <= 0) {
-        Alert.alert("Error", "Could not read file size. Try again or pick a smaller file.");
+        appAlert("Error", "Could not read file size. Try again or pick a smaller file.");
         return;
       }
 
@@ -302,12 +292,12 @@ export function MatrimonySetupScreen() {
         await uploadToR2(uploadUrl, asset.uri, mime);
         publicUrl = url;
       } else {
-        Alert.alert("Invalid format", "Horoscope must be a PDF or image (JPEG/PNG).");
+        appAlert("Invalid format", "Horoscope must be a PDF or image (JPEG/PNG).");
         return;
       }
       patch({ horoscopeDocumentUrl: publicUrl });
     } catch (e) {
-      Alert.alert("Upload failed", e instanceof Error ? e.message : "Could not upload horoscope");
+      appAlert("Upload failed", e instanceof Error ? e.message : "Could not upload horoscope");
     } finally {
       setHoroscopeUploading(false);
     }
@@ -330,7 +320,7 @@ export function MatrimonySetupScreen() {
       await persistDraft();
       setStep(1);
     } catch (e) {
-      Alert.alert("Save failed", e instanceof Error ? e.message : "Could not save");
+      appAlert("Save failed", e instanceof Error ? e.message : "Could not save");
     } finally {
       setSaving(false);
     }
@@ -347,7 +337,7 @@ export function MatrimonySetupScreen() {
       const alreadyQueued =
         hub.message?.includes("already under review") ||
         hub.message?.includes("already resubmitted");
-      Alert.alert(
+      appAlert(
         alreadyQueued ? "Already submitted" : hubStatus === "CHANGES_REQUESTED" ? "Resubmitted" : "Submitted",
         hub.message ??
           (hubStatus === "CHANGES_REQUESTED"
@@ -364,7 +354,7 @@ export function MatrimonySetupScreen() {
         missing?.length && missing.length <= 6
           ? `${base}\n\nMissing: ${missing.join(", ")}`
           : base;
-      Alert.alert("Submit failed", detail);
+      appAlert("Submit failed", detail);
     } finally {
       setSaving(false);
     }
@@ -723,7 +713,7 @@ export function MatrimonySetupScreen() {
               disabled={saving}
               loading={saving}
             />
-            <PrimaryButton title="Save draft" onPress={async () => { setSaving(true); try { await persistDraft(); Alert.alert("Saved", "Draft saved."); } finally { setSaving(false); } }} variant="outline" style={{ marginTop: 8 }} />
+            <PrimaryButton title="Save draft" onPress={async () => { setSaving(true); try { await persistDraft(); appAlert("Saved", "Draft saved."); } finally { setSaving(false); } }} variant="outline" style={{ marginTop: 8 }} />
           </>
         )}
       </ScrollView>

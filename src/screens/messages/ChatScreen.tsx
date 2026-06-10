@@ -9,13 +9,22 @@ import { getMe } from "../../api/auth.api";
 import { hapticSendMessage } from "../../utils/chatHaptics";
 import { ChatMessagesSkeleton } from "../../components/messages/ChatSkeleton";
 import { ChatHeader } from "../../components/messages/ChatHeader";
-import { getHistory, markRead, sendMessage, type MessageItem } from "../../api/messages.api";
+import {
+  getHistory,
+  getMessageAccess,
+  markRead,
+  sendMessage,
+  updateThreadPreference,
+  type MessageAccess,
+  type MessageItem
+} from "../../api/messages.api";
+import { blockMember, reportMember, MEMBER_REPORT_REASONS } from "../../api/users.api";
 import { getSocket } from "../../realtime/socket";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
-import { getMatrimonyChatAccess } from "../../api/matrimony.api";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
+import { appAlert } from "../../utils/appAlert";
 
 type ChatParams = { otherUserId: number; name: string; profileImage?: string | null };
 
@@ -41,7 +50,10 @@ export function ChatScreen() {
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
-  const [matrimonyChatLock, setMatrimonyChatLock] = useState<string | null>(null);
+  const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
+  const [threadMuted, setThreadMuted] = useState(false);
+  const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
+  const chatLockMessage = chatAccess?.message ?? null;
 
   const scrollToBottomIfNeeded = useCallback((animated = true) => {
     if (listRef.current?.shouldAutoScroll() !== false) {
@@ -85,21 +97,17 @@ export function ChatScreen() {
   }, [navigation, name]);
 
   useEffect(() => {
-    void getMatrimonyChatAccess(otherUserId)
-      .then((access) => {
-        if (access.matrimonyGateApplies && !access.allowed) {
-          setMatrimonyChatLock(access.message ?? "Chat available after mutual match.");
-        } else {
-          setMatrimonyChatLock(null);
-        }
-      })
-      .catch(() => setMatrimonyChatLock(null));
-  }, [otherUserId]);
-
-  useEffect(() => {
     (async () => {
       try {
         setLoading(true);
+        setLoadError(null);
+        const access = await getMessageAccess(otherUserId);
+        setChatAccess(access);
+        if (!access.canViewHistory) {
+          setLoadError(access.message ?? "You cannot view this conversation.");
+          setMessages([]);
+          return;
+        }
         await loadInitial();
         listRef.current?.scrollToBottom(false);
       } catch (e: unknown) {
@@ -108,7 +116,7 @@ export function ChatScreen() {
         setLoading(false);
       }
     })();
-  }, [loadInitial]);
+  }, [loadInitial, otherUserId]);
 
   const emitTyping = useCallback(async (typing: boolean) => {
     try {
@@ -121,11 +129,12 @@ export function ChatScreen() {
 
   const onChangeText = useCallback(
     (t: string) => {
+      if (chatLocked) return;
       setInput(t);
       setSendError(null);
       emitTyping(t.trim().length > 0).catch(() => {});
     },
-    [emitTyping]
+    [chatLocked, emitTyping]
   );
 
   const markReadNow = useCallback(async () => {
@@ -173,7 +182,7 @@ export function ChatScreen() {
 
   const send = useCallback(async () => {
     const body = input.trim();
-    if (!body || !meId || sending) return;
+    if (!body || !meId || sending || chatLocked) return;
     setSending(true);
     setSendError(null);
     setInput("");
@@ -221,15 +230,115 @@ export function ChatScreen() {
         pendingClientIdsRef.current.delete(clientId);
         setMessages((prev) => prev.map((x) => (x.clientId === clientId ? saved : x)));
         listRef.current?.scrollToBottom(true);
-      } catch {
+      } catch (e: unknown) {
         removeOptimistic();
         setInput(body);
-        setSendError("Could not send message. Check your connection and try again.");
+        setSendError(
+          e instanceof Error
+            ? e.message
+            : "Could not send message. Check your connection and try again."
+        );
       }
     } finally {
       setSending(false);
     }
-  }, [emitTyping, input, meId, otherUserId, sending]);
+  }, [chatLocked, emitTyping, input, meId, otherUserId, sending]);
+
+  const submitReport = async (reasonCode: string) => {
+    try {
+      await reportMember(otherUserId, reasonCode);
+      appAlert("Thank you", "Report submitted. Our team will review it.");
+    } catch (e: unknown) {
+      appAlert("Report", e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const confirmBlock = () => {
+    appAlert(
+      "Block member?",
+      "They will be hidden from search, messaging, and connections.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: () =>
+            void (async () => {
+              try {
+                await blockMember(otherUserId);
+                navigation.goBack();
+              } catch (e: unknown) {
+                appAlert("Error", e instanceof Error ? e.message : "Failed to block");
+              }
+            })()
+        }
+      ]
+    );
+  };
+
+  const openChatOptions = () => {
+    appAlert("Chat options", undefined, [
+      {
+        text: threadMuted ? "Unmute notifications" : "Mute notifications",
+        onPress: () =>
+          void (async () => {
+            try {
+              const pref = await updateThreadPreference(otherUserId, { muted: !threadMuted });
+              setThreadMuted(pref.muted);
+            } catch (e: unknown) {
+              appAlert("Error", e instanceof Error ? e.message : "Failed to update");
+            }
+          })()
+      },
+      {
+        text: "Archive chat",
+        onPress: () =>
+          void (async () => {
+            try {
+              await updateThreadPreference(otherUserId, { archived: true });
+              appAlert("Archived", "This chat was moved to archive.");
+              navigation.goBack();
+            } catch (e: unknown) {
+              appAlert("Error", e instanceof Error ? e.message : "Failed to archive");
+            }
+          })()
+      },
+      {
+        text: "Leave chat",
+        style: "destructive",
+        onPress: () =>
+          appAlert("Leave chat?", "The conversation will be hidden from your inbox.", [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Leave",
+              style: "destructive",
+              onPress: () =>
+                void (async () => {
+                  try {
+                    await updateThreadPreference(otherUserId, { left: true });
+                    navigation.goBack();
+                  } catch (e: unknown) {
+                    appAlert("Error", e instanceof Error ? e.message : "Failed to leave");
+                  }
+                })()
+            }
+          ])
+      },
+      {
+        text: "Report member",
+        onPress: () =>
+          appAlert("Report member", "Why are you reporting this member?", [
+            ...MEMBER_REPORT_REASONS.map((r) => ({
+              text: r.label,
+              onPress: () => void submitReport(r.code)
+            })),
+            { text: "Cancel", style: "cancel" }
+          ])
+      },
+      { text: "Block member", style: "destructive", onPress: confirmBlock },
+      { text: "Cancel", style: "cancel" }
+    ]);
+  };
 
   const panelColors = {
     background: colors.background,
@@ -250,6 +359,12 @@ export function ChatScreen() {
     </Pressable>
   );
 
+  const optionsButton = (
+    <Pressable style={styles.backBtn} onPress={openChatOptions} hitSlop={8}>
+      <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+    </Pressable>
+  );
+
   if (loading) {
     return (
       <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -257,6 +372,7 @@ export function ChatScreen() {
           title={name}
           avatarUri={otherAvatarUri}
           left={backButton}
+          right={optionsButton}
           backgroundColor={colors.surface}
           borderColor={colors.border}
           textColor={colors.text}
@@ -275,6 +391,7 @@ export function ChatScreen() {
           title={name}
           avatarUri={otherAvatarUri}
           left={backButton}
+          right={optionsButton}
           backgroundColor={colors.surface}
           borderColor={colors.border}
           textColor={colors.text}
@@ -303,10 +420,22 @@ export function ChatScreen() {
     );
   }
 
-  const matrimonyLockBanner = matrimonyChatLock ? (
+  const laneLabels =
+    chatAccess?.chatLanes?.map((lane) => (lane === "matrimony" ? "Matrimony" : "Community")) ?? [];
+
+  const chatLockBanner = chatLockMessage ? (
     <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
       <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
-      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>{matrimonyChatLock}</Text>
+      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>{chatLockMessage}</Text>
+    </View>
+  ) : laneLabels.length > 0 ? (
+    <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+      <Ionicons name="chatbubbles-outline" size={16} color={colors.primary} />
+      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
+        {laneLabels.length > 1
+          ? `Community and matrimony chat — separate permissions.`
+          : `${laneLabels[0]} chat`}
+      </Text>
     </View>
   ) : undefined;
 
@@ -318,10 +447,10 @@ export function ChatScreen() {
         messages={messages}
         meId={meId}
         sendError={sendError}
-        input={matrimonyChatLock ? "" : input}
+        input={chatLocked ? "" : input}
         sending={sending}
-        onChangeText={matrimonyChatLock ? () => {} : onChangeText}
-        onSend={matrimonyChatLock ? () => {} : send}
+        onChangeText={chatLocked ? () => {} : onChangeText}
+        onSend={chatLocked ? () => {} : send}
         listRef={listRef}
         bubbleMaxWidth={layout.bubbleMaxWidth}
         fontSize={layout.fontSize}
@@ -333,7 +462,8 @@ export function ChatScreen() {
         headerAvatarUri={otherAvatarUri}
         colors={panelColors}
         headerLeft={backButton}
-        headerBanner={matrimonyLockBanner}
+        headerRight={optionsButton}
+        headerBanner={chatLockBanner}
       />
     </View>
   );

@@ -1,10 +1,13 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { getToken } from "../storage/token.storage";
+import { getTokenReliable } from "../storage/token.storage";
 import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
 
-type RetryableConfig = InternalAxiosRequestConfig & { __retryCount?: number };
+type RetryableConfig = InternalAxiosRequestConfig & {
+  __retryCount?: number;
+  __authRetry?: boolean;
+};
 
 function isLocalLanApiUrl(url: string): boolean {
   return /\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.0\.0\.1)/i.test(url);
@@ -91,7 +94,7 @@ export const api = axios.create({
 api.interceptors.request.use(async (config) => {
   config.baseURL = getApiBaseUrl();
   try {
-    const token = await getToken();
+    const token = await getTokenReliable();
     if (token) config.headers.Authorization = `Bearer ${token}`;
   } catch {
     /* SecureStore */
@@ -122,7 +125,22 @@ api.interceptors.response.use(
     }
 
     const retryStatus = err.response?.status;
-    if (retryStatus === 401 && shouldAutoClearOn401()) {
+    if (retryStatus === 401 && config && !config.__authRetry) {
+      config.__authRetry = true;
+      try {
+        const token = await getTokenReliable();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+          await new Promise((r) => setTimeout(r, 250));
+          config.baseURL = getApiBaseUrl();
+          return await api.request(config);
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    if (retryStatus === 401 && shouldAutoClearOn401() && shouldSignOutOn401(err, config)) {
       try {
         await invokeAuthSignOut();
       } catch {
@@ -132,6 +150,29 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
+function get401Message(err: AxiosError): string {
+  const msg = (err.response?.data as { message?: string } | undefined)?.message;
+  return typeof msg === "string" ? msg : "";
+}
+
+/** Only sign out on confirmed session invalidation — not transient missing-token races. */
+export function isSessionInvalid401(err: unknown): boolean {
+  if (!err || typeof err !== "object" || !("response" in err)) return false;
+  const ax = err as AxiosError;
+  if (ax.response?.status !== 401) return false;
+  const msg = get401Message(ax);
+  if (msg === "Unauthorized") return false;
+  const url = String((ax.config as RetryableConfig | undefined)?.url ?? "");
+  return msg === "Invalid or expired token" || url.includes("/auth/me");
+}
+
+function shouldSignOutOn401(err: AxiosError, config?: RetryableConfig): boolean {
+  const msg = get401Message(err);
+  if (msg === "Unauthorized") return false;
+  const url = String(config?.url ?? "");
+  return msg === "Invalid or expired token" || url.includes("/auth/me");
+}
 
 export function getErrorStatus(err: unknown): number | undefined {
   return err && typeof err === "object" && "response" in err
@@ -145,6 +186,12 @@ export function getAuthErrorMessage(err: unknown): string {
   const msg = (ax.response?.data as { message?: string })?.message;
   if (msg && typeof msg === "string") return msg;
   const status = ax.response?.status;
+  if (status === 401) {
+    return "Session expired or not signed in. Please log in again and retry.";
+  }
+  if (status === 403) {
+    return msg || "Your account cannot access this feature yet.";
+  }
   if (status === 400) return "Invalid request. Please check your details.";
   if (status === 409) return "An account with this email or mobile already exists.";
   if (status === 500) return "Server error. Please try again in a moment.";

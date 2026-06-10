@@ -3,12 +3,11 @@ import { Animated, Easing, View, type LayoutChangeEvent } from "react-native";
 import { WelcomeCard } from "./WelcomeCard";
 import {
   isWelcomeDismissedForSession,
-  markWelcomeDismissedForSession,
-  shouldShowWelcomeCard
+  markWelcomeDismissedForSession
 } from "../../session/welcomeSession";
+import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 
 const DISMISS_DELAY_MS = 2500;
-const FADE_IN_MS = 380;
 const ANIM_DURATION_MS = 420;
 const COLLAPSE_DURATION_MS = 280;
 const CARD_MARGIN_BOTTOM = 28;
@@ -19,7 +18,9 @@ type Props = {
 };
 
 export function DismissibleWelcomeCard({ userName, avatarUri }: Props) {
-  if (!shouldShowWelcomeCard()) {
+  const visible = useWelcomeCardVisible();
+
+  if (!visible || isWelcomeDismissedForSession()) {
     return null;
   }
 
@@ -30,42 +31,27 @@ export function DismissibleWelcomeCard({ userName, avatarUri }: Props) {
 
 function DismissibleWelcomeCardAnimated({ userName, avatarUri }: Props) {
   const [removed, setRemoved] = useState(false);
-  const [measured, setMeasured] = useState(false);
+  const [collapsing, setCollapsing] = useState(false);
+  const contentHeight = useRef(0);
   const heightAnim = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const dismissedRef = useRef(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) contentHeight.current = h;
+  }, []);
 
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: FADE_IN_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [opacity]);
+    if (dismissedRef.current || removed) return;
 
-  const onLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const h = e.nativeEvent.layout.height;
-      if (h > 0 && !measured) {
-        heightAnim.setValue(h);
-        setMeasured(true);
-      }
-    },
-    [heightAnim, measured]
-  );
-
-  useEffect(() => {
-    if (dismissedRef.current || removed || !measured) return;
-    if (isWelcomeDismissedForSession()) {
-      setRemoved(true);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      if (dismissedRef.current) return;
+    dismissTimerRef.current = setTimeout(() => {
+      if (dismissedRef.current || removed) return;
       dismissedRef.current = true;
+      setCollapsing(true);
+      heightAnim.setValue(contentHeight.current || 0);
 
       Animated.sequence([
         Animated.parallel([
@@ -96,10 +82,12 @@ function DismissibleWelcomeCardAnimated({ userName, avatarUri }: Props) {
       });
     }, DISMISS_DELAY_MS);
 
-    return () => clearTimeout(timer);
-  }, [heightAnim, opacity, translateX, removed, measured]);
+    return () => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, [heightAnim, opacity, translateX, removed]);
 
-  if (removed || isWelcomeDismissedForSession()) {
+  if (removed) {
     return null;
   }
 
@@ -108,7 +96,7 @@ function DismissibleWelcomeCardAnimated({ userName, avatarUri }: Props) {
       style={{
         marginBottom: CARD_MARGIN_BOTTOM,
         overflow: "hidden",
-        ...(measured ? { height: heightAnim } : undefined)
+        ...(collapsing ? { height: heightAnim } : undefined)
       }}
     >
       <Animated.View style={{ opacity, transform: [{ translateX }] }}>

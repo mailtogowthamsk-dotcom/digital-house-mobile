@@ -1,16 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Image,
-  TextInput,
-  Alert,
-  RefreshControl
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, TextInput, RefreshControl } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getPost, likePost, addComment, getComments, reportPost } from "../../api/posts.api";
@@ -24,6 +13,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
+import { appAlert } from "../../utils/appAlert";
 
 type PostDetailParams = { postId: number };
 
@@ -124,7 +114,7 @@ export function PostDetailScreen() {
 
   const handleReport = useCallback(() => {
     if (postId == null) return;
-    Alert.alert(
+    appAlert(
       "Report post",
       "Do you want to report this post for review?",
       [
@@ -135,9 +125,9 @@ export function PostDetailScreen() {
           onPress: async () => {
             try {
               await reportPost(postId, "Reported by user");
-              Alert.alert("Report submitted", "Thank you. We will review this post.");
+              appAlert("Report submitted", "Thank you. We will review this post.");
             } catch (_) {
-              Alert.alert("Error", "Failed to submit report.");
+              appAlert("Error", "Failed to submit report.");
             }
           }
         }

@@ -1,17 +1,5 @@
 import React, { useState, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  Dimensions
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Image, Dimensions } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -25,6 +13,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { appAlert } from "../../utils/appAlert";
 
 const POST_TYPES = [
   { value: "ANNOUNCEMENT", label: "Announcement" },
@@ -108,7 +97,7 @@ export function CreatePostScreen() {
   const pickAndUploadImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow access to photos to upload images.");
+      appAlert("Permission needed", "Allow access to photos to upload images.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

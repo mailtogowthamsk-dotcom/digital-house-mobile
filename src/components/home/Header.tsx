@@ -15,6 +15,8 @@ export type HeaderActionId =
   | "helping-hand"
   | "community"
   | "messages"
+  | "search-members"
+  | "connections"
   | "settings";
 
 type HeaderProps = {

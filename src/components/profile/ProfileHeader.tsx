@@ -9,6 +9,7 @@ import { spacing, radius } from "../../theme/spacing";
 
 export type ProfileHeaderProps = {
   name: string;
+  username?: string | null;
   profile_image: string | null;
   verified: boolean;
   member_since: string;
@@ -18,6 +19,7 @@ export type ProfileHeaderProps = {
 
 export function ProfileHeader({
   name,
+  username,
   profile_image,
   verified,
   member_since,
@@ -72,6 +74,7 @@ export function ProfileHeader({
         },
         avatarText: { fontSize: 32, fontWeight: "700", color: colors.white },
         name: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
+        username: { ...typography.bodySmall, color: colors.primary, fontWeight: "700", marginBottom: spacing.xs },
         role: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
         verifiedPill: {
           flexDirection: "row",
@@ -112,6 +115,7 @@ export function ProfileHeader({
           />
         </View>
         <Text style={s.name}>{name}</Text>
+        {username ? <Text style={s.username}>@{username}</Text> : null}
         {communityRole ? <Text style={s.role}>{communityRole}</Text> : null}
         {verified && (
           <View style={s.verifiedPill}>

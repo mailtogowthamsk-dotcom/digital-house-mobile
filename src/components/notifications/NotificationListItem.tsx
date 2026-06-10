@@ -1,19 +1,12 @@
 import React, { memo, useMemo, useRef } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Image,
-  Animated,
-  Alert
-} from "react-native";
+import { View, Text, Pressable, StyleSheet, Image, Animated } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import type { NotificationItem } from "../../api/notifications.api";
 import { getImageUrl } from "../../api/client";
+import { appAlert } from "../../utils/appAlert";
 import {
   formatNotificationTime,
   getNotificationVisual,
@@ -39,7 +32,7 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
   const timeLabel = formatNotificationTime(item.createdAt);
 
   const onLongPress = () => {
-    Alert.alert(item.title, undefined, [
+    appAlert(item.title, undefined, [
       ...(unread
         ? [{ text: "Mark as read", onPress: () => { swipeRef.current?.close(); onMarkRead(); } }]
         : []),

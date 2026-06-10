@@ -28,6 +28,8 @@ export type ProfileSections = {
 export type ProfileMeResponse = {
   id: number;
   name: string;
+  username?: string | null;
+  profile_visibility?: "PUBLIC" | "PRIVATE";
   profile_image: string | null;
   verified: boolean;
   member_since: string;

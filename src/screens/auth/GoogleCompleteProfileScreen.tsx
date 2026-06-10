@@ -39,6 +39,7 @@ function formatDate(d: Date | null): string {
 export function GoogleCompleteProfileScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { user, refreshSession } = useAuth();
+  const [username, setUsername] = useState("");
   const [gender, setGender] = useState("");
   const [dob, setDob] = useState<Date | null>(null);
   const [showDobPicker, setShowDobPicker] = useState(false);
@@ -70,6 +71,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const onSubmit = async () => {
     Keyboard.dismiss();
     setMsg(null);
+    if (!username.trim() || username.trim().length < 3) return setMsg("Please choose a username.");
     if (!gender) return setMsg("Please select gender.");
     if (!dob) return setMsg("Please select date of birth.");
     if (!district) return setMsg("Please select district.");
@@ -78,6 +80,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
     setLoading(true);
     try {
       const result = await completeGoogleProfile({
+        username: username.trim().toLowerCase(),
         gender,
         dob: formatDate(dob),
         district,
@@ -124,6 +127,14 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
           </View>
 
           <View style={styles.card}>
+            <Input
+              placeholder="@username *"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              variant="light"
+            />
             <Dropdown
               label="Gender"
               value={gender}

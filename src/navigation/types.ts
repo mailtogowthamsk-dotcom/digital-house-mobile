@@ -5,6 +5,10 @@ export type RootStackParamList = {
   Rejected: { message?: string };
   Login: undefined;
   GoogleCompleteProfile: undefined;
+  SetUsername: undefined;
+  SearchMembers: undefined;
+  Connections: undefined;
+  MemberProfile: { userId?: number; username?: string };
   OtpVerify: { email: string };
   Home: undefined;
   Profile: undefined;

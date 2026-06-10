@@ -56,6 +56,16 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
     case "OPEN_MESSAGES":
       navigation.navigate("Messages");
       break;
+    case "OPEN_CONNECTION_REQUESTS":
+      navigation.navigate("Connections");
+      break;
+    case "OPEN_MEMBER_PROFILE":
+      if (actorId) {
+        navigation.navigate("MemberProfile", { userId: actorId });
+      } else {
+        navigation.navigate("Connections");
+      }
+      break;
     default:
       if (item.category === "MATRIMONY") navigation.navigate("MatrimonyHome");
       else if (item.category === "MESSAGES") navigation.navigate("Messages");

@@ -18,6 +18,13 @@ import {
   type NotificationPreferences
 } from "../../api/notifications.api";
 import {
+  listBlockedMembers,
+  unblockMember,
+  updateConnectionRequests,
+  type BlockedMember
+} from "../../api/users.api";
+import { useAuth } from "../../context/AuthContext";
+import {
   isExpoGo,
   isRemotePushSupported,
   requestPushPermissions,
@@ -28,10 +35,14 @@ import { getLinkedAccounts, type LinkedAccountsResponse } from "../../api/auth.a
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { mode, setMode, colors } = useTheme();
+  const { user, refreshSession } = useAuth();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [loadingPrefs, setLoadingPrefs] = useState(true);
   const [linked, setLinked] = useState<LinkedAccountsResponse | null>(null);
   const [loadingLinked, setLoadingLinked] = useState(true);
+  const [acceptingRequests, setAcceptingRequests] = useState(user?.allowConnectionRequests !== false);
+  const [blocked, setBlocked] = useState<BlockedMember[]>([]);
+  const [loadingBlocked, setLoadingBlocked] = useState(true);
 
   const loadPrefs = useCallback(async () => {
     setLoadingPrefs(true);
@@ -60,6 +71,43 @@ export function SettingsScreen() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setAcceptingRequests(user?.allowConnectionRequests !== false);
+  }, [user?.allowConnectionRequests]);
+
+  useEffect(() => {
+    void (async () => {
+      setLoadingBlocked(true);
+      try {
+        setBlocked(await listBlockedMembers());
+      } catch {
+        setBlocked([]);
+      } finally {
+        setLoadingBlocked(false);
+      }
+    })();
+  }, []);
+
+  const patchConnectionRequests = async (value: boolean) => {
+    const prev = acceptingRequests;
+    setAcceptingRequests(value);
+    try {
+      await updateConnectionRequests(value);
+      await refreshSession();
+    } catch {
+      setAcceptingRequests(prev);
+    }
+  };
+
+  const handleUnblock = async (member: BlockedMember) => {
+    try {
+      await unblockMember(member.id);
+      setBlocked((prev) => prev.filter((b) => b.id !== member.id));
+    } catch {
+      // ignore
+    }
+  };
 
   const patch = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!prefs) return;
@@ -120,6 +168,52 @@ export function SettingsScreen() {
       )}
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
+        Privacy
+      </Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <ToggleRow
+          label="Accept connection requests"
+          subtitle="When off, others cannot send you new connection requests"
+          value={acceptingRequests}
+          onValueChange={(v) => void patchConnectionRequests(v)}
+          colors={colors}
+        />
+      </View>
+      {loadingBlocked ? (
+        <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
+      ) : blocked.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.md }
+          ]}
+        >
+          <Text style={[styles.linkedHeading, { color: colors.text }]}>Blocked members</Text>
+          {blocked.map((member, idx) => (
+            <View key={member.id}>
+              {idx > 0 ? <View style={[styles.separator, { backgroundColor: colors.border }]} /> : null}
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{member.fullName}</Text>
+                  {member.username ? (
+                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>
+                      @{member.username}
+                    </Text>
+                  ) : null}
+                </View>
+                <Pressable onPress={() => void handleUnblock(member)} hitSlop={8}>
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Unblock</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          <Text style={[styles.linkedHint, { color: colors.textMuted }]}>
+            Unblocking does not restore connections or matrimony matches.
+          </Text>
+        </View>
+      ) : null}
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
         Appearance
       </Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -166,7 +260,7 @@ export function SettingsScreen() {
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
           <ToggleRow
             label="Messages"
-            subtitle="New chats and message requests"
+            subtitle="Messages from connections and matrimony matches"
             value={prefs.messagesEnabled}
             onValueChange={(v) => patch("messagesEnabled", v)}
             colors={colors}

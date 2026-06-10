@@ -153,6 +153,7 @@ export function ProfileScreen() {
       <>
         <ProfileHeader
           name={profile.name}
+          username={profile.username}
           profile_image={profile.profile_image}
           verified={profile.verified}
           member_since={profile.member_since}

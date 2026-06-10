@@ -86,16 +86,30 @@ export function useHome() {
   const feedSortRef = useRef(feedSort);
   feedSortRef.current = feedSort;
 
-  const fetchSummary = useCallback(async () => {
-    setSummaryError(null);
-    setSummaryLoading(true);
+  const summaryRef = useRef(summary);
+  summaryRef.current = summary;
+
+  const fetchSummary = useCallback(async (opts?: { background?: boolean }) => {
+    const cached = summaryRef.current;
+    const background = opts?.background === true && cached != null;
+
+    if (!background) {
+      setSummaryError(null);
+      if (!cached) setSummaryLoading(true);
+    }
+
     try {
       const data = await getHomeSummary();
       setSummary(data);
+      setSummaryError(null);
     } catch (e) {
-      setSummaryError(e instanceof Error ? e : new Error("Failed to load summary"));
+      if (!cached) {
+        setSummaryError(e instanceof Error ? e : new Error("Failed to load summary"));
+      }
     } finally {
-      setSummaryLoading(false);
+      if (!background || !cached) {
+        setSummaryLoading(false);
+      }
     }
   }, []);
 
@@ -162,10 +176,15 @@ export function useHome() {
   }, [fetchHighlights]);
 
   const refetchAll = useCallback(async () => {
-    setSummaryError(null);
     setFeedError(null);
     setHighlightsError(null);
-    await Promise.all([fetchSummary(), fetchFeed(false), fetchHighlights()]);
+    const hasSummary = summaryRef.current != null;
+    if (!hasSummary) setSummaryError(null);
+    await Promise.all([
+      fetchSummary({ background: hasSummary }),
+      fetchFeed(false),
+      fetchHighlights()
+    ]);
   }, [fetchSummary, fetchFeed, fetchHighlights]);
 
   const loadMoreFeed = useCallback(() => {
@@ -217,9 +236,6 @@ export function useHome() {
     setFeedTotal((t) => t + 1);
   }, []);
 
-  const summaryRef = useRef(summary);
-  summaryRef.current = summary;
-
   useEffect(() => {
     return subscribePostSync((event) => {
       if (event.type === "deleted") removePost(event.postId);
@@ -263,7 +279,7 @@ export function useHome() {
     removePost,
     prependFeedPost,
     setFeedSortMode,
-    retrySummary: fetchSummary,
+    retrySummary: () => fetchSummary({ background: summaryRef.current != null }),
     retryFeed: () => fetchFeed(false),
     retryHighlights: fetchHighlights
   };

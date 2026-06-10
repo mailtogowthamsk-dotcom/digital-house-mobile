@@ -2,6 +2,7 @@ import { api } from "./client";
 
 export type RegisterPayload = {
   fullName: string;
+  username: string;
   gender?: string | null;
   dob?: string | null;
   email: string;
@@ -43,10 +44,14 @@ export type AuthProviderCode = "EXISTING_LOGIN" | "GOOGLE";
 export type MeUser = {
   id: number;
   fullName: string;
+  username?: string | null;
   email: string;
   status: string;
   createdAt: string;
   profileComplete?: boolean;
+  needsUsernameSetup?: boolean;
+  profileVisibility?: "PUBLIC" | "PRIVATE";
+  allowConnectionRequests?: boolean;
   signupProvider?: AuthProviderCode;
   linkedProviders?: AuthProviderCode[];
   emailVerified?: boolean;
@@ -70,6 +75,7 @@ export async function googleAuth(idToken: string): Promise<GoogleAuthResponse> {
 }
 
 export type CompleteGoogleProfilePayload = {
+  username: string;
   gender: string;
   dob: string;
   district: string;

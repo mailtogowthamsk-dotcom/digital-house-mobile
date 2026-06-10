@@ -5,17 +5,12 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TextInput,
   Pressable,
-  ActivityIndicator,
-  Image,
   type ListRenderItem
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getImageUrl } from "../../api/client";
 import { AvatarImage } from "../ui/AvatarImage";
-import type { Thread } from "../../api/messages.api";
-import type { DirectoryUser } from "../../api/users.api";
+import type { ChatLane, Thread } from "../../api/messages.api";
 
 type Colors = {
   background: string;
@@ -35,21 +30,11 @@ type ThreadListPanelProps = {
   fullWidth?: boolean;
   colors: Colors;
   titleSize: number;
-  searchMode: boolean;
-  onToggleSearch: () => void;
-  query: string;
-  onQueryChange: (q: string) => void;
   loadingThreads: boolean;
   threadsError: string | null;
   threads: Thread[];
   renderThread: ListRenderItem<Thread>;
-  loadingResults: boolean;
-  resultsError: string | null;
-  results: DirectoryUser[];
-  queryTrimmed: string;
-  renderResult: ListRenderItem<DirectoryUser>;
   keyThread: (t: Thread) => string;
-  keyUser: (u: DirectoryUser) => string;
   onBack?: () => void;
 };
 
@@ -59,21 +44,11 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     fullWidth,
     colors,
     titleSize,
-    searchMode,
-    onToggleSearch,
-    query,
-    onQueryChange,
     loadingThreads,
     threadsError,
     threads,
     renderThread,
-    loadingResults,
-    resultsError,
-    results,
-    queryTrimmed,
-    renderResult,
     keyThread,
-    keyUser,
     onBack
   } = props;
 
@@ -105,78 +80,34 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             </Pressable>
           ) : null}
           <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
-          <Pressable onPress={onToggleSearch} style={[styles.toggleBtn, { backgroundColor: colors.surfaceElevated }]}>
-            <Ionicons name={searchMode ? "chatbubbles-outline" : "add"} size={16} color={colors.text} />
-            <Text style={[styles.toggleText, { color: colors.text }]}>
-              {searchMode ? "Chats" : "New chat"}
-            </Text>
-          </Pressable>
         </View>
-        {searchMode ? (
-          <View style={[styles.searchWrap, { backgroundColor: colors.surfaceElevated }]}>
-            <Ionicons name="search" size={18} color={colors.textMuted} />
-            <TextInput
-              value={query}
-              onChangeText={onQueryChange}
-              placeholder="Search users"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.searchInput, { color: colors.text }]}
-              autoCapitalize="none"
-            />
-          </View>
-        ) : null}
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Messaging is available after connection or mutual matrimony match.
+        </Text>
       </View>
 
       <View style={styles.listWrap}>
-        {!searchMode ? (
-          loadingThreads ? (
-            <ThreadListSkeleton />
-          ) : threadsError ? (
-            <EmptyState
-              icon="cloud-offline-outline"
-              title="Couldn't load chats"
-              subtitle={threadsError}
-              colors={colors}
-            />
-          ) : threads.length === 0 ? (
-            <EmptyState
-              icon="people-outline"
-              title="No conversations yet"
-              subtitle='Tap "New chat" to search and start messaging.'
-              colors={colors}
-            />
-          ) : (
-            <FlatList
-              data={threads}
-              keyExtractor={keyThread}
-              renderItem={renderThread}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            />
-          )
-        ) : loadingResults ? (
-          <CenteredLoader color={colors.primary} />
-        ) : resultsError ? (
+        {loadingThreads ? (
+          <ThreadListSkeleton />
+        ) : threadsError ? (
           <EmptyState
             icon="cloud-offline-outline"
-            title="Search failed"
-            subtitle={resultsError}
+            title="Couldn't load chats"
+            subtitle={threadsError}
             colors={colors}
           />
-        ) : queryTrimmed && results.length === 0 ? (
+        ) : threads.length === 0 ? (
           <EmptyState
-            icon="people-outline"
-            title="No users found"
-            subtitle="Try a different name."
+            icon="chatbubble-ellipses-outline"
+            title="No conversations yet"
+            subtitle="When you match on Matrimony or connect with a member, your chats will appear here."
             colors={colors}
           />
         ) : (
           <FlatList
-            data={results}
-            keyExtractor={keyUser}
-            renderItem={renderResult}
+            data={threads}
+            keyExtractor={keyThread}
+            renderItem={renderThread}
             style={styles.list}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
@@ -184,14 +115,6 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
           />
         )}
       </View>
-    </View>
-  );
-}
-
-function CenteredLoader({ color }: { color: string }) {
-  return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="small" color={color} />
     </View>
   );
 }
@@ -233,7 +156,6 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: 8
   },
   backBtn: {
@@ -246,32 +168,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0
   },
-  toggleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flexShrink: 0
-  },
-  toggleText: {
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  searchWrap: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14
-  },
-  searchInput: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14
+  subtitle: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 17
   },
   listWrap: {
     flex: 1,
@@ -299,13 +199,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
     textAlign: "center",
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
+    lineHeight: 19
   }
 });
 
 export const ThreadListPanel = memo(ThreadListPanelComponent);
 
-/** Shared thread/search row avatar + text */
+/** Shared thread row avatar + text */
+function laneLabel(lane: ChatLane): string {
+  return lane === "matrimony" ? "Matrimony" : "Community";
+}
+
 export function ThreadRow({
   name,
   preview,
@@ -314,6 +219,8 @@ export function ThreadRow({
   online,
   selected,
   unreadCount,
+  chatLanes,
+  muted,
   onPress,
   colors
 }: {
@@ -324,6 +231,8 @@ export function ThreadRow({
   online?: boolean;
   selected?: boolean;
   unreadCount?: number;
+  chatLanes?: ChatLane[];
+  muted?: boolean;
   onPress: () => void;
   colors: Colors;
 }) {
@@ -351,10 +260,38 @@ export function ThreadRow({
           <Text style={[rowStyles.name, { color: colors.text }]} numberOfLines={1}>
             {name}
           </Text>
+          {muted ? (
+            <Ionicons name="notifications-off-outline" size={14} color={colors.textMuted} />
+          ) : null}
           {time ? (
             <Text style={[rowStyles.time, { color: colors.textMuted }]}>{time}</Text>
           ) : null}
         </View>
+        {chatLanes && chatLanes.length > 0 ? (
+          <View style={rowStyles.laneRow}>
+            {chatLanes.map((lane) => (
+              <View
+                key={lane}
+                style={[
+                  rowStyles.laneBadge,
+                  {
+                    backgroundColor:
+                      lane === "matrimony" ? colors.surfaceElevated : colors.primary + "18"
+                  }
+                ]}
+              >
+                <Text
+                  style={[
+                    rowStyles.laneText,
+                    { color: lane === "matrimony" ? colors.textSecondary : colors.primary }
+                  ]}
+                >
+                  {laneLabel(lane)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
         <View style={rowStyles.previewRow}>
           <Text style={[rowStyles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
             {preview}
@@ -387,11 +324,6 @@ const rowStyles = StyleSheet.create({
     height: 44,
     flexShrink: 0
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22
-  },
   dot: {
     position: "absolute",
     bottom: 0,
@@ -420,6 +352,21 @@ const rowStyles = StyleSheet.create({
   time: {
     fontSize: 12,
     flexShrink: 0
+  },
+  laneRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6
+  },
+  laneBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10
+  },
+  laneText: {
+    fontSize: 11,
+    fontWeight: "700"
   },
   previewRow: {
     marginTop: 4,

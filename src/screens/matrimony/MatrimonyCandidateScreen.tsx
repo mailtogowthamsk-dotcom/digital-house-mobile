@@ -1,16 +1,5 @@
 import React, { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Pressable,
-  TextInput
-} from "react-native";
+import { View, Text, ScrollView, Image, StyleSheet, ActivityIndicator, Linking, Pressable, TextInput } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,6 +32,7 @@ import { MatrimonyProfileSection } from "../../components/matrimony/MatrimonyPro
 import { MatrimonyChipRow } from "../../components/matrimony/MatrimonyChip";
 import { buildDiscoverChips, interestStatusLabel } from "../../components/matrimony/matrimonyUi";
 import { useMatrimonyBrowseGuard } from "../../hooks/useMatrimonyBrowseGuard";
+import { appAlert } from "../../utils/appAlert";
 
 export function MatrimonyCandidateScreen() {
   useMatrimonyBrowseGuard();
@@ -85,7 +75,7 @@ export function MatrimonyCandidateScreen() {
           : fromWhoViewedMe
             ? "Cannot open profile"
             : "Error";
-      Alert.alert(title, msg);
+      appAlert(title, msg);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -105,7 +95,7 @@ export function MatrimonyCandidateScreen() {
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string; openRequiresPlan?: string } } };
       const msg = err.response?.data?.message ?? (e instanceof Error ? e.message : "Could not open");
-      Alert.alert("Open profile", msg, [
+      appAlert("Open profile", msg, [
         { text: "View plans", onPress: () => navigation.navigate("MatrimonyPlans") },
         { text: "OK" }
       ]);
@@ -128,7 +118,7 @@ export function MatrimonyCandidateScreen() {
     setActing(true);
     try {
       const res = await sendMatrimonyInterest(userId, interestIntro.trim() || undefined);
-      Alert.alert(
+      appAlert(
         res.mutualMatch ? "Mutual match!" : "Interest sent",
         res.mutualMatch
           ? "You are now matched. Chat and horoscope exchange are unlocked."
@@ -140,7 +130,7 @@ export function MatrimonyCandidateScreen() {
       const msg =
         err.response?.data?.message ??
         (e instanceof Error ? e.message : "Could not send interest. Try again.");
-      Alert.alert("Send interest", msg);
+      appAlert("Send interest", msg);
     } finally {
       setActing(false);
     }
@@ -156,13 +146,13 @@ export function MatrimonyCandidateScreen() {
         action,
         action === "ACCEPT" ? acceptIntro.trim() || undefined : undefined
       );
-      Alert.alert(
+      appAlert(
         action === "ACCEPT" ? (res.mutualMatch ? "Mutual match!" : "Accepted") : "Declined",
         res.mutualMatch ? "Both interests accepted — chat unlocked." : undefined
       );
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed");
+      appAlert("Error", e instanceof Error ? e.message : "Failed");
     } finally {
       setActing(false);
     }
@@ -172,9 +162,9 @@ export function MatrimonyCandidateScreen() {
     try {
       const { url } = await getMatrimonyHoroscope(userId);
       if (url) await Linking.openURL(url);
-      else Alert.alert("Horoscope", "Document not available.");
+      else appAlert("Horoscope", "Document not available.");
     } catch (e) {
-      Alert.alert("Horoscope", e instanceof Error ? e.message : "Available after mutual match only.");
+      appAlert("Horoscope", e instanceof Error ? e.message : "Available after mutual match only.");
     }
   };
 
@@ -182,9 +172,9 @@ export function MatrimonyCandidateScreen() {
     setActing(true);
     try {
       await requestMatrimonyHoroscope(userId);
-      Alert.alert("Request sent", "They will be notified to share their horoscope.");
+      appAlert("Request sent", "They will be notified to share their horoscope.");
     } catch (e) {
-      Alert.alert("Horoscope", e instanceof Error ? e.message : "Failed");
+      appAlert("Horoscope", e instanceof Error ? e.message : "Failed");
     } finally {
       setActing(false);
     }
@@ -194,10 +184,10 @@ export function MatrimonyCandidateScreen() {
     setActing(true);
     try {
       await shareMatrimonyHoroscope(userId);
-      Alert.alert("Shared", "Your horoscope is now visible to your match.");
+      appAlert("Shared", "Your horoscope is now visible to your match.");
       await load();
     } catch (e) {
-      Alert.alert("Horoscope", e instanceof Error ? e.message : "Failed");
+      appAlert("Horoscope", e instanceof Error ? e.message : "Failed");
     } finally {
       setActing(false);
     }
@@ -205,7 +195,7 @@ export function MatrimonyCandidateScreen() {
 
   const showContact = async () => {
     if (profile?.contactPaymentStatus !== "PAID") {
-      Alert.alert(
+      appAlert(
         `Reveal contact — ₹${contactPriceInr}`,
         "One-time payment per profile after mutual match.",
         [
@@ -219,10 +209,10 @@ export function MatrimonyCandidateScreen() {
                   name: user?.fullName ?? undefined,
                   email: user?.email ?? undefined
                 });
-                Alert.alert("Contact", res.mobile ? `Mobile: ${res.mobile}` : "No mobile on file.");
+                appAlert("Contact", res.mobile ? `Mobile: ${res.mobile}` : "No mobile on file.");
                 await load();
               } catch (e) {
-                Alert.alert("Payment", e instanceof Error ? e.message : "Failed");
+                appAlert("Payment", e instanceof Error ? e.message : "Failed");
               } finally {
                 setActing(false);
               }
@@ -234,9 +224,9 @@ export function MatrimonyCandidateScreen() {
     }
     try {
       const { mobile } = await revealMatrimonyContact(userId);
-      Alert.alert("Contact", mobile ? `Mobile: ${mobile}` : "No mobile on file.");
+      appAlert("Contact", mobile ? `Mobile: ${mobile}` : "No mobile on file.");
     } catch (e) {
-      Alert.alert("Contact", e instanceof Error ? e.message : "Available after mutual match.");
+      appAlert("Contact", e instanceof Error ? e.message : "Available after mutual match.");
     }
   };
 
@@ -251,14 +241,14 @@ export function MatrimonyCandidateScreen() {
       }
       await load();
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed");
+      appAlert("Error", e instanceof Error ? e.message : "Failed");
     } finally {
       setActing(false);
     }
   };
 
   const confirmBlock = () => {
-    Alert.alert("Block profile?", "You will not see each other in browse or messages.", [
+    appAlert("Block profile?", "You will not see each other in browse or messages.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Block",
@@ -269,7 +259,7 @@ export function MatrimonyCandidateScreen() {
             await blockMatrimonyProfile(userId);
             navigation.goBack();
           } catch (e) {
-            Alert.alert("Error", e instanceof Error ? e.message : "Failed");
+            appAlert("Error", e instanceof Error ? e.message : "Failed");
           } finally {
             setActing(false);
           }
@@ -282,16 +272,16 @@ export function MatrimonyCandidateScreen() {
     setActing(true);
     try {
       await reportMatrimonyProfile(userId, reasonCode);
-      Alert.alert("Thank you", "Report submitted. Our team will review it.");
+      appAlert("Thank you", "Report submitted. Our team will review it.");
     } catch (e) {
-      Alert.alert("Report", e instanceof Error ? e.message : "Failed");
+      appAlert("Report", e instanceof Error ? e.message : "Failed");
     } finally {
       setActing(false);
     }
   };
 
   const openReportReasons = () => {
-    Alert.alert("Report profile", "Why are you reporting this profile?", [
+    appAlert("Report profile", "Why are you reporting this profile?", [
       ...MATRIMONY_REPORT_REASONS.map((r) => ({
         text: r.label,
         onPress: () => void submitReport(r.code)
@@ -302,7 +292,7 @@ export function MatrimonyCandidateScreen() {
 
   const openSafetyMenu = () => {
     if (!profile) return;
-    Alert.alert("Profile options", undefined, [
+    appAlert("Profile options", undefined, [
       {
         text: profile.saved ? "Remove bookmark" : "Save profile",
         onPress: () => void toggleSave()

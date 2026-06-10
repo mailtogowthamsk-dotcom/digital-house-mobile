@@ -1,7 +1,21 @@
 import { api } from "./client";
 
+export type ChatLane = "community" | "matrimony";
+
+export type LaneAccess = {
+  applicable: boolean;
+  allowed: boolean;
+  readOnly: boolean;
+  code?: string;
+  message?: string;
+};
+
 export type Thread = {
   otherUser: { id: number; name: string; profileImage: string | null; online: boolean };
+  chatLanes?: ChatLane[];
+  primaryLane?: ChatLane | null;
+  muted?: boolean;
+  archived?: boolean;
   lastMessage: {
     id: number;
     senderId: number;
@@ -25,9 +39,47 @@ export type MessageItem = {
   createdAt: string;
 };
 
-export async function listThreads(): Promise<Thread[]> {
-  const res = await api.get<{ ok: true; threads: Thread[] }>("/messages/threads");
+export type MessageAccess = {
+  allowed: boolean;
+  canViewHistory: boolean;
+  readOnly: boolean;
+  communityChat?: LaneAccess;
+  matrimonyChat?: LaneAccess;
+  primaryLane?: ChatLane | null;
+  chatLanes?: ChatLane[];
+  code?: string;
+  message?: string;
+  reason?: "matrimony_match" | "connection" | "legacy_thread" | "blocked" | "no_permission";
+};
+
+export async function getMessageAccess(otherUserId: number): Promise<MessageAccess> {
+  const res = await api.get<{ ok: true; access: MessageAccess }>(`/messages/access/${otherUserId}`);
+  return res.data.access;
+}
+
+export async function listThreads(opts?: { includeArchived?: boolean }): Promise<Thread[]> {
+  const res = await api.get<{ ok: true; threads: Thread[] }>("/messages/threads", {
+    params: opts?.includeArchived ? { includeArchived: "1" } : undefined
+  });
   return res.data.threads ?? [];
+}
+
+export type ThreadPreference = {
+  otherUserId: number;
+  muted: boolean;
+  archived: boolean;
+  leftAt: string | null;
+};
+
+export async function updateThreadPreference(
+  otherUserId: number,
+  patch: { muted?: boolean; archived?: boolean; left?: boolean }
+): Promise<ThreadPreference> {
+  const res = await api.patch<{ ok: true; preference: ThreadPreference }>(
+    `/messages/threads/${otherUserId}`,
+    patch
+  );
+  return res.data.preference;
 }
 
 const MAX_HISTORY_LIMIT = 50;

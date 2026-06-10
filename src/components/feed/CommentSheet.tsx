@@ -1,19 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef, memo } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  FlatList,
-  ActivityIndicator,
-  Platform,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Dimensions
-} from "react-native";
+import { Modal, View, Text, StyleSheet, Pressable, TextInput, FlatList, ActivityIndicator, Platform, Keyboard, KeyboardAvoidingView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
@@ -28,6 +14,7 @@ import { hapticComment } from "../../utils/feedHaptics";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { appAlert } from "../../utils/appAlert";
 
 type Props = {
   visible: boolean;
@@ -294,7 +281,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
         await fetchComments(sort, { silent: true });
       }
     } catch {
-      Alert.alert("Could not save", "Please try again.");
+      appAlert("Could not save", "Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -315,7 +302,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
 
   const handleDelete = useCallback(
     (c: CommentItem) => {
-      Alert.alert("Delete comment?", "This cannot be undone.", [
+      appAlert("Delete comment?", "This cannot be undone.", [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
@@ -325,7 +312,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
               await deleteComment(postId, c.id);
               await fetchComments(sort, { silent: true });
             } catch {
-              Alert.alert("Delete failed");
+              appAlert("Delete failed");
             }
           }
         }

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Alert, Pressable } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -13,6 +13,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { appAlert } from "../../utils/appAlert";
 
 export function MatrimonyPlansScreen() {
   const navigation = useNavigation<any>();
@@ -42,7 +43,7 @@ export function MatrimonyPlansScreen() {
   );
 
   const onSubscribe = (plan: "GOLD" | "PLATINUM") => {
-    Alert.alert(`Subscribe to ${plan}`, "You will complete payment in Razorpay (or dev mode if enabled).", [
+    appAlert(`Subscribe to ${plan}`, "You will complete payment in Razorpay (or dev mode if enabled).", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Continue",
@@ -53,10 +54,10 @@ export function MatrimonyPlansScreen() {
               name: user?.fullName ?? undefined,
               email: user?.email ?? undefined
             });
-            Alert.alert("Success", res.message ?? `${plan} plan activated.`);
+            appAlert("Success", res.message ?? `${plan} plan activated.`);
             await load();
           } catch (e) {
-            Alert.alert("Payment", e instanceof Error ? e.message : "Failed");
+            appAlert("Payment", e instanceof Error ? e.message : "Failed");
           } finally {
             setActing(false);
           }

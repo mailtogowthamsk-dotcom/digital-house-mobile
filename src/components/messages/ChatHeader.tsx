@@ -8,6 +8,8 @@ export type ChatHeaderProps = {
   subtitle?: string;
   avatarUri?: string | null;
   left?: React.ReactNode;
+  /** Renders on the right of the title row (e.g. chat options menu). */
+  right?: React.ReactNode;
   /** Renders below status bar, above the title row (e.g. matrimony lock notice). */
   banner?: React.ReactNode;
   /** Override top inset (e.g. 0 when parent already applied safe area). */
@@ -25,6 +27,7 @@ function ChatHeaderComponent({
   subtitle,
   avatarUri,
   left,
+  right,
   banner,
   topInset,
   backgroundColor,
@@ -70,6 +73,7 @@ function ChatHeaderComponent({
             </Text>
           ) : null}
         </View>
+        {right ? <View style={styles.rightSlot}>{right}</View> : null}
         </View>
       </View>
     </View>
@@ -102,6 +106,9 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 2,
     fontSize: 12
+  },
+  rightSlot: {
+    flexShrink: 0
   }
 });
 

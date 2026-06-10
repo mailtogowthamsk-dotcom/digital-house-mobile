@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import {
   PostCard,
   BottomTabBar,
   HighlightSection,
-  WelcomeCardSkeleton,
   FeedPostSkeleton,
   hasHighlightsData
 } from "../../components/home";
@@ -25,17 +24,17 @@ import { CommentSheet } from "../../components/feed/CommentSheet";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useHome } from "../../hooks/useHome";
+import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
-import { getErrorStatus } from "../../api/client";
+import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { openMessagesInbox } from "../../navigation/openMessages";
 import { useNotificationsOptional } from "../../context/NotificationContext";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
-import { shouldShowWelcomeCard } from "../../session/welcomeSession";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
@@ -47,9 +46,10 @@ const SECTION_MARGIN = 28;
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { signOut } = useAuth();
+  const { signOut, user: authUser } = useAuth();
   const { colors } = useTheme();
   const notifCtx = useNotificationsOptional();
+  const welcomeCardVisible = useWelcomeCardVisible();
   const {
     state,
     refetchAll,
@@ -67,16 +67,9 @@ export function HomeScreen() {
   const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
   const commentPostIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList>(null);
+  const focusRefreshRef = useRef(false);
 
   commentPostIdRef.current = commentPost?.id ?? null;
-
-  const handleCommentCountChange = useCallback(
-    (count: number) => {
-      const id = commentPostIdRef.current;
-      if (id) updatePost(id, { commentCount: count });
-    },
-    [updatePost]
-  );
 
   const {
     summary,
@@ -92,11 +85,29 @@ export function HomeScreen() {
     highlightsError
   } = state;
 
+  const welcomeUser = useMemo(
+    () =>
+      summary?.user ??
+      (authUser
+        ? { name: authUser.fullName, profileImage: authUser.profilePhoto ?? null }
+        : null),
+    [summary?.user, authUser?.fullName, authUser?.profilePhoto]
+  );
+
+  const showWelcomeCard = Boolean(welcomeCardVisible && welcomeUser);
+  const showSummaryError = Boolean(summaryError && !summary);
+  const showHighlights = hasHighlightsData(highlights);
+  const hasScrollHeader =
+    showWelcomeCard ||
+    showHighlights ||
+    showSummaryError ||
+    (summaryLoading && !summary && !welcomeCardVisible);
+
   /** 401 → sign out (app returns to Landing); 403 → Approval Pending */
   const handleAuthError = useCallback(
     (err: unknown) => {
       const status = getErrorStatus(err);
-      if (status === 401) {
+      if (status === 401 && isSessionInvalid401(err)) {
         signOut().catch(() => {});
       } else if (status === 403) {
         navigation.replace("PendingApproval");
@@ -107,7 +118,11 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      retrySummary();
+      if (focusRefreshRef.current) {
+        void retrySummary();
+      } else {
+        focusRefreshRef.current = true;
+      }
     }, [retrySummary])
   );
 
@@ -191,10 +206,13 @@ export function HomeScreen() {
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
 
-  const showWelcomeCard = Boolean(summary && shouldShowWelcomeCard());
-  const showHighlights = hasHighlightsData(highlights);
-  const hasScrollHeader =
-    showWelcomeCard || showHighlights || (summaryLoading && !summary) || Boolean(summaryError);
+  const handleCommentCountChange = useCallback(
+    (count: number) => {
+      const id = commentPostIdRef.current;
+      if (id) updatePost(id, { commentCount: count });
+    },
+    [updatePost]
+  );
 
   const s = useMemo(
     () =>
@@ -276,51 +294,49 @@ export function HomeScreen() {
   const ListHeaderComponent = useCallback(
     () => (
       <>
-        {/* Welcome card – skeleton or content; dismissible card owns margin to avoid empty gap */}
-        {summaryLoading && !summary ? (
-          <View style={[s.section, s.headerPad]}>
-            <WelcomeCardSkeleton />
-          </View>
-        ) : summaryError ? (
+        {showSummaryError ? (
           <View style={[s.section, s.headerPad]}>
             <View style={s.errorCard}>
               <Text style={s.errorText}>Could not load your info</Text>
-              <Pressable style={s.retryBtn} onPress={retrySummary}>
+              <Pressable style={s.retryBtn} onPress={() => void retrySummary()}>
                 <Text style={s.retryBtnText}>Retry</Text>
               </Pressable>
             </View>
           </View>
-        ) : showWelcomeCard && summary ? (
+        ) : null}
+
+        {showWelcomeCard && welcomeUser ? (
           <View style={s.headerPad}>
             <DismissibleWelcomeCard
-              userName={summary.user.name}
-              avatarUri={summary.user.profileImage}
+              userName={welcomeUser.name}
+              avatarUri={welcomeUser.profileImage}
             />
           </View>
         ) : null}
 
-        {hasHighlightsData(highlights) ? (
+        {showHighlights ? (
           <View style={s.headerPad}>
-          <HighlightSection
-            highlights={highlights}
-            loading={highlightsLoading}
-            error={highlightsError}
-            onRetry={retryHighlights}
-          />
+            <HighlightSection
+              highlights={highlights}
+              loading={highlightsLoading}
+              error={highlightsError}
+              onRetry={retryHighlights}
+            />
           </View>
         ) : null}
       </>
     ),
     [
-      summary,
-      summaryLoading,
-      summaryError,
+      welcomeUser,
+      showSummaryError,
       showWelcomeCard,
+      showHighlights,
       highlights,
+      highlightsLoading,
+      highlightsError,
       retrySummary,
       retryHighlights,
-      s,
-      colors
+      s
     ]
   );
 
@@ -368,7 +384,6 @@ export function HomeScreen() {
 
   return (
     <View style={s.container}>
-      {/* Fixed header – user summary (notification/message counts) */}
       <View style={[s.headerWrap, { paddingTop: insets.top }]}>
         <Header
           notificationCount={
@@ -381,7 +396,6 @@ export function HomeScreen() {
         />
       </View>
 
-      {/* Single FlatList: header content + feed; pull-to-refresh + infinite scroll */}
       <FlatList
         ref={listRef}
         style={s.feedList}
@@ -417,7 +431,6 @@ export function HomeScreen() {
         />
       ) : null}
 
-      {/* Fixed bottom tab bar */}
       <View style={s.tabBarWrap}>
         <View style={[s.tabBarInner, { paddingBottom: Math.max(insets.bottom - 4, 4) }]}>
           <BottomTabBar

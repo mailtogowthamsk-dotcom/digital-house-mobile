@@ -1,17 +1,5 @@
 import React, { useState, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Switch,
-  Image
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Switch, Image } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +19,7 @@ import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { AccordionSection } from "../../components/profile/AccordionSection";
+import { ProfileIdentitySection } from "../../components/profile/ProfileIdentitySection";
 import type {
   BasicSectionForm,
   CommunitySectionForm,
@@ -39,6 +28,7 @@ import type {
   BusinessSectionForm,
   FamilySectionForm
 } from "../../types/profile.types";
+import { appAlert } from "../../utils/appAlert";
 import {
   GENDER_OPTIONS,
   ROLE_OPTIONS,
@@ -355,7 +345,7 @@ export function EditProfileScreen() {
       }
 
       if (sectionsToUpdate.length === 0) {
-        Alert.alert("No changes", "You haven't made any changes to save.", [{ text: "OK" }]);
+        appAlert("No changes", "You haven't made any changes to save.", [{ text: "OK" }]);
         setSaving(false);
         return;
       }
@@ -369,13 +359,13 @@ export function EditProfileScreen() {
       const includedBusiness = sectionsToUpdate.some((u) => u.section === "business");
       navigation.goBack();
       if (includedBusiness) {
-        Alert.alert(
+        appAlert(
           "Submitted for Review",
           "Your business details have been submitted for admin review.",
           [{ text: "OK" }]
         );
       } else if (!profile.verified) {
-        Alert.alert(
+        appAlert(
           "Profile Updated",
           "Your profile has been updated.",
           [{ text: "OK" }]
@@ -416,7 +406,7 @@ export function EditProfileScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow access to photos to set your profile photo.");
+        appAlert("Permission needed", "Allow access to photos to set your profile photo.");
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -430,7 +420,7 @@ export function EditProfileScreen() {
       const uri = asset.uri;
       const mime = asset.mimeType ?? "image/jpeg";
       if (!isAllowedImageType(mime)) {
-        Alert.alert("Invalid format", "Profile photo must be JPEG, PNG, or WebP.");
+        appAlert("Invalid format", "Profile photo must be JPEG, PNG, or WebP.");
         return;
       }
       setProfilePhotoUploading(true);
@@ -441,7 +431,7 @@ export function EditProfileScreen() {
         initialFormRef.current = mapProfileToForm(updated);
       }
     } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message ?? "Could not upload profile photo.");
+      appAlert("Upload failed", (e as Error).message ?? "Could not upload profile photo.");
     } finally {
       setProfilePhotoUploading(false);
     }
@@ -677,6 +667,21 @@ export function EditProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <ProfileIdentitySection
+          username={profile.username ?? null}
+          profileVisibility={profile.profile_visibility ?? "PUBLIC"}
+          colors={{
+            surface: colors.surface,
+            border: colors.border,
+            text: colors.text,
+            textSecondary: colors.textSecondary,
+            primary: colors.primary
+          }}
+          onUpdated={() => {
+            void loadProfile();
+          }}
+        />
+
         <View style={s.profilePhotoRow}>
           <View style={s.profilePhotoWrap}>
             {getImageUrl(profile.profile_image) ? (

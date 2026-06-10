@@ -196,7 +196,9 @@ export function MessagesScreen() {
         <View style={s.empty}>
           <Ionicons name="chatbubble-ellipses-outline" size={44} color={colors.textSecondary} />
           <Text style={s.emptyTitle}>No chats yet</Text>
-          <Text style={s.emptySub}>Start a conversation and it will show up here.</Text>
+          <Text style={s.emptySub}>
+            Conversations appear here after connection or mutual matrimony match.
+          </Text>
         </View>
       ) : (
         <View style={s.card}>

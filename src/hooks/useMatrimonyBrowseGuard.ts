@@ -1,7 +1,8 @@
 import { useCallback } from "react";
-import { Alert } from "react-native";
+
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { getMatrimonyHub } from "../api/matrimony.api";
+import { appAlert } from "../utils/appAlert";
 
 function browseBlockedMessage(hub: Awaited<ReturnType<typeof getMatrimonyHub>>): string {
   if (hub.can_browse) return "";
@@ -34,7 +35,7 @@ export function useMatrimonyBrowseGuard() {
         .then((hub) => {
           if (cancelled || hub.can_browse) return;
           const message = browseBlockedMessage(hub);
-          Alert.alert("Complete matrimony profile", message, [
+          appAlert("Complete matrimony profile", message, [
             {
               text: "Go to setup",
               onPress: () => {

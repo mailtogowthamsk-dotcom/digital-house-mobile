@@ -35,7 +35,11 @@ const SECTIONS: { title: string; items: { id: HeaderActionId; label: string; ico
   },
   {
     title: "Connect",
-    items: [{ id: "messages", label: "Messages", icon: "chatbubble-outline" }]
+    items: [
+      { id: "search-members", label: "Find Members", icon: "search-outline" },
+      { id: "connections", label: "Connections", icon: "people-outline" },
+      { id: "messages", label: "Messages", icon: "chatbubble-outline" }
+    ]
   },
   {
     title: "Settings",
@@ -132,6 +136,8 @@ export function MenuScreen() {
 
   const onActionPress = (actionId: HeaderActionId) => {
     if (actionId === "create") navigation.navigate("CreatePost");
+    if (actionId === "search-members") navigation.navigate("SearchMembers");
+    if (actionId === "connections") navigation.navigate("Connections");
     if (actionId === "messages") openMessagesInbox(navigation);
     if (actionId === "settings") navigation.navigate("Settings");
     if (actionId === "matrimony") navigation.navigate("MatrimonyHome");

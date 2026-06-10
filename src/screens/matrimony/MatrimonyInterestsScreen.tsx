@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -11,6 +11,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
+import { appAlert } from "../../utils/appAlert";
 
 type InterestRow = {
   id: number;
@@ -66,10 +67,10 @@ export function MatrimonyInterestsScreen() {
       await respondMatrimonyInterest(interestId, action);
       await load();
       if (action === "ACCEPT") {
-        Alert.alert("Interest accepted", "You are now matched. Open chat from Matches.");
+        appAlert("Interest accepted", "You are now matched. Open chat from Matches.");
       }
     } catch (e: unknown) {
-      Alert.alert("Could not respond", e instanceof Error ? e.message : "Try again");
+      appAlert("Could not respond", e instanceof Error ? e.message : "Try again");
     } finally {
       setActingId(null);
     }
