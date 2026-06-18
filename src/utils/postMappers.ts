@@ -13,8 +13,13 @@ const POST_TYPE_LABELS: Record<string, string> = {
   ENTERTAINMENT: "Entertainment"
 };
 
+export function formatPostType(postType: string): string {
+  const key = postType.trim().toUpperCase();
+  return POST_TYPE_LABELS[key] ?? postType;
+}
+
 export function postDetailToProfileItem(post: PostDetailResponse): ProfilePostItem {
-  const typeLabel = POST_TYPE_LABELS[post.post_type] ?? post.post_type;
+  const typeLabel = formatPostType(post.post_type);
   return {
     postId: post.id,
     postType: typeLabel,

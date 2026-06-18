@@ -30,7 +30,7 @@ export type PostCardData = {
   engagementScore?: number;
 };
 
-const DOUBLE_TAP_DELAY_MS = 400;
+const DOUBLE_TAP_DELAY_MS = 280;
 const HEART_SIZE = 88;
 const GLOW_SIZE = 120;
 const HEART_COLOR = "#E91E63";

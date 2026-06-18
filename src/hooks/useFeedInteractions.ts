@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { likePost, savePost, unsavePost } from "../api/posts.api";
 import { hapticLike, hapticSave } from "../utils/feedHaptics";
 import { trackFeedAction } from "../utils/feedAnalytics";
+import { emitPostUpdated } from "../utils/postSync";
 import type { PostCardData } from "../components/home/PostCard";
 
 type UpdateFn = (postId: string, patch: Partial<PostCardData>) => void;
@@ -30,6 +31,7 @@ export function useFeedInteractions(updatePost: UpdateFn) {
       try {
         const res = await likePost(Number(postId));
         updatePost(postId, { likedByMe: res.liked, likeCount: res.like_count });
+        emitPostUpdated(Number(postId), { likedByMe: res.liked, likeCount: res.like_count });
         trackFeedAction(res.liked ? "like" : "unlike", Number(postId));
       } catch {
         updatePost(postId, { likedByMe: prevLiked, likeCount: prevCount });
@@ -52,6 +54,7 @@ export function useFeedInteractions(updatePost: UpdateFn) {
         let res = await likePost(Number(postId));
         if (!res.liked) res = await likePost(Number(postId));
         updatePost(postId, { likedByMe: res.liked, likeCount: res.like_count });
+        emitPostUpdated(Number(postId), { likedByMe: res.liked, likeCount: res.like_count });
         trackFeedAction("like", Number(postId), { source: "double_tap" });
       } catch {
         updatePost(postId, { likedByMe: false, likeCount: current.likeCount });
@@ -70,9 +73,11 @@ export function useFeedInteractions(updatePost: UpdateFn) {
       try {
         if (wasSaved) {
           await unsavePost(Number(postId));
+          emitPostUpdated(Number(postId), { savedByMe: false });
           trackFeedAction("unsave", Number(postId));
         } else {
           await savePost(Number(postId));
+          emitPostUpdated(Number(postId), { savedByMe: true });
           trackFeedAction("save", Number(postId));
         }
       } catch {

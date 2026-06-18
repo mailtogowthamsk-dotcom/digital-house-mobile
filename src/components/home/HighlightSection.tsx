@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Shimmer } from "../ui/Shimmer";
 import { useTheme } from "../../theme/ThemeContext";
 import type { HighlightsResponse, HighlightItem } from "../../api/home.api";
+
 export function hasHighlightsData(highlights: HighlightsResponse | null | undefined): boolean {
   if (!highlights) return false;
   return (
@@ -80,11 +82,66 @@ export function HighlightSection({
           color: colors.textSecondary,
           lineHeight: 18
         },
+        skeletonCard: {
+          width: 200,
+          height: 120,
+          borderRadius: CARD_RADIUS,
+          overflow: "hidden"
+        },
+        stateCard: {
+          paddingVertical: 20,
+          paddingHorizontal: 16,
+          backgroundColor: colors.surface,
+          borderRadius: CARD_RADIUS,
+          alignItems: "center",
+          gap: 10
+        },
+        stateText: { fontSize: 14, color: colors.textSecondary, textAlign: "center" },
+        retryBtn: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          backgroundColor: colors.primary,
+          borderRadius: 8
+        },
+        retryText: { fontSize: 14, fontWeight: "600", color: colors.white }
       }),
     [colors]
   );
 
-  if (loading || error || !hasHighlightsData(highlights)) {
+  if (loading) {
+    return (
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Highlights</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalList}>
+          <View style={s.skeletonCard}>
+            <Shimmer width={200} height={120} borderRadius={CARD_RADIUS} />
+          </View>
+          <View style={s.skeletonCard}>
+            <Shimmer width={200} height={120} borderRadius={CARD_RADIUS} />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Highlights</Text>
+        <View style={s.stateCard}>
+          <Ionicons name="cloud-offline-outline" size={28} color={colors.textSecondary} />
+          <Text style={s.stateText}>Could not load highlights</Text>
+          {onRetry ? (
+            <Pressable style={s.retryBtn} onPress={onRetry}>
+              <Text style={s.retryText}>Retry</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasHighlightsData(highlights)) {
     return null;
   }
 

@@ -1,8 +1,16 @@
 import type { ProfilePostItem } from "../api/profile.api";
 
+export type PostUpdatePatch = {
+  likeCount?: number;
+  commentCount?: number;
+  likedByMe?: boolean;
+  savedByMe?: boolean;
+};
+
 export type PostSyncEvent =
   | { type: "deleted"; postId: number }
-  | { type: "created"; post: ProfilePostItem };
+  | { type: "created"; post: ProfilePostItem }
+  | { type: "updated"; postId: number; patch: PostUpdatePatch };
 
 type PostSyncListener = (event: PostSyncEvent) => void;
 
@@ -19,4 +27,9 @@ export function emitPostDeleted(postId: number): void {
 
 export function emitPostCreated(post: ProfilePostItem): void {
   listeners.forEach((fn) => fn({ type: "created", post }));
+}
+
+export function emitPostUpdated(postId: number, patch: PostUpdatePatch): void {
+  if (Object.keys(patch).length === 0) return;
+  listeners.forEach((fn) => fn({ type: "updated", postId, patch }));
 }

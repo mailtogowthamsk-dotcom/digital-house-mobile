@@ -13,7 +13,11 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "NODE_OPTIONS": "--max-old-space-size=4096"
+        "NODE_OPTIONS": "--max-old-space-size=4096",
+        "EXPO_PUBLIC_API_URL": "https://www.infosensetechnologies.com/digitalhouse/backend/api",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "634671733122-hrqk0ndpif1jqccvrrahdsdkhg4jugpk.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "634671733122-af85dglc24jc415afv5o758sb8eqhj23.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "634671733122-mkg5qdh9otdl42c3aet1ttlqau1tfao8.apps.googleusercontent.com"
       },
       "ios": {
         "simulator": false

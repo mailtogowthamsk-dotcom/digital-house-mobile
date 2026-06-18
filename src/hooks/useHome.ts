@@ -31,21 +31,9 @@ export type HomeState = {
   highlightsError: Error | null;
 };
 
-const FEED_PAGE_SIZE = 20;
+import { formatPostType } from "../utils/postMappers";
 
-function postTypeLabel(postType: string): string {
-  const labels: Record<string, string> = {
-    ANNOUNCEMENT: "Announcement",
-    JOB: "Job",
-    MARKETPLACE: "Marketplace",
-    MATRIMONY: "Matrimony",
-    ACHIEVEMENT: "Achievement",
-    MEETUP: "Meetup",
-    HELP_REQUEST: "Help Request",
-    ENTERTAINMENT: "Entertainment"
-  };
-  return labels[postType] ?? postType;
-}
+const FEED_PAGE_SIZE = 20;
 
 function feedItemToPostCard(item: FeedItem): PostCardData {
   return {
@@ -53,7 +41,7 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
     userName: item.author.name,
     userAvatarUri: item.author.profileImage,
     timeAgo: timeAgo(item.createdAt),
-    postType: postTypeLabel(item.postType),
+    postType: formatPostType(item.postType),
     title: item.title,
     description: item.description ?? "",
     imageUri: item.mediaUrl,
@@ -242,9 +230,18 @@ export function useHome() {
       else if (event.type === "created") {
         const name = summaryRef.current?.user?.name ?? "You";
         prependFeedPost(event.post, name);
+      } else if (event.type === "updated") {
+        const patch: Partial<PostCardData> = {};
+        if (event.patch.likeCount !== undefined) patch.likeCount = event.patch.likeCount;
+        if (event.patch.commentCount !== undefined) patch.commentCount = event.patch.commentCount;
+        if (event.patch.likedByMe !== undefined) patch.likedByMe = event.patch.likedByMe;
+        if (event.patch.savedByMe !== undefined) patch.savedByMe = event.patch.savedByMe;
+        if (Object.keys(patch).length > 0) {
+          updatePost(String(event.postId), patch);
+        }
       }
     });
-  }, [removePost, prependFeedPost]);
+  }, [removePost, prependFeedPost, updatePost]);
 
   const setFeedSortMode = useCallback(
     (sort: "recent" | "popular") => {

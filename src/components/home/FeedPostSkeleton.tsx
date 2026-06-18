@@ -10,13 +10,28 @@ export function FeedPostSkeleton() {
       StyleSheet.create({
         card: {
           backgroundColor: colors.surface,
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 14,
+          marginBottom: 1,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
           overflow: "hidden"
         },
-        row: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 12 },
-        block: { marginBottom: 10 }
+        row: {
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          marginBottom: 12,
+          gap: 12
+        },
+        body: { paddingHorizontal: 16, marginBottom: 14, gap: 10 },
+        actionBar: {
+          flexDirection: "row",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          gap: 16
+        }
       }),
     [colors]
   );
@@ -30,15 +45,18 @@ export function FeedPostSkeleton() {
           <Shimmer width="35%" height={12} />
         </View>
       </View>
-      <View style={s.block}>
+      <View style={s.body}>
         <Shimmer width="90%" height={16} />
-      </View>
-      <View style={s.block}>
         <Shimmer width="100%" height={12} />
-        <Shimmer width="80%" height={12} style={{ marginTop: 8 }} />
+        <Shimmer width="80%" height={12} />
       </View>
-      <Shimmer width="100%" height={160} borderRadius={12} style={{ marginBottom: 12 }} />
-      <Shimmer width="100%" height={44} borderRadius={10} />
+      <Shimmer width="100%" height={200} borderRadius={0} />
+      <View style={s.actionBar}>
+        <Shimmer width={56} height={22} borderRadius={6} />
+        <Shimmer width={56} height={22} borderRadius={6} />
+        <Shimmer width={28} height={22} borderRadius={6} />
+        <Shimmer width={28} height={22} borderRadius={6} />
+      </View>
     </View>
   );
 }

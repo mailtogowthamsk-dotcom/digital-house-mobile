@@ -20,9 +20,30 @@ function normalizeApiUrl(url) {
 module.exports = ({ config }) => {
   const owner = config.owner || "thisisgowtham";
   const slug = config.slug || "digital-house";
+  const appScheme = config.scheme || "digitalhouse";
+  const androidPackage = config.android?.package || "com.thisisgowtham.digitalhouse";
+  const existingIntentFilters = config.android?.intentFilters ?? [];
+  const oauthIntentFilters = [
+    {
+      action: "VIEW",
+      autoVerify: false,
+      data: [{ scheme: appScheme, pathPrefix: "/oauthredirect" }],
+      category: ["BROWSABLE", "DEFAULT"]
+    },
+    {
+      action: "VIEW",
+      autoVerify: false,
+      data: [{ scheme: androidPackage, pathPrefix: "/oauthredirect" }],
+      category: ["BROWSABLE", "DEFAULT"]
+    }
+  ];
   return {
     ...config,
     owner,
+    android: {
+      ...config.android,
+      intentFilters: [...existingIntentFilters, ...oauthIntentFilters]
+    },
     extra: {
       ...config.extra,
       apiUrl: normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || DEFAULT_API),

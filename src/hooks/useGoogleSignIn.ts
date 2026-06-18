@@ -1,9 +1,9 @@
-import { useEffect, useCallback } from "react";
-import * as Application from "expo-application";
+import { useEffect, useCallback, useMemo } from "react";
 import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { Platform } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -14,6 +14,9 @@ export const IS_EXPO_GO =
 /** Google Sign-In is not supported in Expo Go (auth.expo.io proxy removed). */
 export const EXPO_GO_GOOGLE_MESSAGE =
   "Google Sign-In does not work in Expo Go. Use email OTP here, or install your EAS preview APK to test Google login.";
+
+export const ANDROID_GOOGLE_SETUP_HINT =
+  "On Android preview APKs, register your EAS build SHA-1 in Google Cloud Console (Android OAuth client) and add redirect URI digitalhouse://oauthredirect to the Web OAuth client. Rebuild the APK after config changes.";
 
 function pickClientId(extraVal: unknown, envVal: string | undefined): string {
   const fromExtra = typeof extraVal === "string" ? extraVal.trim() : "";
@@ -38,16 +41,16 @@ export function useGoogleSignIn() {
   const configured = !!webClientId;
   const available = configured && !IS_EXPO_GO;
 
-  const nativeRedirect =
-    Application.applicationId != null
-      ? `${Application.applicationId}:/oauthredirect`
-      : `${APP_SCHEME}://oauthredirect`;
-
-  const redirectUri = makeRedirectUri({
-    scheme: APP_SCHEME,
-    path: "oauthredirect",
-    native: nativeRedirect
-  });
+  /** App scheme redirect — must match app.config.js intentFilters and Google Web client redirect URIs. */
+  const redirectUri = useMemo(
+    () =>
+      makeRedirectUri({
+        scheme: APP_SCHEME,
+        path: "oauthredirect",
+        native: `${APP_SCHEME}://oauthredirect`
+      }),
+    []
+  );
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
     {
@@ -60,23 +63,22 @@ export function useGoogleSignIn() {
   );
 
   useEffect(() => {
-    if (__DEV__ && configured && !IS_EXPO_GO) {
+    if (configured && !IS_EXPO_GO) {
       console.info(`[Google Sign-In] redirectUri=${redirectUri}`);
+      if (!webClientId) {
+        console.warn("[Google Sign-In] webClientId missing — rebuild with EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in EAS env.");
+      }
     }
-  }, [configured, redirectUri]);
-
-  useEffect(() => {
-    if (response?.type === "cancel" || response?.type === "dismiss") {
-      return;
-    }
-  }, [response]);
+  }, [configured, redirectUri, webClientId]);
 
   const signIn = useCallback(async (): Promise<string | null> => {
     if (IS_EXPO_GO) {
       throw new Error(EXPO_GO_GOOGLE_MESSAGE);
     }
     if (!configured) {
-      throw new Error("Google Sign-In is not configured. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to mobile/.env");
+      throw new Error(
+        "Google Sign-In is not configured in this build. Rebuild the preview APK with EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID set in EAS."
+      );
     }
     if (!request) {
       throw new Error("Google Sign-In is still loading. Try again in a moment.");
@@ -85,21 +87,35 @@ export function useGoogleSignIn() {
     if (result.type === "cancel" || result.type === "dismiss") {
       return null;
     }
+    if (result.type === "error") {
+      const detail =
+        (result as { params?: { error_description?: string; error?: string } }).params
+          ?.error_description ||
+        (result as { params?: { error?: string } }).params?.error ||
+        (result as { error?: { message?: string } }).error?.message;
+      const suffix = Platform.OS === "android" ? ` ${ANDROID_GOOGLE_SETUP_HINT}` : "";
+      throw new Error(detail ? `${detail}.${suffix}` : `Google sign-in failed.${suffix}`);
+    }
     if (result.type !== "success") {
       throw new Error("Google sign-in was interrupted. Please try again.");
     }
     const idToken = result.params?.id_token;
     if (!idToken) {
-      throw new Error("Google did not return a valid token. Please try again.");
+      throw new Error(
+        Platform.OS === "android"
+          ? `Google did not return a token. Add ${redirectUri} to your Web OAuth client redirect URIs, then rebuild.${ANDROID_GOOGLE_SETUP_HINT}`
+          : "Google did not return a valid token. Please try again."
+      );
     }
     return idToken;
-  }, [configured, promptAsync, request]);
+  }, [configured, promptAsync, request, redirectUri]);
 
   return {
     signIn,
     configured,
     available,
     isExpoGo: IS_EXPO_GO,
-    ready: available && !!request
+    ready: available && !!request,
+    redirectUri
   };
 }

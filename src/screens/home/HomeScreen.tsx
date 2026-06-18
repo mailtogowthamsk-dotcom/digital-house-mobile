@@ -31,6 +31,7 @@ import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
+import { emitPostUpdated } from "../../utils/postSync";
 import { openMessagesInbox } from "../../navigation/openMessages";
 import { useNotificationsOptional } from "../../context/NotificationContext";
 import type { PostCardData } from "../../components/home/PostCard";
@@ -97,9 +98,10 @@ export function HomeScreen() {
   const showWelcomeCard = Boolean(welcomeCardVisible && welcomeUser);
   const showSummaryError = Boolean(summaryError && !summary);
   const showHighlights = hasHighlightsData(highlights);
+  const showHighlightsSection = showHighlights || highlightsLoading || Boolean(highlightsError);
   const hasScrollHeader =
     showWelcomeCard ||
-    showHighlights ||
+    showHighlightsSection ||
     showSummaryError ||
     (summaryLoading && !summary && !welcomeCardVisible);
 
@@ -209,9 +211,20 @@ export function HomeScreen() {
   const handleCommentCountChange = useCallback(
     (count: number) => {
       const id = commentPostIdRef.current;
-      if (id) updatePost(id, { commentCount: count });
+      if (id) {
+        updatePost(id, { commentCount: count });
+        emitPostUpdated(Number(id), { commentCount: count });
+      }
     },
     [updatePost]
+  );
+
+  const onHighlightPress = useCallback(
+    (item: { postId: number }) => {
+      trackFeedAction("post_open", item.postId, { source: "highlight" });
+      navigation.navigate("PostDetail", { postId: item.postId });
+    },
+    [navigation]
   );
 
   const s = useMemo(
@@ -222,9 +235,13 @@ export function HomeScreen() {
         feedList: { flex: 1, backgroundColor: colors.background },
         headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
-        feedSkeleton: { marginBottom: 14 },
-        feedSkeletonCard: { borderRadius: 16, marginBottom: 14 },
+        feedSkeleton: { marginBottom: 0 },
         footerLoader: { paddingVertical: 16, alignItems: "center" },
+        endOfFeed: {
+          paddingVertical: 24,
+          alignItems: "center"
+        },
+        endOfFeedText: { fontSize: 13, color: colors.textSecondary },
         errorCard: {
           paddingVertical: 24,
           paddingHorizontal: PADDING,
@@ -314,13 +331,14 @@ export function HomeScreen() {
           </View>
         ) : null}
 
-        {showHighlights ? (
+        {showHighlightsSection ? (
           <View style={s.headerPad}>
             <HighlightSection
               highlights={highlights}
               loading={highlightsLoading}
               error={highlightsError}
               onRetry={retryHighlights}
+              onItemPress={onHighlightPress}
             />
           </View>
         ) : null}
@@ -330,12 +348,13 @@ export function HomeScreen() {
       welcomeUser,
       showSummaryError,
       showWelcomeCard,
-      showHighlights,
+      showHighlightsSection,
       highlights,
       highlightsLoading,
       highlightsError,
       retrySummary,
       retryHighlights,
+      onHighlightPress,
       s
     ]
   );
@@ -348,8 +367,21 @@ export function HomeScreen() {
         </View>
       );
     }
+    if (
+      !feedLoading &&
+      !feedError &&
+      feedItems.length > 0 &&
+      feedTotal > 0 &&
+      feedItems.length >= feedTotal
+    ) {
+      return (
+        <View style={s.endOfFeed}>
+          <Text style={s.endOfFeedText}>You're all caught up</Text>
+        </View>
+      );
+    }
     return null;
-  }, [feedLoadingMore, s, colors.primary]);
+  }, [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal, s, colors.primary]);
 
   const ListEmptyComponent = useCallback(() => {
     if (feedLoading) {
