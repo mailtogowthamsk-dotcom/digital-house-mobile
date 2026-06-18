@@ -16,7 +16,7 @@ export const EXPO_GO_GOOGLE_MESSAGE =
   "Google Sign-In does not work in Expo Go. Use email OTP here, or install your EAS preview APK to test Google login.";
 
 export const ANDROID_GOOGLE_SETUP_HINT =
-  "On Android preview APKs, register your EAS build SHA-1 in Google Cloud Console (Android OAuth client) and add redirect URI digitalhouse://oauthredirect to the Web OAuth client. Rebuild the APK after config changes.";
+  "Register EAS SHA-1 on the Android OAuth client (package com.thisisgowtham.digitalhouse). Do not add digitalhouse:// to JavaScript origins — that field is https-only.";
 
 function pickClientId(extraVal: unknown, envVal: string | undefined): string {
   const fromExtra = typeof extraVal === "string" ? extraVal.trim() : "";
