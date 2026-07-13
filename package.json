@@ -13,6 +13,14 @@
     "build:android": "eas build --platform android --profile preview",
     "typecheck": "tsc --noEmit"
   },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-razorpay"],
+        "listUnknownPackages": false
+      }
+    }
+  },
   "dependencies": {
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-google-signin/google-signin": "^16.1.2",
