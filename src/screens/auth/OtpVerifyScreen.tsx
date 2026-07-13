@@ -32,7 +32,7 @@ const BOX_GAP = 10;
 
 export function OtpVerifyScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
+  const { signIn, refreshSession } = useAuth();
   const email = route.params.email as string;
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,8 +65,14 @@ export function OtpVerifyScreen({ route, navigation }: any) {
         createdAt: res.user.createdAt ?? new Date().toISOString()
       };
       await signIn(res.accessToken, user);
+      // Confirm session with /auth/me so route (Home / SetUsername) is correct
+      try {
+        await refreshSession();
+      } catch {
+        /* signIn already applied local session */
+      }
       setSignedIn(true);
-      /* Keep loading until App remounts via initialRoute key — avoid double-submit */
+      /* Keep loading until App remounts via sessionEpoch — avoid double-submit */
     } catch (e: unknown) {
       verifyingRef.current = false;
       setLoading(false);

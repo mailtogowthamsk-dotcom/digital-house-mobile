@@ -88,8 +88,15 @@ export function LoginScreen({ navigation }: any) {
     }
     setLoading(true);
     try {
-      await loginRequest(email.trim());
-      navigation.navigate("OtpVerify", { email: email.trim().toLowerCase() });
+      const result = await loginRequest(email.trim());
+      const normalizedEmail = email.trim().toLowerCase();
+      if (result.sent === false) {
+        // Cooldown: no new email — still open verify so they can enter the code already sent
+        setMsg(result.message || "A code was already sent. Check your email.");
+        navigation.navigate("OtpVerify", { email: normalizedEmail });
+        return;
+      }
+      navigation.navigate("OtpVerify", { email: normalizedEmail });
     } catch (e: any) {
       const status = e?.response?.status;
       const backendMsg = e?.response?.data?.message ?? "";

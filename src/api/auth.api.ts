@@ -21,10 +21,15 @@ export async function register(payload: RegisterPayload) {
   return data as { ok: boolean; message: string; user: { id: number; email: string; status: string } };
 }
 
-/** Returns { ok, message }. On 403: account pending or rejected (check response message). */
+/** Returns { ok, message, sent?, retryAfterSec? }. On 403: account pending or rejected. */
 export async function loginRequest(email: string) {
   const { data } = await api.post("/auth/login-request", { email: email.trim().toLowerCase() });
-  return data as { ok: boolean; message: string };
+  return data as {
+    ok: boolean;
+    message: string;
+    sent?: boolean;
+    retryAfterSec?: number;
+  };
 }
 
 export async function verifyOtp(email: string, otp: string) {

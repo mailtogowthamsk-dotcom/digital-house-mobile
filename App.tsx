@@ -160,7 +160,7 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
 }
 
 function AppNavigation() {
-  const { status, initialRoute } = useAuth();
+  const { status, initialRoute, sessionEpoch } = useAuth();
 
   if (status === "loading") {
     return <AuthSplash />;
@@ -168,7 +168,7 @@ function AppNavigation() {
 
   return (
     <NavigationContainer ref={navigationRef} linking={rootLinking as any}>
-      <StackNavigator key={initialRoute} initialRoute={initialRoute} />
+      <StackNavigator key={`${sessionEpoch}:${initialRoute}`} initialRoute={initialRoute} />
       <PushNotificationBootstrap />
       <PlatformGateOverlay />
     </NavigationContainer>

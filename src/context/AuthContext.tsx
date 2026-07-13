@@ -38,6 +38,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   initialRoute: RootAuthRoute;
+  /** Bumps on sign-in / sign-out so the root navigator remounts reliably */
+  sessionEpoch: number;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,6 +74,7 @@ async function prewarmSocket() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<MeUser | null>(null);
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   const bootstrapDone = useRef(false);
   const restoringRef = useRef(false);
   const userRef = useRef<MeUser | null>(null);
@@ -205,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setToken(accessToken);
       await setUserSnapshot(userFromApi);
       applySession(userFromApi, false);
+      setSessionEpoch((n) => n + 1);
     },
     [applySession]
   );
@@ -217,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearToken();
       await clearUserSnapshot();
       applySession(null, true);
+      setSessionEpoch((n) => n + 1);
     } finally {
       setAllowAutoClearOn401(true);
     }
@@ -239,9 +244,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signOut,
       refreshSession,
-      initialRoute
+      initialRoute,
+      sessionEpoch
     }),
-    [status, user, signIn, signOut, refreshSession, initialRoute]
+    [status, user, signIn, signOut, refreshSession, initialRoute, sessionEpoch]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
