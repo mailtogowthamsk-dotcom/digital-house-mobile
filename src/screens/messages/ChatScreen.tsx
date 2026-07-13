@@ -12,6 +12,7 @@ import { ChatHeader } from "../../components/messages/ChatHeader";
 import {
   getHistory,
   getMessageAccess,
+  listThreads,
   markRead,
   sendMessage,
   updateThreadPreference,
@@ -52,6 +53,7 @@ export function ChatScreen() {
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(false);
+  const [threadArchived, setThreadArchived] = useState(false);
   const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
   const chatLockMessage = chatAccess?.message ?? null;
 
@@ -97,25 +99,48 @@ export function ChatScreen() {
   }, [navigation, name]);
 
   useEffect(() => {
+    let cancelled = false;
+    // Clear previous chat's lock banner immediately when switching users
+    setChatAccess(null);
+    setLoadError(null);
+    setThreadMuted(false);
+    setThreadArchived(false);
+    setMessages([]);
+    setSendError(null);
+    setInput("");
+    setOtherTyping(false);
+
     (async () => {
       try {
         setLoading(true);
-        setLoadError(null);
         const access = await getMessageAccess(otherUserId);
+        if (cancelled) return;
         setChatAccess(access);
+        const allThreads = await listThreads({ includeArchived: true }).catch(() => []);
+        if (cancelled) return;
+        const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
+        setThreadMuted(!!hit?.muted);
+        setThreadArchived(!!hit?.archived);
         if (!access.canViewHistory) {
           setLoadError(access.message ?? "You cannot view this conversation.");
           setMessages([]);
           return;
         }
         await loadInitial();
+        if (cancelled) return;
         listRef.current?.scrollToBottom(false);
       } catch (e: unknown) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load chat");
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : "Failed to load chat");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadInitial, otherUserId]);
 
   const emitTyping = useCallback(async (typing: boolean) => {
@@ -291,15 +316,22 @@ export function ChatScreen() {
           })()
       },
       {
-        text: "Archive chat",
+        text: threadArchived ? "Unarchive chat" : "Archive chat",
         onPress: () =>
           void (async () => {
             try {
-              await updateThreadPreference(otherUserId, { archived: true });
-              appAlert("Archived", "This chat was moved to archive.");
-              navigation.goBack();
+              const pref = await updateThreadPreference(otherUserId, {
+                archived: !threadArchived
+              });
+              setThreadArchived(pref.archived);
+              if (pref.archived) {
+                appAlert("Archived", "This chat moved to Messages → Archived. You can unarchive it anytime.");
+                navigation.goBack();
+              } else {
+                appAlert("Unarchived", "This chat is back in your Inbox.");
+              }
             } catch (e: unknown) {
-              appAlert("Error", e instanceof Error ? e.message : "Failed to archive");
+              appAlert("Error", e instanceof Error ? e.message : "Failed to update archive");
             }
           })()
       },
@@ -423,21 +455,35 @@ export function ChatScreen() {
   const laneLabels =
     chatAccess?.chatLanes?.map((lane) => (lane === "matrimony" ? "Matrimony" : "Community")) ?? [];
 
-  const chatLockBanner = chatLockMessage ? (
-    <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
-      <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
-      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>{chatLockMessage}</Text>
-    </View>
-  ) : laneLabels.length > 0 ? (
-    <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
-      <Ionicons name="chatbubbles-outline" size={16} color={colors.primary} />
-      <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
-        {laneLabels.length > 1
-          ? `Community and matrimony chat — separate permissions.`
-          : `${laneLabels[0]} chat`}
-      </Text>
-    </View>
-  ) : undefined;
+  const chatLockBanner = (
+    <>
+      {threadArchived ? (
+        <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+          <Ionicons name="archive-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
+            This chat is in your Archived folder. Open ⋮ → Unarchive to move it back to Inbox.
+          </Text>
+        </View>
+      ) : null}
+      {chatLockMessage ? (
+        <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
+            {chatLockMessage}
+          </Text>
+        </View>
+      ) : laneLabels.length > 0 && !threadArchived ? (
+        <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
+          <Ionicons name="chatbubbles-outline" size={16} color={colors.primary} />
+          <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
+            {laneLabels.length > 1
+              ? `Community and matrimony chat — separate permissions.`
+              : `${laneLabels[0]} chat`}
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>

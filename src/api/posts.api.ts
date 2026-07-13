@@ -18,6 +18,33 @@ export type PostDetailResponse = {
   urgent: boolean;
   meetup_at: string | null;
   job_status: string | null;
+  job_company?: string | null;
+  job_location?: string | null;
+  job_employment_type?: string | null;
+  job_salary_min?: number | null;
+  job_salary_max?: number | null;
+  job_interested_by_me?: boolean;
+  job_interest_count?: number;
+  job_can_message_poster?: boolean;
+  marketplace_status?: string | null;
+  marketplace_intent?: string | null;
+  marketplace_category?: string | null;
+  marketplace_condition?: string | null;
+  marketplace_price?: number | null;
+  marketplace_negotiable?: boolean;
+  marketplace_district?: string | null;
+  marketplace_admin_note?: string | null;
+  marketplace_expires_at?: string | null;
+  marketplace_gallery?: string[];
+  marketplace_featured?: boolean;
+  help_status?: string | null;
+  help_category?: string | null;
+  help_urgency?: string | null;
+  help_location?: string | null;
+  help_contact_phone?: string | null;
+  help_gallery?: string[];
+  help_helper_count?: number;
+  help_offered_by_me?: boolean;
   created_at: string;
   updated_at: string;
   author: PostAuthor;
@@ -57,6 +84,25 @@ export type CreatePostPayload = {
   urgent?: boolean;
   meetup_at?: string | null;
   job_status?: string | null;
+  job_company?: string | null;
+  job_location?: string | null;
+  job_employment_type?: string | null;
+  job_salary_min?: number | null;
+  job_salary_max?: number | null;
+  marketplace_status?: string | null;
+  marketplace_intent?: string | null;
+  marketplace_category?: string | null;
+  marketplace_condition?: string | null;
+  marketplace_price?: number | null;
+  marketplace_negotiable?: boolean;
+  marketplace_district?: string | null;
+  marketplace_gallery?: string[];
+  help_status?: string | null;
+  help_category?: string | null;
+  help_urgency?: string | null;
+  help_location?: string | null;
+  help_contact_phone?: string | null;
+  help_gallery?: string[];
 };
 
 export type UpdatePostPayload = {
@@ -67,6 +113,25 @@ export type UpdatePostPayload = {
   urgent?: boolean;
   meetup_at?: string | null;
   job_status?: string | null;
+  job_company?: string | null;
+  job_location?: string | null;
+  job_employment_type?: string | null;
+  job_salary_min?: number | null;
+  job_salary_max?: number | null;
+  marketplace_status?: string | null;
+  marketplace_intent?: string | null;
+  marketplace_category?: string | null;
+  marketplace_condition?: string | null;
+  marketplace_price?: number | null;
+  marketplace_negotiable?: boolean;
+  marketplace_district?: string | null;
+  marketplace_gallery?: string[];
+  help_status?: string | null;
+  help_category?: string | null;
+  help_urgency?: string | null;
+  help_location?: string | null;
+  help_contact_phone?: string | null;
+  help_gallery?: string[];
 };
 
 export async function getPost(postId: number): Promise<PostDetailResponse> {
@@ -165,4 +230,47 @@ export async function reportPost(postId: number, reason: string): Promise<{ id: 
   const { data } = await api.post<{ ok: boolean; id: number }>(`/posts/${postId}/report`, { reason });
   if (!data.ok) throw new Error("Failed to report post");
   return { id: data.id };
+}
+
+export async function expressJobInterest(
+  postId: number,
+  message?: string | null
+): Promise<{ interested: boolean; canMessage: boolean; interestId: number }> {
+  const { data } = await api.post<{
+    ok: boolean;
+    interested: boolean;
+    canMessage: boolean;
+    interestId: number;
+  }>(`/posts/${postId}/job-interest`, { message: message ?? null });
+  if (!data.ok) throw new Error("Failed to express interest");
+  return {
+    interested: data.interested,
+    canMessage: data.canMessage,
+    interestId: data.interestId
+  };
+}
+
+export async function listJobInterests(postId: number): Promise<{
+  items: {
+    id: number;
+    from_user_id: number;
+    message: string | null;
+    created_at: string;
+    author: { id: number; name: string; profile_image: string | null };
+  }[];
+  total: number;
+}> {
+  const { data } = await api.get<{
+    ok: boolean;
+    items: {
+      id: number;
+      from_user_id: number;
+      message: string | null;
+      created_at: string;
+      author: { id: number; name: string; profile_image: string | null };
+    }[];
+    total: number;
+  }>(`/posts/${postId}/job-interests`);
+  if (!data.ok) throw new Error("Failed to load interests");
+  return { items: data.items ?? [], total: data.total ?? 0 };
 }

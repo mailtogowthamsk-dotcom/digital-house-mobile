@@ -35,6 +35,10 @@ import {
   MARITAL_STATUS_OPTIONS,
   BUSINESS_TYPE_OPTIONS
 } from "../../types/profile.types";
+import {
+  getMasterItems,
+  masterItemsToDropdown
+} from "../../api/options.api";
 
 const emptyBasic = (): BasicSectionForm => ({
   full_name: "",
@@ -204,8 +208,38 @@ export function EditProfileScreen() {
   const [personal, setPersonal] = useState<PersonalSectionForm>(emptyPersonal());
   const [business, setBusiness] = useState<BusinessSectionForm>(emptyBusiness());
   const [family, setFamily] = useState<FamilySectionForm>(emptyFamily());
+  const [districtOptions, setDistrictOptions] = useState<{ label: string; value: string }[]>([]);
+  const [kulamOptions, setKulamOptions] = useState<{ label: string; value: string }[]>([]);
+  const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
+  const [maritalOptions, setMaritalOptions] = useState<{ label: string; value: string }[]>(
+    MARITAL_STATUS_OPTIONS
+  );
 
   const initialFormRef = React.useRef<ReturnType<typeof mapProfileToForm> | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [districts, kulams, occupations, marital] = await Promise.all([
+          getMasterItems("DISTRICT"),
+          getMasterItems("KULAM"),
+          getMasterItems("OCCUPATION"),
+          getMasterItems("MARITAL_STATUS")
+        ]);
+        if (cancelled) return;
+        if (districts.length) setDistrictOptions(masterItemsToDropdown(districts));
+        if (kulams.length) setKulamOptions(masterItemsToDropdown(kulams));
+        if (occupations.length) setOccupationOptions(masterItemsToDropdown(occupations));
+        if (marital.length) setMaritalOptions(masterItemsToDropdown(marital));
+      } catch {
+        /* keep fallbacks */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -768,11 +802,18 @@ export function EditProfileScreen() {
             onSelect={(v) => setBasic((b) => ({ ...b, gender: v || null }))}
             variant="light"
           />
-          <Input
+          <Dropdown
             label="Native District"
+            placeholder="Select district"
             value={basic.native_district ?? ""}
-            onChangeText={(t) => setBasic((b) => ({ ...b, native_district: t || null }))}
-            placeholder="Native district"
+            options={
+              districtOptions.length
+                ? districtOptions
+                : basic.native_district
+                  ? [{ label: basic.native_district, value: basic.native_district }]
+                  : []
+            }
+            onSelect={(v) => setBasic((b) => ({ ...b, native_district: v || null }))}
             variant="light"
           />
           <View style={s.readOnlyRow}>
@@ -782,11 +823,18 @@ export function EditProfileScreen() {
         </AccordionSection>
 
         <AccordionSection title="Community Details" icon="people-outline">
-          <Input
+          <Dropdown
             label="Kulam"
+            placeholder="Select kulam"
             value={community.kulam ?? ""}
-            onChangeText={(t) => setCommunity((c) => ({ ...c, kulam: t || null }))}
-            placeholder="Kulam"
+            options={
+              kulamOptions.length
+                ? kulamOptions
+                : community.kulam
+                  ? [{ label: community.kulam, value: community.kulam }]
+                  : []
+            }
+            onSelect={(v) => setCommunity((c) => ({ ...c, kulam: v || null }))}
             variant="light"
           />
           <Input
@@ -807,7 +855,7 @@ export function EditProfileScreen() {
             label="Native Taluk"
             value={community.nativeTaluk ?? ""}
             onChangeText={(t) => setCommunity((c) => ({ ...c, nativeTaluk: t || null }))}
-            placeholder="Native taluk"
+            placeholder="Native taluk (add under Master Data for dropdown)"
             variant="light"
           />
         </AccordionSection>
@@ -820,13 +868,30 @@ export function EditProfileScreen() {
             placeholder="e.g. Chennai, Tamil Nadu"
             variant="light"
           />
-          <Input
-            label="Occupation"
-            value={personal.occupation ?? ""}
-            onChangeText={(t) => setPersonal((p) => ({ ...p, occupation: t || null }))}
-            placeholder="Occupation"
-            variant="light"
-          />
+          {occupationOptions.length > 0 ? (
+            <Dropdown
+              label="Occupation"
+              placeholder="Select occupation"
+              value={personal.occupation ?? ""}
+              options={
+                occupationOptions.length
+                  ? occupationOptions
+                  : personal.occupation
+                    ? [{ label: personal.occupation, value: personal.occupation }]
+                    : []
+              }
+              onSelect={(v) => setPersonal((p) => ({ ...p, occupation: v || null }))}
+              variant="light"
+            />
+          ) : (
+            <Input
+              label="Occupation"
+              value={personal.occupation ?? ""}
+              onChangeText={(t) => setPersonal((p) => ({ ...p, occupation: t || null }))}
+              placeholder="Occupation"
+              variant="light"
+            />
+          )}
           <Input
             label="Instagram URL"
             value={personal.instagram ?? ""}
@@ -869,7 +934,7 @@ export function EditProfileScreen() {
             label="Marital Status"
             placeholder="Select"
             value={personal.maritalStatus ?? ""}
-            options={MARITAL_STATUS_OPTIONS}
+            options={maritalOptions}
             onSelect={(v) => setPersonal((p) => ({ ...p, maritalStatus: v || null }))}
             variant="light"
           />

@@ -79,7 +79,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const result = await completeGoogleProfile({
+      await completeGoogleProfile({
         username: username.trim().toLowerCase(),
         gender,
         dob: formatDate(dob),
@@ -90,11 +90,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         mobile: mobile.trim() || null
       });
       await refreshSession();
-      if (result.user.status === "APPROVED") {
-        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      }
+      /* App remounts stack via initialRoute key after session refresh */
     } catch (e) {
       setMsg(getAuthErrorMessage(e));
     } finally {

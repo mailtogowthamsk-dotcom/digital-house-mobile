@@ -24,7 +24,7 @@ export function disconnectSocket() {
   teardownSocket();
 }
 
-function waitForConnect(sock: Socket, timeoutMs = 12_000): Promise<void> {
+function waitForConnect(sock: Socket, timeoutMs = 4_000): Promise<void> {
   if (sock.connected) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -54,7 +54,7 @@ function waitForConnect(sock: Socket, timeoutMs = 12_000): Promise<void> {
 
 /**
  * Authenticated Socket.IO client. Recreates when token changes or connection is dead.
- * Resolves only when the socket is connected (ready for emit/on).
+ * Returns the socket quickly; connection may still be in progress (listeners still work).
  */
 export async function getSocket(): Promise<Socket> {
   const token = await getTokenReliable().catch(() => null);
@@ -70,7 +70,11 @@ export async function getSocket(): Promise<Socket> {
     socket.auth = { token };
     if (!socket.connected) {
       socket.connect();
-      await waitForConnect(socket);
+      try {
+        await waitForConnect(socket);
+      } catch {
+        /* return socket anyway — reconnect will finish later */
+      }
     }
     return socket;
   }
@@ -84,6 +88,10 @@ export async function getSocket(): Promise<Socket> {
     auth: { token }
   });
 
-  await waitForConnect(socket);
+  try {
+    await waitForConnect(socket);
+  } catch {
+    /* allow listeners to attach; reconnect continues in background */
+  }
   return socket;
 }

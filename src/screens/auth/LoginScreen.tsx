@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { googleAuth, loginRequest } from "../../api/auth.api";
 import { getApiBaseUrl, getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
-import { EXPO_GO_GOOGLE_MESSAGE, useGoogleSignIn } from "../../hooks/useGoogleSignIn";
+import { EXPO_GO_GOOGLE_MESSAGE, NATIVE_GOOGLE_MISSING_MESSAGE, useGoogleSignIn } from "../../hooks/useGoogleSignIn";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -41,6 +41,7 @@ export function LoginScreen({ navigation }: any) {
     configured: googleConfigured,
     available: googleAvailable,
     isExpoGo,
+    nativePresent,
     ready: googleReady
   } = useGoogleSignIn();
   const [email, setEmail] = useState("");
@@ -57,17 +58,7 @@ export function LoginScreen({ navigation }: any) {
       if (!idToken) return;
       const result = await googleAuth(idToken);
       await signIn(result.accessToken, result.user);
-      if (result.needsProfileCompletion) {
-        navigation.reset({ index: 0, routes: [{ name: "GoogleCompleteProfile" }] });
-        return;
-      }
-      if (result.user.status === "APPROVED") {
-        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
-      } else if (result.user.status === "PENDING") {
-        navigation.replace("PendingApproval");
-      } else if (result.user.status === "REJECTED") {
-        navigation.replace("Rejected", { message: "Your account was not approved." });
-      }
+      /* App remounts stack via initialRoute key — avoid double reset/hang */
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: { message?: string } } };
       const status = err.response?.status;
@@ -206,9 +197,11 @@ export function LoginScreen({ navigation }: any) {
             </Pressable>
             {isExpoGo ? (
               <Text style={s.googleHint}>{EXPO_GO_GOOGLE_MESSAGE}</Text>
+            ) : !nativePresent ? (
+              <Text style={s.googleHint}>{NATIVE_GOOGLE_MISSING_MESSAGE}</Text>
             ) : !googleConfigured ? (
               <Text style={s.googleHint}>
-                Google Sign-In is not configured. Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to mobile/.env.
+                Google Sign-In is not configured in this build. Reinstall the latest preview build from EAS.
               </Text>
             ) : !googleReady ? (
               <Text style={s.googleHint}>Preparing Google Sign-In…</Text>

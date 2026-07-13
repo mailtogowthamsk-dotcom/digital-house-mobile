@@ -16,10 +16,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp } from "../../api/auth.api";
+import { getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
+import type { MeUser } from "../../api/auth.api";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
@@ -34,10 +36,13 @@ export function OtpVerifyScreen({ route, navigation }: any) {
   const email = route.params.email as string;
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const verifyingRef = useRef(false);
 
   const setOtpValue = (value: string) => {
+    if (verifyingRef.current || signedIn) return;
     const digits = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
     setOtp(digits);
     setMsg(null);
@@ -46,22 +51,26 @@ export function OtpVerifyScreen({ route, navigation }: any) {
   const onVerify = async () => {
     Keyboard.dismiss();
     setMsg(null);
+    if (verifyingRef.current || signedIn || loading) return;
     if (otp.length < OTP_LENGTH) {
       setMsg("Please enter the 6-digit code from your email.");
       return;
     }
+    verifyingRef.current = true;
     setLoading(true);
     try {
       const res = await verifyOtp(email, otp);
-      await signIn(res.accessToken, {
+      const user: MeUser = {
         ...res.user,
-        createdAt: (res.user as { createdAt?: string }).createdAt ?? new Date().toISOString()
-      });
-      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
-    } catch (e: any) {
-      setMsg(e?.response?.data?.message || "OTP verification failed");
-    } finally {
+        createdAt: res.user.createdAt ?? new Date().toISOString()
+      };
+      await signIn(res.accessToken, user);
+      setSignedIn(true);
+      /* Keep loading until App remounts via initialRoute key — avoid double-submit */
+    } catch (e: unknown) {
+      verifyingRef.current = false;
       setLoading(false);
+      setMsg(getAuthErrorMessage(e));
     }
   };
 
@@ -122,13 +131,17 @@ export function OtpVerifyScreen({ route, navigation }: any) {
               onChangeText={setOtpValue}
               keyboardType="number-pad"
               maxLength={OTP_LENGTH}
-              editable={!loading}
+              editable={!loading && !signedIn}
               autoFocus
               style={s.hiddenInput}
               accessibilityLabel="OTP code input"
             />
 
-            <Pressable style={s.otpBoxRow} onPress={focusInput}>
+            <Pressable
+              style={s.otpBoxRow}
+              onPress={focusInput}
+              disabled={loading || signedIn}
+            >
               {Array.from({ length: OTP_LENGTH }).map((_, i) => (
                 <View
                   key={i}
@@ -139,20 +152,26 @@ export function OtpVerifyScreen({ route, navigation }: any) {
                   ]}
                 >
                   <Text style={s.otpBoxDigit}>{otp[i] ?? ""}</Text>
-                  {otp.length === i ? <View style={s.otpCursor} /> : null}
+                  {otp.length === i && !loading && !signedIn ? <View style={s.otpCursor} /> : null}
                 </View>
               ))}
             </Pressable>
-            <Text style={s.otpHint}>Tap to enter code</Text>
+            <Text style={s.otpHint}>
+              {signedIn ? "Signing you in…" : "Tap to enter code"}
+            </Text>
 
             <View style={s.messageWrap}>
               {msg ? <Text style={s.messageError}>{msg}</Text> : null}
             </View>
 
             <Pressable
-              style={({ pressed }) => [s.btnWrap, pressed && s.btnPressed, loading && s.btnDisabled]}
+              style={({ pressed }) => [
+                s.btnWrap,
+                pressed && !loading && !signedIn && s.btnPressed,
+                (loading || signedIn) && s.btnDisabled
+              ]}
               onPress={onVerify}
-              disabled={loading}
+              disabled={loading || signedIn}
             >
               <LinearGradient
                 colors={["#2563EB", "#F97316"]}
@@ -160,7 +179,7 @@ export function OtpVerifyScreen({ route, navigation }: any) {
                 end={{ x: 1, y: 0 }}
                 style={s.btn}
               >
-                {loading ? (
+                {loading || signedIn ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={s.btnText}>Verify & continue</Text>
@@ -172,6 +191,7 @@ export function OtpVerifyScreen({ route, navigation }: any) {
             <Pressable
               style={({ pressed }) => [s.resendWrap, pressed && { opacity: 0.8 }]}
               onPress={() => navigation.goBack()}
+              disabled={loading || signedIn}
             >
               <Text style={s.resendText}>Didn’t get the code? </Text>
               <Text style={s.resendLink}>Go back & request again</Text>

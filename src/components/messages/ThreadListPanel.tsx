@@ -36,6 +36,8 @@ type ThreadListPanelProps = {
   renderThread: ListRenderItem<Thread>;
   keyThread: (t: Thread) => string;
   onBack?: () => void;
+  folder?: "inbox" | "archived";
+  onFolderChange?: (folder: "inbox" | "archived") => void;
 };
 
 function ThreadListPanelComponent(props: ThreadListPanelProps) {
@@ -49,8 +51,12 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     threads,
     renderThread,
     keyThread,
-    onBack
+    onBack,
+    folder = "inbox",
+    onFolderChange
   } = props;
+
+  const isArchived = folder === "archived";
 
   return (
     <View
@@ -81,8 +87,50 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
           ) : null}
           <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
         </View>
+
+        {onFolderChange ? (
+          <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]}>
+            <Pressable
+              style={[
+                styles.segmentBtn,
+                folder === "inbox" && { backgroundColor: colors.surface }
+              ]}
+              onPress={() => onFolderChange("inbox")}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: colors.textSecondary },
+                  folder === "inbox" && { color: colors.primary, fontWeight: "700" }
+                ]}
+              >
+                Inbox
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.segmentBtn,
+                folder === "archived" && { backgroundColor: colors.surface }
+              ]}
+              onPress={() => onFolderChange("archived")}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  { color: colors.textSecondary },
+                  folder === "archived" && { color: colors.primary, fontWeight: "700" }
+                ]}
+              >
+                Archived
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Messaging is available after connection or mutual matrimony match.
+          {isArchived
+            ? "Archived chats stay here until you unarchive them. Open a chat → ⋮ → Unarchive."
+            : "Archive a chat from its options menu. Find it again under Archived."}
         </Text>
       </View>
 
@@ -98,9 +146,13 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
           />
         ) : threads.length === 0 ? (
           <EmptyState
-            icon="chatbubble-ellipses-outline"
-            title="No conversations yet"
-            subtitle="When you match on Matrimony or connect with a member, your chats will appear here."
+            icon={isArchived ? "archive-outline" : "chatbubble-ellipses-outline"}
+            title={isArchived ? "No archived chats" : "No conversations yet"}
+            subtitle={
+              isArchived
+                ? "When you archive a chat, it moves here and leaves your Inbox."
+                : "When you match on Matrimony or connect with a member, your chats will appear here."
+            }
             colors={colors}
           />
         ) : (
@@ -173,6 +225,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17
   },
+  segment: {
+    marginTop: 12,
+    flexDirection: "row",
+    borderRadius: 10,
+    padding: 3,
+    gap: 2
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center"
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: "600"
+  },
   listWrap: {
     flex: 1,
     minHeight: 0
@@ -221,6 +290,7 @@ export function ThreadRow({
   unreadCount,
   chatLanes,
   muted,
+  archived,
   onPress,
   colors
 }: {
@@ -233,6 +303,7 @@ export function ThreadRow({
   unreadCount?: number;
   chatLanes?: ChatLane[];
   muted?: boolean;
+  archived?: boolean;
   onPress: () => void;
   colors: Colors;
 }) {
@@ -260,6 +331,9 @@ export function ThreadRow({
           <Text style={[rowStyles.name, { color: colors.text }]} numberOfLines={1}>
             {name}
           </Text>
+          {archived ? (
+            <Ionicons name="archive-outline" size={14} color={colors.textMuted} />
+          ) : null}
           {muted ? (
             <Ionicons name="notifications-off-outline" size={14} color={colors.textMuted} />
           ) : null}

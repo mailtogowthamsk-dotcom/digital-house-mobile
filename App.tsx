@@ -11,6 +11,8 @@ import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import { AppAlertProvider } from "./src/context/AppAlertContext";
 import { AuthProvider, useAuth, type RootAuthRoute } from "./src/context/AuthContext";
+import { PlatformProvider } from "./src/context/PlatformContext";
+import { PlatformGateOverlay } from "./src/components/platform/PlatformGateOverlay";
 import { AuthSplash } from "./src/components/auth/AuthSplash";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
 import { RegistrationScreen } from "./src/screens/auth/RegistrationScreen";
@@ -26,6 +28,8 @@ import { ConnectionsScreen } from "./src/screens/members/ConnectionsScreen";
 import { HomeScreen } from "./src/screens/home/HomeScreen";
 import { ProfileScreen } from "./src/screens/home/ProfileScreen";
 import { EditProfileScreen } from "./src/screens/home/EditProfileScreen";
+import { MyPostsScreen } from "./src/screens/home/MyPostsScreen";
+import { MyActivityScreen } from "./src/screens/home/MyActivityScreen";
 import { PostDetailScreen } from "./src/screens/home/PostDetailScreen";
 import { CreatePostScreen } from "./src/screens/home/CreatePostScreen";
 import { MenuScreen } from "./src/screens/home/MenuScreen";
@@ -33,6 +37,10 @@ import { SettingsScreen } from "./src/screens/home/SettingsScreen";
 import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
 import { ChatScreen } from "./src/screens/messages/ChatScreen";
 import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen";
+import { JobsHomeScreen } from "./src/screens/jobs/JobsHomeScreen";
+import { MarketplaceHomeScreen } from "./src/screens/marketplace/MarketplaceHomeScreen";
+import { HelpingHandsHomeScreen } from "./src/screens/helpingHands/HelpingHandsHomeScreen";
+import { CreateHelpRequestScreen } from "./src/screens/helpingHands/CreateHelpRequestScreen";
 import { MatrimonySetupScreen } from "./src/screens/matrimony/MatrimonySetupScreen";
 import { MatrimonyBrowseScreen } from "./src/screens/matrimony/MatrimonyBrowseScreen";
 import { MatrimonyCandidateScreen } from "./src/screens/matrimony/MatrimonyCandidateScreen";
@@ -45,6 +53,7 @@ import { MatrimonyViewsScreen } from "./src/screens/matrimony/MatrimonyViewsScre
 import { NotificationCenterScreen } from "./src/screens/notifications/NotificationCenterScreen";
 import { NotificationProvider } from "./src/context/NotificationContext";
 import { PushNotificationBootstrap } from "./src/components/notifications/PushNotificationBootstrap";
+import { RazorpayWebCheckoutHost } from "./src/components/payments/RazorpayWebCheckoutHost";
 import { navigationRef } from "./src/navigation/rootNavigation";
 import type { RootStackParamList } from "./src/navigation/types";
 
@@ -114,9 +123,11 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="MemberProfile" component={MemberProfileScreen} options={{ title: "Member Profile" }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
+        <Stack.Screen name="MyPosts" component={MyPostsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MyActivity" component={MyActivityScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: "Post" }} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: "Create Post" }} />
-        <Stack.Screen name="Menu" component={MenuScreen} options={{ title: "Menu" }} />
+        <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen
           name="Notifications"
@@ -125,6 +136,10 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         />
         <Stack.Screen name="Messages" component={MessagesHubScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="JobsHome" component={JobsHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="MarketplaceHome" component={MarketplaceHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="HelpingHandsHome" component={HelpingHandsHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="CreateHelpRequest" component={CreateHelpRequestScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
         <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />
@@ -155,6 +170,7 @@ function AppNavigation() {
     <NavigationContainer ref={navigationRef} linking={rootLinking as any}>
       <StackNavigator key={initialRoute} initialRoute={initialRoute} />
       <PushNotificationBootstrap />
+      <PlatformGateOverlay />
     </NavigationContainer>
   );
 }
@@ -171,9 +187,12 @@ export default function App() {
           <ThemeProvider>
             <AppAlertProvider>
               <AuthProvider>
-                <NotificationProvider>
-                  <AppNavigation />
-                </NotificationProvider>
+                <PlatformProvider>
+                  <NotificationProvider>
+                    <AppNavigation />
+                    <RazorpayWebCheckoutHost />
+                  </NotificationProvider>
+                </PlatformProvider>
               </AuthProvider>
             </AppAlertProvider>
           </ThemeProvider>

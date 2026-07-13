@@ -5,15 +5,12 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  RefreshControl,
-  ActivityIndicator
+  RefreshControl
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useProfile } from "../../hooks/useProfile";
-import { useProfileActivity } from "../../hooks/useProfileActivity";
-import { useProfilePosts } from "../../hooks/useProfilePosts";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -25,48 +22,18 @@ import {
   PersonalInfoSection,
   ProfessionalInfoSection,
   StatsCards,
-  MyActivityTabs,
-  ProfilePostsSection,
+  ProfileContentLinks,
   ActionButtons,
   ProfileSkeleton
 } from "../../components/profile";
-import type { ActivityTab } from "../../components/profile";
 
-/**
- * Profile Screen – read-only by default; Edit opens separate screen.
- * My Posts: paginated grid via GET /api/profile/posts; saved/liked use activity API.
- */
+/** Profile Screen – overview + links to My Posts / My Activity screens. */
 export function ProfileScreen() {
   const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const { profile, loading, error, refetch } = useProfile();
-  const [activityTab, setActivityTab] = useState<ActivityTab>("my");
-
-  const {
-    items: posts,
-    loading: postsLoading,
-    loadingMore: postsLoadingMore,
-    error: postsError,
-    refetch: refetchPosts,
-    loadMore: loadMorePosts,
-    removePost
-  } = useProfilePosts(!!profile && activityTab === "my");
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-      if (activityTab === "my") refetchPosts();
-    }, [refetch, refetchPosts, activityTab])
-  );
-
-  const {
-    items: activityItems,
-    loading: activityLoading,
-    refetch: refetchActivity
-  } = useProfileActivity(activityTab, !!profile && activityTab !== "my");
-
   const [refreshing, setRefreshing] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
@@ -74,7 +41,11 @@ export function ProfileScreen() {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        centered: { justifyContent: "center", alignItems: "center", paddingHorizontal: spacing.xxl },
+        centered: {
+          justifyContent: "center",
+          alignItems: "center",
+          paddingHorizontal: spacing.xxl
+        },
         listContent: {
           flexGrow: 1,
           paddingHorizontal: spacing.xl,
@@ -90,7 +61,11 @@ export function ProfileScreen() {
           marginBottom: spacing.lg
         },
         errorTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
-        errorText: { ...typography.bodySmall, color: colors.textSecondary, textAlign: "center" },
+        errorText: {
+          ...typography.bodySmall,
+          color: colors.textSecondary,
+          textAlign: "center"
+        },
         retryBtn: {
           marginTop: spacing.xl,
           paddingVertical: spacing.md,
@@ -99,10 +74,15 @@ export function ProfileScreen() {
           borderRadius: radius.lg
         },
         pressed: { opacity: 0.9 },
-        retryBtnText: { ...typography.buttonSmall, color: colors.white },
-        footerLoader: { paddingVertical: spacing.lg }
+        retryBtnText: { ...typography.buttonSmall, color: colors.white }
       }),
     [colors]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch])
   );
 
   useEffect(() => {
@@ -119,24 +99,11 @@ export function ProfileScreen() {
     }
   }, [error, navigation, signOut]);
 
-  useEffect(() => {
-    if (profile && activityTab !== "my") refetchActivity();
-  }, [activityTab, profile, refetchActivity]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
-    if (activityTab === "my") await refetchPosts();
-    else refetchActivity();
     setRefreshing(false);
-  }, [refetch, activityTab, refetchPosts, refetchActivity]);
-
-  const onPostPress = useCallback(
-    (postId: number) => {
-      navigation.navigate("PostDetail", { postId });
-    },
-    [navigation]
-  );
+  }, [refetch]);
 
   const onLogoutPress = useCallback(() => setLogoutDialogVisible(true), []);
   const onLogoutConfirm = useCallback(async () => {
@@ -162,48 +129,18 @@ export function ProfileScreen() {
         <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
         <ProfessionalInfoSection professional={profile.professional_info} />
         <StatsCards stats={profile.stats} />
-        <MyActivityTabs
-          activeTab={activityTab}
-          onTabChange={setActivityTab}
-          items={activityItems}
-          loading={activityLoading}
-          onActivityItemPress={onPostPress}
-          myPostsContent={
-            activityTab === "my" ? (
-              <ProfilePostsSection
-                items={posts}
-                loading={postsLoading}
-                loadingMore={postsLoadingMore}
-                error={postsError}
-                onRetry={refetchPosts}
-                onPostPress={onPostPress}
-                onDeleted={removePost}
-              />
-            ) : undefined
-          }
+        <ProfileContentLinks
+          totalPosts={profile.stats?.total_posts ?? 0}
+          onMyPostsPress={() => navigation.navigate("MyPosts")}
+          onMyActivityPress={() => navigation.navigate("MyActivity")}
         />
       </>
     );
-  }, [
-    profile,
-    activityTab,
-    activityItems,
-    activityLoading,
-    posts,
-    postsLoading,
-    postsLoadingMore,
-    postsError,
-    refetchPosts,
-    onPostPress,
-    removePost
-  ]);
+  }, [profile, navigation]);
 
   const listFooter = useMemo(
     () => (
       <>
-        {activityTab === "my" && postsLoadingMore ? (
-          <ActivityIndicator size="small" color={colors.primary} style={s.footerLoader} />
-        ) : null}
         <ActionButtons
           onEditPress={onEditPress}
           onDownloadPress={() => {}}
@@ -221,17 +158,7 @@ export function ProfileScreen() {
         />
       </>
     ),
-    [
-      activityTab,
-      postsLoadingMore,
-      colors.primary,
-      s.footerLoader,
-      onEditPress,
-      onLogoutPress,
-      logoutDialogVisible,
-      onLogoutConfirm,
-      onLogoutCancel
-    ]
+    [onEditPress, onLogoutPress, logoutDialogVisible, onLogoutConfirm, onLogoutCancel]
   );
 
   if (loading && !profile) {
@@ -276,8 +203,6 @@ export function ProfileScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
       }
-      onEndReached={activityTab === "my" ? loadMorePosts : undefined}
-      onEndReachedThreshold={0.35}
       showsVerticalScrollIndicator={false}
     />
   );

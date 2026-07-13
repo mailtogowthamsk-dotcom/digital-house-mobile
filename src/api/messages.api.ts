@@ -57,9 +57,15 @@ export async function getMessageAccess(otherUserId: number): Promise<MessageAcce
   return res.data.access;
 }
 
-export async function listThreads(opts?: { includeArchived?: boolean }): Promise<Thread[]> {
+export async function listThreads(opts?: {
+  includeArchived?: boolean;
+  archivedOnly?: boolean;
+}): Promise<Thread[]> {
   const res = await api.get<{ ok: true; threads: Thread[] }>("/messages/threads", {
-    params: opts?.includeArchived ? { includeArchived: "1" } : undefined
+    params: {
+      ...(opts?.includeArchived ? { includeArchived: "1" } : {}),
+      ...(opts?.archivedOnly ? { archivedOnly: "1" } : {})
+    }
   });
   return res.data.threads ?? [];
 }

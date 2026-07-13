@@ -1,22 +1,73 @@
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import Constants, { ExecutionEnvironment } from "expo-constants";
-import { Platform } from "react-native";
+import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
 const APP_SCHEME = (Constants.expoConfig?.scheme as string | undefined) ?? "digitalhouse";
+
 export const IS_EXPO_GO =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-/** Google Sign-In is not supported in Expo Go (auth.expo.io proxy removed). */
+/** Google Sign-In requires a custom native build (not Expo Go). */
 export const EXPO_GO_GOOGLE_MESSAGE =
-  "Google Sign-In does not work in Expo Go. Use email OTP here, or install your EAS preview APK to test Google login.";
+  "Google Sign-In does not work in Expo Go. Use email OTP here, or install an EAS development/preview build.";
+
+export const NATIVE_GOOGLE_MISSING_MESSAGE =
+  "Google Sign-In native module is missing from this app binary. Rebuild with `npx expo run:ios` or an EAS build that includes @react-native-google-signin/google-signin. Use email OTP until then.";
 
 export const ANDROID_GOOGLE_SETUP_HINT =
-  "Register EAS SHA-1 on the Android OAuth client (package com.thisisgowtham.digitalhouse). Do not add digitalhouse:// to JavaScript origins — that field is https-only.";
+  "Ensure Android OAuth client has package com.thisisgowtham.digitalhouse and your EAS SHA-1 fingerprint.";
+
+type GoogleNativeModule = {
+  GoogleSignin: {
+    configure: (opts: {
+      webClientId: string;
+      iosClientId?: string;
+      offlineAccess?: boolean;
+    }) => void;
+    hasPlayServices: (opts?: { showPlayServicesUpdateDialog?: boolean }) => Promise<boolean>;
+    signIn: () => Promise<unknown>;
+    getTokens: () => Promise<{ idToken: string | null }>;
+  };
+  statusCodes: {
+    SIGN_IN_CANCELLED: string;
+    IN_PROGRESS: string;
+    PLAY_SERVICES_NOT_AVAILABLE: string;
+  };
+  isErrorWithCode: (e: unknown) => e is { code: string };
+  isSuccessResponse: (r: unknown) => r is { data: { idToken: string | null } };
+};
+
+function hasNativeGoogleSignIn(): boolean {
+  try {
+    // Prefer non-throwing lookup when available
+    const get = (TurboModuleRegistry as { get?: (name: string) => unknown } | undefined)?.get;
+    if (typeof get === "function" && get("RNGoogleSignin")) return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    if ((NativeModules as Record<string, unknown>).RNGoogleSignin) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function loadGoogleNative(): GoogleNativeModule | null {
+  if (IS_EXPO_GO || !hasNativeGoogleSignIn()) return null;
+  try {
+    // Lazy require so Expo Go / binaries without the module never evaluate the import.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("@react-native-google-signin/google-signin") as GoogleNativeModule;
+  } catch {
+    return null;
+  }
+}
 
 function pickClientId(extraVal: unknown, envVal: string | undefined): string {
   const fromExtra = typeof extraVal === "string" ? extraVal.trim() : "";
@@ -36,12 +87,7 @@ function readClientIds() {
   };
 }
 
-export function useGoogleSignIn() {
-  const { webClientId, iosClientId, androidClientId } = readClientIds();
-  const configured = !!webClientId;
-  const available = configured && !IS_EXPO_GO;
-
-  /** App scheme redirect — must match app.config.js intentFilters and Google Web client redirect URIs. */
+function useWebGoogleAuth(webClientId: string, iosClientId: string) {
   const redirectUri = useMemo(
     () =>
       makeRedirectUri({
@@ -52,34 +98,16 @@ export function useGoogleSignIn() {
     []
   );
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
+  const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
       webClientId,
       iosClientId: iosClientId || webClientId,
-      androidClientId: androidClientId || webClientId,
       redirectUri
     },
     { scheme: APP_SCHEME }
   );
 
-  useEffect(() => {
-    if (configured && !IS_EXPO_GO) {
-      console.info(`[Google Sign-In] redirectUri=${redirectUri}`);
-      if (!webClientId) {
-        console.warn("[Google Sign-In] webClientId missing — rebuild with EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in EAS env.");
-      }
-    }
-  }, [configured, redirectUri, webClientId]);
-
-  const signIn = useCallback(async (): Promise<string | null> => {
-    if (IS_EXPO_GO) {
-      throw new Error(EXPO_GO_GOOGLE_MESSAGE);
-    }
-    if (!configured) {
-      throw new Error(
-        "Google Sign-In is not configured in this build. Rebuild the preview APK with EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID set in EAS."
-      );
-    }
+  const signInWeb = useCallback(async (): Promise<string | null> => {
     if (!request) {
       throw new Error("Google Sign-In is still loading. Try again in a moment.");
     }
@@ -93,29 +121,119 @@ export function useGoogleSignIn() {
           ?.error_description ||
         (result as { params?: { error?: string } }).params?.error ||
         (result as { error?: { message?: string } }).error?.message;
-      const suffix = Platform.OS === "android" ? ` ${ANDROID_GOOGLE_SETUP_HINT}` : "";
-      throw new Error(detail ? `${detail}.${suffix}` : `Google sign-in failed.${suffix}`);
+      throw new Error(detail ?? "Google sign-in failed.");
     }
     if (result.type !== "success") {
       throw new Error("Google sign-in was interrupted. Please try again.");
     }
     const idToken = result.params?.id_token;
     if (!idToken) {
-      throw new Error(
-        Platform.OS === "android"
-          ? `Google did not return a token. Add ${redirectUri} to your Web OAuth client redirect URIs, then rebuild.${ANDROID_GOOGLE_SETUP_HINT}`
-          : "Google did not return a valid token. Please try again."
-      );
+      throw new Error("Google did not return a valid token. Please try again.");
     }
     return idToken;
-  }, [configured, promptAsync, request, redirectUri]);
+  }, [promptAsync, request]);
+
+  return { signInWeb, webReady: !!request };
+}
+
+export function useGoogleSignIn() {
+  const { webClientId, iosClientId } = readClientIds();
+  const configured = !!webClientId;
+  const nativeModule = useMemo(() => loadGoogleNative(), []);
+  const nativePresent = !!nativeModule;
+  const useNativeSignIn =
+    (Platform.OS === "android" || Platform.OS === "ios") && nativePresent;
+  const available = configured && !IS_EXPO_GO && (useNativeSignIn || Platform.OS === "web");
+  const [nativeReady, setNativeReady] = useState(!useNativeSignIn);
+
+  const { signInWeb, webReady } = useWebGoogleAuth(webClientId, iosClientId);
+
+  useEffect(() => {
+    if (!configured || IS_EXPO_GO || !useNativeSignIn || !nativeModule) {
+      setNativeReady(false);
+      return;
+    }
+    try {
+      nativeModule.GoogleSignin.configure({
+        webClientId,
+        iosClientId: iosClientId || undefined,
+        offlineAccess: false
+      });
+      setNativeReady(true);
+    } catch (e) {
+      console.warn("[Google Sign-In] configure failed", e);
+      setNativeReady(false);
+    }
+  }, [configured, iosClientId, nativeModule, useNativeSignIn, webClientId]);
+
+  const signInNative = useCallback(async (): Promise<string | null> => {
+    if (!webClientId || !nativeModule) {
+      throw new Error(NATIVE_GOOGLE_MISSING_MESSAGE);
+    }
+    const { GoogleSignin, statusCodes, isErrorWithCode, isSuccessResponse } = nativeModule;
+    try {
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+      const result = await GoogleSignin.signIn();
+      if (!isSuccessResponse(result)) {
+        return null;
+      }
+      let idToken = result.data.idToken;
+      if (!idToken) {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      }
+      if (!idToken) {
+        throw new Error("Google did not return a valid token. Please try again.");
+      }
+      return idToken;
+    } catch (e) {
+      if (isErrorWithCode(e)) {
+        if (e.code === statusCodes.SIGN_IN_CANCELLED) {
+          return null;
+        }
+        if (e.code === statusCodes.IN_PROGRESS) {
+          throw new Error("Google sign-in is already in progress.");
+        }
+        if (e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          throw new Error("Google Play Services is not available on this device.");
+        }
+      }
+      const message = e instanceof Error ? e.message : "Google sign-in failed.";
+      throw new Error(
+        Platform.OS === "android" ? `${message} ${ANDROID_GOOGLE_SETUP_HINT}` : message
+      );
+    }
+  }, [nativeModule, webClientId]);
+
+  const signIn = useCallback(async (): Promise<string | null> => {
+    if (IS_EXPO_GO) {
+      throw new Error(EXPO_GO_GOOGLE_MESSAGE);
+    }
+    if (!configured) {
+      throw new Error(
+        "Google Sign-In is not configured in this build. Install the latest preview build from EAS."
+      );
+    }
+    if ((Platform.OS === "ios" || Platform.OS === "android") && !nativePresent) {
+      throw new Error(NATIVE_GOOGLE_MISSING_MESSAGE);
+    }
+    if (useNativeSignIn) {
+      return signInNative();
+    }
+    return signInWeb();
+  }, [configured, nativePresent, signInNative, signInWeb, useNativeSignIn]);
+
+  const ready =
+    available && (useNativeSignIn ? nativeReady && !!webClientId : webReady);
 
   return {
     signIn,
     configured,
     available,
     isExpoGo: IS_EXPO_GO,
-    ready: available && !!request,
-    redirectUri
+    nativePresent,
+    ready
   };
 }

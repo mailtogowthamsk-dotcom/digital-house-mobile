@@ -50,8 +50,10 @@ export function PushNotificationBootstrap() {
       if (cancelled) return;
 
       const last = await Notifications.getLastNotificationResponseAsync();
+      if (cancelled) return;
       if (last) handleNotificationTap(last);
 
+      if (cancelled) return;
       subTap = Notifications.addNotificationResponseReceivedListener(handleNotificationTap);
       subToken = Notifications.addPushTokenListener((event) => {
         void syncPushTokenFromListener(event.data);

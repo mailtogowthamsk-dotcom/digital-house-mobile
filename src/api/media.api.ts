@@ -65,3 +65,16 @@ export async function finalizeMedia(mediaFileId: number): Promise<FinalizeMediaR
     byteSize: data.byteSize
   };
 }
+
+/**
+ * POST /api/media/delete – remove uploaded image(s) from R2 (all variants).
+ */
+export async function deleteMediaUrls(urls: string[]): Promise<{ deleted: number }> {
+  const cleaned = urls.map((u) => u.trim()).filter(Boolean);
+  if (cleaned.length === 0) return { deleted: 0 };
+  const { data } = await api.post<{ ok: boolean; deleted?: number }>("/media/delete", {
+    urls: cleaned
+  });
+  if (!data.ok) throw new Error("Failed to delete media");
+  return { deleted: data.deleted ?? cleaned.length };
+}

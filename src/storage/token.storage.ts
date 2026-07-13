@@ -13,12 +13,17 @@ const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
+/** In-memory cache so post-login API calls never race SecureStore/localStorage. */
+let memoryToken: string | null = null;
+
 /** Persist JWT — survives app restart and device reboot (SecureStore / localStorage). */
 export async function setToken(token: string): Promise<void> {
   const trimmed = token?.trim();
   if (!trimmed) {
     throw new Error("Cannot store empty token");
   }
+
+  memoryToken = trimmed;
 
   if (isWeb && typeof localStorage !== "undefined") {
     localStorage.setItem(KEY, trimmed);
@@ -29,20 +34,24 @@ export async function setToken(token: string): Promise<void> {
 }
 
 export async function getToken(): Promise<string | null> {
+  if (memoryToken) return memoryToken;
   try {
     if (isWeb && typeof localStorage !== "undefined") {
       const v = localStorage.getItem(KEY);
-      return v?.trim() || null;
+      memoryToken = v?.trim() || null;
+      return memoryToken;
     }
     const v = await SecureStore.getItemAsync(KEY, secureOptions);
-    return v?.trim() || null;
+    memoryToken = v?.trim() || null;
+    return memoryToken;
   } catch {
-    return null;
+    return memoryToken;
   }
 }
 
 /** Retry once after resume — SecureStore can be briefly unavailable on Android. */
 export async function getTokenReliable(): Promise<string | null> {
+  if (memoryToken) return memoryToken;
   const first = await getToken();
   if (first || isWeb) return first;
   await new Promise((r) => setTimeout(r, 150));
@@ -55,6 +64,7 @@ export async function hasToken(): Promise<boolean> {
 }
 
 export async function clearToken(): Promise<void> {
+  memoryToken = null;
   try {
     if (isWeb && typeof localStorage !== "undefined") {
       localStorage.removeItem(KEY);

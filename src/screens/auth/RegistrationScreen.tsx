@@ -16,7 +16,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { register as registerApi, type RegisterPayload } from "../../api/auth.api";
 import { getAuthErrorMessage } from "../../api/client";
-import { getLocations, getKulams } from "../../api/options.api";
+import { getLocations, getKulams, getMasterItems, masterItemsToDropdown } from "../../api/options.api";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,18 +59,26 @@ export function RegistrationScreen({ navigation }: any) {
   const [kulam, setKulam] = useState("");
   const [locationOptions, setLocationOptions] = useState<{ label: string; value: string }[]>(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState<{ label: string; value: string }[]>(KULAM_OPTIONS);
+  const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [locations, kulams] = await Promise.all([getLocations(), getKulams()]);
+        const [locations, kulams, occupations] = await Promise.all([
+          getLocations(),
+          getKulams(),
+          getMasterItems("OCCUPATION")
+        ]);
         if (!cancelled) {
           if (locations.length > 0) {
             setLocationOptions(locations.map((l) => ({ label: l.name, value: l.name })));
           }
           if (kulams.length > 0) {
             setKulamOptions(kulams.map((k) => ({ label: k.name, value: k.name })));
+          }
+          if (occupations.length > 0) {
+            setOccupationOptions(masterItemsToDropdown(occupations));
           }
         }
       } catch {
@@ -274,14 +282,24 @@ export function RegistrationScreen({ navigation }: any) {
             )}
             {step === 2 && (
               <>
-                <Input
-                  placeholder="Occupation (optional)"
-                  value={occupation}
-                  onChangeText={setOccupation}
-                  variant="light"
-                />
+                {occupationOptions.length > 0 ? (
+                  <Dropdown
+                    placeholder="Occupation (optional)"
+                    value={occupation}
+                    options={occupationOptions}
+                    onSelect={setOccupation}
+                    variant="light"
+                  />
+                ) : (
+                  <Input
+                    placeholder="Occupation (optional)"
+                    value={occupation}
+                    onChangeText={setOccupation}
+                    variant="light"
+                  />
+                )}
                 <Dropdown
-                  placeholder="Select location *"
+                  placeholder="Select district *"
                   value={location}
                   options={locationOptions}
                   onSelect={setLocation}

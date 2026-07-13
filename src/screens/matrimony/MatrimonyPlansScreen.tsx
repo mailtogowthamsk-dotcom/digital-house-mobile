@@ -43,7 +43,7 @@ export function MatrimonyPlansScreen() {
   );
 
   const onSubscribe = (plan: "GOLD" | "PLATINUM") => {
-    appAlert(`Subscribe to ${plan}`, "You will complete payment in Razorpay (or dev mode if enabled).", [
+    appAlert(`Subscribe to ${plan}`, "You will complete a secure Razorpay payment (UPI / card).", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Continue",
@@ -145,9 +145,9 @@ export function MatrimonyPlansScreen() {
           );
         })}
 
-        <View style={[styles.note, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
-          <Text style={{ color: "#92400E", fontSize: 12, lineHeight: 18 }}>
-            Production: integrate Razorpay UPI/card. Subscriptions and contact payments will use secure checkout.
+        <View style={[styles.note, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
+          <Text style={{ color: "#1E40AF", fontSize: 12, lineHeight: 18 }}>
+            Payments are processed securely via Razorpay (UPI / cards). After payment, your plan activates automatically.
           </Text>
         </View>
       </ScrollView>

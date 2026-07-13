@@ -28,6 +28,7 @@ import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
+import { PlatformBannerStrip, PlatformAnnouncementCard, PlatformHomeAd } from "../../components/platform/PlatformGateOverlay";
 import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
@@ -69,6 +70,8 @@ export function HomeScreen() {
   const commentPostIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList>(null);
   const focusRefreshRef = useRef(false);
+  const retrySummaryRef = useRef(retrySummary);
+  retrySummaryRef.current = retrySummary;
 
   commentPostIdRef.current = commentPost?.id ?? null;
 
@@ -121,11 +124,11 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       if (focusRefreshRef.current) {
-        void retrySummary();
+        void retrySummaryRef.current();
       } else {
         focusRefreshRef.current = true;
       }
-    }, [retrySummary])
+    }, [])
   );
 
   useAppResume(() => {
@@ -427,6 +430,9 @@ export function HomeScreen() {
           onMenuPress={onMenuPress}
         />
       </View>
+      <PlatformBannerStrip />
+      <PlatformAnnouncementCard />
+      <PlatformHomeAd />
 
       <FlatList
         ref={listRef}

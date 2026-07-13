@@ -2,19 +2,10 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
-import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
 import type { ProfileActivityItem } from "../../api/profile.api";
-
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  } catch {
-    return iso;
-  }
-}
+import { timeAgo } from "../../utils/timeAgo";
 
 export type ActivityTab = "my" | "saved" | "liked";
 
@@ -28,11 +19,34 @@ type MyActivityTabsProps = {
   onActivityItemPress?: (postId: number) => void;
 };
 
-const TABS: { id: ActivityTab; label: string }[] = [
-  { id: "my", label: "My Posts" },
-  { id: "saved", label: "Saved" },
-  { id: "liked", label: "Liked" }
+const TABS: {
+  id: ActivityTab;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { id: "my", label: "My Posts", icon: "grid-outline" },
+  { id: "saved", label: "Saved", icon: "bookmark-outline" },
+  { id: "liked", label: "Liked", icon: "heart-outline" }
 ];
+
+function postTypeIcon(postType: string): keyof typeof Ionicons.glyphMap {
+  const t = (postType || "").toUpperCase();
+  if (t.includes("JOB")) return "briefcase-outline";
+  if (t.includes("MARKET")) return "cart-outline";
+  if (t.includes("MATRIMONY") || t.includes("MATCH")) return "heart-outline";
+  if (t.includes("HELP")) return "hand-left-outline";
+  if (t.includes("MEET")) return "people-outline";
+  return "document-text-outline";
+}
+
+function postTypeColor(postType: string): string {
+  const t = (postType || "").toUpperCase();
+  if (t.includes("JOB")) return "#0D9488";
+  if (t.includes("MARKET")) return "#EA580C";
+  if (t.includes("MATRIMONY") || t.includes("MATCH")) return "#E11D48";
+  if (t.includes("HELP")) return "#7C3AED";
+  return "#2563EB";
+}
 
 export function MyActivityTabs({
   activeTab,
@@ -42,162 +56,259 @@ export function MyActivityTabs({
   myPostsContent,
   onActivityItemPress
 }: MyActivityTabsProps) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
+
+  const emptyCopy =
+    activeTab === "saved"
+      ? {
+          title: "Nothing saved yet",
+          body: "Bookmark posts from the feed and find them here.",
+          icon: "bookmark-outline" as const
+        }
+      : activeTab === "liked"
+        ? {
+            title: "No liked posts",
+            body: "Posts you like will show up here for quick access.",
+            icon: "heart-outline" as const
+          }
+        : {
+            title: "No activity yet",
+            body: messages.empty.profileActivity,
+            icon: "document-text-outline" as const
+          };
+
   const s = useMemo(
     () =>
       StyleSheet.create({
         section: { marginBottom: spacing.xl },
-        sectionTitleRow: {
+        header: {
           flexDirection: "row",
           alignItems: "center",
-          marginBottom: spacing.md,
-          gap: spacing.sm
+          justifyContent: "space-between",
+          marginBottom: spacing.md
         },
-        sectionIconWrap: {
-          width: 32,
-          height: 32,
-          borderRadius: radius.sm,
-          backgroundColor: colors.primary + "1A",
+        headerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
+        iconWrap: {
+          width: 36,
+          height: 36,
+          borderRadius: 12,
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
           alignItems: "center",
           justifyContent: "center"
         },
-        sectionTitle: { ...typography.label, color: colors.text },
-        tabRow: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.sm },
-        tab: {
-          paddingVertical: spacing.sm + 2,
-          paddingHorizontal: spacing.lg,
-          borderRadius: radius.full,
-          backgroundColor: colors.surfaceElevated
+        title: { fontSize: 16, fontWeight: "800", color: colors.text },
+        subtitle: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
+        segment: {
+          flexDirection: "row",
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
+          padding: 3,
+          gap: 2,
+          marginBottom: spacing.md
         },
-        tabActive: { backgroundColor: colors.primary },
-        tabPressed: { opacity: 0.9 },
-        tabText: { ...typography.bodySmall, color: colors.textSecondary },
-        tabTextActive: { ...typography.bodySmall, color: colors.white, fontWeight: "600" },
-        card: {
+        segmentBtn: {
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 5,
+          paddingVertical: 9,
+          borderRadius: radius.sm
+        },
+        segmentBtnActive: {
+          backgroundColor: colors.surface,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.06,
+          shadowRadius: 2,
+          elevation: 1
+        },
+        segmentText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
+        segmentTextActive: { color: colors.primary, fontWeight: "700" },
+        list: {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          overflow: "hidden",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2
+          borderWidth: 1,
+          borderColor: colors.border,
+          overflow: "hidden"
         },
-        loader: { padding: spacing.xxl },
-        empty: { alignItems: "center", padding: spacing.xxl + spacing.lg },
-        emptyIconWrap: {
+        loader: { paddingVertical: spacing.xxl },
+        empty: { alignItems: "center", paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg },
+        emptyIcon: {
           width: 72,
           height: 72,
           borderRadius: 36,
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: spacing.lg
+          marginBottom: spacing.md
         },
-        emptyTitle: {
-          ...typography.body,
-          color: colors.text,
-          fontWeight: "600",
-          marginBottom: spacing.xs
-        },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
-          ...typography.bodySmall,
-          color: colors.textMuted,
+          marginTop: spacing.sm,
+          fontSize: 13,
+          lineHeight: 19,
+          color: colors.textSecondary,
           textAlign: "center"
         },
         item: {
           flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md,
           paddingVertical: spacing.md,
-          paddingHorizontal: spacing.lg,
-          borderBottomWidth: 1,
+          paddingHorizontal: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border
         },
         itemLast: { borderBottomWidth: 0 },
-        itemAccent: {
-          width: 4,
-          borderRadius: 2,
-          backgroundColor: colors.primary,
-          marginRight: spacing.md
-        },
-        itemContent: { flex: 1, minWidth: 0 },
-        itemTitle: { ...typography.body, color: colors.text, marginBottom: 4 },
-        itemMeta: {
-          flexDirection: "row",
+        itemPressed: { backgroundColor: colors.surfaceElevated },
+        typeIcon: {
+          width: 44,
+          height: 44,
+          borderRadius: 14,
           alignItems: "center",
-          gap: spacing.sm,
-          flexWrap: "wrap"
+          justifyContent: "center"
         },
-        itemType: { ...typography.caption, color: colors.textSecondary },
-        itemDate: { ...typography.caption, color: colors.textMuted },
-        statusBadge: {
+        itemBody: { flex: 1, minWidth: 0 },
+        itemTitle: {
+          fontSize: 14,
+          fontWeight: "700",
+          color: colors.text,
+          lineHeight: 19
+        },
+        itemMeta: {
+          marginTop: 4,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 6
+        },
+        metaPill: {
           paddingHorizontal: 8,
           paddingVertical: 2,
-          borderRadius: 6,
-          backgroundColor: colors.success + "20"
+          borderRadius: radius.full,
+          backgroundColor: colors.surfaceElevated
         },
-        statusClosed: { backgroundColor: colors.textMuted + "30" },
-        statusText: { ...typography.caption, color: colors.text, fontWeight: "600" }
+        metaPillText: { fontSize: 11, fontWeight: "600", color: colors.textSecondary },
+        statusOpen: {
+          backgroundColor: mode === "dark" ? "#14532D" : "#DCFCE7"
+        },
+        statusClosed: {
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : "#F1F5F9"
+        },
+        statusOpenText: {
+          color: mode === "dark" ? "#86EFAC" : "#15803D"
+        },
+        statusClosedText: { color: colors.textMuted },
+        chevron: { marginLeft: 2 }
       }),
-    [colors]
+    [colors, mode]
   );
 
   return (
     <View style={s.section}>
-      <View style={s.sectionTitleRow}>
-        <View style={s.sectionIconWrap}>
-          <Ionicons name="list-outline" size={18} color={colors.primary} />
+      <View style={s.header}>
+        <View style={s.headerLeft}>
+          <View style={s.iconWrap}>
+            <Ionicons name="pulse-outline" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.title}>My Activity</Text>
+            <Text style={s.subtitle}>Your posts, bookmarks, and likes</Text>
+          </View>
         </View>
-        <Text style={s.sectionTitle}>My Activity</Text>
       </View>
-      <View style={s.tabRow}>
-        {TABS.map((tab) => (
-          <Pressable
-            key={tab.id}
-            style={({ pressed }) => [s.tab, activeTab === tab.id && s.tabActive, pressed && s.tabPressed]}
-            onPress={() => onTabChange(tab.id)}
-          >
-            <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
+
+      <View style={s.segment}>
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              style={[s.segmentBtn, active && s.segmentBtnActive]}
+              onPress={() => onTabChange(tab.id)}
+            >
+              <Ionicons
+                name={tab.icon}
+                size={14}
+                color={active ? colors.primary : colors.textMuted}
+              />
+              <Text style={[s.segmentText, active && s.segmentTextActive]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
+
       {activeTab === "my" && myPostsContent ? (
         myPostsContent
       ) : (
-      <View style={s.card}>
-        {loading ? (
-          <ActivityIndicator size="small" color={colors.primary} style={s.loader} />
-        ) : items.length === 0 ? (
-          <View style={s.empty}>
-            <View style={s.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={40} color={colors.textMuted} />
-            </View>
-            <Text style={s.emptyTitle}>No activity yet</Text>
-            <Text style={s.emptyText}>{messages.empty.profileActivity}</Text>
-          </View>
-        ) : (
-          items.map((item, index) => (
-            <Pressable
-              key={item.postId}
-              style={({ pressed }) => [s.item, index === items.length - 1 && s.itemLast, pressed && { opacity: 0.9 }]}
-              onPress={() => onActivityItemPress?.(item.postId)}
-            >
-              <View style={s.itemAccent} />
-              <View style={s.itemContent}>
-                <Text style={s.itemTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <View style={s.itemMeta}>
-                  <Text style={s.itemType}>{item.postType}</Text>
-                  <Text style={s.itemDate}>{formatDate(item.createdAt)}</Text>
-                  <View style={[s.statusBadge, item.status === "Closed" && s.statusClosed]}>
-                    <Text style={s.statusText}>{item.status}</Text>
-                  </View>
-                </View>
+        <View style={s.list}>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} style={s.loader} />
+          ) : items.length === 0 ? (
+            <View style={s.empty}>
+              <View style={s.emptyIcon}>
+                <Ionicons name={emptyCopy.icon} size={30} color={colors.primary} />
               </View>
-            </Pressable>
-          ))
-        )}
-      </View>
+              <Text style={s.emptyTitle}>{emptyCopy.title}</Text>
+              <Text style={s.emptyText}>{emptyCopy.body}</Text>
+            </View>
+          ) : (
+            items.map((item, index) => {
+              const tint = postTypeColor(item.postType);
+              const closed = item.status === "Closed";
+              return (
+                <Pressable
+                  key={item.postId}
+                  style={({ pressed }) => [
+                    s.item,
+                    index === items.length - 1 && s.itemLast,
+                    pressed && s.itemPressed
+                  ]}
+                  onPress={() => onActivityItemPress?.(item.postId)}
+                >
+                  <View
+                    style={[
+                      s.typeIcon,
+                      { backgroundColor: mode === "dark" ? colors.surfaceElevated : tint + "18" }
+                    ]}
+                  >
+                    <Ionicons name={postTypeIcon(item.postType)} size={20} color={tint} />
+                  </View>
+                  <View style={s.itemBody}>
+                    <Text style={s.itemTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={s.itemMeta}>
+                      <View style={s.metaPill}>
+                        <Text style={s.metaPillText}>{item.postType}</Text>
+                      </View>
+                      <View style={s.metaPill}>
+                        <Text style={s.metaPillText}>{timeAgo(item.createdAt)}</Text>
+                      </View>
+                      <View style={[s.metaPill, closed ? s.statusClosed : s.statusOpen]}>
+                        <Text
+                          style={[
+                            s.metaPillText,
+                            closed ? s.statusClosedText : s.statusOpenText
+                          ]}
+                        >
+                          {item.status}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={colors.textMuted}
+                    style={s.chevron}
+                  />
+                </Pressable>
+              );
+            })
+          )}
+        </View>
       )}
     </View>
   );

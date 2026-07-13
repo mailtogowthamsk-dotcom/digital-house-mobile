@@ -41,7 +41,8 @@
         "NSPhotoLibraryUsageDescription": "Digital House needs access to your photos so you can choose images and videos for posts.",
         "NSMicrophoneUsageDescription": "Digital House may use the microphone when recording video.",
         "NSCameraUsageDescription": "Digital House needs camera access to take photos or videos for posts.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["tez", "phonepe", "paytmmp"]
       },
       "bundleIdentifier": "com.anonymous.digital-house"
     },
@@ -72,9 +73,9 @@
       "eas": {
         "projectId": "defefaa3-71d1-495c-98f8-2489497c65ed"
       },
-      "googleWebClientId": "",
-      "googleIosClientId": "",
-      "googleAndroidClientId": ""
+      "googleWebClientId": "634671733122-hrqk0ndpif1jqccvrrahdsdkhg4jugpk.apps.googleusercontent.com",
+      "googleIosClientId": "634671733122-af85dglc24jc415afv5o758sb8eqhj23.apps.googleusercontent.com",
+      "googleAndroidClientId": "634671733122-mkg5qdh9otdl42c3aet1ttlqau1tfao8.apps.googleusercontent.com"
     },
     "runtimeVersion": "1.0.0",
     "updates": {

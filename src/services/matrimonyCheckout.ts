@@ -8,7 +8,8 @@ import {
   type MatrimonyPaymentPurpose,
   type MatrimonySubscriptionSummary
 } from "../api/matrimony.api";
-import { openRazorpayCheckout, RazorpayUnavailableError } from "./razorpayCheckout";
+import { openRazorpayCheckout } from "./razorpayCheckout";
+import { RazorpayCheckoutCancelledError, RazorpayUnavailableError } from "./razorpayTypes";
 
 export type CheckoutPrefill = { email?: string; contact?: string; name?: string };
 
@@ -34,7 +35,7 @@ export async function checkoutMatrimonySubscription(
     try {
       const { order } = await createMatrimonyPaymentOrder(purpose);
       const payment = await openRazorpayCheckout({
-        keyId: config.keyId,
+        keyId: order.keyId || config.keyId,
         razorpayOrderId: order.razorpayOrderId,
         amountPaise: order.amountPaise,
         description: order.description,
@@ -48,6 +49,7 @@ export async function checkoutMatrimonySubscription(
       if (!res.subscription) throw new Error("Subscription not activated");
       return { subscription: res.subscription, message: res.message };
     } catch (e) {
+      if (e instanceof RazorpayCheckoutCancelledError) throw e;
       if (e instanceof RazorpayUnavailableError && config.devPaymentsAllowed) {
         return devSubscribe(plan);
       }
@@ -72,7 +74,7 @@ export async function checkoutMatrimonyContactReveal(
     try {
       const { order } = await createMatrimonyPaymentOrder("CONTACT_REVEAL", targetUserId);
       const payment = await openRazorpayCheckout({
-        keyId: config.keyId,
+        keyId: order.keyId || config.keyId,
         razorpayOrderId: order.razorpayOrderId,
         amountPaise: order.amountPaise,
         description: order.description,
@@ -88,6 +90,7 @@ export async function checkoutMatrimonyContactReveal(
         message: res.message ?? "Contact revealed."
       };
     } catch (e) {
+      if (e instanceof RazorpayCheckoutCancelledError) throw e;
       if (e instanceof RazorpayUnavailableError && config.devPaymentsAllowed) {
         return devContactReveal(targetUserId);
       }

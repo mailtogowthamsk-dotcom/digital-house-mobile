@@ -1,4 +1,5 @@
-import { api } from "./client";
+import axios from "axios";
+import { api, getAuthErrorMessage } from "./client";
 
 export type MatrimonyHubStatus =
   | "NOT_STARTED"
@@ -368,23 +369,33 @@ export async function withdrawMatrimonyProfile(): Promise<MatrimonyHub> {
 }
 
 export async function getMatrimonyPaymentsConfig(): Promise<MatrimonyPaymentsConfig> {
-  const { data } = await api.get<{ ok: boolean } & MatrimonyPaymentsConfig>(
-    "/matrimony/payments/config"
-  );
-  if (!data?.ok) throw new Error("Could not load payment config");
-  return data;
+  try {
+    const { data } = await api.get<{ ok: boolean } & MatrimonyPaymentsConfig>(
+      "/matrimony/payments/config"
+    );
+    if (!data?.ok) throw new Error("Could not load payment config");
+    return data;
+  } catch (e) {
+    if (!axios.isAxiosError(e) && e instanceof Error) throw e;
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function createMatrimonyPaymentOrder(
   purpose: MatrimonyPaymentPurpose,
   targetUserId?: number
 ): Promise<{ order: MatrimonyPaymentOrderPayload }> {
-  const { data } = await api.post<{ ok: boolean; order: MatrimonyPaymentOrderPayload }>(
-    "/matrimony/payments/orders",
-    { purpose, ...(targetUserId != null ? { targetUserId } : {}) }
-  );
-  if (!data?.ok || !data.order) throw new Error("Could not create payment order");
-  return { order: data.order };
+  try {
+    const { data } = await api.post<{ ok: boolean; order: MatrimonyPaymentOrderPayload }>(
+      "/matrimony/payments/orders",
+      { purpose, ...(targetUserId != null ? { targetUserId } : {}) }
+    );
+    if (!data?.ok || !data.order) throw new Error("Could not create payment order");
+    return { order: data.order };
+  } catch (e) {
+    if (!axios.isAxiosError(e) && e instanceof Error) throw e;
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function verifyMatrimonyPayment(body: {
@@ -398,16 +409,21 @@ export async function verifyMatrimonyPayment(body: {
   contact?: { mobile: string | null };
   message?: string;
 }> {
-  const { data } = await api.post<{
-    ok: boolean;
-    fulfilled: boolean;
-    purpose: MatrimonyPaymentPurpose;
-    subscription?: MatrimonySubscriptionSummary;
-    contact?: { mobile: string | null };
-    message?: string;
-  }>("/matrimony/payments/verify", body);
-  if (!data?.ok) throw new Error("Payment verification failed");
-  return data;
+  try {
+    const { data } = await api.post<{
+      ok: boolean;
+      fulfilled: boolean;
+      purpose: MatrimonyPaymentPurpose;
+      subscription?: MatrimonySubscriptionSummary;
+      contact?: { mobile: string | null };
+      message?: string;
+    }>("/matrimony/payments/verify", body);
+    if (!data?.ok) throw new Error("Payment verification failed");
+    return data;
+  } catch (e) {
+    if (!axios.isAxiosError(e) && e instanceof Error) throw e;
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function getMatrimonySubscription(): Promise<{

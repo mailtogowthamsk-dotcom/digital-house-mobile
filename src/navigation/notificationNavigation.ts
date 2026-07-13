@@ -53,6 +53,15 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
     case "OPEN_MATRIMONY_VIEWS":
       navigation.navigate("MatrimonyViews");
       break;
+    case "OPEN_JOBS":
+      navigation.navigate("JobsHome");
+      break;
+    case "OPEN_MARKETPLACE":
+      navigation.navigate("MarketplaceHome");
+      break;
+    case "OPEN_HELPING_HANDS":
+      navigation.navigate("HelpingHandsHome");
+      break;
     case "OPEN_MESSAGES":
       navigation.navigate("Messages");
       break;

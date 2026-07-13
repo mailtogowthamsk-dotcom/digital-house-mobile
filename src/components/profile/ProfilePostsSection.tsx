@@ -1,8 +1,15 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Pressable, useWindowDimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+  useWindowDimensions
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
-import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { ProfilePostGridCard } from "./ProfilePostGridCard";
@@ -30,11 +37,12 @@ export function ProfilePostsSection({
   onPostPress,
   onDeleted
 }: ProfilePostsSectionProps) {
-  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
+  const { colors, mode } = useTheme();
   const { width } = useWindowDimensions();
   const gap = spacing.md;
-  const horizontalPad = spacing.xl;
-  const cardWidth = (width - horizontalPad * 2 - gap) / 2;
+  /** Parent Profile list already pads with spacing.xl */
+  const cardWidth = (width - spacing.xl * 2 - gap) / 2;
 
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -43,49 +51,77 @@ export function ProfilePostsSection({
   const s = useMemo(
     () =>
       StyleSheet.create({
-        section: { marginBottom: spacing.xl },
-        sectionTitleRow: {
+        section: { marginBottom: spacing.sm },
+        countRow: {
           flexDirection: "row",
           alignItems: "center",
-          marginBottom: spacing.md,
-          gap: spacing.sm
+          justifyContent: "space-between",
+          marginBottom: spacing.md
         },
-        sectionIconWrap: {
-          width: 32,
-          height: 32,
-          borderRadius: radius.sm,
-          backgroundColor: colors.primary + "1A",
-          alignItems: "center",
-          justifyContent: "center"
-        },
-        sectionTitle: { ...typography.label, color: colors.text },
+        countText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
+        createLink: { fontSize: 12, fontWeight: "700", color: colors.primary },
         grid: { flexDirection: "row", flexWrap: "wrap", gap },
         gridItem: { width: cardWidth },
         loader: { paddingVertical: spacing.xxl, alignItems: "center" },
-        empty: { alignItems: "center", padding: spacing.xxl },
-        emptyIconWrap: {
+        empty: {
+          alignItems: "center",
+          paddingVertical: spacing.xxl,
+          paddingHorizontal: spacing.lg,
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        emptyIcon: {
           width: 72,
           height: 72,
           borderRadius: 36,
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: spacing.lg
+          marginBottom: spacing.md
         },
-        emptyTitle: { ...typography.body, color: colors.text, fontWeight: "600", marginBottom: spacing.xs },
-        emptyText: { ...typography.bodySmall, color: colors.textMuted, textAlign: "center" },
-        errorText: { ...typography.bodySmall, color: colors.error, textAlign: "center", marginBottom: spacing.md },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+        emptyText: {
+          marginTop: spacing.sm,
+          fontSize: 13,
+          lineHeight: 19,
+          color: colors.textSecondary,
+          textAlign: "center"
+        },
+        createBtn: {
+          marginTop: spacing.lg,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          backgroundColor: colors.primary,
+          paddingVertical: 12,
+          paddingHorizontal: spacing.lg,
+          borderRadius: radius.md
+        },
+        createBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
+        errorText: {
+          fontSize: 13,
+          color: colors.error,
+          textAlign: "center",
+          marginBottom: spacing.md
+        },
         retryBtn: {
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.lg,
           backgroundColor: colors.primary,
           borderRadius: radius.md
         },
-        retryText: { ...typography.buttonSmall, color: colors.white },
-        footerLoader: { paddingVertical: spacing.lg },
-        deleteError: { ...typography.caption, color: colors.error, marginTop: spacing.sm, textAlign: "center" }
+        retryText: { fontSize: 13, fontWeight: "700", color: colors.white },
+        deleteError: {
+          fontSize: 12,
+          color: colors.error,
+          marginBottom: spacing.sm,
+          textAlign: "center"
+        },
+        footerLoader: { paddingVertical: spacing.lg }
       }),
-    [colors, cardWidth, gap]
+    [colors, mode, cardWidth, gap]
   );
 
   const openMenu = useCallback((postId: number) => {
@@ -117,15 +153,11 @@ export function ProfilePostsSection({
     }
   }, [deleteTarget, onDeleted, onRetry]);
 
+  const goCreate = () => navigation.navigate("CreatePost");
+
   if (loading && items.length === 0) {
     return (
       <View style={s.section}>
-        <View style={s.sectionTitleRow}>
-          <View style={s.sectionIconWrap}>
-            <Ionicons name="grid-outline" size={18} color={colors.primary} />
-          </View>
-          <Text style={s.sectionTitle}>My Posts</Text>
-        </View>
         <ActivityIndicator size="small" color={colors.primary} style={s.loader} />
       </View>
     );
@@ -134,12 +166,6 @@ export function ProfilePostsSection({
   if (error && items.length === 0) {
     return (
       <View style={s.section}>
-        <View style={s.sectionTitleRow}>
-          <View style={s.sectionIconWrap}>
-            <Ionicons name="grid-outline" size={18} color={colors.primary} />
-          </View>
-          <Text style={s.sectionTitle}>My Posts</Text>
-        </View>
         <View style={s.empty}>
           <Text style={s.errorText}>{error.message}</Text>
           <Pressable style={s.retryBtn} onPress={onRetry}>
@@ -153,18 +179,18 @@ export function ProfilePostsSection({
   if (!loading && items.length === 0) {
     return (
       <View style={s.section}>
-        <View style={s.sectionTitleRow}>
-          <View style={s.sectionIconWrap}>
-            <Ionicons name="grid-outline" size={18} color={colors.primary} />
-          </View>
-          <Text style={s.sectionTitle}>My Posts</Text>
-        </View>
         <View style={s.empty}>
-          <View style={s.emptyIconWrap}>
-            <Ionicons name="images-outline" size={40} color={colors.textMuted} />
+          <View style={s.emptyIcon}>
+            <Ionicons name="images-outline" size={30} color={colors.primary} />
           </View>
           <Text style={s.emptyTitle}>No posts yet</Text>
-          <Text style={s.emptyText}>Create a post from the home menu to see it here.</Text>
+          <Text style={s.emptyText}>
+            Share an update, job, or listing with the community — it will appear here.
+          </Text>
+          <Pressable style={s.createBtn} onPress={goCreate}>
+            <Ionicons name="add-circle" size={18} color={colors.white} />
+            <Text style={s.createBtnText}>Create post</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -172,11 +198,13 @@ export function ProfilePostsSection({
 
   return (
     <View style={s.section}>
-      <View style={s.sectionTitleRow}>
-        <View style={s.sectionIconWrap}>
-          <Ionicons name="grid-outline" size={18} color={colors.primary} />
-        </View>
-        <Text style={s.sectionTitle}>My Posts</Text>
+      <View style={s.countRow}>
+        <Text style={s.countText}>
+          {items.length} {items.length === 1 ? "post" : "posts"}
+        </Text>
+        <Pressable onPress={goCreate} hitSlop={8}>
+          <Text style={s.createLink}>+ New post</Text>
+        </Pressable>
       </View>
       {deleteError ? <Text style={s.deleteError}>{deleteError}</Text> : null}
       <View style={s.grid}>

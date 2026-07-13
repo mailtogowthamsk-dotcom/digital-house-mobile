@@ -46,6 +46,29 @@ export type FeedItem = {
   savedByMe?: boolean;
   engagementScore?: number;
   isTrending?: boolean;
+  jobStatus?: string | null;
+  jobCompany?: string | null;
+  jobLocation?: string | null;
+  jobEmploymentType?: string | null;
+  jobSalaryMin?: number | null;
+  jobSalaryMax?: number | null;
+  marketplaceStatus?: string | null;
+  marketplaceIntent?: string | null;
+  marketplaceCategory?: string | null;
+  marketplaceCondition?: string | null;
+  marketplacePrice?: number | null;
+  marketplaceNegotiable?: boolean;
+  marketplaceDistrict?: string | null;
+  marketplaceExpiresAt?: string | null;
+  marketplaceGallery?: string[];
+  marketplaceFeatured?: boolean;
+  marketplacePhotoCount?: number;
+  helpStatus?: string | null;
+  helpCategory?: string | null;
+  helpUrgency?: string | null;
+  helpLocation?: string | null;
+  helpGallery?: string[];
+  helpHelperCount?: number;
 };
 
 export type FeedQueryParams = {
@@ -53,6 +76,31 @@ export type FeedQueryParams = {
   limit: number;
   cursor?: number;
   sort?: "recent" | "popular";
+  postType?: string;
+  jobStatus?: "open" | "closed" | "all";
+  q?: string;
+  jobLocation?: string;
+  jobEmploymentType?: string;
+  marketplaceStatus?:
+    | "live"
+    | "pending"
+    | "changes"
+    | "rejected"
+    | "sold"
+    | "hidden"
+    | "expired"
+    | "archived"
+    | "all";
+  marketplaceCategory?: string;
+  marketplaceDistrict?: string;
+  marketplaceIntent?: string;
+  marketplaceCondition?: string;
+  marketplacePriceMin?: number;
+  marketplacePriceMax?: number;
+  helpCategory?: string;
+  helpStatus?: "open" | "in_progress" | "completed" | "cancelled" | "all";
+  mine?: boolean;
+  saved?: boolean;
 };
 
 export type FeedResponse = {
@@ -125,6 +173,28 @@ export async function getFeed(params: FeedQueryParams): Promise<FeedResponse> {
     params: {
       limit: params.limit,
       sort: params.sort ?? "recent",
+      ...(params.postType ? { postType: params.postType } : {}),
+      ...(params.jobStatus ? { jobStatus: params.jobStatus } : {}),
+      ...(params.q?.trim() ? { q: params.q.trim() } : {}),
+      ...(params.jobLocation?.trim() ? { jobLocation: params.jobLocation.trim() } : {}),
+      ...(params.jobEmploymentType ? { jobEmploymentType: params.jobEmploymentType } : {}),
+      ...(params.marketplaceStatus ? { marketplaceStatus: params.marketplaceStatus } : {}),
+      ...(params.marketplaceCategory ? { marketplaceCategory: params.marketplaceCategory } : {}),
+      ...(params.marketplaceDistrict?.trim()
+        ? { marketplaceDistrict: params.marketplaceDistrict.trim() }
+        : {}),
+      ...(params.marketplaceIntent ? { marketplaceIntent: params.marketplaceIntent } : {}),
+      ...(params.marketplaceCondition ? { marketplaceCondition: params.marketplaceCondition } : {}),
+      ...(params.marketplacePriceMin != null
+        ? { marketplacePriceMin: params.marketplacePriceMin }
+        : {}),
+      ...(params.marketplacePriceMax != null
+        ? { marketplacePriceMax: params.marketplacePriceMax }
+        : {}),
+      ...(params.helpCategory ? { helpCategory: params.helpCategory } : {}),
+      ...(params.helpStatus ? { helpStatus: params.helpStatus } : {}),
+      ...(params.mine ? { mine: "1" } : {}),
+      ...(params.saved ? { saved: "1" } : {}),
       ...(params.cursor != null ? { cursor: params.cursor } : { page: params.page ?? 1 })
     }
   });

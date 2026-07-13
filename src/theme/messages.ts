@@ -6,7 +6,7 @@
 export const messages = {
   // Empty states
   empty: {
-    profileActivity: "Your posts, saved items, and likes will appear here.",
+    profileActivity: "Your saved and liked posts will appear in these tabs.",
     feed: "When your community shares posts, announcements, or events, they'll show up here.",
     highlights: "No highlights right now.",
     generic: "Nothing here yet."

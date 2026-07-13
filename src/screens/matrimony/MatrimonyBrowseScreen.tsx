@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import { MatrimonyMatchCard } from "../../components/matrimony/MatrimonyMatchCar
 import { MatrimonyQuickFilterBar } from "../../components/matrimony/MatrimonyQuickFilterBar";
 import { buildDiscoverChips, type QuickBrowseFilter } from "../../components/matrimony/matrimonyUi";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
+import { mergeById } from "../../utils/mergeById";
 
 const PAGE_SIZE = 20;
 
@@ -41,6 +42,7 @@ export function MatrimonyBrowseScreen() {
   const [items, setItems] = useState<DiscoverCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -72,15 +74,18 @@ export function MatrimonyBrowseScreen() {
 
   const load = useCallback(
     async (pageNum = 1, append = false, filterState?: BrowseFilterState) => {
-      const active = effectiveFilters(filterState);
-      if (append) setLoadingMore(true);
-      else {
+      if (append) {
+        if (loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+      } else {
         setLoading(true);
         setError(null);
       }
+      const active = effectiveFilters(filterState);
       try {
         const res = await discoverMatrimonyProfiles(toDiscoverParams(active, pageNum, PAGE_SIZE));
-        setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+        setItems((prev) => (append ? mergeById(prev, res.items) : res.items));
         setTotal(res.total);
         setPage(res.page);
         setEmptyHint(res.emptyHint ?? null);
@@ -91,6 +96,7 @@ export function MatrimonyBrowseScreen() {
         }
       } finally {
         setLoading(false);
+        loadingMoreRef.current = false;
         setLoadingMore(false);
       }
     },
@@ -207,7 +213,7 @@ export function MatrimonyBrowseScreen() {
             <RefreshControl refreshing={loading && !loadingMore} onRefresh={() => load(1, false)} />
           }
           onEndReached={() => {
-            if (!loadingMore && hasMore && !loading) void load(page + 1, true);
+            if (!loadingMoreRef.current && hasMore && !loading) void load(page + 1, true);
           }}
           onEndReachedThreshold={0.35}
           ListEmptyComponent={

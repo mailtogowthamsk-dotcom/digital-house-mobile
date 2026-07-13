@@ -42,6 +42,7 @@ export function MessagesHubScreen() {
 
   const [meId, setMeId] = useState<number | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [folder, setFolder] = useState<"inbox" | "archived">("inbox");
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [threadsError, setThreadsError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<SelectedChat | null>(null);
@@ -105,12 +106,19 @@ export function MessagesHubScreen() {
 
   const threadsLoadGenRef = useRef(0);
 
-  const loadThreads = useCallback(async () => {
+  const folderRef = useRef(folder);
+  folderRef.current = folder;
+
+  const loadThreads = useCallback(async (activeFolder?: "inbox" | "archived") => {
+    const folderToLoad = activeFolder ?? folderRef.current;
     const gen = ++threadsLoadGenRef.current;
     setThreadsError(null);
     setLoadingThreads(true);
     try {
-      const data = await listThreads();
+      const data =
+        folderToLoad === "archived"
+          ? await listThreads({ archivedOnly: true })
+          : await listThreads();
       if (gen !== threadsLoadGenRef.current) return;
       setThreads(data);
     } catch (e: unknown) {
@@ -123,6 +131,16 @@ export function MessagesHubScreen() {
       }
     }
   }, []);
+
+  const onFolderChange = useCallback(
+    (next: "inbox" | "archived") => {
+      setFolder(next);
+      setSelectedUser(null);
+      setSelectedThreadUserId(null);
+      void loadThreads(next);
+    },
+    [loadThreads]
+  );
 
   useEffect(() => {
     loadMe().catch(() => {});
@@ -274,7 +292,13 @@ export function MessagesHubScreen() {
           }
           setThreads((prev) => {
             const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
-            if (needsFullReload) loadThreads().catch(() => {});
+            // Don't pull archived chats back into Inbox via socket reload
+            if (needsFullReload && folderRef.current === "inbox") {
+              /* stay on current inbox list — full reload would still exclude archived */
+              loadThreads("inbox").catch(() => {});
+            } else if (needsFullReload) {
+              loadThreads().catch(() => {});
+            }
             if (layout.isSplit && selectedUser?.id === otherId) {
               return clearThreadUnread(patched, otherId);
             }
@@ -439,6 +463,7 @@ export function MessagesHubScreen() {
           unreadCount={item.unreadCount}
           chatLanes={item.chatLanes}
           muted={item.muted}
+          archived={item.archived}
           onPress={() => openThread(item)}
           colors={threadColors}
         />
@@ -461,6 +486,8 @@ export function MessagesHubScreen() {
       threads={threads}
       renderThread={renderThread}
       keyThread={keyThread}
+      folder={folder}
+      onFolderChange={onFolderChange}
     />
   );
 

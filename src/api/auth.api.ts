@@ -32,10 +32,19 @@ export async function verifyOtp(email: string, otp: string) {
     email: email.trim().toLowerCase(),
     otp: otp.trim()
   });
-  return data as {
-    ok: boolean;
-    accessToken: string;
-    user: { id: number; fullName: string; email: string; status: string };
+  const payload = data as {
+    ok?: boolean;
+    accessToken?: string;
+    user?: MeUser;
+    message?: string;
+  };
+  if (!payload?.accessToken || !payload?.user) {
+    throw new Error(payload?.message || "OTP verification failed. Please try again.");
+  }
+  return {
+    ok: true as const,
+    accessToken: payload.accessToken,
+    user: payload.user
   };
 }
 

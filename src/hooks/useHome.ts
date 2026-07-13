@@ -179,18 +179,23 @@ export function useHome() {
     if (feedLoadingMore || feedLoading) return;
     if (feedItems.length >= feedTotal && !feedNextCursor) return;
     if (feedSort === "recent" && feedNextCursor) {
-      fetchFeed(true, feedNextCursor);
-    } else if (feedItems.length < feedTotal) {
+      void fetchFeed(true, feedNextCursor);
+      return;
+    }
+    if (feedItems.length < feedTotal) {
       const page = Math.floor(feedItems.length / FEED_PAGE_SIZE) + 1;
-      void getFeed({ page, limit: FEED_PAGE_SIZE, sort: feedSort }).then((data) => {
-        setFeedTotal(data.total);
-        setFeedNextCursor(data.nextCursor ?? null);
-        const mapped = data.items.map(feedItemToPostCard);
-        setFeedItems((prev) => {
-          const ids = new Set(prev.map((p) => p.id));
-          return [...prev, ...mapped.filter((p) => !ids.has(p.id))];
-        });
-      });
+      setFeedLoadingMore(true);
+      void getFeed({ page, limit: FEED_PAGE_SIZE, sort: feedSort })
+        .then((data) => {
+          setFeedTotal(data.total);
+          setFeedNextCursor(data.nextCursor ?? null);
+          const mapped = data.items.map(feedItemToPostCard);
+          setFeedItems((prev) => {
+            const ids = new Set(prev.map((p) => p.id));
+            return [...prev, ...mapped.filter((p) => !ids.has(p.id))];
+          });
+        })
+        .finally(() => setFeedLoadingMore(false));
     }
   }, [
     feedLoadingMore,
@@ -252,6 +257,12 @@ export function useHome() {
     [fetchFeed]
   );
 
+  const retrySummary = useCallback(
+    () => fetchSummary({ background: summaryRef.current != null }),
+    [fetchSummary]
+  );
+  const retryFeed = useCallback(() => fetchFeed(false), [fetchFeed]);
+
   const state: HomeState = {
     summary,
     summaryLoading,
@@ -276,8 +287,8 @@ export function useHome() {
     removePost,
     prependFeedPost,
     setFeedSortMode,
-    retrySummary: () => fetchSummary({ background: summaryRef.current != null }),
-    retryFeed: () => fetchFeed(false),
+    retrySummary,
+    retryFeed,
     retryHighlights: fetchHighlights
   };
 }

@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import type { Socket } from "socket.io-client";
+import { useEffect, useRef } from "react";
 import { getSocket } from "../realtime/socket";
 
 export type FeedRealtimeHandlers = {
@@ -21,35 +20,45 @@ export type FeedRealtimeHandlers = {
 
 /** Subscribe to community feed socket events (likes, comments, saves). */
 export function useFeedRealtime(handlers: FeedRealtimeHandlers): void {
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
   useEffect(() => {
-    let socket: Socket | null = null;
+    let disposed = false;
     let unsub: (() => void) | null = null;
 
-    void getSocket().then((s) => {
-      socket = s;
-      const likeHandler = (p: Parameters<NonNullable<FeedRealtimeHandlers["onLike"]>>[0]) =>
-        handlers.onLike?.(p);
-      const commentHandler = (p: Parameters<NonNullable<FeedRealtimeHandlers["onComment"]>>[0]) =>
-        handlers.onComment?.(p);
-      const saveHandler = (p: Parameters<NonNullable<FeedRealtimeHandlers["onSave"]>>[0]) =>
-        handlers.onSave?.(p);
-      const newPostHandler = (p: { postId: number }) => handlers.onNewPost?.(p);
+    void getSocket()
+      .then((s) => {
+        if (disposed) return;
 
-      s.on("feed:like", likeHandler);
-      s.on("feed:comment", commentHandler);
-      s.on("feed:save", saveHandler);
-      s.on("feed:new_post", newPostHandler);
+        const likeHandler = (p: Parameters<NonNullable<FeedRealtimeHandlers["onLike"]>>[0]) =>
+          handlersRef.current.onLike?.(p);
+        const commentHandler = (
+          p: Parameters<NonNullable<FeedRealtimeHandlers["onComment"]>>[0]
+        ) => handlersRef.current.onComment?.(p);
+        const saveHandler = (p: Parameters<NonNullable<FeedRealtimeHandlers["onSave"]>>[0]) =>
+          handlersRef.current.onSave?.(p);
+        const newPostHandler = (p: { postId: number }) => handlersRef.current.onNewPost?.(p);
 
-      unsub = () => {
-        s.off("feed:like", likeHandler);
-        s.off("feed:comment", commentHandler);
-        s.off("feed:save", saveHandler);
-        s.off("feed:new_post", newPostHandler);
-      };
-    });
+        s.on("feed:like", likeHandler);
+        s.on("feed:comment", commentHandler);
+        s.on("feed:save", saveHandler);
+        s.on("feed:new_post", newPostHandler);
+
+        unsub = () => {
+          s.off("feed:like", likeHandler);
+          s.off("feed:comment", commentHandler);
+          s.off("feed:save", saveHandler);
+          s.off("feed:new_post", newPostHandler);
+        };
+      })
+      .catch(() => {
+        /* offline — feed still works without realtime */
+      });
 
     return () => {
+      disposed = true;
       unsub?.();
     };
-  }, [handlers]);
+  }, []);
 }
