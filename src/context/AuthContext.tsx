@@ -38,13 +38,26 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   initialRoute: RootAuthRoute;
-  /** Bumps on sign-in / sign-out so the root navigator remounts reliably */
+  /**
+   * Bumps whenever the auth gate flips (signed-out ↔ signed-in) or the post-login
+   * destination changes. AppNavigation remounts NavigationContainer on this key.
+   */
   sessionEpoch: number;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
+function normalizeAuthUser(user: MeUser): MeUser {
+  return {
+    ...user,
+    createdAt: user.createdAt ?? new Date().toISOString(),
+    profileComplete: user.profileComplete !== false,
+    needsUsernameSetup:
+      user.needsUsernameSetup ?? (user.status === "APPROVED" && !user.username)
+  };
+}
+
+export function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
   if (signedOut || !user) return "Landing";
   if (user.profileComplete === false) return "GoogleCompleteProfile";
   if (user.status === "APPROVED" && user.needsUsernameSetup) return "SetUsername";
@@ -63,6 +76,10 @@ function statusForUser(user: MeUser | null, signedOut: boolean): AuthStatus {
   return "signedOut";
 }
 
+function isSignedInStatus(status: AuthStatus): boolean {
+  return status === "home" || status === "pending" || status === "rejected";
+}
+
 async function prewarmSocket() {
   try {
     await getSocket();
@@ -77,18 +94,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sessionEpoch, setSessionEpoch] = useState(0);
   const bootstrapDone = useRef(false);
   const restoringRef = useRef(false);
+  /** Blocks restore/401 sign-out while OTP/Google sign-in is committing. */
+  const signInLockRef = useRef(false);
+  const statusRef = useRef<AuthStatus>("loading");
   const userRef = useRef<MeUser | null>(null);
   userRef.current = user;
+  statusRef.current = status;
 
   const applySession = useCallback((nextUser: MeUser | null, signedOut: boolean) => {
-    setUser(nextUser);
-    setStatus(statusForUser(nextUser, signedOut));
-    if (!signedOut && nextUser?.status === "APPROVED") {
+    const normalized = nextUser ? normalizeAuthUser(nextUser) : null;
+    const nextStatus = statusForUser(normalized, signedOut);
+    setUser(normalized);
+    setStatus(nextStatus);
+    statusRef.current = nextStatus;
+    userRef.current = normalized;
+    if (!signedOut && normalized?.status === "APPROVED") {
       prewarmSocket();
     }
   }, []);
 
+  const bumpSessionEpoch = useCallback(() => {
+    setSessionEpoch((n) => n + 1);
+  }, []);
+
   const restoreSession = useCallback(async () => {
+    if (signInLockRef.current) return;
     if (restoringRef.current) return;
     restoringRef.current = true;
     setAllowAutoClearOn401(false);
@@ -119,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setUserSnapshot(me);
       applySession(me, false);
     } catch (err) {
+      if (signInLockRef.current) return;
       const httpStatus = getErrorStatus(err);
       if (httpStatus === 401) {
         const msg =
@@ -133,6 +164,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
         }
+        // Never wipe a session that was just established in-memory by signIn.
+        if (isSignedInStatus(statusRef.current) && userRef.current) {
+          applySession(userRef.current, false);
+          return;
+        }
         disconnectSocket();
         await clearToken();
         await clearUserSnapshot();
@@ -141,6 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const snapshot = await getUserSnapshot();
         if (snapshot) {
           applySession(snapshot, false);
+        } else if (userRef.current) {
+          applySession(userRef.current, false);
         } else {
           disconnectSocket();
           await clearToken();
@@ -172,10 +210,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     registerAuthSignOut(async () => {
+      if (signInLockRef.current) return;
       disconnectSocket();
       await clearToken();
       await clearUserSnapshot();
+      clearWelcomeSession();
       applySession(null, true);
+      bumpSessionEpoch();
     });
     return () => {
       registerAuthSignOut(async () => {
@@ -183,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await clearUserSnapshot();
       });
     };
-  }, [applySession]);
+  }, [applySession, bumpSessionEpoch]);
 
   useEffect(() => {
     let resumeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -191,7 +232,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (next === "active" && bootstrapDone.current && status === "home") {
         if (resumeTimer) clearTimeout(resumeTimer);
         resumeTimer = setTimeout(() => {
-          restoreSession().catch(() => {});
+          if (!signInLockRef.current) {
+            restoreSession().catch(() => {});
+          }
         }, 400);
       }
     };
@@ -202,18 +245,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [restoreSession, status]);
 
+  /**
+   * Persist token + user and flip auth status so AppNavigation remounts into the
+   * authenticated tree. Soft /me refresh must not use restoreSession (that can
+   * race and leave UI on OtpVerify while storage already has a valid session).
+   */
   const signIn = useCallback(
     async (accessToken: string, userFromApi: MeUser) => {
-      beginWelcomeSession();
-      await setToken(accessToken);
-      await setUserSnapshot(userFromApi);
-      applySession(userFromApi, false);
-      setSessionEpoch((n) => n + 1);
+      signInLockRef.current = true;
+      setAllowAutoClearOn401(false);
+      try {
+        const normalized = normalizeAuthUser(userFromApi);
+        if (!normalized.status) {
+          throw new Error("Login succeeded but user status is missing. Please try again.");
+        }
+
+        beginWelcomeSession();
+        await setToken(accessToken);
+        await setUserSnapshot(normalized);
+        applySession(normalized, false);
+        bumpSessionEpoch();
+
+        // Soft refresh profile in background — never clear the session on failure.
+        void (async () => {
+          try {
+            const me = await getMe();
+            if (signInLockRef.current) {
+              // Still in sign-in commit window; apply quietly.
+              await setUserSnapshot(me);
+              applySession(me, false);
+            } else if (isSignedInStatus(statusRef.current)) {
+              await setUserSnapshot(me);
+              applySession(me, false);
+            }
+          } catch {
+            /* keep the verified OTP/Google session */
+          }
+        })();
+      } finally {
+        // Keep lock briefly so concurrent restore/401 cannot undo this commit.
+        setTimeout(() => {
+          signInLockRef.current = false;
+          setAllowAutoClearOn401(true);
+        }, 800);
+      }
     },
-    [applySession]
+    [applySession, bumpSessionEpoch]
   );
 
   const signOut = useCallback(async () => {
+    signInLockRef.current = false;
     setAllowAutoClearOn401(false);
     try {
       disconnectSocket();
@@ -221,11 +302,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearToken();
       await clearUserSnapshot();
       applySession(null, true);
-      setSessionEpoch((n) => n + 1);
+      bumpSessionEpoch();
     } finally {
       setAllowAutoClearOn401(true);
     }
-  }, [applySession]);
+  }, [applySession, bumpSessionEpoch]);
 
   const refreshSession = useCallback(async () => {
     await restoreSession();

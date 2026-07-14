@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef, memo } from "react";
-import { Modal, View, Text, StyleSheet, Pressable, TextInput, FlatList, ActivityIndicator, Platform, Keyboard, KeyboardAvoidingView, Dimensions } from "react-native";
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  FlatList,
+  ActivityIndicator,
+  Platform,
+  Keyboard,
+  KeyboardAvoidingView,
+  useWindowDimensions
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
@@ -182,14 +195,20 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const loadGenRef = useRef(0);
   const showInitialSpinnerRef = useRef(true);
+  const { height: windowHeight } = useWindowDimensions();
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const onShow = Keyboard.addListener(showEvent, (e) => {
-      const height = e.endCoordinates?.height ?? 0;
-      setKeyboardHeight(height);
+      // Prefer height; fall back to screen geometry for odd Android OEM reports.
+      const fromHeight = e.endCoordinates?.height ?? 0;
+      const fromScreen =
+        typeof e.endCoordinates?.screenY === "number"
+          ? Math.max(0, windowHeight - e.endCoordinates.screenY)
+          : 0;
+      setKeyboardHeight(Math.max(fromHeight, fromScreen));
     });
     const onHide = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
@@ -199,7 +218,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
       onShow.remove();
       onHide.remove();
     };
-  }, []);
+  }, [windowHeight]);
 
   const fetchComments = useCallback(
     async (sortMode: "newest" | "top", options?: { silent?: boolean }) => {
@@ -328,12 +347,18 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     [handleReply, handleEdit, handleDelete]
   );
 
-  const windowHeight = Dimensions.get("window").height;
   const keyboardOpen = keyboardHeight > 0;
-  const sheetHeight = keyboardOpen
+  /**
+   * iOS: KeyboardAvoidingView lifts the sheet; shrink height to fit above the keyboard.
+   * Android Modals are not lifted by KAV — we must marginBottom by keyboardHeight so the
+   * composer stays above the keyboard (shrinking height alone leaves it bottom-anchored
+   * under the keys).
+   */
+  const androidKeyboardLift = Platform.OS === "android" && keyboardOpen ? keyboardHeight : 0;
+  const availableHeight = keyboardOpen
     ? Math.max(windowHeight - keyboardHeight - insets.top - 8, 260)
     : Math.min(windowHeight * 0.78, 620);
-
+  const sheetHeight = availableHeight;
   const composerBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
 
   const s = useMemo(
@@ -507,7 +532,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ width: "100%" }}
+          style={{ width: "100%", marginBottom: androidKeyboardLift }}
           keyboardVerticalOffset={0}
         >
           <View style={[s.sheet, { height: sheetHeight }]}>

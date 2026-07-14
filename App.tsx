@@ -166,9 +166,20 @@ function AppNavigation() {
     return <AuthSplash />;
   }
 
+  /**
+   * Remount the ENTIRE NavigationContainer when the auth gate flips
+   * (signed-out ↔ signed-in). Remounting only StackNavigator inside a sticky
+   * container left users stuck on OtpVerify after a successful OTP verify,
+   * even though the token was already saved (cold start then looked "logged in").
+   */
+  const navKey =
+    status === "signedOut"
+      ? `auth:${sessionEpoch}`
+      : `app:${sessionEpoch}:${initialRoute}`;
+
   return (
-    <NavigationContainer ref={navigationRef} linking={rootLinking as any}>
-      <StackNavigator key={`${sessionEpoch}:${initialRoute}`} initialRoute={initialRoute} />
+    <NavigationContainer key={navKey} ref={navigationRef} linking={rootLinking as any}>
+      <StackNavigator initialRoute={initialRoute} />
       <PushNotificationBootstrap />
       <PlatformGateOverlay />
     </NavigationContainer>

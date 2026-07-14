@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,11 @@ import {
   Platform,
   ScrollView,
   Image,
-  Dimensions,
   ActivityIndicator,
   Keyboard,
   TextInput,
-  StatusBar
+  StatusBar,
+  useWindowDimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp } from "../../api/auth.api";
@@ -21,18 +21,40 @@ import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
-import type { MeUser } from "../../api/auth.api";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
 const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
 const OTP_LENGTH = 6;
-const BOX_SIZE = 48;
-const BOX_GAP = 10;
+
+/** Fit 6 OTP cells + gaps inside the white card on any phone width. */
+function computeOtpLayout(screenWidth: number) {
+  const screenPad = spacing.xl * 2;
+  const cardPad = spacing.lg * 2; // modest horizontal card padding for narrow Androids
+  const available = Math.max(240, screenWidth - screenPad - cardPad);
+  const gaps = OTP_LENGTH - 1;
+  const maxBox = 52;
+  const minBox = 36;
+  let gap = 10;
+  let box = Math.floor((available - gaps * gap) / OTP_LENGTH);
+
+  if (box > maxBox) {
+    box = maxBox;
+    gap = Math.min(12, Math.floor((available - box * OTP_LENGTH) / gaps));
+  } else if (box < minBox) {
+    gap = Math.max(4, Math.floor((available - minBox * OTP_LENGTH) / gaps));
+    box = Math.max(minBox, Math.floor((available - gaps * gap) / OTP_LENGTH));
+  }
+
+  gap = Math.max(4, Math.min(12, gap));
+  box = Math.max(minBox, Math.min(maxBox, box));
+  return { box, gap, digitSize: box >= 44 ? 22 : box >= 40 ? 20 : 18 };
+}
 
 export function OtpVerifyScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { signIn, refreshSession } = useAuth();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const otpLayout = useMemo(() => computeOtpLayout(screenWidth), [screenWidth]);
+  const { signIn } = useAuth();
   const email = route.params.email as string;
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,19 +82,11 @@ export function OtpVerifyScreen({ route, navigation }: any) {
     setLoading(true);
     try {
       const res = await verifyOtp(email, otp);
-      const user: MeUser = {
+      await signIn(res.accessToken, {
         ...res.user,
         createdAt: res.user.createdAt ?? new Date().toISOString()
-      };
-      await signIn(res.accessToken, user);
-      // Confirm session with /auth/me so route (Home / SetUsername) is correct
-      try {
-        await refreshSession();
-      } catch {
-        /* signIn already applied local session */
-      }
+      });
       setSignedIn(true);
-      /* Keep loading until App remounts via sessionEpoch — avoid double-submit */
     } catch (e: unknown) {
       verifyingRef.current = false;
       setLoading(false);
@@ -110,7 +124,15 @@ export function OtpVerifyScreen({ route, navigation }: any) {
           </Pressable>
 
           <View style={s.header}>
-            <Image source={LOGO} style={s.logo} resizeMode="contain" />
+            <Image
+              source={LOGO}
+              style={{
+                width: Math.min(screenWidth * 0.4, 160),
+                height: Math.min(screenHeight * 0.12, 56),
+                marginBottom: spacing.sm
+              }}
+              resizeMode="contain"
+            />
             <View style={s.brandRow}>
               <Text style={s.brandDigital}>Digital</Text>
               <Text style={s.brandHouse}> House</Text>
@@ -127,10 +149,11 @@ export function OtpVerifyScreen({ route, navigation }: any) {
             <Text style={s.cardSubtitle}>We sent a 6-digit code to</Text>
             <View style={s.emailRow}>
               <Ionicons name="mail-outline" size={18} color="#2563EB" />
-              <Text style={s.emailText}>{email}</Text>
+              <Text style={s.emailText} numberOfLines={1}>
+                {email}
+              </Text>
             </View>
 
-            {/* Hidden input for keyboard; tap boxes to focus */}
             <TextInput
               ref={inputRef}
               value={otp}
@@ -141,10 +164,12 @@ export function OtpVerifyScreen({ route, navigation }: any) {
               autoFocus
               style={s.hiddenInput}
               accessibilityLabel="OTP code input"
+              textContentType="oneTimeCode"
+              autoComplete="sms-otp"
             />
 
             <Pressable
-              style={s.otpBoxRow}
+              style={[s.otpBoxRow, { gap: otpLayout.gap }]}
               onPress={focusInput}
               disabled={loading || signedIn}
             >
@@ -153,11 +178,18 @@ export function OtpVerifyScreen({ route, navigation }: any) {
                   key={i}
                   style={[
                     s.otpBox,
+                    {
+                      width: otpLayout.box,
+                      height: otpLayout.box,
+                      borderRadius: Math.max(10, Math.round(otpLayout.box * 0.28))
+                    },
                     otp.length === i && s.otpBoxFocused,
                     otp.length > i && s.otpBoxFilled
                   ]}
                 >
-                  <Text style={s.otpBoxDigit}>{otp[i] ?? ""}</Text>
+                  <Text style={[s.otpBoxDigit, { fontSize: otpLayout.digitSize }]}>
+                    {otp[i] ?? ""}
+                  </Text>
                   {otp.length === i && !loading && !signedIn ? <View style={s.otpCursor} /> : null}
                 </View>
               ))}
@@ -237,11 +269,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.xl
   },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.4, 160),
-    height: Math.min(SCREEN_HEIGHT * 0.12, 56),
-    marginBottom: spacing.sm
-  },
   brandRow: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -276,12 +303,17 @@ const s = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
-    padding: spacing.xxl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
+    width: "100%",
+    maxWidth: 440,
+    alignSelf: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 6
+    elevation: 6,
+    overflow: "hidden"
   },
   cardTitle: {
     fontSize: 22,
@@ -298,9 +330,12 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: spacing.xxl
+    marginBottom: spacing.xxl,
+    minWidth: 0
   },
   emailText: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 16,
     fontWeight: "600",
     color: "#2563EB"
@@ -314,13 +349,12 @@ const s = StyleSheet.create({
   otpBoxRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: BOX_GAP,
+    alignItems: "center",
+    width: "100%",
+    alignSelf: "center",
     marginBottom: spacing.sm
   },
   otpBox: {
-    width: BOX_SIZE,
-    height: BOX_SIZE,
-    borderRadius: 14,
     backgroundColor: "#F3F4F6",
     borderWidth: 2,
     borderColor: "#E5E7EB",
@@ -336,13 +370,12 @@ const s = StyleSheet.create({
     backgroundColor: "#FFFFFF"
   },
   otpBoxDigit: {
-    fontSize: 22,
     fontWeight: "700",
     color: "#111827"
   },
   otpCursor: {
     position: "absolute",
-    bottom: 10,
+    bottom: 8,
     width: 4,
     height: 4,
     borderRadius: 2,

@@ -6,7 +6,7 @@ const prefixes = [
   "http://www.infosensetechnologies.com/digitalhouse"
 ];
 
-/** Deep links: digitalhouse://post/123 and https://.../digitalhouse/post/123 */
+/** Deep links: digitalhouse://post/123 — do not map "" → Home (fights auth gating). */
 export const rootLinking: LinkingOptions<Record<string, unknown>> = {
   prefixes,
   config: {
@@ -14,8 +14,7 @@ export const rootLinking: LinkingOptions<Record<string, unknown>> = {
       PostDetail: {
         path: "post/:postId",
         parse: { postId: (id: string) => Number(id) }
-      },
-      Home: ""
+      }
     }
   }
 };
