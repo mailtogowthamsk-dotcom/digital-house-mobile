@@ -12,12 +12,14 @@ import {
   getMessageAccess,
   listThreads,
   markRead,
-  sendMessage,
   type MessageAccess,
   type MessageItem,
   type Thread
 } from "../../api/messages.api";
 import { getSocket } from "../../realtime/socket";
+import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
+import { subscribePresence } from "../../realtime/presenceRealtime";
+import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
 import { useChatLayout } from "../../hooks/useChatLayout";
@@ -56,6 +58,9 @@ export function MessagesHubScreen() {
   const [input, setInput] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingActiveRef = useRef(false);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const listRef = useRef<ChatMessageListHandle>(null);
 
@@ -109,11 +114,14 @@ export function MessagesHubScreen() {
   const folderRef = useRef(folder);
   folderRef.current = folder;
 
-  const loadThreads = useCallback(async (activeFolder?: "inbox" | "archived") => {
+  const loadThreads = useCallback(async (
+    activeFolder?: "inbox" | "archived",
+    opts?: { soft?: boolean }
+  ) => {
     const folderToLoad = activeFolder ?? folderRef.current;
     const gen = ++threadsLoadGenRef.current;
     setThreadsError(null);
-    setLoadingThreads(true);
+    if (!opts?.soft) setLoadingThreads(true);
     try {
       const data =
         folderToLoad === "archived"
@@ -162,7 +170,7 @@ export function MessagesHubScreen() {
   );
 
   useAppResume(() => {
-    void loadThreads();
+    void loadThreads(undefined, { soft: true });
   });
 
   const openThread = useCallback(
@@ -179,7 +187,8 @@ export function MessagesHubScreen() {
         navigation.navigate("Chat", {
           otherUserId: other.id,
           name: other.name,
-          profileImage: other.profileImage ?? null
+          profileImage: other.profileImage ?? null,
+          online: other.online
         });
         return;
       }
@@ -203,6 +212,10 @@ export function MessagesHubScreen() {
         const hist = await getHistory(other.id, HISTORY_LIMIT);
         setMessages(hist.messages);
         listRef.current?.scrollToBottom(false);
+        const ackAs = meId ?? (await getMe().then((m) => m.id).catch(() => null));
+        if (ackAs != null) {
+          void ackUndeliveredMessages(hist.messages, ackAs);
+        }
         await markRead(other.id).catch(() => {});
         setThreads((prev) => clearThreadUnread(prev, other.id));
         const sock = await getSocket();
@@ -213,25 +226,34 @@ export function MessagesHubScreen() {
         setLoadingChat(false);
       }
     },
-    [layout.isSplit, navigation]
+    [layout.isSplit, meId, navigation]
   );
 
-  const emitTyping = useCallback(async (typing: boolean) => {
-    if (!selectedUser || chatLocked) return;
-    try {
-      const sock = await getSocket();
-      sock.emit("typing", { toUserId: selectedUser.id, typing });
-    } catch {
-      // offline
-    }
-  }, [chatLocked, selectedUser]);
+  const emitTyping = useCallback(
+    (typing: boolean) => {
+      if (!selectedUser || chatLocked) return;
+      typingActiveRef.current = typing;
+      void getSocket()
+        .then((sock) => emitTypingEvent(sock, selectedUser.id, typing))
+        .catch(() => {});
+    },
+    [chatLocked, selectedUser]
+  );
 
   const onChangeComposer = useCallback(
     (t: string) => {
       if (chatLocked) return;
       setInput(t);
       setSendError(null);
-      emitTyping(t.trim().length > 0).catch(() => {});
+      const hasText = t.trim().length > 0;
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      if (!hasText) {
+        if (typingActiveRef.current) emitTyping(false);
+        return;
+      }
+      typingDebounceRef.current = setTimeout(() => emitTyping(true), 280);
+      typingIdleRef.current = setTimeout(() => emitTyping(false), 2200);
     },
     [chatLocked, emitTyping]
   );
@@ -265,23 +287,33 @@ export function MessagesHubScreen() {
     let disposed = false;
     let teardown: (() => void) | null = null;
 
+    const unsubPresence = subscribePresence({
+      onUpdate: (uid, online) => {
+        setThreads((prev) =>
+          prev.map((th) =>
+            th.otherUser.id === uid ? { ...th, otherUser: { ...th.otherUser, online } } : th
+          )
+        );
+        setSelectedUser((prev) => (prev && prev.id === uid ? { ...prev, online } : prev));
+      },
+      onSnapshot: (ids) => {
+        const onlineSet = new Set(ids);
+        setThreads((prev) =>
+          prev.map((th) => ({
+            ...th,
+            otherUser: { ...th.otherUser, online: onlineSet.has(th.otherUser.id) }
+          }))
+        );
+        setSelectedUser((prev) =>
+          prev ? { ...prev, online: onlineSet.has(prev.id) } : prev
+        );
+      }
+    });
+
     (async () => {
       try {
         const sock = await getSocket();
         if (disposed) return;
-
-        const onPresence = (p: unknown) => {
-          const payload = p as { userId?: number; online?: boolean };
-          const uid = Number(payload?.userId);
-          const online = !!payload?.online;
-          if (!uid) return;
-          setThreads((prev) =>
-            prev.map((th) =>
-              th.otherUser.id === uid ? { ...th, otherUser: { ...th.otherUser, online } } : th
-            )
-          );
-          setSelectedUser((prev) => (prev && prev.id === uid ? { ...prev, online } : prev));
-        };
 
         const onThreadMessage = (raw: unknown) => {
           if (!raw || typeof raw !== "object") return;
@@ -292,12 +324,10 @@ export function MessagesHubScreen() {
           }
           setThreads((prev) => {
             const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
-            // Don't pull archived chats back into Inbox via socket reload
             if (needsFullReload && folderRef.current === "inbox") {
-              /* stay on current inbox list — full reload would still exclude archived */
-              loadThreads("inbox").catch(() => {});
+              loadThreads("inbox", { soft: true }).catch(() => {});
             } else if (needsFullReload) {
-              loadThreads().catch(() => {});
+              loadThreads(undefined, { soft: true }).catch(() => {});
             }
             if (layout.isSplit && selectedUser?.id === otherId) {
               return clearThreadUnread(patched, otherId);
@@ -306,12 +336,10 @@ export function MessagesHubScreen() {
           });
         };
 
-        sock.on("presence:update", onPresence);
         sock.on("message:new", onThreadMessage);
         sock.on("message:sent", onThreadMessage);
 
         teardown = () => {
-          sock.off("presence:update", onPresence);
           sock.off("message:new", onThreadMessage);
           sock.off("message:sent", onThreadMessage);
         };
@@ -323,6 +351,7 @@ export function MessagesHubScreen() {
     return () => {
       disposed = true;
       teardown?.();
+      unsubPresence();
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
 
@@ -357,15 +386,12 @@ export function MessagesHubScreen() {
         setOtherTyping(typing);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         if (typing) {
-          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 1500);
+          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 2500);
         }
       },
-      onIncomingFromOther: (m) => {
+      onIncomingFromOther: () => {
         const otherUserId = selectedUser?.id;
         if (otherUserId == null) return;
-        getSocket()
-          .then((sock) => sock.emit("message:delivered", { messageId: m.id }))
-          .catch(() => {});
         markReadSplitRef.current(otherUserId);
       }
     }
@@ -377,7 +403,7 @@ export function MessagesHubScreen() {
     setSending(true);
     setSendError(null);
     setInput("");
-    emitTyping(false).catch(() => {});
+    if (typingActiveRef.current) emitTyping(false);
 
     const recipientId = selectedUser.id;
     const clientId = `m_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -395,6 +421,7 @@ export function MessagesHubScreen() {
     setMessages((prev) => [...prev, optimistic]);
     listRef.current?.scrollToBottom(true);
     hapticSendMessage().catch(() => {});
+    setSending(false);
 
     const removeOptimistic = () => {
       pendingClientIdsRef.current.delete(clientId);
@@ -402,43 +429,28 @@ export function MessagesHubScreen() {
     };
 
     try {
-      const sock = await getSocket();
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Socket send timeout")), 12_000);
-        sock.emit(
-          "message:send",
-          { recipientId, body, clientId },
-          (resp: { ok?: boolean; error?: string }) => {
-            clearTimeout(timer);
-            if (resp?.ok) resolve();
-            else reject(new Error(resp?.error || "Failed to send"));
-          }
-        );
+      const saved = await sendChatMessage({
+        senderId: meId,
+        recipientId,
+        body,
+        clientId
       });
-    } catch {
-      try {
-        const saved = await sendMessage(recipientId, body, clientId);
-        pendingClientIdsRef.current.delete(clientId);
-        setMessages((prev) => prev.map((x) => (x.clientId === clientId ? saved : x)));
-        if (meId != null) {
-          setThreads((prev) => {
-            const { threads: next, needsFullReload } = patchThreadsFromMessage(prev, saved, meId);
-            if (needsFullReload) loadThreads().catch(() => {});
-            return next;
-          });
-        }
-        listRef.current?.scrollToBottom(true);
-      } catch (e: unknown) {
-        removeOptimistic();
-        setInput(body);
-        setSendError(
-          e instanceof Error
-            ? e.message
-            : "Could not send message. Check your connection and try again."
-        );
-      }
-    } finally {
-      setSending(false);
+      pendingClientIdsRef.current.delete(clientId);
+      setMessages((prev) => prev.map((x) => (x.clientId === clientId ? saved : x)));
+      setThreads((prev) => {
+        const { threads: next, needsFullReload } = patchThreadsFromMessage(prev, saved, meId);
+        if (needsFullReload) loadThreads(undefined, { soft: true }).catch(() => {});
+        return next;
+      });
+      listRef.current?.scrollToBottom(true);
+    } catch (e: unknown) {
+      removeOptimistic();
+      setInput(body);
+      setSendError(
+        e instanceof Error
+          ? e.message
+          : "Could not send message. Check your connection and try again."
+      );
     }
   }, [chatLocked, emitTyping, input, loadThreads, meId, selectedUser, sending]);
 
@@ -479,6 +491,7 @@ export function MessagesHubScreen() {
       width={layout.sidebarWidth}
       fullWidth={layout.isPhone}
       onBack={() => navigation.goBack()}
+      onSearch={() => navigation.navigate("SearchMembers", { context: "messages" })}
       colors={threadColors}
       titleSize={layout.titleSize}
       loadingThreads={loadingThreads}

@@ -806,6 +806,7 @@ export function EditProfileScreen() {
             label="Native District"
             placeholder="Select district"
             value={basic.native_district ?? ""}
+            required
             options={
               districtOptions.length
                 ? districtOptions
@@ -827,6 +828,7 @@ export function EditProfileScreen() {
             label="Kulam"
             placeholder="Select kulam"
             value={community.kulam ?? ""}
+            required
             options={
               kulamOptions.length
                 ? kulamOptions
@@ -861,18 +863,12 @@ export function EditProfileScreen() {
         </AccordionSection>
 
         <AccordionSection title="Personal Details" icon="person-circle-outline">
-          <Input
-            label="Current Location (City, State)"
-            value={personal.currentLocation ?? ""}
-            onChangeText={(t) => setPersonal((p) => ({ ...p, currentLocation: t || null }))}
-            placeholder="e.g. Chennai, Tamil Nadu"
-            variant="light"
-          />
           {occupationOptions.length > 0 ? (
             <Dropdown
               label="Occupation"
               placeholder="Select occupation"
               value={personal.occupation ?? ""}
+              required
               options={
                 occupationOptions.length
                   ? occupationOptions
@@ -885,13 +881,20 @@ export function EditProfileScreen() {
             />
           ) : (
             <Input
-              label="Occupation"
+              label="Occupation *"
               value={personal.occupation ?? ""}
               onChangeText={(t) => setPersonal((p) => ({ ...p, occupation: t || null }))}
               placeholder="Occupation"
               variant="light"
             />
           )}
+          <Input
+            label="Current Location (City, State) *"
+            value={personal.currentLocation ?? ""}
+            onChangeText={(t) => setPersonal((p) => ({ ...p, currentLocation: t || null }))}
+            placeholder="e.g. Chennai, Tamil Nadu"
+            variant="light"
+          />
           <Input
             label="Instagram URL"
             value={personal.instagram ?? ""}
@@ -934,6 +937,7 @@ export function EditProfileScreen() {
             label="Marital Status"
             placeholder="Select"
             value={personal.maritalStatus ?? ""}
+            required
             options={maritalOptions}
             onSelect={(v) => setPersonal((p) => ({ ...p, maritalStatus: v || null }))}
             variant="light"

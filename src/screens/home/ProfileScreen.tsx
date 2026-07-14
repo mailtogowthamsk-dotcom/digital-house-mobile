@@ -29,7 +29,7 @@ import {
 
 /** Profile Screen – overview + links to My Posts / My Activity screens. */
 export function ProfileScreen() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
@@ -116,11 +116,12 @@ export function ProfileScreen() {
 
   const listHeader = useMemo(() => {
     if (!profile) return null;
+    const username = profile.username?.trim() || user?.username?.trim() || null;
     return (
       <>
         <ProfileHeader
           name={profile.name}
-          username={profile.username}
+          username={username}
           profile_image={profile.profile_image}
           verified={profile.verified}
           member_since={profile.member_since}
@@ -136,16 +137,12 @@ export function ProfileScreen() {
         />
       </>
     );
-  }, [profile, navigation]);
+  }, [profile, navigation, user?.username]);
 
   const listFooter = useMemo(
     () => (
       <>
-        <ActionButtons
-          onEditPress={onEditPress}
-          onDownloadPress={() => {}}
-          onLogoutPress={onLogoutPress}
-        />
+        <ActionButtons onEditPress={onEditPress} onLogoutPress={onLogoutPress} />
         <ConfirmDialog
           visible={logoutDialogVisible}
           title={messages.confirm.logoutTitle}

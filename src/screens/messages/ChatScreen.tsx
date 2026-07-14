@@ -14,20 +14,27 @@ import {
   getMessageAccess,
   listThreads,
   markRead,
-  sendMessage,
   updateThreadPreference,
   type MessageAccess,
   type MessageItem
 } from "../../api/messages.api";
 import { blockMember, reportMember, MEMBER_REPORT_REASONS } from "../../api/users.api";
 import { getSocket } from "../../realtime/socket";
+import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
+import { subscribePresence, isUserOnlineCached } from "../../realtime/presenceRealtime";
+import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { appAlert } from "../../utils/appAlert";
 
-type ChatParams = { otherUserId: number; name: string; profileImage?: string | null };
+type ChatParams = {
+  otherUserId: number;
+  name: string;
+  profileImage?: string | null;
+  online?: boolean;
+};
 
 const HISTORY_LIMIT = 40;
 
@@ -49,7 +56,13 @@ export function ChatScreen() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(
+    () => !!route.params.online || isUserOnlineCached(otherUserId)
+  );
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingActiveRef = useRef(false);
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(false);
@@ -92,11 +105,24 @@ export function ChatScreen() {
     setMeId(me.id);
     const hist = await getHistory(otherUserId, HISTORY_LIMIT);
     setMessages(hist.messages);
+    void ackUndeliveredMessages(hist.messages, me.id);
   }, [otherUserId]);
 
   useEffect(() => {
     navigation.setOptions?.({ title: name });
   }, [navigation, name]);
+
+  useEffect(() => {
+    setOtherOnline(!!route.params.online || isUserOnlineCached(otherUserId));
+    return subscribePresence({
+      onUpdate: (uid, online) => {
+        if (uid === otherUserId) setOtherOnline(online);
+      },
+      onSnapshot: (ids) => {
+        setOtherOnline(ids.includes(otherUserId));
+      }
+    });
+  }, [otherUserId, route.params.online]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +147,9 @@ export function ChatScreen() {
         const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
         setThreadMuted(!!hit?.muted);
         setThreadArchived(!!hit?.archived);
+        if (hit?.otherUser.online != null) {
+          setOtherOnline(!!hit.otherUser.online);
+        }
         if (!access.canViewHistory) {
           setLoadError(access.message ?? "You cannot view this conversation.");
           setMessages([]);
@@ -143,21 +172,30 @@ export function ChatScreen() {
     };
   }, [loadInitial, otherUserId]);
 
-  const emitTyping = useCallback(async (typing: boolean) => {
-    try {
-      const sock = await getSocket();
-      sock.emit("typing", { toUserId: otherUserId, typing });
-    } catch {
-      // offline
-    }
-  }, [otherUserId]);
+  const emitTyping = useCallback(
+    (typing: boolean) => {
+      typingActiveRef.current = typing;
+      void getSocket()
+        .then((sock) => emitTypingEvent(sock, otherUserId, typing))
+        .catch(() => {});
+    },
+    [otherUserId]
+  );
 
   const onChangeText = useCallback(
     (t: string) => {
       if (chatLocked) return;
       setInput(t);
       setSendError(null);
-      emitTyping(t.trim().length > 0).catch(() => {});
+      const hasText = t.trim().length > 0;
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      if (!hasText) {
+        if (typingActiveRef.current) emitTyping(false);
+        return;
+      }
+      typingDebounceRef.current = setTimeout(() => emitTyping(true), 280);
+      typingIdleRef.current = setTimeout(() => emitTyping(false), 2200);
     },
     [chatLocked, emitTyping]
   );
@@ -196,11 +234,11 @@ export function ChatScreen() {
       setOtherTyping(typing);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       if (typing) {
-        typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 1500);
+        typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 2500);
       }
     },
-    onIncomingFromOther: (m, sock) => {
-      sock.emit("message:delivered", { messageId: m.id });
+    onIncomingFromOther: (_m, _sock) => {
+      // Delivery is handled globally by deliveryRealtime; mark read while chat is open.
       markReadNowRef.current().catch(() => {});
     }
   });
@@ -211,7 +249,7 @@ export function ChatScreen() {
     setSending(true);
     setSendError(null);
     setInput("");
-    emitTyping(false).catch(() => {});
+    if (typingActiveRef.current) emitTyping(false);
 
     const clientId = `m_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     pendingClientIdsRef.current.add(clientId);
@@ -229,6 +267,8 @@ export function ChatScreen() {
     setMessages((prev) => [...prev, optimistic]);
     listRef.current?.scrollToBottom(true);
     hapticSendMessage().catch(() => {});
+    // Unlock composer immediately — WhatsApp-like feel; failures roll back below.
+    setSending(false);
 
     const removeOptimistic = () => {
       pendingClientIdsRef.current.delete(clientId);
@@ -236,36 +276,27 @@ export function ChatScreen() {
     };
 
     try {
-      const sock = await getSocket();
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Socket send timeout")), 12_000);
-        sock.emit(
-          "message:send",
-          { recipientId: otherUserId, body, clientId },
-          (resp: { ok?: boolean; error?: string }) => {
-            clearTimeout(timer);
-            if (resp?.ok) resolve();
-            else reject(new Error(resp?.error || "Failed to send"));
-          }
-        );
+      const saved = await sendChatMessage({
+        senderId: meId,
+        recipientId: otherUserId,
+        body,
+        clientId
       });
-    } catch {
-      try {
-        const saved = await sendMessage(otherUserId, body, clientId);
-        pendingClientIdsRef.current.delete(clientId);
-        setMessages((prev) => prev.map((x) => (x.clientId === clientId ? saved : x)));
-        listRef.current?.scrollToBottom(true);
-      } catch (e: unknown) {
-        removeOptimistic();
-        setInput(body);
-        setSendError(
-          e instanceof Error
-            ? e.message
-            : "Could not send message. Check your connection and try again."
-        );
-      }
-    } finally {
-      setSending(false);
+      pendingClientIdsRef.current.delete(clientId);
+      setMessages((prev) => {
+        const byClient = prev.map((x) => (x.clientId === clientId ? saved : x));
+        if (byClient.some((x) => x.id === saved.id)) return byClient;
+        return byClient;
+      });
+      listRef.current?.scrollToBottom(true);
+    } catch (e: unknown) {
+      removeOptimistic();
+      setInput(body);
+      setSendError(
+        e instanceof Error
+          ? e.message
+          : "Could not send message. Check your connection and try again."
+      );
     }
   }, [chatLocked, emitTyping, input, meId, otherUserId, sending]);
 
@@ -489,7 +520,7 @@ export function ChatScreen() {
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
       <ChatPanel
         title={name}
-        subtitle={otherTyping ? "Typing…" : " "}
+        subtitle={otherTyping ? "Typing…" : otherOnline ? "Online" : " "}
         messages={messages}
         meId={meId}
         sendError={sendError}

@@ -18,6 +18,8 @@ import {
 import { getTokenReliable, setToken, clearToken } from "../storage/token.storage";
 import { setUserSnapshot, getUserSnapshot, clearUserSnapshot } from "../storage/user.storage";
 import { disconnectSocket, getSocket } from "../realtime/socket";
+import { startDeliveryRealtime, stopDeliveryRealtime } from "../realtime/deliveryRealtime";
+import { ensurePresenceRealtime } from "../realtime/presenceRealtime";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
 
 export type AuthStatus = "loading" | "signedOut" | "home" | "pending" | "rejected";
@@ -80,9 +82,11 @@ function isSignedInStatus(status: AuthStatus): boolean {
   return status === "home" || status === "pending" || status === "rejected";
 }
 
-async function prewarmSocket() {
+async function prewarmRealtime(userId: number) {
   try {
     await getSocket();
+    startDeliveryRealtime(userId);
+    ensurePresenceRealtime();
   } catch {
     // offline or unsigned — ignore
   }
@@ -108,8 +112,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus(nextStatus);
     statusRef.current = nextStatus;
     userRef.current = normalized;
-    if (!signedOut && normalized?.status === "APPROVED") {
-      prewarmSocket();
+    if (!signedOut && normalized?.status === "APPROVED" && normalized.id) {
+      void prewarmRealtime(normalized.id);
+    } else {
+      stopDeliveryRealtime();
     }
   }, []);
 
@@ -230,6 +236,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let resumeTimer: ReturnType<typeof setTimeout> | null = null;
     const onAppState = (next: AppStateStatus) => {
       if (next === "active" && bootstrapDone.current && status === "home") {
+        // Reconnect presence / delivery sockets promptly after background.
+        const uid = userRef.current?.id;
+        if (uid && userRef.current?.status === "APPROVED") {
+          void prewarmRealtime(uid);
+        }
         if (resumeTimer) clearTimeout(resumeTimer);
         resumeTimer = setTimeout(() => {
           if (!signInLockRef.current) {

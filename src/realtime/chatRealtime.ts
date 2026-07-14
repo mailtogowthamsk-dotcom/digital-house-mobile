@@ -23,6 +23,8 @@ let onMessageEvent: ((raw: unknown) => void) | null = null;
 let onDeliveredEvent: ((p: unknown) => void) | null = null;
 let onReadEvent: ((p: unknown) => void) | null = null;
 let onTypingEvent: ((p: unknown) => void) | null = null;
+let onDisconnectEvent: (() => void) | null = null;
+let onConnectEvent: (() => void) | null = null;
 
 function isThisChat(m: MessageItem, otherUserId: number): boolean {
   return m.senderId === otherUserId || m.recipientId === otherUserId;
@@ -35,8 +37,6 @@ function forMatchingSubs(fn: (sub: Subscription) => void): void {
 }
 
 async function wireSocket(sock: Socket): Promise<void> {
-  if (wired && socketRef === sock) return;
-
   if (onMessageEvent) {
     sock.off("message:new", onMessageEvent);
     sock.off("message:sent", onMessageEvent);
@@ -44,10 +44,13 @@ async function wireSocket(sock: Socket): Promise<void> {
   if (onDeliveredEvent) sock.off("message:delivered", onDeliveredEvent);
   if (onReadEvent) sock.off("message:read", onReadEvent);
   if (onTypingEvent) sock.off("typing", onTypingEvent);
+  if (onDisconnectEvent) sock.off("disconnect", onDisconnectEvent);
+  if (onConnectEvent) sock.off("connect", onConnectEvent);
 
   onMessageEvent = (raw: unknown) => {
     if (!raw || typeof raw !== "object") return;
     const m = raw as MessageItem;
+    if (__DEV__) console.log("[chat] message", m.id, m.senderId, "→", m.recipientId);
     forMatchingSubs((sub) => {
       if (!isThisChat(m, sub.otherUserId)) return;
       sub.onMessage(m);
@@ -61,6 +64,7 @@ async function wireSocket(sock: Socket): Promise<void> {
     const payload = p as { messageId?: number; deliveredAt?: string | null };
     const messageId = Number(payload?.messageId);
     if (!messageId) return;
+    if (__DEV__) console.log("[chat] delivered", messageId);
     const normalized = { messageId, deliveredAt: payload?.deliveredAt ?? null };
     forMatchingSubs((sub) => sub.onDelivered(normalized));
   };
@@ -70,6 +74,7 @@ async function wireSocket(sock: Socket): Promise<void> {
     const readAt = payload?.readAt;
     const withUserId = Number(payload?.withUserId);
     if (!readAt || !withUserId) return;
+    if (__DEV__) console.log("[chat] read", withUserId);
     forMatchingSubs((sub) => {
       if (withUserId === sub.otherUserId) {
         sub.onRead({ withUserId, readAt });
@@ -88,15 +93,24 @@ async function wireSocket(sock: Socket): Promise<void> {
     });
   };
 
+  onDisconnectEvent = () => {
+    if (__DEV__) console.log("[chat] socket disconnected");
+    wired = false;
+  };
+
+  onConnectEvent = () => {
+    if (__DEV__) console.log("[chat] socket reconnected");
+    wired = true;
+    socketRef = sock;
+  };
+
   sock.on("message:new", onMessageEvent);
   sock.on("message:sent", onMessageEvent);
   sock.on("message:delivered", onDeliveredEvent);
   sock.on("message:read", onReadEvent);
   sock.on("typing", onTypingEvent);
-
-  sock.on("disconnect", () => {
-    wired = false;
-  });
+  sock.on("disconnect", onDisconnectEvent);
+  sock.on("connect", onConnectEvent);
 
   socketRef = sock;
   wired = true;
@@ -137,11 +151,15 @@ export function resetChatRealtime(): void {
     if (onDeliveredEvent) socketRef.off("message:delivered", onDeliveredEvent);
     if (onReadEvent) socketRef.off("message:read", onReadEvent);
     if (onTypingEvent) socketRef.off("typing", onTypingEvent);
+    if (onDisconnectEvent) socketRef.off("disconnect", onDisconnectEvent);
+    if (onConnectEvent) socketRef.off("connect", onConnectEvent);
   }
   onMessageEvent = null;
   onDeliveredEvent = null;
   onReadEvent = null;
   onTypingEvent = null;
+  onDisconnectEvent = null;
+  onConnectEvent = null;
   socketRef = null;
   wired = false;
   wirePromise = null;

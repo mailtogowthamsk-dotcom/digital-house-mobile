@@ -85,8 +85,16 @@ export async function getSocket(): Promise<Socket> {
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5_000,
     auth: { token }
   });
+
+  if (__DEV__) {
+    socket.on("connect", () => console.log("[socket] connected", socket?.id));
+    socket.on("disconnect", (reason) => console.log("[socket] disconnected", reason));
+    socket.on("reconnect", (n) => console.log("[socket] reconnected", n));
+  }
 
   try {
     await waitForConnect(socket);

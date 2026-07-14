@@ -75,6 +75,13 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
         navigation.navigate("Connections");
       }
       break;
+    case "OPEN_SUPPORT_TICKET":
+      if (targetId) navigation.navigate("SupportTicketDetail", { ticketId: targetId });
+      else navigation.navigate("SupportMyTickets");
+      break;
+    case "OPEN_HELP_SUPPORT":
+      navigation.navigate("HelpSupport");
+      break;
     default:
       if (item.category === "MATRIMONY") navigation.navigate("MatrimonyHome");
       else if (item.category === "MESSAGES") navigation.navigate("Messages");

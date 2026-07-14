@@ -25,21 +25,30 @@ import {
   MARKETPLACE_MAX_PHOTOS
 } from "../../constants/marketplace";
 
-const POST_TYPES = [
+/** Home Feed / general Create Post — module types are created only from their own screens. */
+const FEED_POST_TYPES = [
   { value: "ANNOUNCEMENT", label: "Announcement" },
   { value: "MEETUP", label: "Community meetup" },
   { value: "ACHIEVEMENT", label: "Achievements" },
-  { value: "ENTERTAINMENT", label: "Entertainment" },
-  { value: "JOB", label: "Job" },
-  { value: "MARKETPLACE", label: "Marketplace" },
-  { value: "MATRIMONY", label: "Matrimony" }
+  { value: "ENTERTAINMENT", label: "Entertainment" }
 ];
 
 /** Module contexts that must lock the post type (no dropdown). */
 const LOCKED_MODULE_TYPES = new Set(["JOB", "MARKETPLACE", "HELP_REQUEST", "MATRIMONY"]);
 
+const MODULE_TYPE_LABELS: Record<string, string> = {
+  JOB: "Job",
+  MARKETPLACE: "Marketplace",
+  MATRIMONY: "Matrimony",
+  HELP_REQUEST: "Help request"
+};
+
 function postTypeLabel(value: string): string {
-  return POST_TYPES.find((t) => t.value === value)?.label ?? value;
+  return (
+    FEED_POST_TYPES.find((t) => t.value === value)?.label ??
+    MODULE_TYPE_LABELS[value] ??
+    value
+  );
 }
 
 function screenTitleForType(value: string | undefined, isEditing: boolean): string {
@@ -75,8 +84,24 @@ function postTypeToModule(postType: string): MediaModule {
 
 function resolveInitialPostType(value: string | undefined): string {
   if (!value) return "ANNOUNCEMENT";
-  if (POST_TYPES.some((t) => t.value === value) || LOCKED_MODULE_TYPES.has(value)) return value;
+  const upper = String(value).toUpperCase();
+  if (FEED_POST_TYPES.some((t) => t.value === upper) || LOCKED_MODULE_TYPES.has(upper)) {
+    return upper;
+  }
   return "ANNOUNCEMENT";
+}
+
+function creationSourceForType(postType: string): "feed" | "jobs" | "marketplace" | "helping_hands" {
+  switch (postType) {
+    case "JOB":
+      return "jobs";
+    case "MARKETPLACE":
+      return "marketplace";
+    case "HELP_REQUEST":
+      return "helping_hands";
+    default:
+      return "feed";
+  }
 }
 
 /**
@@ -209,6 +234,14 @@ export function CreatePostScreen() {
         : isEditing
           ? "MARKETPLACE"
           : postType;
+    if (
+      !isEditing &&
+      !isTypeLocked &&
+      (LOCKED_MODULE_TYPES.has(submitType) || submitType === "MATRIMONY")
+    ) {
+      setError("This post type can only be created from its dedicated module.");
+      return;
+    }
     const minSalary = jobSalaryMin.trim() ? Math.floor(Number(jobSalaryMin.trim())) : null;
     const maxSalary = jobSalaryMax.trim() ? Math.floor(Number(jobSalaryMax.trim())) : null;
     if (submitType === "JOB") {
@@ -290,6 +323,7 @@ export function CreatePostScreen() {
       } else {
         const created = await createPost({
           post_type: submitType,
+          creation_source: creationSourceForType(submitType),
           title: t,
           description: description.trim() || null,
           media_url: coverUrl,
@@ -496,7 +530,7 @@ export function CreatePostScreen() {
             </Pressable>
             {showTypePicker && (
               <View style={s.pickerOptions}>
-                {POST_TYPES.map((p) => (
+                {FEED_POST_TYPES.map((p) => (
                   <Pressable
                     key={p.value}
                     style={[s.pickerOption, p.value === postType && s.pickerOptionActive]}

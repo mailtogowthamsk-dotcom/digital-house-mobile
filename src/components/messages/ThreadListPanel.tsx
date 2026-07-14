@@ -36,6 +36,8 @@ type ThreadListPanelProps = {
   renderThread: ListRenderItem<Thread>;
   keyThread: (t: Thread) => string;
   onBack?: () => void;
+  /** Opens member / conversation search (messages hub). */
+  onSearch?: () => void;
   folder?: "inbox" | "archived";
   onFolderChange?: (folder: "inbox" | "archived") => void;
 };
@@ -52,6 +54,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     renderThread,
     keyThread,
     onBack,
+    onSearch,
     folder = "inbox",
     onFolderChange
   } = props;
@@ -86,6 +89,16 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             </Pressable>
           ) : null}
           <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
+          {onSearch ? (
+            <Pressable
+              onPress={onSearch}
+              hitSlop={10}
+              style={styles.searchBtn}
+              accessibilityLabel="Search members and chats"
+            >
+              <Ionicons name="search" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
         </View>
 
         {onFolderChange ? (
@@ -213,6 +226,11 @@ const styles = StyleSheet.create({
   backBtn: {
     marginRight: 2,
     paddingVertical: 4,
+    flexShrink: 0
+  },
+  searchBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
     flexShrink: 0
   },
   title: {

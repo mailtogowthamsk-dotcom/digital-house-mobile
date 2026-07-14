@@ -9,6 +9,7 @@ import {
   ActivityIndicator
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -34,6 +35,7 @@ import { getLinkedAccounts, type LinkedAccountsResponse } from "../../api/auth.a
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const { mode, setMode, colors } = useTheme();
   const { user, refreshSession } = useAuth();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
@@ -144,7 +146,26 @@ export function SettingsScreen() {
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account security</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Help</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.row,
+            { backgroundColor: pressed ? colors.surfaceElevated : colors.surface }
+          ]}
+          onPress={() => navigation.navigate("HelpSupport")}
+        >
+          <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}>
+            <Ionicons name="help-buoy-outline" size={22} color={colors.primary} />
+          </View>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>Help & Support</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
+        Account security
+      </Text>
       {loadingLinked ? (
         <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
       ) : (

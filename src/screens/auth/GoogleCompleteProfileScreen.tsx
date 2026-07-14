@@ -75,7 +75,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
     if (!gender) return setMsg("Please select gender.");
     if (!dob) return setMsg("Please select date of birth.");
     if (!district) return setMsg("Please select district.");
-    if (!kulam) return setMsg("Please select kulam.");
+    if (!kulam) return setMsg("Please select your Kulam.");
 
     setLoading(true);
     try {
@@ -166,6 +166,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               options={kulamOptions}
               onSelect={setKulam}
               placeholder="Select kulam"
+              required
             />
             <Input
               placeholder="Community details (optional)"

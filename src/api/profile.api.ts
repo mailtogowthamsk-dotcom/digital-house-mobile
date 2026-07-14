@@ -152,6 +152,8 @@ export async function getProfile(): Promise<ProfileMeResponse> {
   return {
     id: data.id ?? 0,
     name: data.name?.trim() || "User",
+    username: data.username ?? null,
+    profile_visibility: data.profile_visibility,
     profile_image: typeof profileImageFromServer === "string" ? profileImageFromServer : null,
     verified: data.verified ?? false,
     member_since: data.member_since ?? "—",
@@ -180,6 +182,8 @@ export async function updateProfile(payload: ProfileUpdatePayload): Promise<Prof
   return {
     id: data.id ?? 0,
     name: data.name?.trim() || "User",
+    username: data.username ?? null,
+    profile_visibility: data.profile_visibility,
     profile_image: typeof profileImageFromServer === "string" ? profileImageFromServer : null,
     verified: data.verified ?? false,
     member_since: data.member_since ?? "—",

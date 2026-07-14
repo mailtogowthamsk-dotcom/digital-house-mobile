@@ -6,7 +6,7 @@ export type RootStackParamList = {
   Login: undefined;
   GoogleCompleteProfile: undefined;
   SetUsername: undefined;
-  SearchMembers: undefined;
+  SearchMembers: { context?: "messages" } | undefined;
   Connections: undefined;
   MemberProfile: { userId?: number; username?: string };
   OtpVerify: { email: string };
@@ -20,7 +20,12 @@ export type RootStackParamList = {
   Menu: { messageCount?: number };
   Settings: undefined;
   Messages: undefined;
-  Chat: { otherUserId: number; name: string; profileImage?: string | null };
+  Chat: {
+    otherUserId: number;
+    name: string;
+    profileImage?: string | null;
+    online?: boolean;
+  };
   JobsHome: undefined;
   MarketplaceHome: undefined;
   HelpingHandsHome: undefined;
@@ -36,4 +41,12 @@ export type RootStackParamList = {
   MatrimonyMySubscription: undefined;
   MatrimonyViews: undefined;
   Notifications: undefined;
+  HelpSupport: undefined;
+  SupportFaqs: undefined;
+  SupportGuides: undefined;
+  SupportGuideDetail: { guideId: number };
+  SupportContact: undefined;
+  SupportCreateTicket: { type?: "BUG" | "FEATURE" | "QUESTION" | "CONTACT" | "GENERAL" } | undefined;
+  SupportMyTickets: undefined;
+  SupportTicketDetail: { ticketId: number };
 };

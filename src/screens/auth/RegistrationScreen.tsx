@@ -105,6 +105,16 @@ export function RegistrationScreen({ navigation }: any) {
   const onNext = () => {
     Keyboard.dismiss();
     setMsg(null);
+    if (step === 2) {
+      if (!location.trim()) {
+        setMsg("Please select your location.");
+        return;
+      }
+      if (!kulam.trim()) {
+        setMsg("Please select your Kulam.");
+        return;
+      }
+    }
     if (step < STEPS.length - 1) setStep(step + 1);
   };
 
@@ -139,7 +149,7 @@ export function RegistrationScreen({ navigation }: any) {
       return;
     }
     if (!kulam.trim()) {
-      setMsg("Please select your kulam.");
+      setMsg("Please select your Kulam.");
       return;
     }
     setLoading(true);
@@ -319,6 +329,7 @@ export function RegistrationScreen({ navigation }: any) {
                   onSelect={setKulam}
                   variant="light"
                   required
+                  label="Kulam"
                 />
               </>
             )}

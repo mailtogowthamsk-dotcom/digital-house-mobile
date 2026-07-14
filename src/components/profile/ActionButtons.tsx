@@ -8,15 +8,10 @@ import { spacing, radius } from "../../theme/spacing";
 
 type ActionButtonsProps = {
   onEditPress: () => void;
-  onDownloadPress?: () => void;
   onLogoutPress: () => void;
 };
 
-export function ActionButtons({
-  onEditPress,
-  onDownloadPress,
-  onLogoutPress
-}: ActionButtonsProps) {
+export function ActionButtons({ onEditPress, onLogoutPress }: ActionButtonsProps) {
   const { colors } = useTheme();
   const s = useMemo(
     () =>
@@ -42,14 +37,8 @@ export function ActionButtons({
           paddingHorizontal: spacing.lg,
           borderRadius: radius.lg
         },
-        btnSecondary: {
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border
-        },
         pressed: { opacity: 0.92 },
         btnTextPrimary: { ...typography.button, color: colors.white },
-        btnTextSecondary: { ...typography.body, color: colors.textSecondary },
         logoutBtn: {
           backgroundColor: colors.surface,
           borderWidth: 1,
@@ -76,15 +65,6 @@ export function ActionButtons({
           <Text style={s.btnTextPrimary}>Edit Profile</Text>
         </LinearGradient>
       </Pressable>
-      {onDownloadPress ? (
-        <Pressable
-          style={({ pressed }) => [s.btn, s.btnSecondary, pressed && s.pressed]}
-          onPress={onDownloadPress}
-        >
-          <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
-          <Text style={s.btnTextSecondary}>Download Profile (PDF – coming soon)</Text>
-        </Pressable>
-      ) : null}
       <Pressable
         style={({ pressed }) => [s.btn, s.logoutBtn, pressed && s.pressed]}
         onPress={onLogoutPress}

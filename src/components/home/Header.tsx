@@ -17,7 +17,8 @@ export type HeaderActionId =
   | "messages"
   | "search-members"
   | "connections"
-  | "settings";
+  | "settings"
+  | "help-support";
 
 type HeaderProps = {
   notificationCount?: number;

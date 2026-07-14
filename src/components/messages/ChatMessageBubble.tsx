@@ -35,14 +35,15 @@ function ChatMessageBubbleComponent({
     hour: "2-digit",
     minute: "2-digit"
   });
+  // WhatsApp-like lifecycle: sending → sent (✓) → delivered (✓✓ grey) → read (✓✓ blue)
   const tick = mine
-    ? item.readAt
+    ? item.readAt || item.deliveredAt
       ? "checkmark-done"
-      : item.deliveredAt
+      : item.id > 0
         ? "checkmark"
         : "time-outline"
     : null;
-  const tickColor = item.readAt ? "#A7F3D0" : "rgba(255,255,255,0.9)";
+  const tickColor = item.readAt ? "#53BDEB" : "rgba(255,255,255,0.85)";
 
   const onLongPress = useCallback(() => {
     if (!item.body?.trim()) return;

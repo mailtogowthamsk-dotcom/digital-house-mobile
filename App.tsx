@@ -51,6 +51,18 @@ import { MatrimonyPlansScreen } from "./src/screens/matrimony/MatrimonyPlansScre
 import { MatrimonyMySubscriptionScreen } from "./src/screens/matrimony/MatrimonyMySubscriptionScreen";
 import { MatrimonyViewsScreen } from "./src/screens/matrimony/MatrimonyViewsScreen";
 import { NotificationCenterScreen } from "./src/screens/notifications/NotificationCenterScreen";
+import { HelpSupportHomeScreen } from "./src/screens/support/HelpSupportHomeScreen";
+import { SupportFaqsScreen } from "./src/screens/support/SupportFaqsScreen";
+import {
+  SupportGuideDetailScreen,
+  SupportGuidesScreen
+} from "./src/screens/support/SupportGuidesScreen";
+import { SupportContactScreen } from "./src/screens/support/SupportContactScreen";
+import { SupportCreateTicketScreen } from "./src/screens/support/SupportCreateTicketScreen";
+import {
+  SupportMyTicketsScreen,
+  SupportTicketDetailScreen
+} from "./src/screens/support/SupportTicketsScreen";
 import { NotificationProvider } from "./src/context/NotificationContext";
 import { PushNotificationBootstrap } from "./src/components/notifications/PushNotificationBootstrap";
 import { RazorpayWebCheckoutHost } from "./src/components/payments/RazorpayWebCheckoutHost";
@@ -154,6 +166,26 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="MatrimonyViews" component={MatrimonyViewsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="HelpSupport" component={HelpSupportHomeScreen} options={{ title: "Help & Support" }} />
+        <Stack.Screen name="SupportFaqs" component={SupportFaqsScreen} options={{ title: "FAQs" }} />
+        <Stack.Screen name="SupportGuides" component={SupportGuidesScreen} options={{ title: "How-to Guides" }} />
+        <Stack.Screen
+          name="SupportGuideDetail"
+          component={SupportGuideDetailScreen}
+          options={{ title: "Guide" }}
+        />
+        <Stack.Screen name="SupportContact" component={SupportContactScreen} options={{ title: "Contact Support" }} />
+        <Stack.Screen
+          name="SupportCreateTicket"
+          component={SupportCreateTicketScreen}
+          options={{ title: "New Request" }}
+        />
+        <Stack.Screen name="SupportMyTickets" component={SupportMyTicketsScreen} options={{ title: "My Requests" }} />
+        <Stack.Screen
+          name="SupportTicketDetail"
+          component={SupportTicketDetailScreen}
+          options={{ title: "Ticket" }}
+        />
       </Stack.Navigator>
     </>
   );

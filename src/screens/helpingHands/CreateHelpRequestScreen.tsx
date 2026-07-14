@@ -210,6 +210,7 @@ export function CreateHelpRequestScreen() {
     try {
       const created = await createPost({
         post_type: "HELP_REQUEST",
+        creation_source: "helping_hands",
         title: title.trim(),
         description: description.trim(),
         media_url: galleryUrls[0] ?? null,

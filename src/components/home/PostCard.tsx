@@ -320,9 +320,11 @@ function PostCardInner({
         <Text style={s.title} numberOfLines={2}>
           {post.title}
         </Text>
-        <Text style={s.description} numberOfLines={4}>
-          {post.description}
-        </Text>
+        {post.description?.trim() ? (
+          <Text style={s.description} numberOfLines={2}>
+            {post.description.trim()}
+          </Text>
+        ) : null}
       </View>
 
       {post.imageUri ? (

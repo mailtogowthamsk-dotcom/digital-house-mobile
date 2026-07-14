@@ -8,9 +8,9 @@ export type RegisterPayload = {
   email: string;
   mobile?: string | null;
   occupation?: string | null;
-  location?: string | null;
+  location: string;
   community?: string | null;
-  kulam?: string | null;
+  kulam: string;
   profilePhoto?: string | null;
   govtIdType?: string | null;
   govtIdFile?: string | null;

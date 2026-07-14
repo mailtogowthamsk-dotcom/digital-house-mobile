@@ -6,6 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
+import { formatUsername } from "../../utils/username";
 
 export type ProfileHeaderProps = {
   name: string;
@@ -74,7 +75,12 @@ export function ProfileHeader({
         },
         avatarText: { fontSize: 32, fontWeight: "700", color: colors.white },
         name: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
-        username: { ...typography.bodySmall, color: colors.primary, fontWeight: "700", marginBottom: spacing.xs },
+        username: {
+          ...typography.body,
+          color: colors.primary,
+          fontWeight: "700",
+          marginBottom: spacing.sm
+        },
         role: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
         verifiedPill: {
           flexDirection: "row",
@@ -115,7 +121,9 @@ export function ProfileHeader({
           />
         </View>
         <Text style={s.name}>{name}</Text>
-        {username ? <Text style={s.username}>@{username}</Text> : null}
+        {username?.trim() ? (
+          <Text style={s.username}>{formatUsername(username.trim())}</Text>
+        ) : null}
         {communityRole ? <Text style={s.role}>{communityRole}</Text> : null}
         {verified && (
           <View style={s.verifiedPill}>

@@ -101,6 +101,14 @@ const CONNECT: MenuItem[] = [
     icon: "chatbubble-outline",
     tint: "#EA580C",
     tintBg: "#FFF7ED"
+  },
+  {
+    id: "help-support",
+    label: "Help & Support",
+    subtitle: "FAQs, tickets, contact",
+    icon: "help-buoy-outline",
+    tint: "#0369A1",
+    tintBg: "#F0F9FF"
   }
 ];
 
@@ -124,7 +132,8 @@ export function MenuScreen() {
       "create",
       "messages",
       "settings",
-      "connections"
+      "connections",
+      "help-support"
     ]);
     if (featureOnlyIds.has(item.id)) return true;
 
@@ -304,6 +313,7 @@ export function MenuScreen() {
     else if (actionId === "marketplace") navigation.navigate("MarketplaceHome");
     else if (actionId === "helping-hand") navigation.navigate("HelpingHandsHome");
     else if (actionId === "matrimony") navigation.navigate("MatrimonyHome");
+    else if (actionId === "help-support") navigation.navigate("HelpSupport");
   };
 
   const firstName = (user?.name || "Member").trim().split(/\s+/)[0];

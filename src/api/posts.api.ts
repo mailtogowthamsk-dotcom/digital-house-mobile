@@ -77,6 +77,8 @@ export type CommentsResponse = {
 
 export type CreatePostPayload = {
   post_type: string;
+  /** Distinguishes Home Feed composer from Jobs / Marketplace / Helping Hands. */
+  creation_source?: "feed" | "jobs" | "marketplace" | "helping_hands";
   title: string;
   description?: string | null;
   media_url?: string | null;
