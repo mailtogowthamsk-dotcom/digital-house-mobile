@@ -9,6 +9,9 @@ WebBrowser.maybeCompleteAuthSession();
 
 const APP_SCHEME = (Constants.expoConfig?.scheme as string | undefined) ?? "digitalhouse";
 
+/** Placeholder so Google.useIdTokenAuthRequest never throws on missing env in release builds. */
+const SAFE_CLIENT_ID = "GOOGLE_AUTH_DISABLED.apps.googleusercontent.com";
+
 export const IS_EXPO_GO =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -44,7 +47,6 @@ type GoogleNativeModule = {
 
 function hasNativeGoogleSignIn(): boolean {
   try {
-    // Prefer non-throwing lookup when available
     const get = (TurboModuleRegistry as { get?: (name: string) => unknown } | undefined)?.get;
     if (typeof get === "function" && get("RNGoogleSignin")) return true;
   } catch {
@@ -87,7 +89,16 @@ function readClientIds() {
   };
 }
 
-function useWebGoogleAuth(webClientId: string, iosClientId: string) {
+/**
+ * Always call with non-empty client IDs.
+ * Missing androidClientId / iosClientId throws synchronously on release builds and
+ * takes down Login via AppErrorBoundary ("Something went wrong").
+ */
+function useWebGoogleAuth(clientIds: {
+  webClientId: string;
+  iosClientId: string;
+  androidClientId: string;
+}) {
   const redirectUri = useMemo(
     () =>
       makeRedirectUri({
@@ -98,16 +109,26 @@ function useWebGoogleAuth(webClientId: string, iosClientId: string) {
     []
   );
 
+  const webClientId = clientIds.webClientId || SAFE_CLIENT_ID;
+  const iosClientId = clientIds.iosClientId || webClientId;
+  const androidClientId = clientIds.androidClientId || webClientId;
+
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
       webClientId,
-      iosClientId: iosClientId || webClientId,
+      iosClientId,
+      androidClientId,
       redirectUri
     },
     { scheme: APP_SCHEME }
   );
 
   const signInWeb = useCallback(async (): Promise<string | null> => {
+    if (!clientIds.webClientId) {
+      throw new Error(
+        "Google Sign-In is not configured in this build. Install the latest preview build from EAS."
+      );
+    }
     if (!request) {
       throw new Error("Google Sign-In is still loading. Try again in a moment.");
     }
@@ -131,13 +152,14 @@ function useWebGoogleAuth(webClientId: string, iosClientId: string) {
       throw new Error("Google did not return a valid token. Please try again.");
     }
     return idToken;
-  }, [promptAsync, request]);
+  }, [clientIds.webClientId, promptAsync, request]);
 
-  return { signInWeb, webReady: !!request };
+  return { signInWeb, webReady: !!request && !!clientIds.webClientId };
 }
 
 export function useGoogleSignIn() {
-  const { webClientId, iosClientId } = readClientIds();
+  const clientIds = readClientIds();
+  const { webClientId, iosClientId, androidClientId } = clientIds;
   const configured = !!webClientId;
   const nativeModule = useMemo(() => loadGoogleNative(), []);
   const nativePresent = !!nativeModule;
@@ -146,7 +168,12 @@ export function useGoogleSignIn() {
   const available = configured && !IS_EXPO_GO && (useNativeSignIn || Platform.OS === "web");
   const [nativeReady, setNativeReady] = useState(!useNativeSignIn);
 
-  const { signInWeb, webReady } = useWebGoogleAuth(webClientId, iosClientId);
+  // Must always run (hooks rules). Safe IDs prevent Android/iOS release crashes.
+  const { signInWeb, webReady } = useWebGoogleAuth({
+    webClientId,
+    iosClientId,
+    androidClientId
+  });
 
   useEffect(() => {
     if (!configured || IS_EXPO_GO || !useNativeSignIn || !nativeModule) {
@@ -217,7 +244,12 @@ export function useGoogleSignIn() {
       );
     }
     if ((Platform.OS === "ios" || Platform.OS === "android") && !nativePresent) {
-      throw new Error(NATIVE_GOOGLE_MISSING_MESSAGE);
+      // Standalone builds should use native module; web OAuth is fallback only.
+      try {
+        return await signInWeb();
+      } catch {
+        throw new Error(NATIVE_GOOGLE_MISSING_MESSAGE);
+      }
     }
     if (useNativeSignIn) {
       return signInNative();

@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean; error: Error | null };
@@ -17,12 +17,20 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const detail = this.state.error?.message?.trim();
       return (
         <View style={s.container}>
           <Text style={s.title}>Something went wrong</Text>
           <Text style={s.message}>
             The app hit an error. Try closing and reopening the app.
           </Text>
+          {detail ? (
+            <ScrollView style={s.detailBox} contentContainerStyle={s.detailContent}>
+              <Text style={s.detailText} selectable>
+                {detail}
+              </Text>
+            </ScrollView>
+          ) : null}
           <Pressable
             style={({ pressed }) => [s.button, pressed && s.buttonPressed]}
             onPress={() => this.setState({ hasError: false, error: null })}
@@ -54,7 +62,22 @@ const s = StyleSheet.create({
     fontSize: 15,
     color: "rgba(255,255,255,0.8)",
     textAlign: "center",
-    marginBottom: 24
+    marginBottom: 16
+  },
+  detailBox: {
+    maxHeight: 140,
+    width: "100%",
+    marginBottom: 20,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 8
+  },
+  detailContent: {
+    padding: 12
+  },
+  detailText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    fontFamily: undefined
   },
   button: {
     paddingVertical: 12,

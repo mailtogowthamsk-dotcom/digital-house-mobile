@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import {
   View,
   Text,
@@ -17,13 +17,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { googleAuth, loginRequest } from "../../api/auth.api";
 import { getApiBaseUrl, getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
-import { EXPO_GO_GOOGLE_MESSAGE, NATIVE_GOOGLE_MISSING_MESSAGE, useGoogleSignIn } from "../../hooks/useGoogleSignIn";
+import {
+  EXPO_GO_GOOGLE_MESSAGE,
+  NATIVE_GOOGLE_MISSING_MESSAGE,
+  useGoogleSignIn
+} from "../../hooks/useGoogleSignIn";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const LOGO = require("../../../assets/logo_digital_house.png");
 const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
@@ -33,9 +37,54 @@ const ICON_SIZE = 20;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function LoginScreen({ navigation }: any) {
-  const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
+/** Isolates Google AuthSession crashes so email OTP login still works in preview builds. */
+class LoginGoogleBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[LoginScreen] Google auth init failed:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+export function LoginScreen(props: any) {
+  return (
+    <LoginGoogleBoundary fallback={<LoginScreenEmailOnly {...props} />}>
+      <LoginScreenInner {...props} />
+    </LoginGoogleBoundary>
+  );
+}
+
+function LoginScreenEmailOnly({ navigation }: any) {
+  return (
+    <LoginScreenBody
+      navigation={navigation}
+      google={{
+        available: false,
+        configured: false,
+        isExpoGo: false,
+        nativePresent: false,
+        ready: false,
+        hint: "Google Sign-In unavailable in this build. Use email OTP below.",
+        onGoogleSignIn: async () => {},
+        googleLoading: false
+      }}
+    />
+  );
+}
+
+function LoginScreenInner({ navigation }: any) {
   const {
     signIn: getGoogleToken,
     configured: googleConfigured,
@@ -44,8 +93,7 @@ export function LoginScreen({ navigation }: any) {
     nativePresent,
     ready: googleReady
   } = useGoogleSignIn();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -58,7 +106,6 @@ export function LoginScreen({ navigation }: any) {
       if (!idToken) return;
       const result = await googleAuth(idToken);
       await signIn(result.accessToken, result.user);
-      /* App remounts stack via initialRoute key — avoid double reset/hang */
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: { message?: string } } };
       const status = err.response?.status;
@@ -74,6 +121,59 @@ export function LoginScreen({ navigation }: any) {
       setGoogleLoading(false);
     }
   };
+
+  let hint: string | null = null;
+  if (isExpoGo) hint = EXPO_GO_GOOGLE_MESSAGE;
+  else if (!nativePresent) hint = NATIVE_GOOGLE_MISSING_MESSAGE;
+  else if (!googleConfigured) {
+    hint =
+      "Google Sign-In is not configured in this build. Reinstall the latest preview build from EAS.";
+  } else if (!googleReady) hint = "Preparing Google Sign-In…";
+
+  return (
+    <LoginScreenBody
+      navigation={navigation}
+      externalMsg={msg}
+      google={{
+        available: googleAvailable,
+        configured: googleConfigured,
+        isExpoGo,
+        nativePresent,
+        ready: googleReady,
+        hint,
+        onGoogleSignIn,
+        googleLoading
+      }}
+    />
+  );
+}
+
+type GoogleUi = {
+  available: boolean;
+  configured: boolean;
+  isExpoGo: boolean;
+  nativePresent: boolean;
+  ready: boolean;
+  hint: string | null;
+  onGoogleSignIn: () => void | Promise<void>;
+  googleLoading: boolean;
+};
+
+function LoginScreenBody({
+  navigation,
+  google,
+  externalMsg
+}: {
+  navigation: any;
+  google: GoogleUi;
+  externalMsg?: string | null;
+}) {
+  const insets = useSafeAreaInsets();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  /** Local OTP messages win over Google errors from the parent. */
+  const shownMsg = msg ?? externalMsg ?? null;
 
   const onSend = async () => {
     Keyboard.dismiss();
@@ -91,7 +191,6 @@ export function LoginScreen({ navigation }: any) {
       const result = await loginRequest(email.trim());
       const normalizedEmail = email.trim().toLowerCase();
       if (result.sent === false) {
-        // Cooldown: no new email — still open verify so they can enter the code already sent
         setMsg(result.message || "A code was already sent. Check your email.");
         navigation.navigate("OtpVerify", { email: normalizedEmail });
         return;
@@ -154,7 +253,10 @@ export function LoginScreen({ navigation }: any) {
         keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={[s.scrollContent, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
+          contentContainerStyle={[
+            s.scrollContent,
+            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+          ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -188,12 +290,12 @@ export function LoginScreen({ navigation }: any) {
               style={({ pressed }) => [
                 s.googleBtn,
                 pressed && s.btnPressed,
-                (googleLoading || loading || !googleAvailable) && s.btnDisabled
+                (google.googleLoading || loading || !google.available) && s.btnDisabled
               ]}
-              onPress={() => void onGoogleSignIn()}
-              disabled={googleLoading || loading || !googleAvailable}
+              onPress={() => void google.onGoogleSignIn()}
+              disabled={google.googleLoading || loading || !google.available}
             >
-              {googleLoading ? (
+              {google.googleLoading ? (
                 <ActivityIndicator size="small" color="#111827" />
               ) : (
                 <>
@@ -202,17 +304,7 @@ export function LoginScreen({ navigation }: any) {
                 </>
               )}
             </Pressable>
-            {isExpoGo ? (
-              <Text style={s.googleHint}>{EXPO_GO_GOOGLE_MESSAGE}</Text>
-            ) : !nativePresent ? (
-              <Text style={s.googleHint}>{NATIVE_GOOGLE_MISSING_MESSAGE}</Text>
-            ) : !googleConfigured ? (
-              <Text style={s.googleHint}>
-                Google Sign-In is not configured in this build. Reinstall the latest preview build from EAS.
-              </Text>
-            ) : !googleReady ? (
-              <Text style={s.googleHint}>Preparing Google Sign-In…</Text>
-            ) : null}
+            {google.hint ? <Text style={s.googleHint}>{google.hint}</Text> : null}
 
             <View style={s.dividerRow}>
               <View style={s.dividerLine} />
@@ -235,8 +327,10 @@ export function LoginScreen({ navigation }: any) {
             />
 
             <View style={s.messageWrap}>
-              {msg ? (
-                <Text style={msg.includes("sent") ? s.messageSuccess : s.messageError}>{msg}</Text>
+              {shownMsg ? (
+                <Text style={shownMsg.includes("sent") ? s.messageSuccess : s.messageError}>
+                  {shownMsg}
+                </Text>
               ) : null}
             </View>
 
@@ -283,182 +377,92 @@ const s = StyleSheet.create({
   keyboard: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing.xl
+    paddingHorizontal: spacing.lg,
+    justifyContent: "center"
   },
   backWrap: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
     alignSelf: "flex-start",
-    paddingVertical: spacing.sm,
-    paddingRight: spacing.md,
-    marginBottom: spacing.sm
+    marginBottom: spacing.md,
+    paddingVertical: 4
   },
-  backText: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    marginLeft: spacing.xs
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: spacing.xl
-  },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.4, 160),
-    height: Math.min(SCREEN_HEIGHT * 0.12, 56),
-    marginBottom: spacing.sm
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: spacing.md
-  },
-  brandDigital: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#2563EB"
-  },
-  brandHouse: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#F97316"
-  },
+  backText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  header: { alignItems: "center", marginBottom: spacing.lg },
+  logo: { width: Math.min(88, SCREEN_WIDTH * 0.22), height: Math.min(88, SCREEN_WIDTH * 0.22) },
+  brandRow: { flexDirection: "row", alignItems: "baseline", marginTop: spacing.sm },
+  brandDigital: { fontSize: 28, fontWeight: "800", color: "#FFFFFF" },
+  brandHouse: { fontSize: 28, fontWeight: "800", color: "#F97316" },
   taglineRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.lg
+    marginTop: spacing.sm,
+    gap: 10
   },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(107,114,128,0.4)",
-    marginHorizontal: spacing.sm
-  },
-  tagline: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "400"
-  },
+  line: { height: 1, width: 28, backgroundColor: "rgba(255,255,255,0.35)" },
+  tagline: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: "500" },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: spacing.xxl,
+    borderRadius: 20,
+    padding: spacing.lg,
+    maxWidth: 440,
+    width: "100%",
+    alignSelf: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 6
   },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: spacing.xs
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: spacing.lg
-  },
+  cardTitle: { fontSize: 22, fontWeight: "800", color: "#111827" },
+  cardSubtitle: { marginTop: 4, marginBottom: spacing.md, fontSize: 14, color: "#6B7280" },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    borderRadius: 14,
-    paddingVertical: 14,
-    backgroundColor: "#FFFFFF"
+    borderRadius: 12,
+    paddingVertical: 14
   },
-  googleBtnText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827"
-  },
-  googleHint: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    textAlign: "center",
-    marginTop: spacing.sm
-  },
+  googleBtnText: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  googleHint: { marginTop: 8, fontSize: 12, lineHeight: 17, color: "#6B7280" },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: spacing.lg,
-    gap: spacing.sm
+    marginVertical: spacing.md,
+    gap: 10
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB"
-  },
-  dividerText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#9CA3AF",
-    letterSpacing: 1
-  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
+  dividerText: { fontSize: 12, fontWeight: "700", color: "#9CA3AF" },
   existingLabel: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#374151",
     marginBottom: spacing.sm
   },
-  messageWrap: {
-    minHeight: 24,
-    marginBottom: spacing.sm,
-    justifyContent: "center"
-  },
-  messageSuccess: {
-    fontSize: 14,
-    color: "#22C55E"
-  },
-  messageError: {
-    fontSize: 14,
-    color: "#EF4444"
-  },
-  btnWrap: {
-    width: "100%",
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4
-  },
-  btnPressed: { opacity: 0.9 },
-  btnDisabled: { opacity: 0.85 },
+  messageWrap: { minHeight: 22, marginTop: spacing.sm, marginBottom: spacing.sm },
+  messageError: { fontSize: 13, color: "#DC2626", fontWeight: "600" },
+  messageSuccess: { fontSize: 13, color: "#059669", fontWeight: "600" },
+  btnWrap: { borderRadius: 12, overflow: "hidden" },
+  btnPressed: { opacity: 0.92 },
+  btnDisabled: { opacity: 0.55 },
   loginBtn: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 14,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    paddingVertical: 14
   },
-  loginBtnText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#FFFFFF"
-  },
-  loginHint: {
-    fontSize: 13,
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: spacing.md
-  },
+  loginBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+  loginHint: { marginTop: spacing.sm, fontSize: 12, color: "#6B7280", textAlign: "center" },
   registerWrap: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    marginTop: spacing.md,
+    flexWrap: "wrap"
   },
-  registerText: {
-    fontSize: 15,
-    color: "#6B7280"
-  },
-  registerLink: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#2563EB"
-  }
+  registerText: { fontSize: 14, color: "#6B7280" },
+  registerLink: { fontSize: 14, fontWeight: "700", color: "#2563EB" }
 });
