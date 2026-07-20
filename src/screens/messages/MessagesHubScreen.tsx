@@ -18,8 +18,16 @@ import {
 } from "../../api/messages.api";
 import { getSocket } from "../../realtime/socket";
 import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
-import { subscribePresence } from "../../realtime/presenceRealtime";
+import {
+  subscribePresence,
+  isUserOnlineCached,
+  hasPresenceSynced,
+  refreshPresenceSnapshot,
+  formatLastSeen,
+  getCachedLastSeenAt
+} from "../../realtime/presenceRealtime";
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
+import { registerGlobalMessageHandler } from "../../realtime/chatRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
 import { useChatLayout } from "../../hooks/useChatLayout";
@@ -27,6 +35,7 @@ import { useAppResume } from "../../hooks/useAppResume";
 import { ThreadListPanel, ThreadRow } from "../../components/messages/ThreadListPanel";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
+import { mergeChatMessages } from "../../utils/mergeChatMessages";
 
 const HISTORY_LIMIT = 50;
 
@@ -128,7 +137,33 @@ export function MessagesHubScreen() {
           ? await listThreads({ archivedOnly: true })
           : await listThreads();
       if (gen !== threadsLoadGenRef.current) return;
-      setThreads(data);
+      const merged =
+        hasPresenceSynced()
+          ? data.map((t) => ({
+              ...t,
+              otherUser: {
+                ...t.otherUser,
+                online: isUserOnlineCached(t.otherUser.id)
+              }
+            }))
+          : data.map((t) => ({
+              ...t,
+              otherUser: {
+                ...t.otherUser,
+                online: t.otherUser.online || isUserOnlineCached(t.otherUser.id)
+              }
+            }));
+      setThreads(merged);
+      setSelectedUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              online: hasPresenceSynced()
+                ? isUserOnlineCached(prev.id)
+                : !!prev.online || isUserOnlineCached(prev.id)
+            }
+          : prev
+      );
     } catch (e: unknown) {
       if (gen === threadsLoadGenRef.current) {
         setThreadsError(e instanceof Error ? e.message : "Failed to load conversations");
@@ -170,6 +205,7 @@ export function MessagesHubScreen() {
   );
 
   useAppResume(() => {
+    refreshPresenceSnapshot();
     void loadThreads(undefined, { soft: true });
   });
 
@@ -210,7 +246,7 @@ export function MessagesHubScreen() {
         }
 
         const hist = await getHistory(other.id, HISTORY_LIMIT);
-        setMessages(hist.messages);
+        setMessages((prev) => mergeChatMessages(prev, hist.messages));
         listRef.current?.scrollToBottom(false);
         const ackAs = meId ?? (await getMe().then((m) => m.id).catch(() => null));
         if (ackAs != null) {
@@ -285,7 +321,7 @@ export function MessagesHubScreen() {
   useEffect(() => {
     if (meId == null) return;
     let disposed = false;
-    let teardown: (() => void) | null = null;
+    const handlerId = Symbol("hub-threads");
 
     const unsubPresence = subscribePresence({
       onUpdate: (uid, online) => {
@@ -310,47 +346,29 @@ export function MessagesHubScreen() {
       }
     });
 
-    (async () => {
-      try {
-        const sock = await getSocket();
-        if (disposed) return;
-
-        const onThreadMessage = (raw: unknown) => {
-          if (!raw || typeof raw !== "object") return;
-          const m = raw as MessageItem;
-          const otherId = m.senderId === meId ? m.recipientId : m.senderId;
-          if (layout.isSplit && selectedUser?.id === otherId) {
-            mergeSplitMessageRef.current(m);
-          }
-          setThreads((prev) => {
-            const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
-            if (needsFullReload && folderRef.current === "inbox") {
-              loadThreads("inbox", { soft: true }).catch(() => {});
-            } else if (needsFullReload) {
-              loadThreads(undefined, { soft: true }).catch(() => {});
-            }
-            if (layout.isSplit && selectedUser?.id === otherId) {
-              return clearThreadUnread(patched, otherId);
-            }
-            return patched;
-          });
-        };
-
-        sock.on("message:new", onThreadMessage);
-        sock.on("message:sent", onThreadMessage);
-
-        teardown = () => {
-          sock.off("message:new", onThreadMessage);
-          sock.off("message:sent", onThreadMessage);
-        };
-      } catch {
-        // offline
+    registerGlobalMessageHandler(handlerId, (m) => {
+      if (disposed) return;
+      const otherId = Number(m.senderId) === meId ? Number(m.recipientId) : Number(m.senderId);
+      if (layout.isSplit && selectedUser?.id === otherId) {
+        mergeSplitMessageRef.current(m);
       }
-    })();
+      setThreads((prev) => {
+        const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
+        if (needsFullReload && folderRef.current === "inbox") {
+          loadThreads("inbox", { soft: true }).catch(() => {});
+        } else if (needsFullReload) {
+          loadThreads(undefined, { soft: true }).catch(() => {});
+        }
+        if (layout.isSplit && selectedUser?.id === otherId) {
+          return clearThreadUnread(patched, otherId);
+        }
+        return patched;
+      });
+    });
 
     return () => {
       disposed = true;
-      teardown?.();
+      registerGlobalMessageHandler(handlerId, null);
       unsubPresence();
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
@@ -512,6 +530,13 @@ export function MessagesHubScreen() {
       </View>
     ) : undefined;
 
+  const handleSharedPostPress = useCallback(
+    (sharedPostId: number) => {
+      navigation.navigate("PostDetail", { postId: sharedPostId });
+    },
+    [navigation]
+  );
+
   if (!layout.isSplit) {
     return (
       <SafeAreaView
@@ -532,7 +557,13 @@ export function MessagesHubScreen() {
             <ChatPanel
               title={selectedUser.fullName}
               subtitle={
-                otherTyping ? "Typing…" : selectedUser.online ? "Online" : "Offline"
+                otherTyping
+                  ? "Typing…"
+                  : selectedUser.online
+                    ? "Online"
+                    : formatLastSeen(getCachedLastSeenAt(selectedUser.id))
+                      ? `Last seen ${formatLastSeen(getCachedLastSeenAt(selectedUser.id))}`
+                      : "Offline"
               }
               messages={messages}
               meId={meId}
@@ -555,6 +586,7 @@ export function MessagesHubScreen() {
               colors={panelColors}
               headerTopInset={0}
               headerBanner={lockBanner}
+              onSharedPostPress={handleSharedPostPress}
             />
           ) : (
             <View style={[styles.emptyChat, { backgroundColor: colors.background }]}>

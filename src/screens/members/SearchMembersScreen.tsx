@@ -22,9 +22,8 @@ import {
 import { getAuthErrorMessage, getErrorStatus, getImageUrl } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { AvatarImage } from "../../components/ui/AvatarImage";
-import { formatUsername } from "../../utils/username";
-import { relationshipLabel } from "../../utils/relationshipStatus";
 import { appAlert } from "../../utils/appAlert";
+import { formatUsername } from "../../utils/username";
 import type { RootStackParamList } from "../../navigation/types";
 
 type ThreadMeta = {
@@ -254,20 +253,8 @@ export function SearchMembersScreen() {
     [actingId, colors, fromMessages, onAccept, onConnect, openChat, threadByUserId]
   );
 
-  const statusLine = useCallback(
-    (item: DirectoryUser) => {
-      if (fromMessages && threadByUserId.has(item.id)) {
-        return "Existing chat";
-      }
-      return relationshipLabel(item.relationshipStatus);
-    },
-    [fromMessages, threadByUserId]
-  );
-
   const renderItem = useCallback(
     ({ item }: { item: DirectoryUser }) => {
-      const location = [item.city, item.district].filter(Boolean).join(", ");
-      const rel = statusLine(item);
       return (
         <Pressable
           style={[styles.row, { borderBottomColor: colors.border }]}
@@ -288,28 +275,13 @@ export function SearchMembersScreen() {
               <Text style={[styles.username, { color: colors.primary }]} numberOfLines={1}>
                 {formatUsername(item.username)}
               </Text>
-            ) : (
-              <Text style={[styles.setupBadge, { color: colors.textMuted }]}>
-                Username not set yet
-              </Text>
-            )}
-            {location ? (
-              <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-                {location}
-              </Text>
-            ) : null}
-            {item.profileVisibility === "PRIVATE" ? (
-              <Text style={[styles.privateBadge, { color: colors.textMuted }]}>Private profile</Text>
-            ) : null}
-            {rel ? (
-              <Text style={[styles.relBadge, { color: colors.primary }]}>{rel}</Text>
             ) : null}
           </View>
           {renderTrailing(item)}
         </Pressable>
       );
     },
-    [colors, onRowPress, renderTrailing, statusLine]
+    [colors, onRowPress, renderTrailing]
   );
 
   const s = useMemo(
@@ -336,8 +308,8 @@ export function SearchMembersScreen() {
   );
 
   const emptyHint = fromMessages
-    ? "Search by name or @username to open an existing chat or find members to connect with."
-    : "Search approved members by full name or @username.";
+    ? "Search by name or @username to open chat or connect."
+    : "Search approved members by name or @username.";
 
   return (
     <View style={s.container}>
@@ -346,7 +318,7 @@ export function SearchMembersScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search by name or @username"
+          placeholder="Search name or @username"
           placeholderTextColor={colors.textMuted}
           style={s.searchInput}
           autoCapitalize="none"
@@ -377,9 +349,7 @@ export function SearchMembersScreen() {
         </View>
       ) : results.length === 0 ? (
         <View style={s.empty}>
-          <Text style={s.emptyText}>
-            No members found. Search by full name or @username. Members must be approved to appear.
-          </Text>
+          <Text style={s.emptyText}>No members found.</Text>
         </View>
       ) : (
         <FlatList
@@ -408,10 +378,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   name: { fontSize: 16, fontWeight: "800" },
   username: { fontSize: 14, fontWeight: "600", marginTop: 2 },
-  meta: { fontSize: 13, marginTop: 2 },
-  privateBadge: { fontSize: 12, marginTop: 4, fontWeight: "600" },
-  setupBadge: { fontSize: 13, marginTop: 2, fontWeight: "600", fontStyle: "italic" },
-  relBadge: { fontSize: 12, marginTop: 4, fontWeight: "700" },
   actionChip: {
     flexDirection: "row",
     alignItems: "center",

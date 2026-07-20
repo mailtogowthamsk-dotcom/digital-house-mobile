@@ -44,6 +44,7 @@ type Props = {
   };
   keyboardVisible?: boolean;
   onAutoScrollChange?: (enabled: boolean) => void;
+  onSharedPostPress?: (postId: number) => void;
 };
 
 const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function ChatMessageList(
@@ -56,7 +57,8 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     otherAvatarUri,
     colors,
     keyboardVisible = false,
-    onAutoScrollChange
+    onAutoScrollChange,
+    onSharedPostPress
   },
   ref
 ) {
@@ -132,10 +134,11 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
           fontSize={fontSize}
           colors={colors}
           otherAvatarUri={otherAvatarUri}
+          onSharedPostPress={onSharedPostPress}
         />
       );
     },
-    [meId, bubbleMaxWidth, fontSize, colors, otherAvatarUri]
+    [meId, bubbleMaxWidth, fontSize, colors, otherAvatarUri, onSharedPostPress]
   );
 
   const keyExtractor = useCallback((item: ChatListRow) => item.id, []);

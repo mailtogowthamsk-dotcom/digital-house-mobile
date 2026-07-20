@@ -14,6 +14,11 @@ export type PostDetailResponse = {
   title: string;
   description: string | null;
   media_url: string | null;
+  media_type?: "image" | "video" | "none";
+  thumbnail_url?: string | null;
+  video_duration?: number | null;
+  mime_type?: string | null;
+  file_size?: number | null;
   pinned: boolean;
   urgent: boolean;
   meetup_at: string | null;
@@ -43,8 +48,13 @@ export type PostDetailResponse = {
   help_location?: string | null;
   help_contact_phone?: string | null;
   help_gallery?: string[];
+  help_expires_at?: string | null;
+  help_extended_count?: number;
+  help_resolved_at?: string | null;
   help_helper_count?: number;
   help_offered_by_me?: boolean;
+  visibility?: "PUBLIC" | "CONNECTIONS";
+  visibility_label?: string;
   created_at: string;
   updated_at: string;
   author: PostAuthor;
@@ -52,6 +62,9 @@ export type PostDetailResponse = {
   comment_count: number;
   liked_by_me: boolean;
   saved_by_me?: boolean;
+  is_repost?: boolean;
+  original_post_id?: number | null;
+  original_author?: PostAuthor | null;
 };
 
 export type CommentItem = {
@@ -79,9 +92,16 @@ export type CreatePostPayload = {
   post_type: string;
   /** Distinguishes Home Feed composer from Jobs / Marketplace / Helping Hands. */
   creation_source?: "feed" | "jobs" | "marketplace" | "helping_hands";
+  /** PUBLIC = Community (default); CONNECTIONS = Connections Only */
+  visibility?: "PUBLIC" | "CONNECTIONS";
   title: string;
   description?: string | null;
   media_url?: string | null;
+  media_type?: "image" | "video" | "none" | null;
+  thumbnail_url?: string | null;
+  video_duration?: number | null;
+  mime_type?: string | null;
+  file_size?: number | null;
   pinned?: boolean;
   urgent?: boolean;
   meetup_at?: string | null;
@@ -105,12 +125,21 @@ export type CreatePostPayload = {
   help_location?: string | null;
   help_contact_phone?: string | null;
   help_gallery?: string[];
+  /** Optional explicit hashtags (also parsed from title/description). */
+  hashtags?: string[];
 };
 
 export type UpdatePostPayload = {
   title?: string;
+  visibility?: "PUBLIC" | "CONNECTIONS";
   description?: string | null;
+  hashtags?: string[];
   media_url?: string | null;
+  media_type?: "image" | "video" | "none" | null;
+  thumbnail_url?: string | null;
+  video_duration?: number | null;
+  mime_type?: string | null;
+  file_size?: number | null;
   pinned?: boolean;
   urgent?: boolean;
   meetup_at?: string | null;
@@ -165,6 +194,44 @@ export async function likePost(postId: number): Promise<{ liked: boolean; like_c
   );
   if (!data.ok) throw new Error("Failed to update like");
   return { liked: data.liked, like_count: data.like_count };
+}
+
+/** Public liker row — shared shape for posts / reels / comments later. */
+export type PostLiker = {
+  userId: number;
+  fullName: string;
+  username: string | null;
+  profilePhoto: string | null;
+  isVerified: boolean;
+  likedAt: string;
+  isCurrentUser: boolean;
+};
+
+export type PostLikesResponse = {
+  items: PostLiker[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+export async function getPostLikes(
+  postId: number,
+  params: { limit?: number; offset?: number } = {}
+): Promise<PostLikesResponse> {
+  const limit = params.limit ?? 30;
+  const offset = params.offset ?? 0;
+  const { data } = await api.get<{ ok: boolean } & PostLikesResponse>(`/posts/${postId}/likes`, {
+    params: { limit, offset }
+  });
+  if (!data.ok) throw new Error("Failed to load likes");
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    limit: data.limit ?? limit,
+    offset: data.offset ?? offset,
+    hasMore: Boolean(data.hasMore)
+  };
 }
 
 export async function savePost(postId: number): Promise<{ saved: boolean }> {

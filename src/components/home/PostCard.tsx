@@ -8,7 +8,6 @@ import {
   Easing,
 } from "react-native";
 import { AvatarImage } from "../ui/AvatarImage";
-import { sharePost } from "../../utils/sharePost";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { PostMedia } from "./PostMedia";
 import { useTheme } from "../../theme/ThemeContext";
@@ -16,18 +15,29 @@ import { useTheme } from "../../theme/ThemeContext";
 export type PostCardData = {
   id: string;
   userName: string;
+  authorUserId?: number;
+  authorUsername?: string | null;
   userAvatarUri?: string | null;
   timeAgo: string;
   postType: string;
   title: string;
   description: string;
   imageUri?: string | null;
+  mediaType?: "image" | "video" | "none" | string | null;
+  thumbnailUrl?: string | null;
+  videoDuration?: number | null;
+  /** Feed viewport: video autoplay when true */
+  isMediaActive?: boolean;
   likeCount: number;
   commentCount: number;
   likedByMe?: boolean;
   savedByMe?: boolean;
   isTrending?: boolean;
   engagementScore?: number;
+  /** Community repost metadata */
+  isRepost?: boolean;
+  originalAuthorName?: string | null;
+  originalPostId?: number | null;
 };
 
 const DOUBLE_TAP_DELAY_MS = 280;
@@ -39,9 +49,12 @@ const GLOW_COLOR = "rgba(233, 30, 99, 0.45)";
 type PostCardProps = {
   post: PostCardData;
   onPress?: () => void;
+  onAuthorPress?: () => void;
   onViewDetails?: () => void;
   onDoubleTap?: () => void;
   onLikePress?: () => void;
+  /** Opens likes list — typically the count, not the heart. */
+  onLikeCountPress?: () => void;
   onCommentPress?: () => void;
   onSavePress?: () => void;
   onSharePress?: () => void;
@@ -50,9 +63,11 @@ type PostCardProps = {
 function PostCardInner({
   post,
   onPress,
+  onAuthorPress,
   onViewDetails,
   onDoubleTap,
   onLikePress,
+  onLikeCountPress,
   onCommentPress,
   onSavePress,
   onSharePress
@@ -116,6 +131,14 @@ function PostCardInner({
     ]).start();
   }, [likeScale]);
 
+  const handleAuthorPress = useCallback(
+    (e: { stopPropagation?: () => void }) => {
+      e.stopPropagation?.();
+      onAuthorPress?.();
+    },
+    [onAuthorPress]
+  );
+
   const handlePress = useCallback(
     (ev: { nativeEvent: { locationX: number; locationY: number } }) => {
       const now = Date.now();
@@ -153,15 +176,9 @@ function PostCardInner({
     onLikePress?.();
   }, [bumpLikeIcon, onLikePress]);
 
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(() => {
     onSharePress?.();
-    await sharePost({
-      postId: Number(post.id),
-      title: post.title,
-      authorName: post.userName,
-      description: post.description
-    });
-  }, [onSharePress, post.id, post.title, post.userName, post.description]);
+  }, [onSharePress]);
 
   const s = useMemo(
     () =>
@@ -195,6 +212,9 @@ function PostCardInner({
         avatarImg: { width: 44, height: 44, borderRadius: 22 },
         avatarText: { fontSize: 18, fontWeight: "700", color: colors.primary },
         headerText: { flex: 1, minWidth: 0 },
+        authorRow: { flex: 1, flexDirection: "row", minWidth: 0, alignItems: "flex-start" },
+        authorPressable: { opacity: 1 },
+        authorPressablePressed: { opacity: 0.65 },
         userName: { fontSize: 16, fontWeight: "600", color: colors.text, marginBottom: 2 },
         meta: { fontSize: 12, color: colors.textSecondary },
         trending: {
@@ -291,22 +311,67 @@ function PostCardInner({
         </View>
       )}
 
+      {post.isRepost ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 2 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="repeat-outline" size={14} color={colors.textSecondary} />
+            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
+              Reposted by {post.userName}
+            </Text>
+          </View>
+          {post.originalAuthorName ? (
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 20 }}>
+              Original post by {post.originalAuthorName}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={s.header}>
-        <AvatarImage
-          uri={post.userAvatarUri}
-          name={post.userName}
-          size={44}
-          placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
-          textColor={colors.primary}
-          containerStyle={{ marginRight: 12 }}
-        />
-        <View style={s.headerText}>
-          <Text style={s.userName} numberOfLines={1}>
-            {post.userName}
-          </Text>
-          <Text style={s.meta}>
-            {post.timeAgo} · {post.postType}
-          </Text>
+        <View style={s.authorRow}>
+          <Pressable
+            onPress={handleAuthorPress}
+            disabled={!onAuthorPress}
+            style={({ pressed }) => [s.authorPressable, pressed && onAuthorPress && s.authorPressablePressed]}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 4 }}
+            accessibilityRole={onAuthorPress ? "button" : undefined}
+            accessibilityLabel={onAuthorPress ? `View ${post.userName}'s profile` : undefined}
+          >
+            <AvatarImage
+              uri={post.userAvatarUri}
+              name={post.userName}
+              size={44}
+              placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
+              textColor={colors.primary}
+              containerStyle={{ marginRight: 12 }}
+            />
+          </Pressable>
+          <View style={s.headerText}>
+            <Pressable
+              onPress={handleAuthorPress}
+              disabled={!onAuthorPress}
+              style={({ pressed }) => [
+                { alignSelf: "flex-start", maxWidth: "100%" },
+                s.authorPressable,
+                pressed && onAuthorPress && s.authorPressablePressed
+              ]}
+              hitSlop={{ top: 4, bottom: 4, left: 0, right: 8 }}
+              accessibilityRole={onAuthorPress ? "button" : undefined}
+              accessibilityLabel={onAuthorPress ? `View ${post.userName}'s profile` : undefined}
+            >
+              <Text style={s.userName} numberOfLines={1}>
+                {post.userName}
+              </Text>
+              {post.authorUsername ? (
+                <Text style={s.meta} numberOfLines={1}>
+                  @{post.authorUsername}
+                </Text>
+              ) : null}
+            </Pressable>
+            <Text style={s.meta}>
+              {post.timeAgo} · {post.postType}
+            </Text>
+          </View>
         </View>
         {post.isTrending ? (
           <View style={s.trending}>
@@ -329,7 +394,14 @@ function PostCardInner({
 
       {post.imageUri ? (
         <View style={s.bannerWrap}>
-          <PostMedia mediaUrl={post.imageUri} feedMode />
+          <PostMedia
+            mediaUrl={post.imageUri}
+            mediaType={post.mediaType}
+            thumbnailUrl={post.thumbnailUrl}
+            videoDuration={post.videoDuration}
+            isActive={Boolean(post.isMediaActive)}
+            feedMode
+          />
         </View>
       ) : null}
 
@@ -342,6 +414,8 @@ function PostCardInner({
               handleLike();
             }}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={post.likedByMe ? "Unlike" : "Like"}
           >
             <Animated.View style={{ transform: [{ scale: likeScale }] }}>
               <Ionicons
@@ -350,6 +424,18 @@ function PostCardInner({
                 color={post.likedByMe ? HEART_COLOR : colors.textSecondary}
               />
             </Animated.View>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [s.actionBtn, { paddingLeft: 2 }, pressed && s.actionBtnPressed]}
+            onPress={(e) => {
+              e.stopPropagation();
+              if (onLikeCountPress && post.likeCount > 0) onLikeCountPress();
+              else handleLike();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 2, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={`${post.likeCount} likes`}
+          >
             <Text style={[s.actionCount, post.likedByMe && s.actionCountActive]}>{post.likeCount}</Text>
           </Pressable>
 

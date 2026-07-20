@@ -123,3 +123,25 @@ export async function completeHelpRequest(
   if (!data.ok) throw new Error("Failed to complete request");
   return { status: data.status, appreciationSaved: data.appreciationSaved };
 }
+
+export async function extendHelpRequest(postId: number): Promise<{
+  status: string;
+  helpExpiresAt: string;
+  helpExtendedCount: number;
+  maxExtends: number;
+}> {
+  const { data } = await api.post<{
+    ok: boolean;
+    status: string;
+    helpExpiresAt: string;
+    helpExtendedCount: number;
+    maxExtends: number;
+  }>(`/helping-hands/requests/${postId}/extend`);
+  if (!data.ok) throw new Error("Failed to extend request");
+  return {
+    status: data.status,
+    helpExpiresAt: data.helpExpiresAt,
+    helpExtendedCount: data.helpExtendedCount,
+    maxExtends: data.maxExtends
+  };
+}

@@ -27,6 +27,8 @@ export type HomeSummaryResponse = {
 };
 
 export type FeedAuthor = {
+  userId: number;
+  username: string | null;
   name: string;
   profileImage: string | null;
   verified: boolean;
@@ -38,6 +40,11 @@ export type FeedItem = {
   title: string;
   description: string | null;
   mediaUrl: string | null;
+  mediaType?: "image" | "video" | "none";
+  thumbnailUrl?: string | null;
+  videoDuration?: number | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
   createdAt: string;
   author: FeedAuthor;
   counts: { likes: number; comments: number };
@@ -69,6 +76,9 @@ export type FeedItem = {
   helpLocation?: string | null;
   helpGallery?: string[];
   helpHelperCount?: number;
+  isRepost?: boolean;
+  originalPostId?: number | null;
+  originalAuthor?: FeedAuthor | null;
 };
 
 export type FeedQueryParams = {

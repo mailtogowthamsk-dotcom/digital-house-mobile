@@ -105,8 +105,12 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
       onLongPress={onMenuPress}
     >
       <View style={s.thumbWrap}>
-        {post.mediaUrl ? (
+        {post.mediaUrl && !/\.(mp4|mov)(\?|$)/i.test(post.mediaUrl) ? (
           <Image source={{ uri: post.mediaUrl }} style={s.thumb} resizeMode="cover" />
+        ) : post.mediaUrl ? (
+          <View style={[s.thumb, s.thumbPlaceholder, { backgroundColor: "#0f172a" }]}>
+            <Ionicons name="play-circle" size={40} color="#fff" />
+          </View>
         ) : (
           <View style={[s.thumb, s.thumbPlaceholder]}>
             <Ionicons name="document-text-outline" size={32} color={tint} />

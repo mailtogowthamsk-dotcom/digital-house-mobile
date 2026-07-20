@@ -14,6 +14,17 @@ export type DirectoryUser = {
   district: string | null;
   profileVisibility: ProfileVisibility;
   relationshipStatus: RelationshipStatus;
+
+  // Community discovery: professional identity
+  profession?: string | null;
+  expertiseSummary?: string | null;
+  availableForHelp?: boolean | null;
+};
+
+export type MemberProfileStats = {
+  postsCount: number;
+  connectionsCount: number;
+  likesReceivedCount: number;
 };
 
 export type MemberProfile = {
@@ -24,8 +35,17 @@ export type MemberProfile = {
   city: string | null;
   district: string | null;
   community?: string | null;
+  kulam?: string | null;
   occupation?: string | null;
   communityRole?: string | null;
+
+  // Community discovery: professional identity
+  profession?: string | null;
+  company?: string | null;
+  experience?: string | null;
+  expertiseTags?: string[];
+  availableForHelp?: boolean | null;
+
   memberSince?: string;
   profileVisibility: ProfileVisibility;
   isPrivatePreview: boolean;
@@ -33,6 +53,38 @@ export type MemberProfile = {
   needsUsernameSetup?: boolean;
   relationshipStatus: RelationshipStatus;
   acceptsConnectionRequests?: boolean;
+  stats?: MemberProfileStats;
+  connectedSince?: string | null;
+  canViewPosts?: boolean;
+};
+
+export type MemberPostItem = {
+  postId: number;
+  postType: string;
+  title: string;
+  description: string | null;
+  mediaUrl: string | null;
+  mediaType?: "image" | "video" | "none";
+  thumbnailUrl?: string | null;
+  videoDuration?: number | null;
+  createdAt: string;
+  counts: { likes: number; comments: number };
+  likedByMe: boolean;
+  savedByMe: boolean;
+  isRepost?: boolean;
+  originalPostId?: number | null;
+  originalAuthorName?: string | null;
+};
+
+export type MemberPostsResponse = {
+  items: MemberPostItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  canViewPosts: boolean;
+  /** Connections-only posts hidden from non-connected viewers */
+  connectionsOnlyHiddenCount?: number;
 };
 
 export type UsernameEligibility = {
@@ -58,6 +110,25 @@ export async function searchUsers(q: string): Promise<DirectoryUser[]> {
 export async function getMemberProfile(identifier: string | number): Promise<MemberProfile> {
   const res = await api.get<{ ok: true; profile: MemberProfile }>(`/users/${identifier}`);
   return res.data.profile;
+}
+
+export async function getMemberPosts(
+  identifier: string | number,
+  params: { limit?: number; offset?: number } = {}
+): Promise<MemberPostsResponse> {
+  const limit = params.limit ?? 12;
+  const offset = params.offset ?? 0;
+  const res = await api.get<{ ok: true } & MemberPostsResponse>(`/users/${identifier}/posts`, {
+    params: { limit, offset }
+  });
+  return {
+    items: res.data.items ?? [],
+    total: res.data.total ?? 0,
+    limit: res.data.limit ?? limit,
+    offset: res.data.offset ?? offset,
+    hasMore: Boolean(res.data.hasMore),
+    canViewPosts: res.data.canViewPosts !== false
+  };
 }
 
 export async function checkUsernameAvailability(username: string): Promise<boolean> {

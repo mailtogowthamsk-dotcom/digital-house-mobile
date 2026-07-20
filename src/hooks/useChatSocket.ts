@@ -12,8 +12,9 @@ type ChatSocketHandlers = {
 };
 
 /**
- * Subscribe to chat realtime for an active conversation.
- * Listeners attach immediately when enabled (not after history load).
+ * Subscribe to chat realtime for an active conversation while the screen is mounted.
+ * Do not gate on navigation focus — blur would drop live messages.
+ * Callers should gate mark-read / UI chrome on focus separately.
  */
 export function useChatSocket(
   otherUserId: number | null,
@@ -31,7 +32,7 @@ export function useChatSocket(
     }
 
     registerChatRealtime(subIdRef.current, {
-      otherUserId,
+      otherUserId: Number(otherUserId),
       onMessage: (m) => handlersRef.current.onMessage(m),
       onDelivered: (p) => handlersRef.current.onDelivered(p),
       onRead: (p) => handlersRef.current.onRead(p),

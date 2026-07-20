@@ -1,12 +1,9 @@
-/** Client-side image optimization targets (keep in sync with backend). */
-
-export const IMAGE_MAX_DIMENSION = 1920;
-export const IMAGE_TARGET_BYTES = 450_000;
-export const IMAGE_MEDIUM_MAX = 1080;
-export const IMAGE_THUMB_MAX = 320;
-
-/** Pickers may return huge files; we compress before upload. */
-export const IMAGE_PICKER_MAX_BYTES = 25 * 1024 * 1024;
-
-/** Must match backend IMAGE_UPLOAD_MAX_BYTES after compression. */
-export const IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
+/** Re-export image config from media.config for backward compatibility. */
+export {
+  IMAGE_MAX_DIMENSION,
+  IMAGE_TARGET_BYTES,
+  IMAGE_MEDIUM_MAX,
+  IMAGE_THUMB_MAX,
+  IMAGE_PICKER_MAX_BYTES,
+  IMAGE_UPLOAD_MAX_BYTES
+} from "./media.config";

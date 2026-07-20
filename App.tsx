@@ -24,6 +24,7 @@ import { GoogleCompleteProfileScreen } from "./src/screens/auth/GoogleCompletePr
 import { SetUsernameScreen } from "./src/screens/auth/SetUsernameScreen";
 import { SearchMembersScreen } from "./src/screens/members/SearchMembersScreen";
 import { MemberProfileScreen } from "./src/screens/members/MemberProfileScreen";
+import { MemberPostsScreen } from "./src/screens/members/MemberPostsScreen";
 import { ConnectionsScreen } from "./src/screens/members/ConnectionsScreen";
 import { HomeScreen } from "./src/screens/home/HomeScreen";
 import { ProfileScreen } from "./src/screens/home/ProfileScreen";
@@ -133,6 +134,7 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="SearchMembers" component={SearchMembersScreen} options={{ title: "Find Members" }} />
         <Stack.Screen name="Connections" component={ConnectionsScreen} options={{ title: "Connections" }} />
         <Stack.Screen name="MemberProfile" component={MemberProfileScreen} options={{ title: "Member Profile" }} />
+        <Stack.Screen name="MemberPosts" component={MemberPostsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit Profile" }} />
         <Stack.Screen name="MyPosts" component={MyPostsScreen} options={{ headerShown: false }} />

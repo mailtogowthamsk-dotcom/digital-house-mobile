@@ -12,14 +12,15 @@ import {
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getPost, likePost, savePost, unsavePost, reportPost, updatePost, expressJobInterest, listJobInterests } from "../../api/posts.api";
-import type { PostDetailResponse } from "../../api/posts.api";
+import type { PostDetailResponse, PostLiker } from "../../api/posts.api";
 import { getErrorStatus } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { PostMedia } from "../../components/home/PostMedia";
 import { MarketplaceGallery } from "../../components/marketplace/MarketplaceGallery";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import { CommentSheet } from "../../components/feed/CommentSheet";
-import { sharePost } from "../../utils/sharePost";
+import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
+import { PostActionsBottomSheet, type PostSharePayload } from "../../components/share/PostActionsBottomSheet";
 import { timeAgo } from "../../utils/timeAgo";
 import { formatPostType } from "../../utils/postMappers";
 import { emitPostUpdated } from "../../utils/postSync";
@@ -40,14 +41,15 @@ import {
 } from "../../constants/marketplace";
 import {
   formatHelpCategory,
-  formatHelpStatus,
   formatHelpUrgency,
-  urgencyBadgeColor
+  helpLifecycleBadge,
+  formatHelpExpiresIn
 } from "../../constants/helpingHands";
 import {
   offerHelp,
   listHelpHelpers,
-  completeHelpRequest
+  completeHelpRequest,
+  extendHelpRequest
 } from "../../api/helpingHands.api";
 
 const HEART_COLOR = "#E91E63";
@@ -88,6 +90,8 @@ export function PostDetailScreen() {
     }[]
   >([]);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [likesOpen, setLikesOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState<PostSharePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadPost = useCallback(async () => {
@@ -195,13 +199,15 @@ export function PostDetailScreen() {
     }
   }, [postId, post, saving, syncToFeed]);
 
-  const handleShare = useCallback(async () => {
+  const openShareSheet = useCallback(() => {
     if (!post || postId == null) return;
-    await sharePost({
+    setShareOpen({
       postId,
       title: post.title,
-      authorName: post.author?.name,
-      description: post.description ?? undefined
+      authorName: post.author?.name ?? "Member",
+      mediaUrl: post.media_url,
+      mediaType: post.media_type,
+      thumbnailUrl: post.thumbnail_url
     });
   }, [post, postId]);
 
@@ -498,7 +504,7 @@ export function PostDetailScreen() {
   const handleCompleteHelp = useCallback(() => {
     if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
     if (post.help_status === "COMPLETED") {
-      appAlert("Already completed", "This request is already marked completed.");
+      appAlert("Already resolved", "This request is already marked as resolved.");
       return;
     }
     const helpers = helpHelpers;
@@ -509,8 +515,16 @@ export function PostDetailScreen() {
           helper_user_id: helperUserId,
           appreciation: appreciation ?? null
         });
-        setPost((p) => (p ? { ...p, help_status: "COMPLETED" } : null));
-        appAlert("Completed", "Thank you — both of you have been notified.");
+        setPost((p) =>
+          p
+            ? {
+                ...p,
+                help_status: "COMPLETED",
+                help_resolved_at: new Date().toISOString()
+              }
+            : null
+        );
+        appAlert("Resolved", "Your request was marked as resolved and removed from Highlights.");
       } catch (e) {
         appAlert(
           "Error",
@@ -522,7 +536,7 @@ export function PostDetailScreen() {
       }
     };
 
-    appAlert("Mark completed?", "Confirm that help for this request is done.", [
+    appAlert("Mark as resolved?", "Confirm that this request is resolved. It will leave Highlights immediately.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Complete",
@@ -568,6 +582,46 @@ export function PostDetailScreen() {
     ]);
   }, [helpBusy, helpHelpers, post, postId]);
 
+  const handleExtendHelp = useCallback(() => {
+    if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
+    appAlert("Extend request?", "Add more time so this request stays active and highlighted.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Extend",
+        onPress: () => {
+          void (async () => {
+            setHelpBusy(true);
+            try {
+              const res = await extendHelpRequest(postId);
+              setPost((p) =>
+                p
+                  ? {
+                      ...p,
+                      help_expires_at: res.helpExpiresAt,
+                      help_extended_count: res.helpExtendedCount,
+                      help_status: res.status
+                    }
+                  : null
+              );
+              appAlert(
+                "Extended",
+                `Request extended (${res.helpExtendedCount}/${res.maxExtends} extensions used).`
+              );
+            } catch (e) {
+              appAlert(
+                "Error",
+                (e as any)?.response?.data?.message ??
+                  (e instanceof Error ? e.message : "Could not extend request.")
+              );
+            } finally {
+              setHelpBusy(false);
+            }
+          })();
+        }
+      }
+    ]);
+  }, [helpBusy, post, postId]);
+
   const s = useMemo(
     () =>
       StyleSheet.create({
@@ -594,6 +648,13 @@ export function PostDetailScreen() {
           paddingHorizontal: spacing.md,
           paddingTop: spacing.md,
           marginBottom: spacing.sm
+        },
+        repostBanner: {
+          marginHorizontal: spacing.md,
+          marginTop: spacing.md,
+          padding: spacing.md,
+          borderRadius: radius.md,
+          gap: 2
         },
         headerText: { flex: 1, minWidth: 0 },
         authorName: { ...typography.h3, fontWeight: "600", color: colors.text },
@@ -687,8 +748,11 @@ export function PostDetailScreen() {
   const isOwnHelp =
     post.post_type === "HELP_REQUEST" && user?.id != null && post.user_id === user.id;
   const helpOpen =
-    post.help_status !== "COMPLETED" && post.help_status !== "CANCELLED";
-  const helpUrgencyColors = urgencyBadgeColor(post.help_urgency);
+    post.help_status !== "COMPLETED" &&
+    post.help_status !== "CANCELLED" &&
+    post.help_status !== "EXPIRED";
+  const helpLifecycle = helpLifecycleBadge(post.help_status, post.help_expires_at);
+  const helpExpiresLabel = formatHelpExpiresIn(post.help_expires_at);
 
   return (
     <>
@@ -699,6 +763,22 @@ export function PostDetailScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} />
         }
       >
+        {post.is_repost ? (
+          <View style={[s.repostBanner, { backgroundColor: colors.surfaceElevated }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="repeat-outline" size={14} color={colors.textSecondary} />
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>
+                Reposted by {post.author.name}
+              </Text>
+            </View>
+            {post.original_author?.name ? (
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 20, marginTop: 2 }}>
+                Original post by {post.original_author.name}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={s.header}>
           <AvatarImage
             uri={post.author.profile_image}
@@ -821,18 +901,21 @@ export function PostDetailScreen() {
           {post.post_type === "HELP_REQUEST" ? (
             <View style={{ gap: 8, marginBottom: spacing.md }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                <View style={[s.typePill, { backgroundColor: helpUrgencyColors.bg }]}>
-                  <Text style={[s.typePillText, { color: helpUrgencyColors.text }]}>
-                    {formatHelpUrgency(post.help_urgency)}
+                <View style={[s.typePill, { backgroundColor: helpLifecycle.bg }]}>
+                  <Text style={[s.typePillText, { color: helpLifecycle.text }]}>
+                    {helpLifecycle.label}
                   </Text>
                 </View>
                 <View style={s.typePill}>
-                  <Text style={s.typePillText}>{formatHelpStatus(post.help_status)}</Text>
+                  <Text style={s.typePillText}>{formatHelpUrgency(post.help_urgency)}</Text>
                 </View>
                 <Text style={{ fontSize: 12, color: colors.textMuted }}>
                   {formatHelpCategory(post.help_category)}
                 </Text>
               </View>
+              {helpExpiresLabel && helpOpen ? (
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>{helpExpiresLabel}</Text>
+              ) : null}
               {post.help_location ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                   <Ionicons name="location-outline" size={14} color={colors.textMuted} />
@@ -1062,10 +1145,16 @@ export function PostDetailScreen() {
         ) : null}
 
         {isOwnHelp && helpOpen ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
+          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
             <PrimaryButton
-              title="Mark as completed"
+              title="Mark as resolved"
               onPress={handleCompleteHelp}
+              loading={helpBusy}
+              variant="secondary"
+            />
+            <PrimaryButton
+              title="Extend active duration"
+              onPress={handleExtendHelp}
               loading={helpBusy}
               variant="secondary"
             />
@@ -1153,25 +1242,44 @@ export function PostDetailScreen() {
           </View>
         ) : post.media_url ? (
           <View style={s.mediaWrap}>
-            <PostMedia mediaUrl={post.media_url} feedMode />
+            <PostMedia
+              mediaUrl={post.media_url}
+              mediaType={post.media_type}
+              thumbnailUrl={post.thumbnail_url}
+              videoDuration={post.video_duration}
+              isActive
+              feedMode
+            />
           </View>
         ) : null}
 
         <View style={s.actions}>
-          <Pressable
-            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
-            onPress={handleLike}
-            disabled={liking}
-          >
-            <Ionicons
-              name={post.liked_by_me ? "heart" : "heart-outline"}
-              size={22}
-              color={post.liked_by_me ? HEART_COLOR : colors.textSecondary}
-            />
-            <Text style={[s.actionCount, post.liked_by_me && s.actionCountActive]}>
-              {post.like_count}
-            </Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable
+              style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+              onPress={handleLike}
+              disabled={liking}
+              accessibilityLabel={post.liked_by_me ? "Unlike" : "Like"}
+            >
+              <Ionicons
+                name={post.liked_by_me ? "heart" : "heart-outline"}
+                size={22}
+                color={post.liked_by_me ? HEART_COLOR : colors.textSecondary}
+              />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [s.actionBtn, { paddingLeft: 2 }, pressed && s.actionBtnPressed]}
+              onPress={() => {
+                if (post.like_count > 0) setLikesOpen(true);
+                else void handleLike();
+              }}
+              accessibilityLabel={`${post.like_count} likes`}
+            >
+              <Text style={[s.actionCount, post.liked_by_me && s.actionCountActive]}>
+                {post.like_count}
+              </Text>
+            </Pressable>
+          </View>
 
           <Pressable
             style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
@@ -1195,7 +1303,7 @@ export function PostDetailScreen() {
 
           <Pressable
             style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
-            onPress={() => void handleShare()}
+            onPress={openShareSheet}
           >
             <Ionicons name="share-outline" size={22} color={colors.textSecondary} />
           </Pressable>
@@ -1223,6 +1331,28 @@ export function PostDetailScreen() {
         postTitle={post.title}
         onClose={() => setCommentsOpen(false)}
         onCommentCountChange={handleCommentCountChange}
+      />
+
+      <LikesBottomSheet
+        visible={likesOpen}
+        target={{ type: "post", id: postId }}
+        title="Likes"
+        onClose={() => setLikesOpen(false)}
+        onUserPress={(liker: PostLiker) => {
+          setLikesOpen(false);
+          if (liker.isCurrentUser) {
+            navigation.navigate("Profile");
+            return;
+          }
+          navigation.navigate("MemberProfile", { userId: liker.userId });
+        }}
+      />
+
+      <PostActionsBottomSheet
+        visible={shareOpen != null}
+        post={shareOpen}
+        onClose={() => setShareOpen(null)}
+        onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
     </>
   );

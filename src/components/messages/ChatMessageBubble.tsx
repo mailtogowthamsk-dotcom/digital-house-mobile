@@ -21,6 +21,7 @@ type Props = {
   fontSize: number;
   colors: ThemeColors;
   otherAvatarUri?: string | null;
+  onSharedPostPress?: (postId: number) => void;
 };
 
 function ChatMessageBubbleComponent({
@@ -29,12 +30,19 @@ function ChatMessageBubbleComponent({
   maxWidth,
   fontSize,
   colors,
-  otherAvatarUri
+  otherAvatarUri,
+  onSharedPostPress
 }: Props) {
   const time = new Date(item.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
   });
+  const sharedPostId = item.sharedPostId != null ? Number(item.sharedPostId) : null;
+  const showNote =
+    sharedPostId != null &&
+    item.body.trim() &&
+    item.body.trim() !== "Shared a post with you";
+
   // WhatsApp-like lifecycle: sending → sent (✓) → delivered (✓✓ grey) → read (✓✓ blue)
   const tick = mine
     ? item.readAt || item.deliveredAt
@@ -61,6 +69,10 @@ function ChatMessageBubbleComponent({
     ]);
   }, [item.body]);
 
+  const onOpenSharedPost = useCallback(() => {
+    if (sharedPostId) onSharedPostPress?.(sharedPostId);
+  }, [onSharedPostPress, sharedPostId]);
+
   return (
     <View style={[styles.row, mine ? styles.rowMe : styles.rowOther]}>
       {!mine ? (
@@ -75,35 +87,78 @@ function ChatMessageBubbleComponent({
         </View>
       ) : null}
 
-      <Pressable
-        onLongPress={onLongPress}
-        delayLongPress={400}
-        style={({ pressed }) => [
+      <View
+        style={[
           styles.bubble,
           { maxWidth },
           mine ? styles.bubbleMe : styles.bubbleOther,
           mine
             ? { backgroundColor: colors.primary }
-            : { backgroundColor: colors.surfaceElevated },
-          pressed && styles.pressed
+            : { backgroundColor: colors.surfaceElevated }
         ]}
       >
-        <Text
-          style={[
-            styles.body,
-            { fontSize, lineHeight: fontSize + 6 },
-            mine ? styles.textMe : { color: colors.text }
-          ]}
-        >
-          {item.body}
-        </Text>
+        {sharedPostId ? (
+          <Pressable
+            onPress={onOpenSharedPost}
+            onLongPress={onLongPress}
+            delayLongPress={400}
+            style={({ pressed }) => [
+              styles.sharedCard,
+              {
+                backgroundColor: mine ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.06)",
+                borderColor: mine ? "rgba(255,255,255,0.22)" : "rgba(15,23,42,0.08)"
+              },
+              pressed && styles.pressed
+            ]}
+          >
+            <View style={styles.sharedCardHeader}>
+              <Ionicons
+                name="document-text-outline"
+                size={16}
+                color={mine ? "#fff" : colors.primary}
+              />
+              <Text
+                style={[
+                  styles.sharedCardTitle,
+                  { color: mine ? "#fff" : colors.text }
+                ]}
+              >
+                Shared post
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.sharedCardHint,
+                { color: mine ? "rgba(255,255,255,0.88)" : colors.textMuted }
+              ]}
+            >
+              Tap to view the original post
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {showNote || (!sharedPostId && item.body?.trim()) ? (
+          <Pressable onLongPress={onLongPress} delayLongPress={400}>
+            <Text
+              style={[
+                styles.body,
+                { fontSize, lineHeight: fontSize + 6 },
+                sharedPostId ? styles.bodyWithCard : undefined,
+                mine ? styles.textMe : { color: colors.text }
+              ]}
+            >
+              {item.body}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.meta}>
           <Text style={[styles.time, mine ? styles.timeMe : { color: colors.textMuted }]}>
             {time}
           </Text>
           {mine && tick ? <Ionicons name={tick as any} size={14} color={tickColor} /> : null}
         </View>
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -140,7 +195,28 @@ const styles = StyleSheet.create({
   bubbleMe: { alignSelf: "flex-end" },
   bubbleOther: { alignSelf: "flex-start" },
   pressed: { opacity: 0.92 },
+  sharedCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 6
+  },
+  sharedCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
+  },
+  sharedCardTitle: {
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  sharedCardHint: {
+    fontSize: 12,
+    marginTop: 4
+  },
   body: { flexShrink: 1 },
+  bodyWithCard: { marginTop: 2 },
   textMe: { color: "#fff" },
   meta: {
     marginTop: 6,

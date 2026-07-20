@@ -39,18 +39,26 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
   return {
     id: String(item.postId),
     userName: item.author.name,
+    authorUserId: item.author.userId,
+    authorUsername: item.author.username ?? null,
     userAvatarUri: item.author.profileImage,
     timeAgo: timeAgo(item.createdAt),
     postType: formatPostType(item.postType),
     title: item.title,
     description: item.description ?? "",
     imageUri: item.mediaUrl,
+    mediaType: item.mediaType ?? null,
+    thumbnailUrl: item.thumbnailUrl ?? null,
+    videoDuration: item.videoDuration ?? null,
     likeCount: item.counts.likes,
     commentCount: item.counts.comments,
     likedByMe: item.likedByMe ?? item.liked_by_me ?? false,
     savedByMe: item.savedByMe ?? false,
     isTrending: item.isTrending ?? false,
-    engagementScore: item.engagementScore
+    engagementScore: item.engagementScore,
+    isRepost: item.isRepost ?? false,
+    originalAuthorName: item.originalAuthor?.name ?? null,
+    originalPostId: item.originalPostId ?? null
   };
 }
 

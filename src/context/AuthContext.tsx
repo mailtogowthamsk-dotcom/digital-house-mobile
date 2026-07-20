@@ -18,9 +18,17 @@ import {
 import { getTokenReliable, setToken, clearToken } from "../storage/token.storage";
 import { setUserSnapshot, getUserSnapshot, clearUserSnapshot } from "../storage/user.storage";
 import { disconnectSocket, getSocket } from "../realtime/socket";
-import { startDeliveryRealtime, stopDeliveryRealtime } from "../realtime/deliveryRealtime";
-import { ensurePresenceRealtime } from "../realtime/presenceRealtime";
+import { startDeliveryRealtime, stopDeliveryRealtime, resetDeliveryRealtime } from "../realtime/deliveryRealtime";
+import { ensurePresenceRealtime, resetPresenceRealtime, refreshPresenceSnapshot } from "../realtime/presenceRealtime";
+import { resetChatRealtime } from "../realtime/chatRealtime";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
+
+function hardResetRealtime() {
+  resetChatRealtime();
+  resetDeliveryRealtime();
+  resetPresenceRealtime();
+  disconnectSocket();
+}
 
 export type AuthStatus = "loading" | "signedOut" | "home" | "pending" | "rejected";
 
@@ -87,6 +95,7 @@ async function prewarmRealtime(userId: number) {
     await getSocket();
     startDeliveryRealtime(userId);
     ensurePresenceRealtime();
+    refreshPresenceSnapshot();
   } catch {
     // offline or unsigned — ignore
   }
@@ -175,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           applySession(userRef.current, false);
           return;
         }
-        disconnectSocket();
+        hardResetRealtime();
         await clearToken();
         await clearUserSnapshot();
         applySession(null, true);
@@ -186,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (userRef.current) {
           applySession(userRef.current, false);
         } else {
-          disconnectSocket();
+          hardResetRealtime();
           await clearToken();
           applySession(null, true);
         }
@@ -217,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     registerAuthSignOut(async () => {
       if (signInLockRef.current) return;
-      disconnectSocket();
+      hardResetRealtime();
       await clearToken();
       await clearUserSnapshot();
       clearWelcomeSession();
@@ -308,7 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInLockRef.current = false;
     setAllowAutoClearOn401(false);
     try {
-      disconnectSocket();
+      hardResetRealtime();
       clearWelcomeSession();
       await clearToken();
       await clearUserSnapshot();

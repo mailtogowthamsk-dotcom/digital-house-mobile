@@ -20,16 +20,19 @@ export function patchThreadsFromMessage(
   m: Pick<MessageItem, "id" | "senderId" | "recipientId" | "body" | "createdAt" | "deliveredAt" | "readAt">,
   meId: number
 ): { threads: Thread[]; needsFullReload: boolean } {
-  const otherUserId = m.senderId === meId ? m.recipientId : m.senderId;
-  const idx = threads.findIndex((t) => t.otherUser.id === otherUserId);
+  const myId = Number(meId);
+  const senderId = Number(m.senderId);
+  const recipientId = Number(m.recipientId);
+  const otherUserId = senderId === myId ? recipientId : senderId;
+  const idx = threads.findIndex((t) => Number(t.otherUser.id) === otherUserId);
   if (idx < 0) {
     return { threads, needsFullReload: true };
   }
 
   const prev = threads[idx];
-  const lastMessage = toLastMessage(m);
-  const isDuplicate = prev.lastMessage?.id === m.id;
-  const isIncoming = m.recipientId === meId && m.senderId !== meId;
+  const lastMessage = toLastMessage({ ...m, id: Number(m.id), senderId, recipientId });
+  const isDuplicate = prev.lastMessage?.id === Number(m.id);
+  const isIncoming = recipientId === myId && senderId !== myId;
   const unreadCount =
     isIncoming && !m.readAt && !isDuplicate ? prev.unreadCount + 1 : prev.unreadCount;
 

@@ -1,7 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { getTokenReliable } from "../storage/token.storage";
 import { getServerBaseUrl } from "../api/client";
-import { runRealtimeTeardowns } from "./teardown";
+import { runRealtimeRewires, runRealtimeTeardowns } from "./teardown";
 
 let socket: Socket | null = null;
 let socketToken: string | null = null;
@@ -52,33 +52,58 @@ function waitForConnect(sock: Socket, timeoutMs = 4_000): Promise<void> {
   });
 }
 
+/** Current socket instance without creating/connecting (for sync listener attach). */
+export function getSocketInstance(): Socket | null {
+  return socket;
+}
+
+type GetSocketOptions = {
+  /** When true, skip fan-out rewire (used by realtime modules while attaching). */
+  skipRewire?: boolean;
+  /**
+   * When false, return the socket instance immediately without waiting for connect.
+   * Use this so presence/chat can attach listeners before the handshake snapshot fires.
+   */
+  waitForConnection?: boolean;
+};
+
 /**
  * Authenticated Socket.IO client. Recreates when token changes or connection is dead.
- * Returns the socket quickly; connection may still be in progress (listeners still work).
+ * By default waits briefly for connect; pass waitForConnection:false to attach listeners first.
  */
-export async function getSocket(): Promise<Socket> {
+export async function getSocket(opts?: GetSocketOptions): Promise<Socket> {
   const token = await getTokenReliable().catch(() => null);
   if (!token) {
     throw new Error("Not signed in");
   }
 
+  const waitForConnection = opts?.waitForConnection !== false;
+  let needsRewire = false;
+
   if (socket && socketToken !== token) {
     teardownSocket();
+    needsRewire = true;
   }
 
   if (socket) {
     socket.auth = { token };
     if (!socket.connected) {
       socket.connect();
-      try {
-        await waitForConnect(socket);
-      } catch {
-        /* return socket anyway — reconnect will finish later */
+      if (waitForConnection) {
+        try {
+          await waitForConnect(socket);
+        } catch {
+          /* return socket anyway — reconnect will finish later */
+        }
       }
+    }
+    if (needsRewire && !opts?.skipRewire) {
+      runRealtimeRewires();
     }
     return socket;
   }
 
+  needsRewire = true;
   socketToken = token;
   socket = io(getServerBaseUrl(), {
     transports: ["websocket", "polling"],
@@ -96,10 +121,18 @@ export async function getSocket(): Promise<Socket> {
     socket.on("reconnect", (n) => console.log("[socket] reconnected", n));
   }
 
-  try {
-    await waitForConnect(socket);
-  } catch {
-    /* allow listeners to attach; reconnect continues in background */
+  // Attach module listeners BEFORE waiting — otherwise presence:snapshot is lost.
+  if (!opts?.skipRewire) {
+    runRealtimeRewires();
   }
+
+  if (waitForConnection) {
+    try {
+      await waitForConnect(socket);
+    } catch {
+      /* allow listeners to attach; reconnect continues in background */
+    }
+  }
+
   return socket;
 }

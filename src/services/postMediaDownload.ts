@@ -1,0 +1,104 @@
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
+import { Platform } from "react-native";
+import { getImageUrl } from "../api/client";
+
+export type DownloadMediaInput = {
+  url: string;
+  mediaType: "image" | "video";
+  fileName?: string;
+};
+
+export type DownloadMediaResult =
+  | { ok: true; message: string }
+  | { ok: false; message: string; permissionDenied?: boolean };
+
+async function ensureGalleryPermission(): Promise<boolean> {
+  // writeOnly: save-to-gallery without full photo-library access (iOS).
+  const current = await MediaLibrary.getPermissionsAsync(true);
+  if (current.granted) return true;
+  const requested = await MediaLibrary.requestPermissionsAsync(true);
+  return requested.granted;
+}
+
+function extensionFor(mediaType: "image" | "video", url: string): string {
+  const match = url.split("?")[0].match(/\.(jpe?g|png|gif|webp|heic|mp4|mov)$/i);
+  if (match) return match[1].toLowerCase();
+  return mediaType === "video" ? "mp4" : "jpg";
+}
+
+async function addToDigitalHouseAlbum(asset: MediaLibrary.Asset): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const albumName = "Digital House";
+  try {
+    const album = await MediaLibrary.getAlbumAsync(albumName);
+    if (album) {
+      await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+    } else {
+      await MediaLibrary.createAlbumAsync(albumName, asset, false);
+    }
+  } catch {
+    // Asset is already in gallery; album grouping is best-effort.
+  }
+}
+
+/**
+ * Download post media to the device gallery (private save — no external share sheet).
+ * Uses expo-file-system/legacy — the default import throws at runtime on SDK 54+.
+ */
+export async function downloadPostMedia(input: DownloadMediaInput): Promise<DownloadMediaResult> {
+  const url = getImageUrl(input.url)?.trim();
+  if (!url) {
+    return { ok: false, message: "This post has no media to download." };
+  }
+
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) {
+    return { ok: false, message: "Storage is unavailable on this device." };
+  }
+
+  const permitted = await ensureGalleryPermission();
+  if (!permitted) {
+    return {
+      ok: false,
+      message: "Gallery permission is required to save media.",
+      permissionDenied: true
+    };
+  }
+
+  const ext = extensionFor(input.mediaType, url);
+  const base =
+    input.fileName?.replace(/[^\w.-]+/g, "_").slice(0, 40) ||
+    `digitalhouse_${Date.now()}`;
+  const localUri = `${cacheDir}${base}_${Date.now()}.${ext}`;
+
+  try {
+    const download = await FileSystem.downloadAsync(url, localUri);
+    if (download.status !== 200) {
+      await FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => undefined);
+      return { ok: false, message: "Download failed. Please try again." };
+    }
+
+    const asset = await MediaLibrary.createAssetAsync(download.uri);
+    await addToDigitalHouseAlbum(asset);
+
+    // Delay cleanup so the OS can finish copying into the gallery.
+    setTimeout(() => {
+      void FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => undefined);
+    }, 2000);
+
+    return {
+      ok: true,
+      message:
+        input.mediaType === "video"
+          ? "Video saved to your gallery."
+          : "Image saved to your gallery."
+    };
+  } catch (e) {
+    await FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => undefined);
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Could not save media."
+    };
+  }
+}

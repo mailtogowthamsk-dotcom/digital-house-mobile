@@ -9,6 +9,12 @@ export type RootStackParamList = {
   SearchMembers: { context?: "messages" } | undefined;
   Connections: undefined;
   MemberProfile: { userId?: number; username?: string };
+  MemberPosts: {
+    userId: number;
+    username?: string;
+    name?: string;
+    profileImage?: string | null;
+  };
   OtpVerify: { email: string };
   Home: undefined;
   Profile: undefined;

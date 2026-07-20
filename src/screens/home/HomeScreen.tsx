@@ -21,13 +21,21 @@ import {
   hasHighlightsData
 } from "../../components/home";
 import { CommentSheet } from "../../components/feed/CommentSheet";
+import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
+import {
+  PostActionsBottomSheet,
+  type PostSharePayload
+} from "../../components/share/PostActionsBottomSheet";
+import type { PostLiker } from "../../api/posts.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useHome } from "../../hooks/useHome";
 import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
+import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
+import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
 import { PlatformBannerStrip, PlatformAnnouncementCard, PlatformHomeAd } from "../../components/platform/PlatformGateOverlay";
 import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
@@ -37,6 +45,7 @@ import { openMessagesInbox } from "../../navigation/openMessages";
 import { useNotificationsOptional } from "../../context/NotificationContext";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
+import { ExploreScreen } from "../explore/ExploreScreen";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
@@ -63,15 +72,34 @@ export function HomeScreen() {
   } = useHome();
 
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
+  const navigateToPostAuthor = useNavigateToPostAuthor();
 
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [refreshing, setRefreshing] = useState(false);
   const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
+  const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
+  const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const commentPostIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList>(null);
   const focusRefreshRef = useRef(false);
   const retrySummaryRef = useRef(retrySummary);
   retrySummaryRef.current = retrySummary;
+  const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 65,
+    minimumViewTime: 120
+  }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
+      const firstVideo = viewableItems.find(
+        (v) =>
+          v.isViewable &&
+          (v.item.mediaType === "video" ||
+            (v.item.imageUri && /\.(mp4|mov)(\?|$)/i.test(v.item.imageUri)))
+      );
+      setActiveMediaPostId(firstVideo?.item.id ?? viewableItems[0]?.item?.id ?? null);
+    }
+  ).current;
 
   commentPostIdRef.current = commentPost?.id ?? null;
 
@@ -128,6 +156,10 @@ export function HomeScreen() {
       } else {
         focusRefreshRef.current = true;
       }
+      return () => {
+        setActiveMediaPostId(null);
+        pauseAllFeedVideos();
+      };
     }, [])
   );
 
@@ -160,6 +192,7 @@ export function HomeScreen() {
     if (tab === "messages") {
       openMessagesInbox(navigation);
     }
+    // explore: stay on HomeScreen and swap body content
   };
 
   const onMenuPress = () => {
@@ -187,10 +220,20 @@ export function HomeScreen() {
   );
   useFeedRealtime(realtimeHandlers);
 
+  const handleAuthorPress = useCallback(
+    (item: PostCardData) => {
+      if (!item.authorUserId && !item.authorUsername) return;
+      trackFeedAction("author_profile_open", Number(item.id));
+      navigateToPostAuthor(item.authorUserId, item.authorUsername);
+    },
+    [navigateToPostAuthor]
+  );
+
   const renderFeedItem = useCallback(
     ({ item }: { item: PostCardData }) => (
       <PostCard
-        post={item}
+        post={{ ...item, isMediaActive: item.id === activeMediaPostId }}
+        onAuthorPress={() => handleAuthorPress(item)}
         onPress={() => {
           trackFeedAction("post_open", Number(item.id));
           navigation.navigate("PostDetail", { postId: Number(item.id) });
@@ -198,15 +241,29 @@ export function HomeScreen() {
         onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
         onDoubleTap={() => addLike(item.id, item)}
         onLikePress={() => toggleLike(item.id, item)}
+        onLikeCountPress={() => {
+          trackFeedAction("likes_sheet_open", Number(item.id));
+          setLikesPost(item);
+        }}
         onCommentPress={() => {
           trackFeedAction("comment_sheet_open", Number(item.id));
           setCommentPost(item);
         }}
         onSavePress={() => toggleSave(item.id, item)}
-        onSharePress={() => trackFeedAction("share", Number(item.id))}
+        onSharePress={() => {
+          trackFeedAction("share", Number(item.id));
+          setSharePost({
+            postId: Number(item.id),
+            title: item.title,
+            authorName: item.userName,
+            mediaUrl: item.imageUri,
+            mediaType: item.mediaType,
+            thumbnailUrl: item.thumbnailUrl
+          });
+        }}
       />
     ),
-    [navigation, addLike, toggleLike, toggleSave]
+    [navigation, addLike, toggleLike, toggleSave, activeMediaPostId, handleAuthorPress]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -220,6 +277,18 @@ export function HomeScreen() {
       }
     },
     [updatePost]
+  );
+
+  const handleLikerPress = useCallback(
+    (liker: PostLiker) => {
+      setLikesPost(null);
+      if (liker.isCurrentUser) {
+        navigation.navigate("Profile");
+        return;
+      }
+      navigation.navigate("MemberProfile", { userId: liker.userId });
+    },
+    [navigation]
   );
 
   const onHighlightPress = useCallback(
@@ -434,6 +503,9 @@ export function HomeScreen() {
       <PlatformAnnouncementCard />
       <PlatformHomeAd />
 
+      {activeTab === "explore" ? (
+        <ExploreScreen bottomInset={insets.bottom + 72} />
+      ) : (
       <FlatList
         ref={listRef}
         style={s.feedList}
@@ -445,6 +517,8 @@ export function HomeScreen() {
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={loadMoreFeed}
         onEndReachedThreshold={0.3}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         removeClippedSubviews
         maxToRenderPerBatch={8}
         windowSize={7}
@@ -458,6 +532,7 @@ export function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
+      )}
 
       {commentPost ? (
         <CommentSheet
@@ -468,6 +543,22 @@ export function HomeScreen() {
           onCommentCountChange={handleCommentCountChange}
         />
       ) : null}
+
+      <LikesBottomSheet
+        visible={likesPost != null}
+        target={likesPost ? { type: "post", id: Number(likesPost.id) } : null}
+        title="Likes"
+        onClose={() => setLikesPost(null)}
+        onUserPress={handleLikerPress}
+      />
+
+      <PostActionsBottomSheet
+        visible={sharePost != null}
+        post={sharePost}
+        onClose={() => setSharePost(null)}
+        onReposted={() => void refetchAll()}
+        onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
+      />
 
       <View style={s.tabBarWrap}>
         <View style={[s.tabBarInner, { paddingBottom: Math.max(insets.bottom - 4, 4) }]}>

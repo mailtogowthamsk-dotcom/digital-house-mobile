@@ -2,6 +2,7 @@
   "expo": {
     "plugins": [
       "expo-web-browser",
+      "expo-video",
       [
         "expo-notifications",
         {
@@ -19,6 +20,14 @@
             "buildToolsVersion": "35.0.0",
             "usesCleartextTraffic": true
           }
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Digital House needs access to your photos so you can choose images and videos for posts.",
+          "savePhotosPermission": "Digital House needs permission to save images and videos to your gallery.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ],
@@ -39,6 +48,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Digital House needs access to your photos so you can choose images and videos for posts.",
+        "NSPhotoLibraryAddUsageDescription": "Digital House needs permission to save images and videos to your gallery.",
         "NSMicrophoneUsageDescription": "Digital House may use the microphone when recording video.",
         "NSCameraUsageDescription": "Digital House needs camera access to take photos or videos for posts.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -58,10 +68,7 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA"
       ],
       "package": "com.thisisgowtham.digitalhouse"

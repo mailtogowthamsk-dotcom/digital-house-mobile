@@ -21,13 +21,14 @@ import {
 import { blockMember, reportMember, MEMBER_REPORT_REASONS } from "../../api/users.api";
 import { getSocket } from "../../realtime/socket";
 import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
-import { subscribePresence, isUserOnlineCached } from "../../realtime/presenceRealtime";
+import { subscribePresence, isUserOnlineCached, hasPresenceSynced, formatLastSeen, getCachedLastSeenAt } from "../../realtime/presenceRealtime";
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { appAlert } from "../../utils/appAlert";
+import { mergeChatMessages } from "../../utils/mergeChatMessages";
 
 type ChatParams = {
   otherUserId: number;
@@ -58,6 +59,9 @@ export function ChatScreen() {
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherOnline, setOtherOnline] = useState(
     () => !!route.params.online || isUserOnlineCached(otherUserId)
+  );
+  const [otherLastSeen, setOtherLastSeen] = useState<string | null>(() =>
+    getCachedLastSeenAt(otherUserId)
   );
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,9 +108,20 @@ export function ChatScreen() {
     const me = await getMe();
     setMeId(me.id);
     const hist = await getHistory(otherUserId, HISTORY_LIMIT);
-    setMessages(hist.messages);
+    setMessages((prev) => mergeChatMessages(prev, hist.messages));
     void ackUndeliveredMessages(hist.messages, me.id);
   }, [otherUserId]);
+
+  /** Soft catch-up after reconnect — merge only, never wipe live state. */
+  const syncRecent = useCallback(async () => {
+    try {
+      const hist = await getHistory(otherUserId, HISTORY_LIMIT);
+      setMessages((prev) => mergeChatMessages(prev, hist.messages));
+      if (meId != null) void ackUndeliveredMessages(hist.messages, meId);
+    } catch {
+      // offline
+    }
+  }, [meId, otherUserId]);
 
   useEffect(() => {
     navigation.setOptions?.({ title: name });
@@ -114,12 +129,19 @@ export function ChatScreen() {
 
   useEffect(() => {
     setOtherOnline(!!route.params.online || isUserOnlineCached(otherUserId));
+    setOtherLastSeen(getCachedLastSeenAt(otherUserId));
     return subscribePresence({
-      onUpdate: (uid, online) => {
-        if (uid === otherUserId) setOtherOnline(online);
+      onUpdate: (uid, online, lastSeenAt) => {
+        if (uid !== otherUserId) return;
+        setOtherOnline(online);
+        if (!online) setOtherLastSeen(lastSeenAt ?? getCachedLastSeenAt(otherUserId));
+        else setOtherLastSeen(null);
       },
       onSnapshot: (ids) => {
-        setOtherOnline(ids.includes(otherUserId));
+        const online = ids.includes(otherUserId);
+        setOtherOnline(online);
+        if (!online) setOtherLastSeen(getCachedLastSeenAt(otherUserId));
+        else setOtherLastSeen(null);
       }
     });
   }, [otherUserId, route.params.online]);
@@ -147,8 +169,11 @@ export function ChatScreen() {
         const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
         setThreadMuted(!!hit?.muted);
         setThreadArchived(!!hit?.archived);
-        if (hit?.otherUser.online != null) {
-          setOtherOnline(!!hit.otherUser.online);
+        if (hasPresenceSynced()) {
+          setOtherOnline(isUserOnlineCached(otherUserId));
+          setOtherLastSeen(getCachedLastSeenAt(otherUserId));
+        } else if (hit?.otherUser.online != null) {
+          setOtherOnline(!!hit.otherUser.online || isUserOnlineCached(otherUserId));
         }
         if (!access.canViewHistory) {
           setLoadError(access.message ?? "You cannot view this conversation.");
@@ -215,10 +240,39 @@ export function ChatScreen() {
     markReadNow().catch(() => {});
   }, [isFocused, markReadNow]);
 
+  /** Re-sync missed messages when socket reconnects while this chat is open. */
+  useEffect(() => {
+    let cancelled = false;
+    let sock: Awaited<ReturnType<typeof getSocket>> | null = null;
+    let sawDisconnect = false;
+    const onDisconnect = () => {
+      sawDisconnect = true;
+    };
+    const onConnect = () => {
+      if (cancelled || !sawDisconnect) return;
+      void syncRecent();
+    };
+    void getSocket({ skipRewire: true })
+      .then((s) => {
+        if (cancelled) return;
+        sock = s;
+        s.on("disconnect", onDisconnect);
+        s.on("connect", onConnect);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      sock?.off("disconnect", onDisconnect);
+      sock?.off("connect", onConnect);
+    };
+  }, [otherUserId, syncRecent]);
+
   const markReadNowRef = useRef(markReadNow);
   markReadNowRef.current = markReadNow;
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
 
-  useChatSocket(otherUserId, isFocused, {
+  useChatSocket(otherUserId, true, {
     onMessage: mergeIncomingMessage,
     onDelivered: ({ messageId, deliveredAt }) => {
       setMessages((prev) =>
@@ -227,7 +281,9 @@ export function ChatScreen() {
     },
     onRead: ({ readAt }) => {
       setMessages((prev) =>
-        prev.map((m) => (m.recipientId === otherUserId ? { ...m, readAt } : m))
+        prev.map((m) =>
+          Number(m.recipientId) === Number(otherUserId) ? { ...m, readAt } : m
+        )
       );
     },
     onTyping: (typing) => {
@@ -238,7 +294,7 @@ export function ChatScreen() {
       }
     },
     onIncomingFromOther: (_m, _sock) => {
-      // Delivery is handled globally by deliveryRealtime; mark read while chat is open.
+      if (!isFocusedRef.current) return;
       markReadNowRef.current().catch(() => {});
     }
   });
@@ -299,6 +355,13 @@ export function ChatScreen() {
       );
     }
   }, [chatLocked, emitTyping, input, meId, otherUserId, sending]);
+
+  const handleSharedPostPress = useCallback(
+    (sharedPostId: number) => {
+      navigation.navigate("PostDetail", { postId: sharedPostId });
+    },
+    [navigation]
+  );
 
   const submitReport = async (reasonCode: string) => {
     try {
@@ -516,11 +579,20 @@ export function ChatScreen() {
     </>
   );
 
+  const lastSeenLabel = formatLastSeen(otherLastSeen);
+  const presenceSubtitle = otherTyping
+    ? "Typing…"
+    : otherOnline
+      ? "Online"
+      : lastSeenLabel
+        ? `Last seen ${lastSeenLabel}`
+        : " ";
+
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
       <ChatPanel
         title={name}
-        subtitle={otherTyping ? "Typing…" : otherOnline ? "Online" : " "}
+        subtitle={presenceSubtitle}
         messages={messages}
         meId={meId}
         sendError={sendError}
@@ -541,6 +613,7 @@ export function ChatScreen() {
         headerLeft={backButton}
         headerRight={optionsButton}
         headerBanner={chatLockBanner}
+        onSharedPostPress={handleSharedPostPress}
       />
     </View>
   );

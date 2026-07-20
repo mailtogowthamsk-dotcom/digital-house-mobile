@@ -8,13 +8,22 @@ import { emitPostCreated } from "../../utils/postSync";
 import { postDetailToProfileItem } from "../../utils/postMappers";
 import type { MediaModule } from "../../api/media.api";
 import { getErrorStatus } from "../../api/client";
-import { uploadOptimizedImage, isAllowedImageType, getMimeFromUri } from "../../utils/mediaUpload";
+import {
+  uploadOptimizedImage,
+  uploadVideo,
+  isAllowedImageType,
+  isAllowedVideoType,
+  isVideoAsset,
+  getMimeFromUri
+} from "../../utils/mediaUpload";
 import { deleteMediaUrls } from "../../api/media.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSuggestInput";
+import { MediaPreview } from "../../components/media/MediaPreview";
+import { UploadProgress } from "../../components/media/UploadProgress";
 import { appAlert } from "../../utils/appAlert";
 import type { RootStackParamList } from "../../navigation/types";
 import { JOB_EMPLOYMENT_TYPES } from "../../constants/jobs";
@@ -24,6 +33,17 @@ import {
   MARKETPLACE_INTENTS,
   MARKETPLACE_MAX_PHOTOS
 } from "../../constants/marketplace";
+import { formatBytes, VIDEO_MAX_DURATION_SEC } from "../../config/media.config";
+import {
+  extractHashtagsFromText,
+  mergeHashtags,
+  parseHashtagFieldInput,
+  formatHashtagDisplay
+} from "../../utils/hashtagParser";
+import {
+  PostVisibilitySelector,
+  type PostVisibilityChoice
+} from "../../components/posts/PostVisibilitySelector";
 
 /** Home Feed / general Create Post — module types are created only from their own screens. */
 const FEED_POST_TYPES = [
@@ -125,6 +145,8 @@ export function CreatePostScreen() {
   );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<PostVisibilityChoice>("PUBLIC");
+  const [hashtagsInput, setHashtagsInput] = useState("");
   const [jobCompany, setJobCompany] = useState("");
   const [jobLocation, setJobLocation] = useState("");
   const [jobEmploymentType, setJobEmploymentType] = useState<string>("FULL_TIME");
@@ -142,18 +164,36 @@ export function CreatePostScreen() {
   const [showMpConditionPicker, setShowMpConditionPicker] = useState(false);
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaPreviewUri, setMediaPreviewUri] = useState<string | null>(null);
+  const [mediaKind, setMediaKind] = useState<"image" | "video" | null>(null);
+  const [mediaFileName, setMediaFileName] = useState<string | null>(null);
+  const [mediaDurationSec, setMediaDurationSec] = useState<number | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [mimeType, setMimeType] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState<number | null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   /** URLs uploaded in this screen session — safe to delete from R2 immediately on clear. */
   const sessionUploadedUrlsRef = useRef<Set<string>>(new Set());
+  const submittingRef = useRef(false);
   const [previewDimensions, setPreviewDimensions] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFailed, setUploadFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [mpStatus, setMpStatus] = useState<string | null>(null);
+
+  const previewHashtags = useMemo(
+    () =>
+      mergeHashtags(
+        extractHashtagsFromText(title),
+        extractHashtagsFromText(description),
+        parseHashtagFieldInput(hashtagsInput)
+      ),
+    [title, description, hashtagsInput]
+  );
 
   useEffect(() => {
     if (!isTypeLocked || !initialTypeParam) return;
@@ -189,6 +229,7 @@ export function CreatePostScreen() {
         setPostType("MARKETPLACE");
         setTitle(post.title ?? "");
         setDescription(post.description ?? "");
+        setVisibility(post.visibility === "CONNECTIONS" ? "CONNECTIONS" : "PUBLIC");
         const gallery =
           post.marketplace_gallery && post.marketplace_gallery.length > 0
             ? post.marketplace_gallery
@@ -222,6 +263,7 @@ export function CreatePostScreen() {
   }, [editPostId, isEditing]);
 
   const handleSubmit = useCallback(async () => {
+    if (submittingRef.current || uploading) return;
     const t = title.trim();
     if (!t) {
       setError("Title is required");
@@ -291,8 +333,14 @@ export function CreatePostScreen() {
       }
     }
     setSaving(true);
+    submittingRef.current = true;
     setError(null);
     try {
+      const mergedHashtags = mergeHashtags(
+        extractHashtagsFromText(title),
+        extractHashtagsFromText(description),
+        parseHashtagFieldInput(hashtagsInput)
+      );
       const priceNum = mpPrice.trim() ? Math.floor(Number(mpPrice.trim())) : null;
       const marketplacePayload = {
         marketplace_intent: mpIntent,
@@ -313,20 +361,42 @@ export function CreatePostScreen() {
       };
       const coverUrl =
         (galleryUrls[0] ?? mediaUrl).trim() || null;
+      const mediaPayload =
+        submitType === "MARKETPLACE"
+          ? {
+              media_url: coverUrl,
+              media_type: coverUrl ? ("image" as const) : ("none" as const)
+            }
+          : {
+              media_url: coverUrl,
+              media_type: coverUrl
+                ? mediaKind === "video"
+                  ? ("video" as const)
+                  : ("image" as const)
+                : ("none" as const),
+              thumbnail_url: mediaKind === "video" ? thumbnailUrl : null,
+              video_duration: mediaKind === "video" ? mediaDurationSec : null,
+              mime_type: mimeType,
+              file_size: fileSize
+            };
       if (isEditing && editPostId != null) {
         await updatePost(editPostId, {
           title: t,
           description: description.trim() || null,
-          media_url: coverUrl,
+          visibility,
+          hashtags: mergedHashtags,
+          ...mediaPayload,
           ...marketplacePayload
         });
       } else {
         const created = await createPost({
           post_type: submitType,
           creation_source: creationSourceForType(submitType),
+          visibility,
           title: t,
           description: description.trim() || null,
-          media_url: coverUrl,
+          hashtags: mergedHashtags,
+          ...mediaPayload,
           ...(submitType === "JOB"
             ? {
                 job_status: "OPEN",
@@ -349,6 +419,7 @@ export function CreatePostScreen() {
       else setError((e as any)?.response?.data?.message ?? "Failed to create post");
     } finally {
       setSaving(false);
+      submittingRef.current = false;
     }
   }, [
     postType,
@@ -356,7 +427,14 @@ export function CreatePostScreen() {
     initialTypeParam,
     title,
     description,
+    visibility,
+    hashtagsInput,
     mediaUrl,
+    mediaKind,
+    thumbnailUrl,
+    mediaDurationSec,
+    mimeType,
+    fileSize,
     galleryUrls,
     jobCompany,
     jobLocation,
@@ -372,13 +450,14 @@ export function CreatePostScreen() {
     mpStatus,
     isEditing,
     editPostId,
-    navigation
+    navigation,
+    uploading
   ]);
 
-  const pickAndUploadImage = useCallback(async () => {
+  const pickAndUploadMedia = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      appAlert("Permission needed", "Allow access to photos to upload images.");
+      appAlert("Permission needed", "Allow access to photos and videos to upload media.");
       return;
     }
     const isMp = postType === "MARKETPLACE";
@@ -388,33 +467,86 @@ export function CreatePostScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: isMp ? ["images"] : ["images", "videos"],
       allowsEditing: !isMp,
       allowsMultipleSelection: isMp,
       selectionLimit: isMp ? remaining : 1,
-      quality: 0.9
+      quality: 0.9,
+      videoMaxDuration: VIDEO_MAX_DURATION_SEC
     });
     if (result.canceled || !result.assets?.length) return;
 
     setError(null);
+    setUploadFailed(false);
     setUploading(true);
     setUploadProgress(0);
+    let failed = false;
     try {
       if (!isMp) {
         const asset = result.assets[0];
         const uri = asset.uri;
-        const mime = (asset as any).mimeType || getMimeFromUri(uri);
-        if (!isAllowedImageType(mime)) {
-          setError("Only JPEG, PNG, or WebP images are allowed");
+        const mime = (asset as { mimeType?: string }).mimeType || getMimeFromUri(uri);
+        const fileName =
+          (asset as { fileName?: string }).fileName ||
+          uri.split("/").pop() ||
+          (isVideoAsset(mime, uri) ? "video.mp4" : "photo.jpg");
+        const durationMs = (asset as { duration?: number | null }).duration;
+        const durationSec =
+          durationMs != null && durationMs > 0
+            ? durationMs > 1000
+              ? durationMs / 1000
+              : durationMs
+            : 0;
+
+        if (isVideoAsset(mime, uri)) {
+          if (!isAllowedVideoType(mime) && !/\.(mp4|mov)$/i.test(uri)) {
+            setError("Only MP4 or MOV videos are allowed");
+            failed = true;
+            return;
+          }
+          if (durationSec > VIDEO_MAX_DURATION_SEC) {
+            setError(`Video must be ≤ ${VIDEO_MAX_DURATION_SEC} seconds`);
+            failed = true;
+            return;
+          }
+          const uploaded = await uploadVideo(uri, postTypeToModule(postType), {
+            mimeType: mime,
+            durationSec,
+            fileName,
+            onProgress: (p) => setUploadProgress(p)
+          });
+          setMediaUrl(uploaded.publicUrl);
+          setMediaPreviewUri(uploaded.thumbnailUri || uri);
+          setMediaKind("video");
+          setMediaFileName(uploaded.fileName);
+          setMediaDurationSec(uploaded.durationSec || Math.floor(durationSec) || null);
+          setThumbnailUrl(uploaded.thumbnailUrl);
+          setMimeType(uploaded.mimeType);
+          setFileSize(uploaded.byteSize);
+          setPreviewDimensions(null);
+          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
+          if (uploaded.thumbnailUrl) sessionUploadedUrlsRef.current.add(uploaded.thumbnailUrl);
           return;
         }
-        const { publicUrl, width, height } = await uploadOptimizedImage(
+
+        if (!isAllowedImageType(mime)) {
+          setError("Only JPEG, PNG, or WebP images are allowed");
+          failed = true;
+          return;
+        }
+        const { publicUrl, width, height, byteSize, mimeType: outMime } = await uploadOptimizedImage(
           uri,
           postTypeToModule(postType),
           (p) => setUploadProgress(p)
         );
         setMediaUrl(publicUrl);
         setMediaPreviewUri(uri);
+        setMediaKind("image");
+        setMediaFileName(fileName);
+        setMediaDurationSec(null);
+        setThumbnailUrl(null);
+        setMimeType(outMime);
+        setFileSize(byteSize);
         setPreviewDimensions({ width, height });
         sessionUploadedUrlsRef.current.add(publicUrl);
         return;
@@ -425,7 +557,7 @@ export function CreatePostScreen() {
       for (let i = 0; i < result.assets.length; i++) {
         const asset = result.assets[i];
         const uri = asset.uri;
-        const mime = (asset as any).mimeType || getMimeFromUri(uri);
+        const mime = (asset as { mimeType?: string }).mimeType || getMimeFromUri(uri);
         if (!isAllowedImageType(mime)) {
           setError("Only JPEG, PNG, or WebP images are allowed");
           continue;
@@ -433,8 +565,7 @@ export function CreatePostScreen() {
         const { publicUrl } = await uploadOptimizedImage(
           uri,
           postTypeToModule(postType),
-          (p) =>
-            setUploadProgress((i + p) / result.assets.length)
+          (p) => setUploadProgress((i + p) / result.assets.length)
         );
         nextUrls.push(publicUrl);
         nextPreviews.push(uri);
@@ -444,34 +575,47 @@ export function CreatePostScreen() {
       setGalleryPreviews(nextPreviews.slice(0, MARKETPLACE_MAX_PHOTOS));
       setMediaUrl(nextUrls[0] ?? "");
       setMediaPreviewUri(nextPreviews[0] ?? null);
+      setMediaKind(nextUrls[0] ? "image" : null);
     } catch (e) {
+      failed = true;
       const statusCode = getErrorStatus(e);
       if (statusCode === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       else if (statusCode === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else setError((e as any)?.message ?? "Upload failed");
+      else {
+        setError((e as Error)?.message ?? "Upload failed");
+      }
     } finally {
+      setUploadFailed(failed);
       setUploading(false);
-      setUploadProgress(0);
+      if (!failed) setUploadProgress(0);
     }
   }, [postType, navigation, galleryUrls, galleryPreviews]);
 
   const clearMedia = useCallback(() => {
     const toDelete = [
       ...galleryUrls,
-      ...(mediaUrl ? [mediaUrl] : [])
+      ...(mediaUrl ? [mediaUrl] : []),
+      ...(thumbnailUrl ? [thumbnailUrl] : [])
     ].filter((u) => sessionUploadedUrlsRef.current.has(u));
     setMediaUrl("");
     setMediaPreviewUri(null);
+    setMediaKind(null);
+    setMediaFileName(null);
+    setMediaDurationSec(null);
+    setThumbnailUrl(null);
+    setMimeType(null);
+    setFileSize(null);
     setPreviewDimensions(null);
     setGalleryUrls([]);
     setGalleryPreviews([]);
+    setUploadFailed(false);
     for (const u of toDelete) sessionUploadedUrlsRef.current.delete(u);
     if (toDelete.length > 0) {
       void deleteMediaUrls([...new Set(toDelete)]).catch(() => {
         /* best-effort R2 cleanup */
       });
     }
-  }, [galleryUrls, mediaUrl]);
+  }, [galleryUrls, mediaUrl, thumbnailUrl]);
 
   const removeGalleryAt = useCallback((index: number) => {
     const removedUrl = galleryUrls[index];
@@ -589,6 +733,12 @@ export function CreatePostScreen() {
           value={title}
           onChangeText={setTitle}
           editable={!saving}
+        />
+
+        <PostVisibilitySelector
+          value={visibility}
+          onChange={setVisibility}
+          disabled={saving}
         />
 
         {postType === "JOB" ? (
@@ -849,35 +999,82 @@ export function CreatePostScreen() {
           editable={!saving}
         />
 
+        <Text style={s.label}>Hashtags (optional)</Text>
+        <TextInput
+          style={s.input}
+          placeholder="#Temple #Community #Festival"
+          placeholderTextColor={colors.textMuted}
+          value={hashtagsInput}
+          onChangeText={setHashtagsInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!saving}
+        />
+        {previewHashtags.length > 0 ? (
+          <View style={s.hashtagChipWrap}>
+            {previewHashtags.map((tag) => (
+              <View
+                key={tag}
+                style={[s.hashtagChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+              >
+                <Text style={[s.hashtagChipText, { color: colors.primary }]}>
+                  {formatHashtagDisplay(tag)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={[s.hashtagHint, { color: colors.textMuted }]}>
+            Tip: type #tags in the description or add them here. Duplicates are merged.
+          </Text>
+        )}
+
         <Text style={s.label}>
           {postType === "MARKETPLACE"
             ? `Photos * (up to ${MARKETPLACE_MAX_PHOTOS})`
-            : "Image (optional)"}
+            : "Media (optional)"}
         </Text>
         <Pressable
           style={[s.mediaBtn, (uploading || saving) && s.mediaBtnDisabled]}
-          onPress={pickAndUploadImage}
+          onPress={pickAndUploadMedia}
           disabled={uploading || saving}
         >
-          <Ionicons name="image-outline" size={22} color={colors.primary} />
+          <Ionicons
+            name={postType === "MARKETPLACE" ? "images-outline" : "images-outline"}
+            size={22}
+            color={colors.primary}
+          />
           <Text style={s.mediaBtnText}>
             {uploading
-              ? "Optimizing & uploading…"
+              ? "Uploading…"
               : postType === "MARKETPLACE"
                 ? galleryUrls.length
                   ? "Add more photos"
                   : "Pick photos from gallery"
-                : "Pick image from gallery"}
+                : mediaUrl
+                  ? "Replace photo or video"
+                  : "Choose Photo or Video"}
           </Text>
         </Pressable>
-        {uploading && (
-          <View style={s.progressWrap}>
-            <View style={s.progressBar}>
-              <View style={[s.progressFill, { width: `${uploadProgress * 100}%` }]} />
-            </View>
-            <Text style={s.progressText}>{Math.round(uploadProgress * 100)}%</Text>
-          </View>
+        {(uploading || uploadFailed) && (
+          <UploadProgress
+            progress={uploadProgress}
+            label={
+              uploading
+                ? mediaKind === "video" || uploadProgress > 0.3
+                  ? "Uploading…"
+                  : "Preparing…"
+                : "Upload failed"
+            }
+            failed={uploadFailed && !uploading}
+          />
         )}
+        {uploadFailed && !uploading ? (
+          <Pressable style={[s.mediaBtn, { marginTop: spacing.sm }]} onPress={pickAndUploadMedia}>
+            <Ionicons name="refresh" size={20} color={colors.primary} />
+            <Text style={s.mediaBtnText}>Retry</Text>
+          </Pressable>
+        ) : null}
         {postType === "MARKETPLACE" && galleryPreviews.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
             {galleryPreviews.map((uri, i) => (
@@ -911,38 +1108,29 @@ export function CreatePostScreen() {
               </View>
             ))}
           </ScrollView>
-        ) : mediaPreviewUri ? (
-          <View style={[s.previewWrap, { height: previewHeight }]}>
-            <Image source={{ uri: mediaPreviewUri }} style={s.previewImg} resizeMode="contain" />
-            <Pressable style={s.removeMediaBtn} onPress={clearMedia}>
-              <Ionicons name="close-circle" size={28} color={colors.error} />
-            </Pressable>
-          </View>
+        ) : mediaPreviewUri && mediaKind ? (
+          <MediaPreview
+            kind={mediaKind}
+            previewUri={mediaPreviewUri}
+            fileName={
+              mediaFileName ||
+              (fileSize != null ? `${formatBytes(fileSize)}` : null)
+            }
+            durationSec={mediaDurationSec}
+            height={previewHeight}
+            onReplace={pickAndUploadMedia}
+            onRemove={clearMedia}
+            disabled={uploading || saving}
+          />
         ) : mediaUrl ? (
           <View style={s.mediaUrlRow}>
-            <Text style={s.mediaUrlLabel} numberOfLines={1}>Uploaded</Text>
+            <Text style={s.mediaUrlLabel} numberOfLines={1}>
+              {mediaKind === "video" ? "Video uploaded" : "Uploaded"}
+            </Text>
             <Pressable onPress={clearMedia}>
               <Text style={s.removeMediaText}>Remove</Text>
             </Pressable>
           </View>
-        ) : null}
-        {postType !== "MARKETPLACE" ? (
-          <>
-            <Text style={s.labelSecondary}>Or paste image URL</Text>
-            <TextInput
-              style={s.input}
-              placeholder="https://..."
-              placeholderTextColor={colors.textMuted}
-              value={mediaUrl}
-              onChangeText={(v) => {
-                setMediaUrl(v);
-                if (!v) setMediaPreviewUri(null);
-              }}
-              keyboardType="url"
-              autoCapitalize="none"
-              editable={!saving}
-            />
-          </>
         ) : null}
 
         {error ? <Text style={s.errorText}>{error}</Text> : null}
@@ -954,18 +1142,20 @@ export function CreatePostScreen() {
                 ? isEditing
                   ? "Saving..."
                   : "Creating..."
-                : isEditing
-                  ? mpStatus === "CHANGES_REQUESTED"
-                    ? "Save & resubmit"
-                    : "Save changes"
-                  : postType === "JOB"
-                    ? "Post job"
-                    : postType === "MARKETPLACE"
-                      ? "Submit for review"
-                      : "Create post"
+                : uploading
+                  ? "Uploading..."
+                  : isEditing
+                    ? mpStatus === "CHANGES_REQUESTED"
+                      ? "Save & resubmit"
+                      : "Save changes"
+                    : postType === "JOB"
+                      ? "Post job"
+                      : postType === "MARKETPLACE"
+                        ? "Submit for review"
+                        : "Create post"
             }
             onPress={handleSubmit}
-            disabled={saving}
+            disabled={saving || uploading}
           />
         </View>
       </ScrollView>
@@ -999,6 +1189,20 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
           marginBottom: spacing.sm
         },
         textArea: { minHeight: 100, textAlignVertical: "top" },
+        hashtagHint: { ...typography.caption, marginBottom: spacing.sm, lineHeight: 18 },
+        hashtagChipWrap: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          marginBottom: spacing.sm
+        },
+        hashtagChip: {
+          borderWidth: StyleSheet.hairlineWidth,
+          borderRadius: radius.lg,
+          paddingHorizontal: 10,
+          paddingVertical: 6
+        },
+        hashtagChipText: { fontSize: 13, fontWeight: "600" },
         picker: {
           flexDirection: "row",
           alignItems: "center",

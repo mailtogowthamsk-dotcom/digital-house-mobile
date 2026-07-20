@@ -1,6 +1,6 @@
 import type { Socket } from "socket.io-client";
 import { getSocket } from "./socket";
-import { registerRealtimeTeardown } from "./teardown";
+import { registerRealtimeRewire, registerRealtimeTeardown } from "./teardown";
 
 /**
  * Device-level delivery acks: when this device receives message:new,
@@ -21,7 +21,6 @@ function ackDelivered(sock: Socket, messageId: number) {
   sock.emit("message:delivered", { messageId }, () => {
     pendingDelivered.delete(messageId);
   });
-  // Allow retry if ack never settles
   setTimeout(() => pendingDelivered.delete(messageId), 15_000);
   if (__DEV__) console.log("[delivery] ack", messageId);
 }
@@ -36,7 +35,6 @@ function wire(sock: Socket) {
     const id = Number(m.id);
     const recipientId = Number(m.recipientId);
     if (!id || recipientId !== meId) return;
-    // Still ack even if server already stamped deliveredAt (idempotent).
     ackDelivered(sock, id);
   };
 
@@ -56,11 +54,12 @@ function wire(sock: Socket) {
 }
 
 async function ensureWired() {
+  if (meId == null) return;
   if (wired && socketRef?.connected) return;
   if (!wirePromise) {
     wirePromise = (async () => {
       try {
-        const sock = await getSocket();
+        const sock = await getSocket({ skipRewire: true });
         wire(sock);
       } finally {
         wirePromise = null;
@@ -72,7 +71,7 @@ async function ensureWired() {
 
 /** Call once session has an approved user id. */
 export function startDeliveryRealtime(userId: number): void {
-  meId = userId;
+  meId = Number(userId);
   void ensureWired();
 }
 
@@ -86,9 +85,9 @@ export async function ackUndeliveredMessages(
   myUserId: number
 ): Promise<void> {
   try {
-    const sock = await getSocket();
+    const sock = await getSocket({ skipRewire: true });
     for (const m of messages) {
-      if (m.recipientId === myUserId && !m.deliveredAt && m.id > 0) {
+      if (Number(m.recipientId) === myUserId && !m.deliveredAt && m.id > 0) {
         ackDelivered(sock, m.id);
       }
     }
@@ -97,9 +96,8 @@ export async function ackUndeliveredMessages(
   }
 }
 
-export function resetDeliveryRealtime(): void {
-  meId = null;
-  pendingDelivered.clear();
+/** Unwire only — keep meId so open sessions re-attach after socket recreate. */
+export function unwireDeliveryRealtime(): void {
   if (socketRef) {
     if (onNew) socketRef.off("message:new", onNew);
     if (onConnect) socketRef.off("connect", onConnect);
@@ -111,4 +109,18 @@ export function resetDeliveryRealtime(): void {
   wirePromise = null;
 }
 
-registerRealtimeTeardown(resetDeliveryRealtime);
+export function resetDeliveryRealtime(): void {
+  meId = null;
+  pendingDelivered.clear();
+  unwireDeliveryRealtime();
+}
+
+export function ensureDeliveryRealtimeWired(): void {
+  if (meId == null) return;
+  wired = false;
+  socketRef = null;
+  void ensureWired();
+}
+
+registerRealtimeTeardown(unwireDeliveryRealtime);
+registerRealtimeRewire(ensureDeliveryRealtimeWired);

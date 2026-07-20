@@ -1,7 +1,7 @@
 import type { Socket } from "socket.io-client";
 import type { MessageItem } from "../api/messages.api";
 import { getSocket } from "./socket";
-import { registerRealtimeTeardown } from "./teardown";
+import { registerRealtimeRewire, registerRealtimeTeardown } from "./teardown";
 
 export type ChatRealtimeHandlers = {
   otherUserId: number;
@@ -12,9 +12,14 @@ export type ChatRealtimeHandlers = {
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
 };
 
+/** Global fan-out for inbox / any-message listeners (not tied to a conversation). */
+export type GlobalMessageHandler = (message: MessageItem) => void;
+
 type Subscription = ChatRealtimeHandlers;
 
 const subscriptions = new Map<symbol, Subscription>();
+const globalMessageHandlers = new Map<symbol, GlobalMessageHandler>();
+
 let socketRef: Socket | null = null;
 let wired = false;
 let wirePromise: Promise<void> | null = null;
@@ -27,7 +32,8 @@ let onDisconnectEvent: (() => void) | null = null;
 let onConnectEvent: (() => void) | null = null;
 
 function isThisChat(m: MessageItem, otherUserId: number): boolean {
-  return m.senderId === otherUserId || m.recipientId === otherUserId;
+  const other = Number(otherUserId);
+  return Number(m.senderId) === other || Number(m.recipientId) === other;
 }
 
 function forMatchingSubs(fn: (sub: Subscription) => void): void {
@@ -36,7 +42,7 @@ function forMatchingSubs(fn: (sub: Subscription) => void): void {
   }
 }
 
-async function wireSocket(sock: Socket): Promise<void> {
+function detachListeners(sock: Socket): void {
   if (onMessageEvent) {
     sock.off("message:new", onMessageEvent);
     sock.off("message:sent", onMessageEvent);
@@ -46,16 +52,44 @@ async function wireSocket(sock: Socket): Promise<void> {
   if (onTypingEvent) sock.off("typing", onTypingEvent);
   if (onDisconnectEvent) sock.off("disconnect", onDisconnectEvent);
   if (onConnectEvent) sock.off("connect", onConnectEvent);
+}
+
+async function wireSocket(sock: Socket): Promise<void> {
+  detachListeners(sock);
 
   onMessageEvent = (raw: unknown) => {
     if (!raw || typeof raw !== "object") return;
     const m = raw as MessageItem;
-    if (__DEV__) console.log("[chat] message", m.id, m.senderId, "→", m.recipientId);
+    // Normalize ids so strict equality never drops valid events
+    const normalized: MessageItem = {
+      ...m,
+      id: Number(m.id),
+      senderId: Number(m.senderId),
+      recipientId: Number(m.recipientId),
+      sharedPostId:
+        (m as MessageItem).sharedPostId != null
+          ? Number((m as MessageItem).sharedPostId)
+          : null
+    };
+    if (!normalized.id || !normalized.senderId || !normalized.recipientId) return;
+
+    if (__DEV__) {
+      console.log("[chat] message", normalized.id, normalized.senderId, "→", normalized.recipientId);
+    }
+
+    for (const handler of globalMessageHandlers.values()) {
+      try {
+        handler(normalized);
+      } catch {
+        /* ignore handler errors */
+      }
+    }
+
     forMatchingSubs((sub) => {
-      if (!isThisChat(m, sub.otherUserId)) return;
-      sub.onMessage(m);
-      if (m.senderId === sub.otherUserId) {
-        sub.onIncomingFromOther?.(m, sock);
+      if (!isThisChat(normalized, sub.otherUserId)) return;
+      sub.onMessage(normalized);
+      if (Number(normalized.senderId) === Number(sub.otherUserId)) {
+        sub.onIncomingFromOther?.(normalized, sock);
       }
     });
   };
@@ -76,7 +110,7 @@ async function wireSocket(sock: Socket): Promise<void> {
     if (!readAt || !withUserId) return;
     if (__DEV__) console.log("[chat] read", withUserId);
     forMatchingSubs((sub) => {
-      if (withUserId === sub.otherUserId) {
+      if (withUserId === Number(sub.otherUserId)) {
         sub.onRead({ withUserId, readAt });
       }
     });
@@ -87,7 +121,7 @@ async function wireSocket(sock: Socket): Promise<void> {
     const fromUserId = Number(payload?.fromUserId);
     if (!fromUserId) return;
     forMatchingSubs((sub) => {
-      if (fromUserId === sub.otherUserId) {
+      if (fromUserId === Number(sub.otherUserId)) {
         sub.onTyping(!!payload?.typing);
       }
     });
@@ -121,8 +155,10 @@ async function ensureWired(): Promise<void> {
   if (!wirePromise) {
     wirePromise = (async () => {
       try {
-        const sock = await getSocket();
+        const sock = await getSocket({ skipRewire: true });
         await wireSocket(sock);
+      } catch (e) {
+        if (__DEV__) console.warn("[chat] ensureWired failed", e);
       } finally {
         wirePromise = null;
       }
@@ -134,25 +170,36 @@ async function ensureWired(): Promise<void> {
 /** Register active chat handlers (survives loading states; single global socket listener). */
 export function registerChatRealtime(id: symbol, handlers: Subscription | null): void {
   if (handlers) {
-    subscriptions.set(id, handlers);
+    subscriptions.set(id, {
+      ...handlers,
+      otherUserId: Number(handlers.otherUserId)
+    });
     void ensureWired();
   } else {
     subscriptions.delete(id);
   }
 }
 
-export function resetChatRealtime(): void {
-  subscriptions.clear();
+/** Inbox / hub: receive all message:new / message:sent events. */
+export function registerGlobalMessageHandler(
+  id: symbol,
+  handler: GlobalMessageHandler | null
+): void {
+  if (handler) {
+    globalMessageHandlers.set(id, handler);
+    void ensureWired();
+  } else {
+    globalMessageHandlers.delete(id);
+  }
+}
+
+/**
+ * Detach socket listeners only — keep subscriptions so an open ChatScreen
+ * can re-wire after token refresh / socket recreate without remounting.
+ */
+export function unwireChatRealtime(): void {
   if (socketRef) {
-    if (onMessageEvent) {
-      socketRef.off("message:new", onMessageEvent);
-      socketRef.off("message:sent", onMessageEvent);
-    }
-    if (onDeliveredEvent) socketRef.off("message:delivered", onDeliveredEvent);
-    if (onReadEvent) socketRef.off("message:read", onReadEvent);
-    if (onTypingEvent) socketRef.off("typing", onTypingEvent);
-    if (onDisconnectEvent) socketRef.off("disconnect", onDisconnectEvent);
-    if (onConnectEvent) socketRef.off("connect", onConnectEvent);
+    detachListeners(socketRef);
   }
   onMessageEvent = null;
   onDeliveredEvent = null;
@@ -165,4 +212,20 @@ export function resetChatRealtime(): void {
   wirePromise = null;
 }
 
-registerRealtimeTeardown(resetChatRealtime);
+/** Full reset (logout). */
+export function resetChatRealtime(): void {
+  subscriptions.clear();
+  globalMessageHandlers.clear();
+  unwireChatRealtime();
+}
+
+/** Re-attach listeners after getSocket() creates/restores a connection. */
+export function ensureChatRealtimeWired(): void {
+  if (subscriptions.size === 0 && globalMessageHandlers.size === 0) return;
+  wired = false;
+  socketRef = null;
+  void ensureWired();
+}
+
+registerRealtimeTeardown(unwireChatRealtime);
+registerRealtimeRewire(ensureChatRealtimeWired);

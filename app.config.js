@@ -69,10 +69,15 @@ module.exports = ({ config }) => {
   const hasGoogleSignInPlugin = existingPlugins.some(
     (p) => p === "@react-native-google-signin/google-signin" || p?.[0] === "@react-native-google-signin/google-signin"
   );
+  const hasExpoVideoPlugin = existingPlugins.some(
+    (p) => p === "expo-video" || p?.[0] === "expo-video"
+  );
+  let plugins = hasGoogleSignInPlugin ? [...existingPlugins] : [...existingPlugins, googleSignInPlugin];
+  if (!hasExpoVideoPlugin) plugins = [...plugins, "expo-video"];
   return {
     ...config,
     owner,
-    plugins: hasGoogleSignInPlugin ? existingPlugins : [...existingPlugins, googleSignInPlugin],
+    plugins,
     android: {
       ...config.android,
       intentFilters: [...existingIntentFilters, ...oauthIntentFilters]

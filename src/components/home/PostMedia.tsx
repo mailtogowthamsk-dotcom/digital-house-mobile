@@ -5,29 +5,62 @@ import { getImageUrl } from "../../api/client";
 import { isYouTubeUrl, getYouTubeEmbedUrl } from "../../utils/youtube";
 import { useTheme } from "../../theme/ThemeContext";
 import { Shimmer } from "../ui/Shimmer";
+import { FeedVideoPlayer } from "../media/FeedVideoPlayer";
 import {
   DEFAULT_FEED_ASPECT_RATIO,
   getCachedAspectRatio,
   prefetchAspectRatio,
   setCachedAspectRatio
 } from "../../utils/imageDimensions";
+import type { PostMediaKind } from "../../config/media.config";
 
 const IMAGE_MAX_HEIGHT = 520;
 const YOUTUBE_HEIGHT = 220;
+const VIDEO_HEIGHT = 360;
 
 type PostMediaProps = {
   mediaUrl: string | null | undefined;
+  mediaType?: PostMediaKind | string | null;
+  thumbnailUrl?: string | null;
+  videoDuration?: number | null;
+  /** When true, video may autoplay (starts muted; user can unmute). */
+  isActive?: boolean;
   height?: number;
   style?: object;
   /** Full-bleed feed image (cover, edge-to-edge) */
   feedMode?: boolean;
 };
 
-function PostMediaInner({ mediaUrl, height = YOUTUBE_HEIGHT, style, feedMode = false }: PostMediaProps) {
+function resolveKind(
+  mediaUrl: string | null | undefined,
+  mediaType?: string | null
+): "youtube" | "video" | "image" | "none" {
+  const raw = mediaUrl?.trim();
+  if (!raw) return "none";
+  if (isYouTubeUrl(raw)) return "youtube";
+  const t = (mediaType || "").toLowerCase();
+  if (t === "video") return "video";
+  if (t === "image") return "image";
+  if (/\.(mp4|mov)(\?|$)/i.test(raw) || /video\//i.test(raw)) return "video";
+  return "image";
+}
+
+function PostMediaInner({
+  mediaUrl,
+  mediaType,
+  thumbnailUrl,
+  isActive = false,
+  height = YOUTUBE_HEIGHT,
+  style,
+  feedMode = false
+}: PostMediaProps) {
   const { colors } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const raw = mediaUrl?.trim();
-  const imageUri = raw && !isYouTubeUrl(raw) ? getImageUrl(raw) : null;
+  const kind = resolveKind(raw, mediaType);
+  const imageUri = kind === "image" && raw ? getImageUrl(raw) : null;
+  const videoUri = kind === "video" && raw ? getImageUrl(raw) : null;
+  const thumbUri = thumbnailUrl ? getImageUrl(thumbnailUrl) : null;
 
   const [loaded, setLoaded] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<number | null>(() =>
@@ -90,9 +123,9 @@ function PostMediaInner({ mediaUrl, height = YOUTUBE_HEIGHT, style, feedMode = f
     [imageUri]
   );
 
-  if (!raw) return null;
+  if (!raw || kind === "none") return null;
 
-  if (isYouTubeUrl(raw)) {
+  if (kind === "youtube") {
     const embedUrl = getYouTubeEmbedUrl(raw);
     if (!embedUrl) return null;
     const embedUri = `${embedUrl}?playsinline=1&rel=0&modestbranding=1`;
@@ -111,6 +144,20 @@ function PostMediaInner({ mediaUrl, height = YOUTUBE_HEIGHT, style, feedMode = f
           setSupportMultipleWindows={false}
           setBuiltInZoomControls={false}
           domStorageEnabled
+        />
+      </View>
+    );
+  }
+
+  if (kind === "video" && videoUri) {
+    return (
+      <View style={[s.wrapOuter, style]}>
+        <FeedVideoPlayer
+          uri={videoUri}
+          thumbnailUrl={thumbUri}
+          height={VIDEO_HEIGHT}
+          isActive={isActive}
+          initiallyMuted
         />
       </View>
     );
