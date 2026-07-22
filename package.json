@@ -17,7 +17,8 @@
     "doctor": {
       "reactNativeDirectoryCheck": {
         "exclude": [
-          "react-native-razorpay"
+          "react-native-razorpay",
+          "react-native-compressor"
         ],
         "listUnknownPackages": false
       }
@@ -29,7 +30,7 @@
     "@react-navigation/native": "^7.1.14",
     "@react-navigation/native-stack": "^7.3.21",
     "axios": "^1.7.9",
-    "expo": "~54.0.35",
+    "expo": "~54.0.36",
     "expo-auth-session": "~7.0.11",
     "expo-blur": "~15.0.8",
     "expo-build-properties": "~1.0.10",
@@ -47,7 +48,7 @@
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.2",
     "expo-status-bar": "~3.0.9",
-    "expo-updates": "~29.0.18",
+    "expo-updates": "~29.0.19",
     "expo-video": "~3.0.16",
     "expo-video-thumbnails": "~10.0.8",
     "expo-web-browser": "~15.0.11",
