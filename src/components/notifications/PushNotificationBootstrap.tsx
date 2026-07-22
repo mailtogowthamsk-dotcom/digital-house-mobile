@@ -34,7 +34,9 @@ export function PushNotificationBootstrap() {
   const pushSupported = isRemotePushSupported();
 
   useEffect(() => {
-    if (status !== "home" || !pushSupported) return;
+    const gateOk =
+      status === "home" || status === "pending" || status === "changes_requested";
+    if (!gateOk || !pushSupported) return;
     void syncPushTokenWithBackend();
   }, [status, pushSupported]);
 

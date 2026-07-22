@@ -18,7 +18,31 @@ export type RegisterPayload = {
 
 export async function register(payload: RegisterPayload) {
   const { data } = await api.post("/auth/register", payload);
-  return data as { ok: boolean; message: string; user: { id: number; email: string; status: string } };
+  const payloadOut = data as {
+    ok: boolean;
+    message: string;
+    accessToken?: string;
+    user?: MeUser;
+  };
+  if (!payloadOut?.ok || !payloadOut.accessToken || !payloadOut.user) {
+    throw new Error(payloadOut?.message || "Registration failed. Please try again.");
+  }
+  return {
+    ok: true as const,
+    message: payloadOut.message,
+    accessToken: payloadOut.accessToken,
+    user: payloadOut.user
+  };
+}
+
+/** Attach optional profile photo after register (PENDING session). */
+export async function setRegistrationPhoto(profilePhoto: string): Promise<MeUser> {
+  const { data } = await api.post<{ ok: boolean; user: MeUser; message?: string }>(
+    "/auth/registration-photo",
+    { profilePhoto }
+  );
+  if (!data?.ok || !data.user) throw new Error(data?.message || "Failed to save profile photo");
+  return data.user;
 }
 
 /** Returns { ok, message, sent?, retryAfterSec? }. On 403: account pending or rejected. */
@@ -60,6 +84,7 @@ export type MeUser = {
   fullName: string;
   username?: string | null;
   email: string;
+  mobile?: string | null;
   status: string;
   createdAt: string;
   profileComplete?: boolean;
@@ -70,6 +95,10 @@ export type MeUser = {
   linkedProviders?: AuthProviderCode[];
   emailVerified?: boolean;
   profilePhoto?: string | null;
+  registrationAdminRemarks?: string | null;
+  registrationRequestedFields?: string[];
+  pendingMobile?: string | null;
+  pendingProfilePhoto?: string | null;
 };
 
 export type GoogleAuthResponse = {
@@ -125,5 +154,21 @@ export async function getLinkedAccounts(): Promise<LinkedAccountsResponse> {
 export async function getMe(): Promise<MeUser> {
   const { data } = await api.get<{ ok: boolean; user: MeUser }>("/auth/me");
   if (!data.ok || !data.user) throw new Error("Failed to load profile");
+  return data.user;
+}
+
+export type SubmitRegistrationCorrectionPayload = {
+  mobile?: string | null;
+  profilePhoto?: string | null;
+};
+
+export async function submitRegistrationCorrection(
+  payload: SubmitRegistrationCorrectionPayload
+): Promise<MeUser> {
+  const { data } = await api.post<{ ok: boolean; user: MeUser; message?: string }>(
+    "/auth/registration-correction",
+    payload
+  );
+  if (!data?.ok || !data.user) throw new Error(data?.message || "Failed to submit corrections");
   return data.user;
 }

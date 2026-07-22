@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,9 +14,13 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { register as registerApi, type RegisterPayload } from "../../api/auth.api";
+import * as ImagePicker from "expo-image-picker";
+import { register as registerApi, setRegistrationPhoto, type RegisterPayload } from "../../api/auth.api";
 import { getAuthErrorMessage } from "../../api/client";
 import { getLocations, getKulams, getMasterItems, masterItemsToDropdown } from "../../api/options.api";
+import { uploadOptimizedImage } from "../../utils/mediaUpload";
+import { setToken } from "../../storage/token.storage";
+import { useAuth } from "../../context/AuthContext";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,7 +28,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
 const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
 const ICON_COLOR = "#6B7280";
@@ -42,6 +46,7 @@ function formatDate(d: Date | null): string {
 
 export function RegistrationScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { signIn } = useAuth();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -57,6 +62,8 @@ export function RegistrationScreen({ navigation }: any) {
   const [location, setLocation] = useState("");
   const [community, setCommunity] = useState("");
   const [kulam, setKulam] = useState("");
+  const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [locationOptions, setLocationOptions] = useState<{ label: string; value: string }[]>(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState<{ label: string; value: string }[]>(KULAM_OPTIONS);
   const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
@@ -91,6 +98,18 @@ export function RegistrationScreen({ navigation }: any) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const pickPhoto = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    setPhotoLocalUri(result.assets[0].uri);
+    setMsg(null);
   }, []);
 
   const canNextStep0 = fullName.trim().length > 0 && username.trim().length >= 3;
@@ -166,12 +185,33 @@ export function RegistrationScreen({ navigation }: any) {
         community: community.trim() || null,
         kulam: kulam.trim()
       };
-      await registerApi(payload);
-      navigation.replace("PendingApproval");
+      const registered = await registerApi(payload);
+      let sessionUser = registered.user;
+
+      if (photoLocalUri) {
+        setUploadingPhoto(true);
+        await setToken(registered.accessToken);
+        try {
+          const uploaded = await uploadOptimizedImage(photoLocalUri, "profile");
+          sessionUser = await setRegistrationPhoto(uploaded.publicUrl);
+        } catch (photoErr) {
+          // Account is created — don't fail registration if optional photo upload fails.
+          console.warn("[register] optional photo upload failed", photoErr);
+          setMsg(
+            "Account created. Profile photo could not be uploaded — you can add it later after approval."
+          );
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
+      await signIn(registered.accessToken, sessionUser);
+      // Auth gate routes PENDING → PendingApproval
     } catch (e: any) {
       setMsg(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
+      setUploadingPhoto(false);
     }
   };
 
@@ -218,6 +258,36 @@ export function RegistrationScreen({ navigation }: any) {
           <View style={s.card}>
             {step === 0 && (
               <>
+                <Text style={s.photoLabel}>Profile photo (optional)</Text>
+                <View style={s.photoRow}>
+                  <View style={s.photoCircle}>
+                    {photoLocalUri ? (
+                      <Image source={{ uri: photoLocalUri }} style={s.photoImage} />
+                    ) : (
+                      <Ionicons name="person-outline" size={36} color={ICON_COLOR} />
+                    )}
+                  </View>
+                  <View style={s.photoActions}>
+                    <Pressable
+                      style={({ pressed }) => [s.photoBtn, pressed && { opacity: 0.85 }]}
+                      onPress={pickPhoto}
+                    >
+                      <Text style={s.photoBtnText}>
+                        {photoLocalUri ? "Change photo" : "Upload photo"}
+                      </Text>
+                    </Pressable>
+                    {photoLocalUri ? (
+                      <Pressable
+                        style={({ pressed }) => [s.photoRemove, pressed && { opacity: 0.85 }]}
+                        onPress={() => setPhotoLocalUri(null)}
+                      >
+                        <Text style={s.photoRemoveText}>Remove</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={s.photoHint}>You can skip this and add a photo later.</Text>
+                    )}
+                  </View>
+                </View>
                 <Input
                   placeholder="Full name *"
                   value={fullName}
@@ -241,10 +311,7 @@ export function RegistrationScreen({ navigation }: any) {
                   onSelect={setGender}
                   variant="light"
                 />
-                <Pressable
-                  style={s.dateRow}
-                  onPress={() => setShowDobPicker(true)}
-                >
+                <Pressable style={s.dateRow} onPress={() => setShowDobPicker(true)}>
                   <Text style={[s.dateText, !dob && s.datePlaceholder]}>
                     {dob ? formatDate(dob) : "Select date of birth"}
                   </Text>
@@ -335,6 +402,8 @@ export function RegistrationScreen({ navigation }: any) {
             )}
             {step === 3 && (
               <>
+                <Text style={s.reviewLabel}>Profile photo</Text>
+                <Text style={s.reviewValue}>{photoLocalUri ? "Selected" : "Not added (optional)"}</Text>
                 <Text style={s.reviewLabel}>Full name</Text>
                 <Text style={s.reviewValue}>{fullName || "—"}</Text>
                 <Text style={s.reviewLabel}>Email</Text>
@@ -345,7 +414,10 @@ export function RegistrationScreen({ navigation }: any) {
                 <Text style={s.reviewValue}>{location || "—"}</Text>
                 <Text style={s.reviewLabel}>Kulam</Text>
                 <Text style={s.reviewValue}>{kulam || "—"}</Text>
-                <Text style={s.reviewHint}>Your account will be reviewed by an admin (1–2 days). No password needed—login with OTP after approval.</Text>
+                <Text style={s.reviewHint}>
+                  Your account will be reviewed by an admin (1–2 days). No password needed—login with OTP
+                  after approval.
+                </Text>
               </>
             )}
 
@@ -370,9 +442,13 @@ export function RegistrationScreen({ navigation }: any) {
               </Pressable>
             ) : (
               <Pressable
-                style={({ pressed }) => [s.btnWrap, pressed && s.btnPressed, loading && s.btnDisabled]}
+                style={({ pressed }) => [
+                  s.btnWrap,
+                  pressed && s.btnPressed,
+                  (loading || uploadingPhoto) && s.btnDisabled
+                ]}
                 onPress={onSubmit}
-                disabled={loading}
+                disabled={loading || uploadingPhoto}
               >
                 <LinearGradient
                   colors={["#2563EB", "#F97316"]}
@@ -380,7 +456,7 @@ export function RegistrationScreen({ navigation }: any) {
                   end={{ x: 1, y: 0 }}
                   style={s.btn}
                 >
-                  {loading ? (
+                  {loading || uploadingPhoto ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={s.btnText}>Submit registration</Text>
@@ -446,6 +522,34 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6
   },
+  photoLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 10 },
+  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg, gap: 14 },
+  photoCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden"
+  },
+  photoImage: { width: 72, height: 72 },
+  photoActions: { flex: 1 },
+  photoBtn: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  photoBtnText: { fontSize: 14, fontWeight: "600", color: "#2563EB" },
+  photoRemove: { marginTop: 8, alignSelf: "flex-start", paddingVertical: 4 },
+  photoRemoveText: { fontSize: 13, color: "#EF4444", fontWeight: "500" },
+  photoHint: { marginTop: 8, fontSize: 12, color: "#9CA3AF", lineHeight: 16 },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",

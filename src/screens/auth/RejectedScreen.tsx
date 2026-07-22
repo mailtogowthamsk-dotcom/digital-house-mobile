@@ -3,16 +3,19 @@ import { View, Text, StyleSheet, Pressable, Image, Dimensions } from "react-nati
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
+import { useAuth } from "../../context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
 
-type RejectedScreenProps = { navigation: any; route?: { params?: { message?: string } } };
+type RejectedScreenProps = { route?: { params?: { message?: string } } };
 
-export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
+export function RejectedScreen({ route }: RejectedScreenProps) {
   const { colors } = useTheme();
+  const { user, signOut } = useAuth();
   const message =
     route?.params?.message ||
+    user?.registrationAdminRemarks?.trim() ||
     "Your account was not approved. Please contact support if you believe this is an error.";
 
   const gradientColors = useMemo(
@@ -61,14 +64,22 @@ export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
           textAlign: "center",
           marginBottom: spacing.xxl
         },
-        btnWrap: { width: "100%" },
+        btnWrap: { width: "100%", marginBottom: spacing.md },
         btn: {
           paddingVertical: 16,
           borderRadius: 14,
           alignItems: "center",
           justifyContent: "center"
         },
-        btnText: { fontSize: 17, fontWeight: "600", color: colors.white }
+        btnSecondary: {
+          paddingVertical: 14,
+          borderRadius: 14,
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        btnText: { fontSize: 17, fontWeight: "600", color: colors.white },
+        btnTextSecondary: { fontSize: 15, fontWeight: "600", color: colors.textSecondary }
       }),
     [colors]
   );
@@ -80,11 +91,11 @@ export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
       <View style={s.content}>
         <Image source={LOGO} style={s.logo} resizeMode="contain" />
         <View style={s.card}>
-          <Text style={s.title}>Account not approved</Text>
+          <Text style={s.title}>Registration Rejected</Text>
           <Text style={s.subtitle}>{message}</Text>
           <Pressable
             style={({ pressed }) => [s.btnWrap, pressed && { opacity: 0.9 }]}
-            onPress={() => navigation.navigate("Landing")}
+            onPress={() => void signOut()}
           >
             <LinearGradient
               colors={[colors.primary, colors.accent]}
@@ -92,8 +103,11 @@ export function RejectedScreen({ navigation, route }: RejectedScreenProps) {
               end={{ x: 1, y: 0 }}
               style={s.btn}
             >
-              <Text style={s.btnText}>Back to home</Text>
+              <Text style={s.btnText}>Logout</Text>
             </LinearGradient>
+          </Pressable>
+          <Pressable style={s.btnSecondary} disabled>
+            <Text style={s.btnTextSecondary}>Contact Support (coming soon)</Text>
           </Pressable>
         </View>
       </View>

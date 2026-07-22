@@ -13,6 +13,7 @@ export type HeaderActionId =
   | "marketplace"
   | "matrimony"
   | "helping-hand"
+  | "prominent-people"
   | "community"
   | "messages"
   | "search-members"

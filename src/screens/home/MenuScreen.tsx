@@ -71,6 +71,14 @@ const EXPLORE: MenuItem[] = [
     tintBg: "#F5F3FF"
   },
   {
+    id: "prominent-people",
+    label: "Prominent People",
+    subtitle: "Hall of Fame",
+    icon: "ribbon-outline",
+    tint: "#1D4ED8",
+    tintBg: "#DBEAFE"
+  },
+  {
     id: "community",
     label: "Updates",
     subtitle: "Announcements",
@@ -140,9 +148,11 @@ export function MenuScreen() {
     const menuCode =
       item.id === "helping-hand"
         ? "helping_hands"
-        : item.id === "search-members"
-          ? "members"
-          : item.id;
+        : item.id === "prominent-people"
+          ? "prominent_people"
+          : item.id === "search-members"
+            ? "members"
+            : item.id;
 
     return isMenuVisible(menuCode);
   };
@@ -312,6 +322,7 @@ export function MenuScreen() {
     else if (actionId === "jobs") navigation.navigate("JobsHome");
     else if (actionId === "marketplace") navigation.navigate("MarketplaceHome");
     else if (actionId === "helping-hand") navigation.navigate("HelpingHandsHome");
+    else if (actionId === "prominent-people") navigation.navigate("ProminentPeopleHome");
     else if (actionId === "matrimony") navigation.navigate("MatrimonyHome");
     else if (actionId === "help-support") navigation.navigate("HelpSupport");
   };

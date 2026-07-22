@@ -2,6 +2,7 @@ export type RootStackParamList = {
   Landing: undefined;
   Registration: undefined;
   PendingApproval: undefined;
+  RegistrationCorrection: undefined;
   Rejected: { message?: string };
   Login: undefined;
   GoogleCompleteProfile: undefined;
@@ -36,6 +37,8 @@ export type RootStackParamList = {
   MarketplaceHome: undefined;
   HelpingHandsHome: undefined;
   CreateHelpRequest: undefined;
+  ProminentPeopleHome: undefined;
+  ProminentPersonProfile: { id: number };
   MatrimonyHome: undefined;
   MatrimonySetup: undefined;
   MatrimonyBrowse: undefined;

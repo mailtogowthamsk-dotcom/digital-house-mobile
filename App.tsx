@@ -17,6 +17,7 @@ import { AuthSplash } from "./src/components/auth/AuthSplash";
 import { LandingScreen } from "./src/screens/landing/LandingScreen";
 import { RegistrationScreen } from "./src/screens/auth/RegistrationScreen";
 import { PendingApprovalScreen } from "./src/screens/auth/PendingApprovalScreen";
+import { RegistrationCorrectionScreen } from "./src/screens/auth/RegistrationCorrectionScreen";
 import { RejectedScreen } from "./src/screens/auth/RejectedScreen";
 import { LoginScreen } from "./src/screens/auth/LoginScreen";
 import { OtpVerifyScreen } from "./src/screens/auth/OtpVerifyScreen";
@@ -42,6 +43,8 @@ import { JobsHomeScreen } from "./src/screens/jobs/JobsHomeScreen";
 import { MarketplaceHomeScreen } from "./src/screens/marketplace/MarketplaceHomeScreen";
 import { HelpingHandsHomeScreen } from "./src/screens/helpingHands/HelpingHandsHomeScreen";
 import { CreateHelpRequestScreen } from "./src/screens/helpingHands/CreateHelpRequestScreen";
+import { ProminentPeopleHomeScreen } from "./src/screens/prominentPeople/ProminentPeopleHomeScreen";
+import { ProminentPersonProfileScreen } from "./src/screens/prominentPeople/ProminentPersonProfileScreen";
 import { MatrimonySetupScreen } from "./src/screens/matrimony/MatrimonySetupScreen";
 import { MatrimonyBrowseScreen } from "./src/screens/matrimony/MatrimonyBrowseScreen";
 import { MatrimonyCandidateScreen } from "./src/screens/matrimony/MatrimonyCandidateScreen";
@@ -106,6 +109,11 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
           options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
         />
         <Stack.Screen
+          name="RegistrationCorrection"
+          component={RegistrationCorrectionScreen}
+          options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
+        />
+        <Stack.Screen
           name="Rejected"
           component={RejectedScreen}
           options={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
@@ -154,6 +162,16 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="MarketplaceHome" component={MarketplaceHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="HelpingHandsHome" component={HelpingHandsHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CreateHelpRequest" component={CreateHelpRequestScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="ProminentPeopleHome"
+          component={ProminentPeopleHomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ProminentPersonProfile"
+          component={ProminentPersonProfileScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
         <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />

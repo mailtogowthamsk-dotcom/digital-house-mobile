@@ -106,6 +106,7 @@ export const MENU_FEATURE_MAP: Record<string, string> = {
   marketplace: "marketplace",
   matrimony: "matrimony",
   "helping-hand": "helping_hands",
+  "prominent-people": "prominent_people",
   community: "community_feed",
   "search-members": "members",
   posts: "community_feed"

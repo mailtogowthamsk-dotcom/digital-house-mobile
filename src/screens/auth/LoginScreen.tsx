@@ -110,11 +110,8 @@ function LoginScreenInner({ navigation }: any) {
       const err = e as { response?: { status?: number; data?: { message?: string } } };
       const status = err.response?.status;
       if (status === 403) {
-        const backendMsg = err.response?.data?.message ?? "";
-        if (backendMsg.includes("not approved") || backendMsg.includes("rejected")) {
-          navigation.replace("Rejected", { message: backendMsg });
-          return;
-        }
+        setMsg(err.response?.data?.message ?? "Unable to sign in with this account.");
+        return;
       }
       setMsg(getAuthErrorMessage(e));
     } finally {
@@ -200,14 +197,9 @@ function LoginScreenBody({
       const status = e?.response?.status;
       const backendMsg = e?.response?.data?.message ?? "";
       if (status === 403) {
-        if (backendMsg.includes("under verification") || backendMsg.includes("verification")) {
-          navigation.replace("PendingApproval");
-          return;
-        }
-        if (backendMsg.includes("not approved") || backendMsg.includes("rejected")) {
-          navigation.replace("Rejected", { message: backendMsg });
-          return;
-        }
+        // Suspended / blocked — show message; do not send to Pending without a session.
+        setMsg(backendMsg || "Unable to sign in with this account.");
+        return;
       }
       if (status === 404) {
         setMsg(backendMsg || "No account found. Please register first.");
@@ -352,7 +344,9 @@ function LoginScreenBody({
                 )}
               </LinearGradient>
             </Pressable>
-            <Text style={s.loginHint}>Login only after your account is approved by admin.</Text>
+            <Text style={s.loginHint}>
+              After OTP, you'll be routed by your registration status (Home, Waiting, or Corrections).
+            </Text>
 
             <Pressable
               style={({ pressed }) => [s.registerWrap, pressed && { opacity: 0.8 }]}

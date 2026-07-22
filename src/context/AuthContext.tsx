@@ -22,6 +22,12 @@ import { startDeliveryRealtime, stopDeliveryRealtime, resetDeliveryRealtime } fr
 import { ensurePresenceRealtime, resetPresenceRealtime, refreshPresenceSnapshot } from "../realtime/presenceRealtime";
 import { resetChatRealtime } from "../realtime/chatRealtime";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
+import {
+  authStatusForRegistrationUser,
+  routeForRegistrationUser,
+  type RegistrationAuthStatus,
+  type RegistrationRootRoute
+} from "../auth/registrationStatusGuard";
 
 function hardResetRealtime() {
   resetChatRealtime();
@@ -30,15 +36,9 @@ function hardResetRealtime() {
   disconnectSocket();
 }
 
-export type AuthStatus = "loading" | "signedOut" | "home" | "pending" | "rejected";
+export type AuthStatus = "loading" | RegistrationAuthStatus;
 
-export type RootAuthRoute =
-  | "Landing"
-  | "Home"
-  | "PendingApproval"
-  | "Rejected"
-  | "GoogleCompleteProfile"
-  | "SetUsername";
+export type RootAuthRoute = RegistrationRootRoute;
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -47,6 +47,8 @@ type AuthContextValue = {
   signIn: (accessToken: string, user: MeUser) => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  /** Apply an already-fetched /me user (e.g. after registration correction). */
+  applyUser: (user: MeUser) => Promise<void>;
   initialRoute: RootAuthRoute;
   /**
    * Bumps whenever the auth gate flips (signed-out ↔ signed-in) or the post-login
@@ -63,31 +65,28 @@ function normalizeAuthUser(user: MeUser): MeUser {
     createdAt: user.createdAt ?? new Date().toISOString(),
     profileComplete: user.profileComplete !== false,
     needsUsernameSetup:
-      user.needsUsernameSetup ?? (user.status === "APPROVED" && !user.username)
+      user.needsUsernameSetup ?? (user.status === "APPROVED" && !user.username),
+    registrationRequestedFields: Array.isArray(user.registrationRequestedFields)
+      ? user.registrationRequestedFields
+      : []
   };
 }
 
 export function routeForUser(user: MeUser | null, signedOut: boolean): RootAuthRoute {
-  if (signedOut || !user) return "Landing";
-  if (user.profileComplete === false) return "GoogleCompleteProfile";
-  if (user.status === "APPROVED" && user.needsUsernameSetup) return "SetUsername";
-  if (user.status === "APPROVED") return "Home";
-  if (user.status === "PENDING") return "PendingApproval";
-  if (user.status === "REJECTED") return "Rejected";
-  return "Landing";
+  return routeForRegistrationUser(user, signedOut);
 }
 
 function statusForUser(user: MeUser | null, signedOut: boolean): AuthStatus {
-  if (signedOut || !user) return "signedOut";
-  if (user.profileComplete === false) return "pending";
-  if (user.status === "APPROVED") return "home";
-  if (user.status === "PENDING") return "pending";
-  if (user.status === "REJECTED") return "rejected";
-  return "signedOut";
+  return authStatusForRegistrationUser(user, signedOut);
 }
 
 function isSignedInStatus(status: AuthStatus): boolean {
-  return status === "home" || status === "pending" || status === "rejected";
+  return (
+    status === "home" ||
+    status === "pending" ||
+    status === "changes_requested" ||
+    status === "rejected"
+  );
 }
 
 async function prewarmRealtime(userId: number) {
@@ -244,7 +243,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let resumeTimer: ReturnType<typeof setTimeout> | null = null;
     const onAppState = (next: AppStateStatus) => {
-      if (next === "active" && bootstrapDone.current && status === "home") {
+      if (
+        next === "active" &&
+        bootstrapDone.current &&
+        (status === "home" ||
+          status === "pending" ||
+          status === "changes_requested" ||
+          status === "rejected")
+      ) {
         // Reconnect presence / delivery sockets promptly after background.
         const uid = userRef.current?.id;
         if (uid && userRef.current?.status === "APPROVED") {
@@ -332,6 +338,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await restoreSession();
   }, [restoreSession]);
 
+  const applyUser = useCallback(
+    async (next: MeUser) => {
+      const normalized = normalizeAuthUser(next);
+      await setUserSnapshot(normalized);
+      applySession(normalized, false);
+      bumpSessionEpoch();
+    },
+    [applySession, bumpSessionEpoch]
+  );
+
   const initialRoute = useMemo(
     () => routeForUser(user, status === "signedOut"),
     [user, status]
@@ -345,10 +361,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signOut,
       refreshSession,
+      applyUser,
       initialRoute,
       sessionEpoch
     }),
-    [status, user, signIn, signOut, refreshSession, initialRoute, sessionEpoch]
+    [status, user, signIn, signOut, refreshSession, applyUser, initialRoute, sessionEpoch]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -82,9 +82,16 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
     case "OPEN_HELP_SUPPORT":
       navigation.navigate("HelpSupport");
       break;
+    case "OPEN_REGISTRATION_CORRECTION":
+      navigation.navigate("RegistrationCorrection");
+      break;
+    case "OPEN_PENDING_APPROVAL":
+      navigation.navigate("PendingApproval");
+      break;
     default:
       if (item.category === "MATRIMONY") navigation.navigate("MatrimonyHome");
       else if (item.category === "MESSAGES") navigation.navigate("Messages");
+      else if (item.category === "SYSTEM") navigation.navigate("Notifications");
       else if (targetId) navigation.navigate("PostDetail", { postId: targetId });
       break;
   }
