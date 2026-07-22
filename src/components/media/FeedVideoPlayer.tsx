@@ -13,67 +13,145 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { usePlaybackAllowed } from "../../hooks/usePlaybackAllowed";
-import { registerFeedVideoPlayer } from "../../media/feedVideoPlayback";
+import { useFeedAudioControls } from "../../hooks/useFeedAudioControls";
+import { getFeedAudioMuted } from "../../media/feedAudioState";
+import { registerFeedVideoPlayer, pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 
 type FeedVideoPlayerProps = {
   uri: string;
   thumbnailUrl?: string | null;
   height?: number;
-  /** When false, pause and avoid unnecessary playback. */
+  /** When true, this is the single autoplay candidate in the viewport. */
   isActive?: boolean;
   /**
-   * Initial mute for autoplay (feed convention).
-   * User can unmute via the speaker control; state is owned by this component.
+   * Mount a paused player to warm buffers for the next likely video.
+   * Must never autoplay — only the active item plays.
    */
-  initiallyMuted?: boolean;
+  isPreload?: boolean;
   style?: object;
 };
 
+type ActivePlayerProps = {
+  uri: string;
+  thumbnailUrl?: string | null;
+  height: number;
+  isActive: boolean;
+  isPreload: boolean;
+  style?: object;
+  colors: { surfaceElevated: string };
+  screenWidth: number;
+  screenHeight: number;
+};
+
 /**
- * Feed video player with Instagram-like lifecycle:
- * - Plays only when `isActive` AND the host screen is focused AND app is foreground.
- * - Leaving the feed (stack push, tab change, background) pauses immediately.
- * - Returning resumes only if the parent still marks this item active (visible).
+ * Poster-only shell — no native VideoPlayer / decoder until mounted.
  */
-function FeedVideoPlayerInner({
+function VideoPosterShell({
+  thumbnailUrl,
+  height,
+  style,
+  colors,
+  onPressPlay,
+  showPlayIcon = true
+}: {
+  thumbnailUrl?: string | null;
+  height: number;
+  style?: object;
+  colors: { surfaceElevated: string };
+  onPressPlay?: () => void;
+  /** Decorative play glyph when not interactive (e.g. off-screen poster). */
+  showPlayIcon?: boolean;
+}) {
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: {
+          width: "100%",
+          height,
+          backgroundColor: colors.surfaceElevated,
+          overflow: "hidden"
+        },
+        poster: { ...StyleSheet.absoluteFillObject },
+        center: {
+          ...StyleSheet.absoluteFillObject,
+          alignItems: "center",
+          justifyContent: "center"
+        }
+      }),
+    [colors.surfaceElevated, height]
+  );
+
+  return (
+    <View style={[s.wrap, style]}>
+      {thumbnailUrl ? (
+        <Image source={{ uri: thumbnailUrl }} style={s.poster} resizeMode="cover" />
+      ) : null}
+      {onPressPlay ? (
+        <Pressable
+          style={s.center}
+          onPress={onPressPlay}
+          accessibilityRole="button"
+          accessibilityLabel="Play video"
+        >
+          <Ionicons name="play-circle" size={64} color="rgba(255,255,255,0.92)" />
+        </Pressable>
+      ) : showPlayIcon ? (
+        <View style={s.center} pointerEvents="none">
+          <Ionicons name="play-circle" size={64} color="rgba(255,255,255,0.92)" />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Native player — only mounted when active or preloading.
+ * Mute follows the feed-wide audio preference (not per-video state).
+ */
+function ActiveFeedVideoPlayer({
   uri,
   thumbnailUrl,
-  height = 320,
-  isActive = false,
-  initiallyMuted = true,
-  style
-}: FeedVideoPlayerProps) {
-  const { colors } = useTheme();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  height,
+  isActive,
+  isPreload,
+  style,
+  colors,
+  screenWidth,
+  screenHeight
+}: ActivePlayerProps) {
   const playbackAllowed = usePlaybackAllowed();
+  const { muted, toggleMute, setMuted } = useFeedAudioControls();
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [showPoster, setShowPoster] = useState(true);
-  const [muted, setMuted] = useState(initiallyMuted);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.volume = 1;
-    p.muted = initiallyMuted;
-    p.audioMixingMode = "auto";
+    // Snapshot global preference at player create — effect keeps it in sync after.
+    p.muted = getFeedAudioMuted();
+    p.audioMixingMode = getFeedAudioMuted() ? "auto" : "doNotMix";
   });
 
-  /** Autoplay / resume only when visible on an active, focused, foreground screen. */
-  const shouldAutoplay = isActive && playbackAllowed;
-  /** User-opened fullscreen may keep playing while allowed; never in background. */
-  const shouldPlay = playbackAllowed && (isActive || fullscreen);
+  const shouldAutoplay = isActive && playbackAllowed && !isPreload;
+  const shouldPlay = playbackAllowed && ((isActive && !isPreload) || fullscreen);
 
   useEffect(() => {
-    player.muted = muted;
-    player.volume = 1;
-    player.audioMixingMode = muted ? "auto" : "doNotMix";
+    try {
+      player.muted = muted;
+      player.volume = 1;
+      player.audioMixingMode = muted ? "auto" : "doNotMix";
+    } catch {
+      /* ignore */
+    }
   }, [muted, player]);
 
   useEffect(() => {
     const statusSub = player.addListener("statusChange", (status) => {
       if (status.status === "readyToPlay") setReady(true);
     });
+    // Keep global preference aligned if native fullscreen controls change mute.
     const mutedSub = player.addListener("mutedChange", ({ muted: next }) => {
       setMuted(next);
     });
@@ -86,7 +164,7 @@ function FeedVideoPlayerInner({
       mutedSub.remove();
       playingSub.remove();
     };
-  }, [player]);
+  }, [player, setMuted]);
 
   useEffect(() => {
     return registerFeedVideoPlayer(() => {
@@ -105,24 +183,34 @@ function FeedVideoPlayerInner({
   useEffect(() => {
     try {
       if (shouldPlay) {
+        pauseAllFeedVideos();
         player.play();
         if (shouldAutoplay) setShowPoster(false);
       } else {
         player.pause();
+        if (isPreload && !isActive) setShowPoster(true);
       }
     } catch (_) {}
-  }, [shouldPlay, shouldAutoplay, player]);
+  }, [shouldPlay, shouldAutoplay, player, isPreload, isActive]);
 
   useEffect(() => {
     return () => {
       try {
         player.pause();
-      } catch (_) {}
+        void player.replaceAsync?.(null as any);
+      } catch (_) {
+        try {
+          player.replace?.(null as any);
+        } catch {
+          /* ignore */
+        }
+      }
     };
   }, [player]);
 
   const togglePlay = useCallback(() => {
     if (!playbackAllowed) return;
+    if (isPreload && !isActive) return;
     try {
       if (player.playing) {
         player.pause();
@@ -131,11 +219,7 @@ function FeedVideoPlayerInner({
         setShowPoster(false);
       }
     } catch (_) {}
-  }, [player, playbackAllowed]);
-
-  const toggleMute = useCallback(() => {
-    setMuted((prev) => !prev);
-  }, []);
+  }, [player, playbackAllowed, isPreload, isActive]);
 
   const s = useMemo(
     () =>
@@ -182,8 +266,22 @@ function FeedVideoPlayerInner({
           gap: 8
         }
       }),
-    [colors, height, screenWidth, screenHeight]
+    [colors.surfaceElevated, height, screenWidth, screenHeight]
   );
+
+  // Preload-only: warm buffers, no VideoView (saves compositor work).
+  // No audio-state subscription needed — poster shell has no mute control.
+  if (isPreload && !isActive) {
+    return (
+      <VideoPosterShell
+        thumbnailUrl={thumbnailUrl}
+        height={height}
+        style={style}
+        colors={colors}
+        showPlayIcon={false}
+      />
+    );
+  }
 
   return (
     <>
@@ -270,6 +368,52 @@ function FeedVideoPlayerInner({
         </View>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Feed video with Instagram-like lifecycle:
+ * - Poster only until active / preload.
+ * - Unmount releases the native player (memory).
+ * - Mute is feed-global (see feedAudioState) — not per video.
+ */
+function FeedVideoPlayerInner({
+  uri,
+  thumbnailUrl,
+  height = 320,
+  isActive = false,
+  isPreload = false,
+  style
+}: FeedVideoPlayerProps) {
+  const { colors } = useTheme();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  const shouldMountPlayer = isActive || isPreload;
+
+  if (!shouldMountPlayer) {
+    return (
+      <VideoPosterShell
+        thumbnailUrl={thumbnailUrl}
+        height={height}
+        style={style}
+        colors={colors}
+        showPlayIcon
+      />
+    );
+  }
+
+  return (
+    <ActiveFeedVideoPlayer
+      uri={uri}
+      thumbnailUrl={thumbnailUrl}
+      height={height}
+      isActive={isActive}
+      isPreload={isPreload && !isActive}
+      style={style}
+      colors={colors}
+      screenWidth={screenWidth}
+      screenHeight={screenHeight}
+    />
   );
 }
 

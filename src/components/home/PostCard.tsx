@@ -28,6 +28,8 @@ export type PostCardData = {
   videoDuration?: number | null;
   /** Feed viewport: video autoplay when true */
   isMediaActive?: boolean;
+  /** Warm next video buffers without playing */
+  isMediaPreload?: boolean;
   likeCount: number;
   commentCount: number;
   likedByMe?: boolean;
@@ -400,6 +402,7 @@ function PostCardInner({
             thumbnailUrl={post.thumbnailUrl}
             videoDuration={post.videoDuration}
             isActive={Boolean(post.isMediaActive)}
+            isPreload={Boolean(post.isMediaPreload)}
             feedMode
           />
         </View>

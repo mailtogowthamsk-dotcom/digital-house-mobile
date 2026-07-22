@@ -8,6 +8,8 @@ export type UploadUrlRequest = {
   fileType: string;
   fileSize: number;
   module: MediaModule;
+  /** R2 folder purpose — video | video_thumbnail | image */
+  purpose?: "image" | "video" | "video_thumbnail";
 };
 
 export type UploadUrlResponse = {

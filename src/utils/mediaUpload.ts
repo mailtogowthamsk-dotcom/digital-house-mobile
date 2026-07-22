@@ -1,14 +1,15 @@
 /**
  * Direct upload to R2 via pre-signed PUT URL.
  * Images: optimize → upload → finalize (server variants).
- * Videos: validate → upload (no finalize).
+ * Videos: validate → compress (≤720p) → thumbnail → upload (no finalize).
  */
 
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
-import { getUploadUrl, finalizeMedia, type MediaModule } from "../api/media.api";
+import { getUploadUrl, finalizeMedia, deleteMediaUrls, type MediaModule } from "../api/media.api";
 import { optimizeImageForUpload } from "./imageOptimizer";
+import { optimizeVideoForUpload } from "./videoOptimizer";
 import {
   IMAGE_UPLOAD_MAX_BYTES,
   IMAGE_PICKER_MAX_BYTES,
@@ -16,7 +17,8 @@ import {
   VIDEO_MAX_DURATION_SEC,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
-  formatBytes
+  formatBytes,
+  type VideoUploadStage
 } from "../config/media.config";
 
 export { ALLOWED_IMAGE_TYPES, ALLOWED_VIDEO_TYPES };
@@ -50,13 +52,25 @@ export type UploadVideoResult = {
   mediaType: "video";
 };
 
+export type UploadVideoOptions = {
+  mimeType?: string;
+  durationSec?: number | null;
+  fileName?: string | null;
+  onProgress?: (progress: number) => void;
+  onStage?: (stage: VideoUploadStage) => void;
+};
+
 export function isAllowedImageType(mime: string): boolean {
   return (ALLOWED_IMAGE_TYPES as readonly string[]).includes(mime.toLowerCase());
 }
 
 export function isAllowedVideoType(mime: string): boolean {
   const m = mime.toLowerCase();
-  return (ALLOWED_VIDEO_TYPES as readonly string[]).includes(m) || m === "video/mov";
+  return (
+    (ALLOWED_VIDEO_TYPES as readonly string[]).includes(m) ||
+    m === "video/mov" ||
+    m === "video/x-m4v"
+  );
 }
 
 export function validateImagePickerSize(bytes: number): void {
@@ -80,11 +94,11 @@ export function validateVideoSize(bytes: number): void {
 }
 
 export function validateVideoDuration(seconds: number): void {
-  if (seconds > VIDEO_MAX_DURATION_SEC) {
-    throw new Error(`Video must be ≤ ${VIDEO_MAX_DURATION_SEC} seconds`);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error("Could not read video duration. Please choose another clip.");
   }
-  if (seconds <= 0) {
-    throw new Error("Could not read video duration");
+  if (seconds > VIDEO_MAX_DURATION_SEC) {
+    throw new Error(`Video must be ≤ ${Math.floor(VIDEO_MAX_DURATION_SEC / 60)} minutes`);
   }
 }
 
@@ -94,14 +108,27 @@ export function getMimeFromUri(uri: string, fallback = "image/jpeg"): string {
   if (lower.endsWith(".webp")) return "image/webp";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".mp4")) return "video/mp4";
+  if (lower.endsWith(".m4v")) return "video/x-m4v";
   if (lower.endsWith(".mov")) return "video/quicktime";
   return fallback;
 }
 
-export function isVideoAsset(mime: string | undefined, uri: string): boolean {
+export function isVideoAsset(
+  mime: string | undefined,
+  uri: string,
+  assetType?: string | null
+): boolean {
+  if (assetType === "video") return true;
   if (mime && isAllowedVideoType(mime)) return true;
   if (mime?.startsWith("video/")) return true;
-  return /\.(mp4|mov)(\?|$)/i.test(uri);
+  return /\.(mp4|mov|m4v)(\?|$)/i.test(uri);
+}
+
+function normalizeVideoMime(mime: string): string {
+  const m = mime.toLowerCase();
+  if (m === "video/mov") return "video/quicktime";
+  if (m === "video/m4v") return "video/x-m4v";
+  return m;
 }
 
 async function toUploadableUri(
@@ -188,7 +215,8 @@ export async function uploadOptimizedImage(
     fileName,
     fileType: optimized.mime,
     fileSize: optimized.size,
-    module
+    module,
+    purpose: "image"
   });
 
   await uploadToR2(uploadUrl, optimized.uri, optimized.mime, (p) => {
@@ -234,82 +262,105 @@ export async function generateVideoThumbnail(
 }
 
 /**
- * Validate and upload a video to R2. Optionally uploads a JPEG thumbnail.
- * Does not call finalize (videos are ready after PUT).
+ * Validate, compress (≤720p), and upload a video to R2.
+ * Optionally uploads a WebP thumbnail. Does not call finalize on the video object.
  */
 export async function uploadVideo(
   localUri: string,
   module: MediaModule,
-  options: {
-    mimeType?: string;
-    durationSec?: number | null;
-    fileName?: string | null;
-    onProgress?: (progress: number) => void;
-  } = {}
+  options: UploadVideoOptions = {}
 ): Promise<UploadVideoResult> {
   const onProgress = options.onProgress;
-  onProgress?.(0.05);
+  const onStage = options.onStage;
 
-  const mime = (options.mimeType || getMimeFromUri(localUri, "video/mp4")).toLowerCase();
-  if (!isAllowedVideoType(mime)) {
-    throw new Error("Only MP4 or MOV videos are allowed");
+  onStage?.("compressing");
+  onProgress?.(0.02);
+
+  const rawMime = (options.mimeType || getMimeFromUri(localUri, "video/mp4")).toLowerCase();
+  if (!isAllowedVideoType(rawMime) && !/\.(mp4|mov|m4v)(\?|$)/i.test(localUri)) {
+    throw new Error("Only MP4, MOV, or M4V videos are allowed");
   }
 
   const durationSec = options.durationSec ?? 0;
-  if (durationSec > 0) validateVideoDuration(durationSec);
+  validateVideoDuration(durationSec);
 
-  const byteSize = await getLocalFileSize(localUri);
-  if (byteSize <= 0) throw new Error("Could not read video file size");
-  validateVideoSize(byteSize);
-
-  const ext = mime.includes("quicktime") || localUri.toLowerCase().includes(".mov") ? "mov" : "mp4";
-  const fileName = options.fileName?.trim() || `vid_${Date.now()}.${ext}`;
-
-  onProgress?.(0.12);
-  const thumb = await generateVideoThumbnail(localUri);
-  onProgress?.(0.2);
+  const optimized = await optimizeVideoForUpload(localUri, {
+    onProgress: (p) => onProgress?.(0.02 + p * 0.38)
+  });
 
   let thumbnailUrl: string | null = null;
-  if (thumb?.uri) {
-    try {
-      const optimizedThumb = await optimizeImageForUpload(thumb.uri);
-      validateImageSize(optimizedThumb.size);
-      const thumbPresign = await getUploadUrl({
-        fileName: `vid_thumb_${Date.now()}.webp`,
-        fileType: optimizedThumb.mime,
-        fileSize: optimizedThumb.size,
-        module
-      });
-      await uploadToR2(thumbPresign.uploadUrl, optimizedThumb.uri, optimizedThumb.mime);
-      const finalized = await finalizeMedia(thumbPresign.mediaFileId);
-      thumbnailUrl = finalized.publicUrl;
-    } catch {
-      thumbnailUrl = null;
+  try {
+    validateVideoSize(optimized.size);
+
+    // Prefer H.264 MP4 after compression; keep QuickTime only when we did not re-encode a .mov.
+    const uploadMime =
+      optimized.didCompress || rawMime.includes("m4v") || rawMime.includes("mp4")
+        ? "video/mp4"
+        : normalizeVideoMime(rawMime);
+
+    const fileName =
+      options.fileName?.trim()?.replace(/\.(mov|m4v)$/i, ".mp4") ||
+      `vid_${Date.now()}.mp4`;
+
+    onStage?.("processing");
+    onProgress?.(0.42);
+    const thumb = await generateVideoThumbnail(optimized.uri);
+    onProgress?.(0.48);
+
+    if (thumb?.uri) {
+      try {
+        const optimizedThumb = await optimizeImageForUpload(thumb.uri);
+        validateImageSize(optimizedThumb.size);
+        const thumbPresign = await getUploadUrl({
+          fileName: `vid_thumb_${Date.now()}.webp`,
+          fileType: optimizedThumb.mime,
+          fileSize: optimizedThumb.size,
+          module,
+          purpose: "video_thumbnail"
+        });
+        await uploadToR2(thumbPresign.uploadUrl, optimizedThumb.uri, optimizedThumb.mime);
+        const finalized = await finalizeMedia(thumbPresign.mediaFileId);
+        thumbnailUrl = finalized.publicUrl;
+      } catch {
+        thumbnailUrl = null;
+      }
     }
+
+    onStage?.("uploading");
+    onProgress?.(0.55);
+    const { uploadUrl, publicUrl, mediaFileId } = await getUploadUrl({
+      fileName,
+      fileType: uploadMime,
+      fileSize: optimized.size,
+      module,
+      purpose: "video"
+    });
+
+    await uploadToR2(uploadUrl, optimized.uri, uploadMime, (p) => {
+      onProgress?.(0.55 + p * 0.42);
+    });
+
+    onStage?.("done");
+    onProgress?.(1);
+
+    return {
+      publicUrl,
+      mediaFileId,
+      thumbnailUri: thumb?.uri ?? null,
+      thumbnailUrl,
+      durationSec: Math.floor(durationSec),
+      byteSize: optimized.size,
+      mimeType: uploadMime,
+      fileName,
+      mediaType: "video"
+    };
+  } catch (e) {
+    // Video failed after thumbnail uploaded — remove orphan thumb.
+    if (thumbnailUrl) {
+      void deleteMediaUrls([thumbnailUrl]).catch(() => undefined);
+    }
+    throw e;
+  } finally {
+    await optimized.cleanup?.();
   }
-
-  onProgress?.(0.4);
-  const { uploadUrl, publicUrl, mediaFileId } = await getUploadUrl({
-    fileName,
-    fileType: mime === "video/mov" ? "video/quicktime" : mime,
-    fileSize: byteSize,
-    module
-  });
-
-  await uploadToR2(uploadUrl, localUri, mime === "video/mov" ? "video/quicktime" : mime, (p) => {
-    onProgress?.(0.4 + p * 0.55);
-  });
-  onProgress?.(1);
-
-  return {
-    publicUrl,
-    mediaFileId,
-    thumbnailUri: thumb?.uri ?? null,
-    thumbnailUrl,
-    durationSec: Math.floor(durationSec),
-    byteSize,
-    mimeType: mime === "video/mov" ? "video/quicktime" : mime,
-    fileName,
-    mediaType: "video"
-  };
 }

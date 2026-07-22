@@ -23,8 +23,10 @@ type PostMediaProps = {
   mediaType?: PostMediaKind | string | null;
   thumbnailUrl?: string | null;
   videoDuration?: number | null;
-  /** When true, video may autoplay (starts muted; user can unmute). */
+  /** When true, video may autoplay (feed-global mute preference applies). */
   isActive?: boolean;
+  /** Mount a paused player to preload the next likely video. */
+  isPreload?: boolean;
   height?: number;
   style?: object;
   /** Full-bleed feed image (cover, edge-to-edge) */
@@ -41,7 +43,7 @@ function resolveKind(
   const t = (mediaType || "").toLowerCase();
   if (t === "video") return "video";
   if (t === "image") return "image";
-  if (/\.(mp4|mov)(\?|$)/i.test(raw) || /video\//i.test(raw)) return "video";
+  if (/\.(mp4|mov|m4v)(\?|$)/i.test(raw) || /video\//i.test(raw)) return "video";
   return "image";
 }
 
@@ -50,6 +52,7 @@ function PostMediaInner({
   mediaType,
   thumbnailUrl,
   isActive = false,
+  isPreload = false,
   height = YOUTUBE_HEIGHT,
   style,
   feedMode = false
@@ -157,7 +160,7 @@ function PostMediaInner({
           thumbnailUrl={thumbUri}
           height={VIDEO_HEIGHT}
           isActive={isActive}
-          initiallyMuted
+          isPreload={isPreload && !isActive}
         />
       </View>
     );

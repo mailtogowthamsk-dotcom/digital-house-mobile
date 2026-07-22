@@ -33,7 +33,7 @@ import {
   MARKETPLACE_INTENTS,
   MARKETPLACE_MAX_PHOTOS
 } from "../../constants/marketplace";
-import { formatBytes, VIDEO_MAX_DURATION_SEC } from "../../config/media.config";
+import { formatBytes, VIDEO_MAX_DURATION_SEC, VIDEO_PICKER_MAX_BYTES, videoUploadStageLabel, type VideoUploadStage } from "../../config/media.config";
 import {
   extractHashtagsFromText,
   mergeHashtags,
@@ -174,11 +174,15 @@ export function CreatePostScreen() {
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   /** URLs uploaded in this screen session — safe to delete from R2 immediately on clear. */
   const sessionUploadedUrlsRef = useRef<Set<string>>(new Set());
+  /** When true, uploaded media is attached to a saved post — do not orphan-delete on leave. */
+  const mediaCommittedRef = useRef(false);
   const submittingRef = useRef(false);
+  const uploadingRef = useRef(false);
   const [previewDimensions, setPreviewDimensions] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<VideoUploadStage | null>(null);
   const [uploadFailed, setUploadFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
@@ -200,6 +204,25 @@ export function CreatePostScreen() {
     setPostType(resolveInitialPostType(initialTypeParam));
     setShowTypePicker(false);
   }, [initialTypeParam, isTypeLocked]);
+
+  // Abandon cleanup: leave Create Post without saving → delete session R2 uploads.
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", (e: { preventDefault: () => void }) => {
+      if (mediaCommittedRef.current) return;
+      if (submittingRef.current || uploadingRef.current) {
+        // Don't leave mid-upload/save — avoids deleting live assets or orphaning in-flight uploads.
+        e.preventDefault();
+        return;
+      }
+      const abandoned = [...sessionUploadedUrlsRef.current];
+      if (abandoned.length === 0) return;
+      sessionUploadedUrlsRef.current.clear();
+      void deleteMediaUrls(abandoned).catch(() => {
+        /* best-effort; server orphan job is the safety net */
+      });
+    });
+    return unsub;
+  }, [navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions?.({
@@ -388,6 +411,8 @@ export function CreatePostScreen() {
           ...mediaPayload,
           ...marketplacePayload
         });
+        mediaCommittedRef.current = true;
+        sessionUploadedUrlsRef.current.clear();
       } else {
         const created = await createPost({
           post_type: submitType,
@@ -409,7 +434,13 @@ export function CreatePostScreen() {
             : {}),
           ...(submitType === "MARKETPLACE" ? marketplacePayload : {})
         });
-        emitPostCreated(postDetailToProfileItem(created));
+        mediaCommittedRef.current = true;
+        sessionUploadedUrlsRef.current.clear();
+        try {
+          emitPostCreated(postDetailToProfileItem(created));
+        } catch {
+          /* post already saved — ignore sync emit failures */
+        }
       }
       navigation.goBack();
     } catch (e) {
@@ -479,47 +510,74 @@ export function CreatePostScreen() {
     setError(null);
     setUploadFailed(false);
     setUploading(true);
+    uploadingRef.current = true;
     setUploadProgress(0);
+    setUploadStage(null);
     let failed = false;
     try {
       if (!isMp) {
         const asset = result.assets[0];
         const uri = asset.uri;
-        const mime = (asset as { mimeType?: string }).mimeType || getMimeFromUri(uri);
+        const assetType = (asset as { type?: string }).type;
+        const mime =
+          (asset as { mimeType?: string }).mimeType ||
+          getMimeFromUri(uri, assetType === "video" ? "video/mp4" : "image/jpeg");
         const fileName =
           (asset as { fileName?: string }).fileName ||
           uri.split("/").pop() ||
-          (isVideoAsset(mime, uri) ? "video.mp4" : "photo.jpg");
-        const durationMs = (asset as { duration?: number | null }).duration;
+          (isVideoAsset(mime, uri, assetType) ? "video.mp4" : "photo.jpg");
+        // Expo ImagePicker: native duration is milliseconds; web may be seconds.
+        const rawDuration = (asset as { duration?: number | null }).duration;
         const durationSec =
-          durationMs != null && durationMs > 0
-            ? durationMs > 1000
-              ? durationMs / 1000
-              : durationMs
+          rawDuration != null && rawDuration > 0
+            ? Platform.OS === "web" && rawDuration <= 1000
+              ? rawDuration
+              : rawDuration / 1000
             : 0;
 
-        if (isVideoAsset(mime, uri)) {
-          if (!isAllowedVideoType(mime) && !/\.(mp4|mov)$/i.test(uri)) {
-            setError("Only MP4 or MOV videos are allowed");
+        if (isVideoAsset(mime, uri, assetType)) {
+          if (!isAllowedVideoType(mime) && !/\.(mp4|mov|m4v)(\?|$)/i.test(uri)) {
+            setError("Only MP4, MOV, or M4V videos are allowed");
+            failed = true;
+            return;
+          }
+          if (durationSec <= 0) {
+            setError("Could not read video duration. Please choose another clip.");
             failed = true;
             return;
           }
           if (durationSec > VIDEO_MAX_DURATION_SEC) {
-            setError(`Video must be ≤ ${VIDEO_MAX_DURATION_SEC} seconds`);
+            setError(`Video must be ≤ ${Math.floor(VIDEO_MAX_DURATION_SEC / 60)} minutes`);
             failed = true;
             return;
           }
+          const pickerBytes = (asset as { fileSize?: number }).fileSize;
+          if (pickerBytes != null && pickerBytes > VIDEO_PICKER_MAX_BYTES) {
+            setError(
+              `Video is too large to process (max ${formatBytes(VIDEO_PICKER_MAX_BYTES)} before compression).`
+            );
+            failed = true;
+            return;
+          }
+          setUploadStage("compressing");
           const uploaded = await uploadVideo(uri, postTypeToModule(postType), {
             mimeType: mime,
             durationSec,
             fileName,
-            onProgress: (p) => setUploadProgress(p)
+            onProgress: (p) => setUploadProgress(p),
+            onStage: (stage) => setUploadStage(stage)
           });
           setMediaUrl(uploaded.publicUrl);
           setMediaPreviewUri(uploaded.thumbnailUri || uri);
           setMediaKind("video");
           setMediaFileName(uploaded.fileName);
-          setMediaDurationSec(uploaded.durationSec || Math.floor(durationSec) || null);
+          setMediaDurationSec(
+            uploaded.durationSec > 0
+              ? uploaded.durationSec
+              : Math.floor(durationSec) > 0
+                ? Math.floor(durationSec)
+                : null
+          );
           setThumbnailUrl(uploaded.thumbnailUrl);
           setMimeType(uploaded.mimeType);
           setFileSize(uploaded.byteSize);
@@ -587,6 +645,8 @@ export function CreatePostScreen() {
     } finally {
       setUploadFailed(failed);
       setUploading(false);
+      uploadingRef.current = false;
+      setUploadStage(null);
       if (!failed) setUploadProgress(0);
     }
   }, [postType, navigation, galleryUrls, galleryPreviews]);
@@ -1061,9 +1121,11 @@ export function CreatePostScreen() {
             progress={uploadProgress}
             label={
               uploading
-                ? mediaKind === "video" || uploadProgress > 0.3
-                  ? "Uploading…"
-                  : "Preparing…"
+                ? uploadStage
+                  ? videoUploadStageLabel(uploadStage)
+                  : mediaKind === "video" || uploadProgress > 0.3
+                    ? "Uploading…"
+                    : "Preparing…"
                 : "Upload failed"
             }
             failed={uploadFailed && !uploading}

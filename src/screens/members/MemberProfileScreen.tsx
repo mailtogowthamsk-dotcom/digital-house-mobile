@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
+import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -74,6 +75,8 @@ export function MemberProfileScreen() {
   const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
+  const [preloadMediaId, setPreloadMediaId] = useState<string | null>(null);
+  const cardPostsRef = useRef<PostCardData[]>([]);
 
   const identifier = route.params.username ?? route.params.userId;
   const canLoadPosts = Boolean(profile && profile.canViewPosts !== false && !profile.isPrivatePreview);
@@ -90,16 +93,18 @@ export function MemberProfileScreen() {
 
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 120
+  }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const first = viewableItems.find(
-        (v) =>
-          v.isViewable &&
-          (v.item.mediaType === "video" ||
-            (v.item.imageUri && /\.(mp4|mov)(\?|$)/i.test(v.item.imageUri)))
+      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
+        viewableItems,
+        cardPostsRef.current
       );
-      setActiveMediaId(first?.item?.id ?? null);
+      setActiveMediaId(activeId);
+      setPreloadMediaId(preloadId);
     }
   ).current;
 
@@ -127,6 +132,7 @@ export function MemberProfileScreen() {
       void load();
       return () => {
         setActiveMediaId(null);
+        setPreloadMediaId(null);
         pauseAllFeedVideos();
       };
     }, [load])
@@ -348,6 +354,7 @@ export function MemberProfileScreen() {
       memberPostToCardData(p, profile.fullName, getImageUrl(profile.profileImage))
     );
   }, [postItems, profile]);
+  cardPostsRef.current = cardPosts;
 
   const listHeader = useMemo(() => {
     if (!profile) return null;
@@ -685,7 +692,11 @@ export function MemberProfileScreen() {
         ListFooterComponent={listFooter}
         renderItem={({ item }) => (
           <PostCard
-            post={{ ...item, isMediaActive: item.id === activeMediaId }}
+            post={{
+              ...item,
+              isMediaActive: item.id === activeMediaId,
+              isMediaPreload: item.id === preloadMediaId
+            }}
             onPress={() => {
               trackFeedAction("post_open", Number(item.id), { source: "member_profile" });
               navigation.navigate("PostDetail", { postId: Number(item.id) });

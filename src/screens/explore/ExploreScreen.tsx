@@ -7,7 +7,7 @@ import {
   Pressable,
   ActivityIndicator
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
@@ -25,6 +25,8 @@ import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
+import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
+import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import type { PostLiker } from "../../api/posts.api";
 
 type Props = {
@@ -47,8 +49,11 @@ export function ExploreScreen({ bottomInset = 72 }: Props) {
   const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
+  const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
+  const resultsRef = useRef<PostCardData[]>([]);
   const commentPostIdRef = useRef<string | null>(null);
   commentPostIdRef.current = commentPost?.id ?? null;
+  resultsRef.current = explore.results;
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 65,
@@ -56,15 +61,24 @@ export function ExploreScreen({ bottomInset = 72 }: Props) {
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const firstVideo = viewableItems.find(
-        (v) =>
-          v.isViewable &&
-          (v.item.mediaType === "video" ||
-            (v.item.imageUri && /\.(mp4|mov)(\?|$)/i.test(v.item.imageUri)))
+      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
+        viewableItems,
+        resultsRef.current
       );
-      setActiveMediaPostId(firstVideo?.item.id ?? viewableItems[0]?.item?.id ?? null);
+      setActiveMediaPostId(activeId);
+      setPreloadMediaPostId(preloadId);
     }
   ).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setActiveMediaPostId(null);
+        setPreloadMediaPostId(null);
+        pauseAllFeedVideos();
+      };
+    }, [])
+  );
 
   const showResults = explore.debouncedQuery.length > 0;
 
@@ -80,7 +94,11 @@ export function ExploreScreen({ bottomInset = 72 }: Props) {
   const renderItem = useCallback(
     ({ item }: { item: PostCardData }) => (
       <PostCard
-        post={{ ...item, isMediaActive: item.id === activeMediaPostId }}
+        post={{
+          ...item,
+          isMediaActive: item.id === activeMediaPostId,
+          isMediaPreload: item.id === preloadMediaPostId
+        }}
         onAuthorPress={() => handleAuthorPress(item)}
         onPress={() => {
           trackFeedAction("post_open", Number(item.id), { source: "explore" });
@@ -111,7 +129,7 @@ export function ExploreScreen({ bottomInset = 72 }: Props) {
         }}
       />
     ),
-    [activeMediaPostId, addLike, handleAuthorPress, navigation, toggleLike, toggleSave]
+    [activeMediaPostId, preloadMediaPostId, addLike, handleAuthorPress, navigation, toggleLike, toggleSave]
   );
 
   const handleCommentCountChange = useCallback(

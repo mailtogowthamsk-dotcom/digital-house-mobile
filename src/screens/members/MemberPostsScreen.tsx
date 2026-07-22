@@ -27,6 +27,7 @@ import { trackFeedAction } from "../../utils/feedAnalytics";
 import type { PostLiker } from "../../api/posts.api";
 import { getImageUrl } from "../../api/client";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
+import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 
 type Params = {
   MemberPosts: {
@@ -55,7 +56,9 @@ export function MemberPostsScreen() {
   const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
+  const [preloadMediaId, setPreloadMediaId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const cardsRef = useRef<PostCardData[]>([]);
 
   const {
     items,
@@ -76,21 +79,24 @@ export function MemberPostsScreen() {
     useCallback(() => {
       return () => {
         setActiveMediaId(null);
+        setPreloadMediaId(null);
         pauseAllFeedVideos();
       };
     }, [])
   );
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 120
+  }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const first = viewableItems.find(
-        (v) =>
-          v.isViewable &&
-          (v.item.mediaType === "video" ||
-            (v.item.imageUri && /\.(mp4|mov)(\?|$)/i.test(v.item.imageUri)))
+      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
+        viewableItems,
+        cardsRef.current
       );
-      setActiveMediaId(first?.item?.id ?? null);
+      setActiveMediaId(activeId);
+      setPreloadMediaId(preloadId);
     }
   ).current;
 
@@ -98,6 +104,7 @@ export function MemberPostsScreen() {
     () => items.map((p) => memberPostToCardData(p, authorName, authorAvatar)),
     [items, authorName, authorAvatar]
   );
+  cardsRef.current = cards;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -108,7 +115,11 @@ export function MemberPostsScreen() {
   const renderItem = useCallback(
     ({ item }: { item: PostCardData }) => (
       <PostCard
-        post={{ ...item, isMediaActive: item.id === activeMediaId }}
+        post={{
+          ...item,
+          isMediaActive: item.id === activeMediaId,
+          isMediaPreload: item.id === preloadMediaId
+        }}
         onPress={() => {
           trackFeedAction("post_open", Number(item.id), { source: "member_posts" });
           navigation.navigate("PostDetail", { postId: Number(item.id) });
@@ -132,7 +143,7 @@ export function MemberPostsScreen() {
         }}
       />
     ),
-    [activeMediaId, addLike, navigation, toggleLike, toggleSave]
+    [activeMediaId, preloadMediaId, addLike, navigation, toggleLike, toggleSave]
   );
 
   return (

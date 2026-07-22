@@ -33,6 +33,7 @@ import { useHome } from "../../hooks/useHome";
 import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
+import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
@@ -85,19 +86,20 @@ export function HomeScreen() {
   const retrySummaryRef = useRef(retrySummary);
   retrySummaryRef.current = retrySummary;
   const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
+  const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
+  const feedItemsRef = useRef<PostCardData[]>([]);
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 65,
     minimumViewTime: 120
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const firstVideo = viewableItems.find(
-        (v) =>
-          v.isViewable &&
-          (v.item.mediaType === "video" ||
-            (v.item.imageUri && /\.(mp4|mov)(\?|$)/i.test(v.item.imageUri)))
+      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
+        viewableItems,
+        feedItemsRef.current
       );
-      setActiveMediaPostId(firstVideo?.item.id ?? viewableItems[0]?.item?.id ?? null);
+      setActiveMediaPostId(activeId);
+      setPreloadMediaPostId(preloadId);
     }
   ).current;
 
@@ -116,6 +118,8 @@ export function HomeScreen() {
     highlightsLoading,
     highlightsError
   } = state;
+
+  feedItemsRef.current = feedItems;
 
   const welcomeUser = useMemo(
     () =>
@@ -158,6 +162,7 @@ export function HomeScreen() {
       }
       return () => {
         setActiveMediaPostId(null);
+        setPreloadMediaPostId(null);
         pauseAllFeedVideos();
       };
     }, [])
@@ -184,6 +189,11 @@ export function HomeScreen() {
       onRefresh();
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
       return;
+    }
+    if (tab !== activeTab) {
+      setActiveMediaPostId(null);
+      setPreloadMediaPostId(null);
+      pauseAllFeedVideos();
     }
     setActiveTab(tab);
     if (tab === "profile") {
@@ -232,7 +242,11 @@ export function HomeScreen() {
   const renderFeedItem = useCallback(
     ({ item }: { item: PostCardData }) => (
       <PostCard
-        post={{ ...item, isMediaActive: item.id === activeMediaPostId }}
+        post={{
+          ...item,
+          isMediaActive: item.id === activeMediaPostId,
+          isMediaPreload: item.id === preloadMediaPostId
+        }}
         onAuthorPress={() => handleAuthorPress(item)}
         onPress={() => {
           trackFeedAction("post_open", Number(item.id));
@@ -263,7 +277,7 @@ export function HomeScreen() {
         }}
       />
     ),
-    [navigation, addLike, toggleLike, toggleSave, activeMediaPostId, handleAuthorPress]
+    [navigation, addLike, toggleLike, toggleSave, activeMediaPostId, preloadMediaPostId, handleAuthorPress]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
