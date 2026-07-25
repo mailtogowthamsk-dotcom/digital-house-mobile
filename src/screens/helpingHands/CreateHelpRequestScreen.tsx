@@ -7,9 +7,9 @@ import {
   Pressable,
   TextInput,
   Image,
-  KeyboardAvoidingView,
   Platform
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -237,9 +237,8 @@ export function CreateHelpRequestScreen() {
   return (
     <View style={s.root}>
       <MatrimonyScreenHeader title="Create Request" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
           <Text style={s.stepLabel}>Step {step} of 4</Text>
@@ -397,7 +396,7 @@ export function CreateHelpRequestScreen() {
             )}
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

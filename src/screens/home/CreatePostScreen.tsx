@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Image, Dimensions } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Image, Dimensions } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { createPost, updatePost, getPost } from "../../api/posts.api";
@@ -8,14 +9,7 @@ import { emitPostCreated } from "../../utils/postSync";
 import { postDetailToProfileItem } from "../../utils/postMappers";
 import type { MediaModule } from "../../api/media.api";
 import { getErrorStatus } from "../../api/client";
-import {
-  uploadOptimizedImage,
-  uploadVideo,
-  isAllowedImageType,
-  isAllowedVideoType,
-  isVideoAsset,
-  getMimeFromUri
-} from "../../utils/mediaUpload";
+import { uploadOptimizedImage, uploadVideo } from "../../utils/mediaUpload";
 import { deleteMediaUrls } from "../../api/media.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -33,7 +27,8 @@ import {
   MARKETPLACE_INTENTS,
   MARKETPLACE_MAX_PHOTOS
 } from "../../constants/marketplace";
-import { formatBytes, VIDEO_MAX_DURATION_SEC, VIDEO_PICKER_MAX_BYTES, videoUploadStageLabel, type VideoUploadStage } from "../../config/media.config";
+import { formatBytes, VIDEO_PICKER_MAX_DURATION_SEC, videoUploadStageLabel, type VideoUploadStage } from "../../config/media.config";
+import { cleanupTempVideoUri } from "../../services/videoProcessing.service";
 import {
   extractHashtagsFromText,
   mergeHashtags,
@@ -44,6 +39,8 @@ import {
   PostVisibilitySelector,
   type PostVisibilityChoice
 } from "../../components/posts/PostVisibilitySelector";
+import { pendingMediaDraft, type PendingMediaAsset } from "../../media/pendingMediaDraft";
+import { assetFromPickerResult } from "../../media/pickerAsset";
 
 /** Home Feed / general Create Post — module types are created only from their own screens. */
 const FEED_POST_TYPES = [
@@ -172,6 +169,10 @@ export function CreatePostScreen() {
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  /** Local media confirmed in preview — uploaded only on submit. */
+  const [pendingUpload, setPendingUpload] = useState<PendingMediaAsset | null>(null);
+  /** Marketplace local photos not yet on CDN (aligned after remote galleryUrls). */
+  const [pendingGallery, setPendingGallery] = useState<PendingMediaAsset[]>([]);
   /** URLs uploaded in this screen session — safe to delete from R2 immediately on clear. */
   const sessionUploadedUrlsRef = useRef<Set<string>>(new Set());
   /** When true, uploaded media is attached to a saved post — do not orphan-delete on leave. */
@@ -229,6 +230,76 @@ export function CreatePostScreen() {
       title: screenTitleForType(isTypeLocked ? postType : undefined, isEditing)
     });
   }, [navigation, postType, isTypeLocked, isEditing]);
+
+  const applyPendingAsset = useCallback((asset: PendingMediaAsset) => {
+    setPendingUpload(asset);
+    setMediaUrl("");
+    setMediaPreviewUri(asset.uri);
+    setMediaKind(asset.kind);
+    setMediaFileName(asset.fileName);
+    setMediaDurationSec(asset.durationSec);
+    setThumbnailUrl(null);
+    setMimeType(asset.mimeType);
+    setFileSize(asset.fileSize);
+    setPreviewDimensions(
+      asset.kind === "image" && asset.width && asset.height
+        ? { width: asset.width, height: asset.height }
+        : null
+    );
+    setUploadFailed(false);
+    setError(null);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const outcome = pendingMediaDraft.consumeResult();
+      if (!outcome) return;
+      if (outcome.result === "removed") {
+        if (postType === "MARKETPLACE") {
+          setPendingGallery([]);
+          setGalleryPreviews([...galleryUrls]);
+          if (galleryUrls.length === 0) {
+            setMediaUrl("");
+            setMediaPreviewUri(null);
+            setMediaKind(null);
+          } else {
+            setMediaUrl(galleryUrls[0]);
+            setMediaPreviewUri(galleryUrls[0]);
+            setMediaKind("image");
+          }
+          return;
+        }
+        setPendingUpload(null);
+        setMediaUrl("");
+        setMediaPreviewUri(null);
+        setMediaKind(null);
+        setMediaFileName(null);
+        setMediaDurationSec(null);
+        setThumbnailUrl(null);
+        setMimeType(null);
+        setFileSize(null);
+        setPreviewDimensions(null);
+        return;
+      }
+      if (outcome.result === "confirmed" && outcome.asset) {
+        if (postType === "MARKETPLACE") {
+          setPendingGallery([outcome.asset]);
+          setPendingUpload(null);
+          setGalleryPreviews([...galleryUrls, outcome.asset.uri]);
+          setMediaPreviewUri(galleryUrls[0] ?? outcome.asset.uri);
+          setMediaUrl(galleryUrls[0] ?? "");
+          setMediaKind("image");
+          setMediaFileName(outcome.asset.fileName);
+          setMimeType(outcome.asset.mimeType);
+          setFileSize(outcome.asset.fileSize);
+          setUploadFailed(false);
+          setError(null);
+          return;
+        }
+        applyPendingAsset(outcome.asset);
+      }
+    }, [applyPendingAsset, postType, galleryUrls])
+  );
 
   const s = useCreatePostStyles(colors);
   const screenWidth = Dimensions.get("window").width - spacing.lg * 2;
@@ -335,7 +406,7 @@ export function CreatePostScreen() {
         setError("Description must be at least 20 characters");
         return;
       }
-      if (!mediaUrl.trim() && galleryUrls.length === 0) {
+      if (!mediaUrl.trim() && galleryUrls.length === 0 && pendingGallery.length === 0) {
         setError("Add at least one photo for marketplace listings");
         return;
       }
@@ -359,6 +430,97 @@ export function CreatePostScreen() {
     submittingRef.current = true;
     setError(null);
     try {
+      let coverUrl = (galleryUrls[0] ?? mediaUrl).trim() || null;
+      let nextGalleryUrls = [...galleryUrls];
+      let nextMediaKind = mediaKind;
+      let nextThumb = thumbnailUrl;
+      let nextDuration = mediaDurationSec;
+      let nextMime = mimeType;
+      let nextSize = fileSize;
+
+      // Upload deferred local media only after the user confirms post details.
+      if (submitType === "MARKETPLACE" && pendingGallery.length > 0) {
+        setUploading(true);
+        uploadingRef.current = true;
+        setUploadProgress(0);
+        setUploadFailed(false);
+        for (let i = 0; i < pendingGallery.length; i++) {
+          const local = pendingGallery[i];
+          const uploaded = await uploadOptimizedImage(
+            local.uri,
+            postTypeToModule(submitType),
+            (p) => setUploadProgress((i + p) / pendingGallery.length)
+          );
+          nextGalleryUrls.push(uploaded.publicUrl);
+          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
+        }
+        setPendingGallery([]);
+        setGalleryUrls(nextGalleryUrls.slice(0, MARKETPLACE_MAX_PHOTOS));
+        coverUrl = nextGalleryUrls[0] ?? coverUrl;
+        setMediaUrl(coverUrl ?? "");
+        setUploading(false);
+        uploadingRef.current = false;
+        setUploadProgress(0);
+      } else if (pendingUpload) {
+        setUploading(true);
+        uploadingRef.current = true;
+        setUploadProgress(0);
+        setUploadStage(null);
+        setUploadFailed(false);
+        if (pendingUpload.kind === "video") {
+          setUploadStage("compressing");
+          const uploaded = await uploadVideo(pendingUpload.uri, postTypeToModule(submitType), {
+            mimeType: pendingUpload.mimeType,
+            durationSec: pendingUpload.durationSec ?? 0,
+            fileName: pendingUpload.fileName,
+            coverFrameMs: pendingUpload.coverFrameMs ?? 500,
+            tempFileUri: pendingUpload.tempFileUri ?? null,
+            onProgress: (p) => setUploadProgress(p),
+            onStage: (stage) => setUploadStage(stage)
+          });
+          coverUrl = uploaded.publicUrl;
+          nextMediaKind = "video";
+          nextThumb = uploaded.thumbnailUrl;
+          nextDuration =
+            uploaded.durationSec > 0
+              ? uploaded.durationSec
+              : pendingUpload.durationSec;
+          nextMime = uploaded.mimeType;
+          nextSize = uploaded.byteSize;
+          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
+          if (uploaded.thumbnailUrl) sessionUploadedUrlsRef.current.add(uploaded.thumbnailUrl);
+          setMediaUrl(uploaded.publicUrl);
+          setMediaPreviewUri(uploaded.thumbnailUri || pendingUpload.uri);
+          setThumbnailUrl(uploaded.thumbnailUrl);
+          setMediaDurationSec(nextDuration);
+          setMimeType(nextMime);
+          setFileSize(nextSize);
+        } else {
+          const uploaded = await uploadOptimizedImage(
+            pendingUpload.uri,
+            postTypeToModule(submitType),
+            (p) => setUploadProgress(p)
+          );
+          coverUrl = uploaded.publicUrl;
+          nextMediaKind = "image";
+          nextThumb = null;
+          nextDuration = null;
+          nextMime = uploaded.mimeType;
+          nextSize = uploaded.byteSize;
+          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
+          setMediaUrl(uploaded.publicUrl);
+          setThumbnailUrl(null);
+          setMimeType(nextMime);
+          setFileSize(nextSize);
+          setPreviewDimensions({ width: uploaded.width, height: uploaded.height });
+        }
+        setPendingUpload(null);
+        setUploading(false);
+        uploadingRef.current = false;
+        setUploadStage(null);
+        setUploadProgress(0);
+      }
+
       const mergedHashtags = mergeHashtags(
         extractHashtagsFromText(title),
         extractHashtagsFromText(description),
@@ -373,17 +535,15 @@ export function CreatePostScreen() {
         marketplace_negotiable: mpIntent === "SALE" ? mpNegotiable : false,
         marketplace_district: mpDistrict.trim(),
         marketplace_gallery:
-          galleryUrls.length > 0
-            ? galleryUrls
-            : mediaUrl.trim()
-              ? [mediaUrl.trim()]
+          nextGalleryUrls.length > 0
+            ? nextGalleryUrls
+            : coverUrl
+              ? [coverUrl]
               : undefined,
         ...(isEditing && mpStatus === "CHANGES_REQUESTED"
           ? { marketplace_status: "PENDING_REVIEW" as const }
           : {})
       };
-      const coverUrl =
-        (galleryUrls[0] ?? mediaUrl).trim() || null;
       const mediaPayload =
         submitType === "MARKETPLACE"
           ? {
@@ -393,14 +553,14 @@ export function CreatePostScreen() {
           : {
               media_url: coverUrl,
               media_type: coverUrl
-                ? mediaKind === "video"
+                ? nextMediaKind === "video"
                   ? ("video" as const)
                   : ("image" as const)
                 : ("none" as const),
-              thumbnail_url: mediaKind === "video" ? thumbnailUrl : null,
-              video_duration: mediaKind === "video" ? mediaDurationSec : null,
-              mime_type: mimeType,
-              file_size: fileSize
+              thumbnail_url: nextMediaKind === "video" ? nextThumb : null,
+              video_duration: nextMediaKind === "video" ? nextDuration : null,
+              mime_type: nextMime,
+              file_size: nextSize
             };
       if (isEditing && editPostId != null) {
         await updatePost(editPostId, {
@@ -444,10 +604,14 @@ export function CreatePostScreen() {
       }
       navigation.goBack();
     } catch (e) {
+      setUploading(false);
+      uploadingRef.current = false;
+      setUploadStage(null);
+      setUploadFailed(true);
       const status = getErrorStatus(e);
       if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       else if (status === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else setError((e as any)?.response?.data?.message ?? "Failed to create post");
+      else setError((e as any)?.response?.data?.message ?? (e as Error)?.message ?? "Failed to create post");
     } finally {
       setSaving(false);
       submittingRef.current = false;
@@ -467,6 +631,8 @@ export function CreatePostScreen() {
     mimeType,
     fileSize,
     galleryUrls,
+    pendingUpload,
+    pendingGallery,
     jobCompany,
     jobLocation,
     jobEmploymentType,
@@ -485,171 +651,82 @@ export function CreatePostScreen() {
     uploading
   ]);
 
-  const pickAndUploadMedia = useCallback(async () => {
+  const openMediaPreview = useCallback(
+    (asset: PendingMediaAsset, mode: "create" | "replace") => {
+      pendingMediaDraft.open(asset, mode);
+      navigation.navigate("MediaPreview", {
+        mode,
+        allowVideo: postType !== "MARKETPLACE"
+      });
+    },
+    [navigation, postType]
+  );
+
+  const pickMedia = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       appAlert("Permission needed", "Allow access to photos and videos to upload media.");
       return;
     }
     const isMp = postType === "MARKETPLACE";
-    const remaining = isMp ? MARKETPLACE_MAX_PHOTOS - galleryUrls.length : 1;
+    const remaining = isMp
+      ? MARKETPLACE_MAX_PHOTOS - (galleryUrls.length + pendingGallery.length)
+      : 1;
     if (isMp && remaining <= 0) {
       appAlert("Photo limit", `You can add up to ${MARKETPLACE_MAX_PHOTOS} photos.`);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: isMp ? ["images"] : ["images", "videos"],
-      allowsEditing: !isMp,
+      allowsEditing: false,
       allowsMultipleSelection: isMp,
       selectionLimit: isMp ? remaining : 1,
-      quality: 0.9,
-      videoMaxDuration: VIDEO_MAX_DURATION_SEC
+      quality: 0.95,
+      videoMaxDuration: VIDEO_PICKER_MAX_DURATION_SEC
     });
     if (result.canceled || !result.assets?.length) return;
 
     setError(null);
     setUploadFailed(false);
-    setUploading(true);
-    uploadingRef.current = true;
-    setUploadProgress(0);
-    setUploadStage(null);
-    let failed = false;
-    try {
-      if (!isMp) {
-        const asset = result.assets[0];
-        const uri = asset.uri;
-        const assetType = (asset as { type?: string }).type;
-        const mime =
-          (asset as { mimeType?: string }).mimeType ||
-          getMimeFromUri(uri, assetType === "video" ? "video/mp4" : "image/jpeg");
-        const fileName =
-          (asset as { fileName?: string }).fileName ||
-          uri.split("/").pop() ||
-          (isVideoAsset(mime, uri, assetType) ? "video.mp4" : "photo.jpg");
-        // Expo ImagePicker: native duration is milliseconds; web may be seconds.
-        const rawDuration = (asset as { duration?: number | null }).duration;
-        const durationSec =
-          rawDuration != null && rawDuration > 0
-            ? Platform.OS === "web" && rawDuration <= 1000
-              ? rawDuration
-              : rawDuration / 1000
-            : 0;
 
-        if (isVideoAsset(mime, uri, assetType)) {
-          if (!isAllowedVideoType(mime) && !/\.(mp4|mov|m4v)(\?|$)/i.test(uri)) {
-            setError("Only MP4, MOV, or M4V videos are allowed");
-            failed = true;
-            return;
-          }
-          if (durationSec <= 0) {
-            setError("Could not read video duration. Please choose another clip.");
-            failed = true;
-            return;
-          }
-          if (durationSec > VIDEO_MAX_DURATION_SEC) {
-            setError(`Video must be ≤ ${Math.floor(VIDEO_MAX_DURATION_SEC / 60)} minutes`);
-            failed = true;
-            return;
-          }
-          const pickerBytes = (asset as { fileSize?: number }).fileSize;
-          if (pickerBytes != null && pickerBytes > VIDEO_PICKER_MAX_BYTES) {
-            setError(
-              `Video is too large to process (max ${formatBytes(VIDEO_PICKER_MAX_BYTES)} before compression).`
-            );
-            failed = true;
-            return;
-          }
-          setUploadStage("compressing");
-          const uploaded = await uploadVideo(uri, postTypeToModule(postType), {
-            mimeType: mime,
-            durationSec,
-            fileName,
-            onProgress: (p) => setUploadProgress(p),
-            onStage: (stage) => setUploadStage(stage)
-          });
-          setMediaUrl(uploaded.publicUrl);
-          setMediaPreviewUri(uploaded.thumbnailUri || uri);
-          setMediaKind("video");
-          setMediaFileName(uploaded.fileName);
-          setMediaDurationSec(
-            uploaded.durationSec > 0
-              ? uploaded.durationSec
-              : Math.floor(durationSec) > 0
-                ? Math.floor(durationSec)
-                : null
-          );
-          setThumbnailUrl(uploaded.thumbnailUrl);
-          setMimeType(uploaded.mimeType);
-          setFileSize(uploaded.byteSize);
-          setPreviewDimensions(null);
-          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
-          if (uploaded.thumbnailUrl) sessionUploadedUrlsRef.current.add(uploaded.thumbnailUrl);
-          return;
-        }
-
-        if (!isAllowedImageType(mime)) {
-          setError("Only JPEG, PNG, or WebP images are allowed");
-          failed = true;
-          return;
-        }
-        const { publicUrl, width, height, byteSize, mimeType: outMime } = await uploadOptimizedImage(
-          uri,
-          postTypeToModule(postType),
-          (p) => setUploadProgress(p)
-        );
-        setMediaUrl(publicUrl);
-        setMediaPreviewUri(uri);
-        setMediaKind("image");
-        setMediaFileName(fileName);
-        setMediaDurationSec(null);
-        setThumbnailUrl(null);
-        setMimeType(outMime);
-        setFileSize(byteSize);
-        setPreviewDimensions({ width, height });
-        sessionUploadedUrlsRef.current.add(publicUrl);
-        return;
-      }
-
-      const nextUrls = [...galleryUrls];
-      const nextPreviews = [...galleryPreviews];
-      for (let i = 0; i < result.assets.length; i++) {
-        const asset = result.assets[i];
-        const uri = asset.uri;
-        const mime = (asset as { mimeType?: string }).mimeType || getMimeFromUri(uri);
-        if (!isAllowedImageType(mime)) {
-          setError("Only JPEG, PNG, or WebP images are allowed");
-          continue;
-        }
-        const { publicUrl } = await uploadOptimizedImage(
-          uri,
-          postTypeToModule(postType),
-          (p) => setUploadProgress((i + p) / result.assets.length)
-        );
-        nextUrls.push(publicUrl);
-        nextPreviews.push(uri);
-        sessionUploadedUrlsRef.current.add(publicUrl);
-      }
-      setGalleryUrls(nextUrls.slice(0, MARKETPLACE_MAX_PHOTOS));
-      setGalleryPreviews(nextPreviews.slice(0, MARKETPLACE_MAX_PHOTOS));
-      setMediaUrl(nextUrls[0] ?? "");
-      setMediaPreviewUri(nextPreviews[0] ?? null);
-      setMediaKind(nextUrls[0] ? "image" : null);
-    } catch (e) {
-      failed = true;
-      const statusCode = getErrorStatus(e);
-      if (statusCode === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-      else if (statusCode === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else {
-        setError((e as Error)?.message ?? "Upload failed");
-      }
-    } finally {
-      setUploadFailed(failed);
-      setUploading(false);
-      uploadingRef.current = false;
-      setUploadStage(null);
-      if (!failed) setUploadProgress(0);
+    if (!isMp) {
+      const mapped = assetFromPickerResult(result.assets[0]);
+      if (!mapped) return;
+      openMediaPreview(mapped, mediaPreviewUri || pendingUpload ? "replace" : "create");
+      return;
     }
-  }, [postType, navigation, galleryUrls, galleryPreviews]);
+
+    const accepted: PendingMediaAsset[] = [];
+    for (const asset of result.assets) {
+      const mapped = assetFromPickerResult(asset);
+      if (mapped && mapped.kind === "image") accepted.push(mapped);
+    }
+    if (accepted.length === 0) return;
+
+    // Marketplace: keep multi-select local until submit; single-add opens crop preview.
+    if (accepted.length === 1 && galleryUrls.length + pendingGallery.length === 0) {
+      openMediaPreview(accepted[0], "create");
+      return;
+    }
+
+    setPendingGallery((prev) => {
+      const next = [...prev, ...accepted].slice(
+        0,
+        Math.max(0, MARKETPLACE_MAX_PHOTOS - galleryUrls.length)
+      );
+      setGalleryPreviews([...galleryUrls, ...next.map((a) => a.uri)]);
+      setMediaPreviewUri(galleryUrls[0] ?? next[0]?.uri ?? null);
+      setMediaKind("image");
+      return next;
+    });
+  }, [
+    postType,
+    galleryUrls,
+    pendingGallery.length,
+    mediaPreviewUri,
+    pendingUpload,
+    openMediaPreview
+  ]);
 
   const clearMedia = useCallback(() => {
     const toDelete = [
@@ -657,6 +734,9 @@ export function CreatePostScreen() {
       ...(mediaUrl ? [mediaUrl] : []),
       ...(thumbnailUrl ? [thumbnailUrl] : [])
     ].filter((u) => sessionUploadedUrlsRef.current.has(u));
+    if (pendingUpload?.tempFileUri) {
+      void cleanupTempVideoUri(pendingUpload.tempFileUri);
+    }
     setMediaUrl("");
     setMediaPreviewUri(null);
     setMediaKind(null);
@@ -668,6 +748,8 @@ export function CreatePostScreen() {
     setPreviewDimensions(null);
     setGalleryUrls([]);
     setGalleryPreviews([]);
+    setPendingUpload(null);
+    setPendingGallery([]);
     setUploadFailed(false);
     for (const u of toDelete) sessionUploadedUrlsRef.current.delete(u);
     if (toDelete.length > 0) {
@@ -675,27 +757,43 @@ export function CreatePostScreen() {
         /* best-effort R2 cleanup */
       });
     }
-  }, [galleryUrls, mediaUrl, thumbnailUrl]);
+  }, [galleryUrls, mediaUrl, thumbnailUrl, pendingUpload]);
 
-  const removeGalleryAt = useCallback((index: number) => {
-    const removedUrl = galleryUrls[index];
-    setGalleryUrls((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      setMediaUrl(next[0] ?? "");
-      return next;
-    });
-    setGalleryPreviews((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      setMediaPreviewUri(next[0] ?? null);
-      return next;
-    });
-    if (removedUrl && sessionUploadedUrlsRef.current.has(removedUrl)) {
-      sessionUploadedUrlsRef.current.delete(removedUrl);
-      void deleteMediaUrls([removedUrl]).catch(() => {
-        /* best-effort R2 cleanup */
+  const removeGalleryAt = useCallback(
+    (index: number) => {
+      const remoteCount = galleryUrls.length;
+      if (index < remoteCount) {
+        const removedUrl = galleryUrls[index];
+        setGalleryUrls((prev) => {
+          const next = prev.filter((_, i) => i !== index);
+          setMediaUrl(next[0] ?? pendingGallery[0]?.uri ?? "");
+          return next;
+        });
+        setGalleryPreviews((prev) => {
+          const next = prev.filter((_, i) => i !== index);
+          setMediaPreviewUri(next[0] ?? null);
+          return next;
+        });
+        if (removedUrl && sessionUploadedUrlsRef.current.has(removedUrl)) {
+          sessionUploadedUrlsRef.current.delete(removedUrl);
+          void deleteMediaUrls([removedUrl]).catch(() => {
+            /* best-effort R2 cleanup */
+          });
+        }
+        return;
+      }
+      const localIndex = index - remoteCount;
+      setPendingGallery((prev) => {
+        const next = prev.filter((_, i) => i !== localIndex);
+        setGalleryPreviews([...galleryUrls, ...next.map((a) => a.uri)]);
+        setMediaPreviewUri(galleryUrls[0] ?? next[0]?.uri ?? null);
+        setMediaUrl(galleryUrls[0] ?? "");
+        if (galleryUrls.length + next.length === 0) setMediaKind(null);
+        return next;
       });
-    }
-  }, [galleryUrls]);
+    },
+    [galleryUrls, pendingGallery]
+  );
 
   if (loadingEdit) {
     return (
@@ -706,9 +804,8 @@ export function CreatePostScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={s.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={80}
     >
       <ScrollView
@@ -1096,7 +1193,7 @@ export function CreatePostScreen() {
         </Text>
         <Pressable
           style={[s.mediaBtn, (uploading || saving) && s.mediaBtnDisabled]}
-          onPress={pickAndUploadMedia}
+          onPress={pickMedia}
           disabled={uploading || saving}
         >
           <Ionicons
@@ -1108,10 +1205,10 @@ export function CreatePostScreen() {
             {uploading
               ? "Uploading…"
               : postType === "MARKETPLACE"
-                ? galleryUrls.length
+                ? galleryUrls.length + pendingGallery.length
                   ? "Add more photos"
                   : "Pick photos from gallery"
-                : mediaUrl
+                : mediaPreviewUri || pendingUpload
                   ? "Replace photo or video"
                   : "Choose Photo or Video"}
           </Text>
@@ -1132,7 +1229,7 @@ export function CreatePostScreen() {
           />
         )}
         {uploadFailed && !uploading ? (
-          <Pressable style={[s.mediaBtn, { marginTop: spacing.sm }]} onPress={pickAndUploadMedia}>
+          <Pressable style={[s.mediaBtn, { marginTop: spacing.sm }]} onPress={pickMedia}>
             <Ionicons name="refresh" size={20} color={colors.primary} />
             <Text style={s.mediaBtnText}>Retry</Text>
           </Pressable>
@@ -1180,7 +1277,7 @@ export function CreatePostScreen() {
             }
             durationSec={mediaDurationSec}
             height={previewHeight}
-            onReplace={pickAndUploadMedia}
+            onReplace={pickMedia}
             onRemove={clearMedia}
             disabled={uploading || saving}
           />
@@ -1221,7 +1318,7 @@ export function CreatePostScreen() {
           />
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }
 

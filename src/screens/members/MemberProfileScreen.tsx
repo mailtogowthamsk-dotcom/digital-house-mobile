@@ -29,7 +29,7 @@ import {
   sendConnectionRequest,
   type RelationshipStatus
 } from "../../api/connections.api";
-import { getImageUrl } from "../../api/client";
+import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import { PostCard, type PostCardData } from "../../components/home/PostCard";
 import { CommentSheet } from "../../components/feed/CommentSheet";
@@ -152,7 +152,7 @@ export function MemberProfileScreen() {
       if (successMessage) appAlert("Done", successMessage);
       await load();
     } catch (e: unknown) {
-      appAlert("Error", e instanceof Error ? e.message : "Action failed");
+      appAlert("Error", getAuthErrorMessage(e));
     } finally {
       setActing(false);
     }
@@ -174,7 +174,7 @@ export function MemberProfileScreen() {
         text: "Disconnect",
         style: "destructive",
         onPress: () =>
-          appAlert("Disconnect?", "You will need to wait 7 days before reconnecting.", [
+          appAlert("Disconnect?", "You can send a new connection request anytime after disconnecting.", [
             { text: "Cancel", style: "cancel" },
             {
               text: "Disconnect",

@@ -15,11 +15,13 @@ import {
   IMAGE_PICKER_MAX_BYTES,
   VIDEO_MAX_BYTES,
   VIDEO_MAX_DURATION_SEC,
+  VIDEO_MIN_DURATION_SEC,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_VIDEO_TYPES,
   formatBytes,
   type VideoUploadStage
 } from "../config/media.config";
+import { cleanupTempVideoUri } from "../services/videoProcessing.service";
 
 export { ALLOWED_IMAGE_TYPES, ALLOWED_VIDEO_TYPES };
 
@@ -56,6 +58,10 @@ export type UploadVideoOptions = {
   mimeType?: string;
   durationSec?: number | null;
   fileName?: string | null;
+  /** Cover frame on the (already trimmed) file, in milliseconds. */
+  coverFrameMs?: number | null;
+  /** Temp trimmed file to delete after upload attempt. */
+  tempFileUri?: string | null;
   onProgress?: (progress: number) => void;
   onStage?: (stage: VideoUploadStage) => void;
 };
@@ -97,8 +103,11 @@ export function validateVideoDuration(seconds: number): void {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     throw new Error("Could not read video duration. Please choose another clip.");
   }
+  if (seconds < VIDEO_MIN_DURATION_SEC) {
+    throw new Error("Video must be at least 3 seconds long.");
+  }
   if (seconds > VIDEO_MAX_DURATION_SEC) {
-    throw new Error(`Video must be ≤ ${Math.floor(VIDEO_MAX_DURATION_SEC / 60)} minutes`);
+    throw new Error("Video must be ≤ 1 minute. Trim your video to continue.");
   }
 }
 
@@ -304,7 +313,11 @@ export async function uploadVideo(
 
     onStage?.("processing");
     onProgress?.(0.42);
-    const thumb = await generateVideoThumbnail(optimized.uri);
+    const coverMs =
+      options.coverFrameMs != null && options.coverFrameMs >= 0
+        ? options.coverFrameMs
+        : 500;
+    const thumb = await generateVideoThumbnail(optimized.uri, coverMs);
     onProgress?.(0.48);
 
     if (thumb?.uri) {
@@ -362,5 +375,8 @@ export async function uploadVideo(
     throw e;
   } finally {
     await optimized.cleanup?.();
+    if (options.tempFileUri) {
+      await cleanupTempVideoUri(options.tempFileUri);
+    }
   }
 }

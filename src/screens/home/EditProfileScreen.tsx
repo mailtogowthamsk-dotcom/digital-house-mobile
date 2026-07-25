@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Switch, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,  Platform, Switch, Image } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -687,9 +688,8 @@ export function EditProfileScreen() {
   const businessPending = pendingBusiness?.status === "PENDING";
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={s.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
       <ScrollView
@@ -1066,6 +1066,6 @@ export function EditProfileScreen() {
           style={s.saveBtn}
         />
       </View>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }

@@ -9,9 +9,9 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../../theme/ThemeContext";
@@ -222,9 +222,8 @@ export function RegistrationCorrectionScreen() {
     <View style={s.background}>
       <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
       <View style={s.overlay} />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
           <Image source={LOGO} style={s.logo} resizeMode="contain" />
@@ -305,7 +304,7 @@ export function RegistrationCorrectionScreen() {
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

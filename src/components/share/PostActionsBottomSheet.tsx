@@ -8,8 +8,8 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform
+  Platform,
+  useWindowDimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -21,6 +21,8 @@ import { useShareTargets, type ShareTarget } from "../../hooks/useShareTargets";
 import { sharePostToConnections, repostPost } from "../../api/postShare.api";
 import { downloadPostMedia } from "../../services/postMediaDownload";
 import { appAlert } from "../../utils/appAlert";
+import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
+import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 
 export type PostSharePayload = {
   postId: number;
@@ -90,6 +92,8 @@ function PostActionsBottomSheetInner({
 }: Props) {
   const { colors, mode } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const { keyboardOpen, keyboardHeight } = useModalKeyboardPad();
   const [panel, setPanel] = useState<Panel>("menu");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -151,7 +155,7 @@ function PostActionsBottomSheetInner({
         "Sent",
         failed > 0
           ? `Shared with ${result.sent} member${result.sent === 1 ? "" : "s"}. ${failed} could not be reached.`
-          : `Shared with ${result.sent} connection${result.sent === 1 ? "" : "s"}.`
+          : `Shared with ${result.sent} person${result.sent === 1 ? "" : "s"}.`
       );
       handleClose();
     } catch (e) {
@@ -209,17 +213,22 @@ function PostActionsBottomSheetInner({
     }
   }, [post, handleClose]);
 
-  const sheetStyle = useMemo(
-    () => [
+  const sheetStyle = useMemo(() => {
+    const closedMax = panel === "connections" ? windowHeight * 0.88 : windowHeight * 0.52;
+    const openMax = Math.max(280, windowHeight - keyboardHeight - insets.top - 8);
+    const maxHeight = keyboardOpen ? openMax : closedMax;
+    return [
       styles.sheet,
       {
         backgroundColor: colors.surface,
-        paddingBottom: Math.max(insets.bottom, spacing.md),
-        maxHeight: panel === "connections" ? "88%" : "52%"
+        paddingBottom: keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md),
+        maxHeight,
+        ...(panel === "connections" && !keyboardOpen
+          ? { minHeight: Math.min(closedMax, 420) }
+          : null)
       }
-    ],
-    [colors.surface, insets.bottom, panel]
-  );
+    ];
+  }, [colors.surface, insets.bottom, insets.top, panel, keyboardOpen, keyboardHeight, windowHeight]);
 
   const renderConnection = useCallback(
     ({ item }: { item: ShareTarget }) => {
@@ -250,7 +259,15 @@ function PostActionsBottomSheetInner({
               {item.fullName}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
-              @{item.username}
+              {item.kind === "matrimony"
+                ? "Matrimony match"
+                : item.kind === "connection"
+                  ? item.username
+                    ? `@${item.username}`
+                    : "Connection"
+                  : item.username
+                    ? `@${item.username}`
+                    : "Chat"}
             </Text>
           </View>
           <Ionicons
@@ -274,10 +291,7 @@ function PostActionsBottomSheetInner({
       statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <ModalKeyboardAvoiding style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} accessibilityLabel="Dismiss" />
         <View style={sheetStyle}>
           <View style={styles.handleWrap}>
@@ -299,7 +313,7 @@ function PostActionsBottomSheetInner({
             )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.title, { color: colors.text }]}>
-                {panel === "menu" ? "Share Post" : "Send to Connections"}
+                {panel === "menu" ? "Share Post" : "Send to Chat"}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
                 {post.title}
@@ -316,9 +330,9 @@ function PostActionsBottomSheetInner({
           {panel === "menu" ? (
             <View style={styles.menuBody}>
               <ActionRow
-                icon="people-outline"
-                label="Send to Connections"
-                subtitle="Share privately inside the community"
+                icon="chatbubbles-outline"
+                label="Send to Chat"
+                subtitle="Share with anyone you can message"
                 onPress={() => setPanel("connections")}
               />
               <ActionRow
@@ -354,7 +368,7 @@ function PostActionsBottomSheetInner({
                   <TextInput
                     value={query}
                     onChangeText={setQuery}
-                    placeholder="Search connections"
+                    placeholder="Search chats"
                     placeholderTextColor={colors.textMuted}
                     style={[styles.searchInput, { color: colors.text }]}
                     autoCapitalize="none"
@@ -400,9 +414,9 @@ function PostActionsBottomSheetInner({
                   >
                     <Ionicons name="people-outline" size={32} color={colors.textMuted} />
                   </View>
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No Connections Yet</Text>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No chats yet</Text>
                   <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-                    Connect with members to start sharing posts.
+                    Connect with members or match on Matrimony to share posts in chat.
                   </Text>
                   <Pressable
                     style={[styles.findBtn, { backgroundColor: colors.primary }]}
@@ -417,7 +431,7 @@ function PostActionsBottomSheetInner({
               ) : filteredTargets.length === 0 ? (
                 <View style={styles.centered}>
                   <Text style={{ color: colors.textSecondary, textAlign: "center" }}>
-                    No connections match your search.
+                    No people match your search.
                   </Text>
                 </View>
               ) : (
@@ -456,7 +470,7 @@ function PostActionsBottomSheetInner({
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </ModalKeyboardAvoiding>
     </Modal>
   );
 }

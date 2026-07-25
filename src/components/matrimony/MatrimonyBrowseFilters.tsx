@@ -19,7 +19,8 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../ui/PrimaryButton";
 import { getLocations, type OptionItem } from "../../api/options.api";
-import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
+import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 import type { DiscoverFilters } from "../../api/matrimony.api";
 
 export type BrowseFilterState = {
@@ -82,7 +83,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const keyboardHeight = useKeyboardHeight();
+  const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
   const scrollRef = useRef<ScrollView>(null);
   const districtOffsetY = useRef(0);
 
@@ -131,26 +132,26 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
     });
   };
 
-  const sheetBottomPad = Math.max(insets.bottom, spacing.md);
-  const scrollBottomPad = keyboardHeight > 0 ? spacing.xl : spacing.md;
-  const sheetMaxHeight = windowHeight * (keyboardHeight > 0 ? 0.72 : 0.88);
+  const sheetBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
+  const scrollBottomPad = keyboardOpen ? spacing.xl : spacing.md;
+  const sheetMaxHeight = windowHeight * (keyboardOpen ? 0.72 : 0.88);
   const scrollMaxHeight = Math.max(200, sheetMaxHeight - 168 - sheetBottomPad);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close filters" />
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: colors.surface,
-              marginBottom: keyboardHeight,
-              paddingBottom: sheetBottomPad,
-              maxHeight: sheetMaxHeight
-            }
-          ]}
-        >
+        <ModalKeyboardAvoiding>
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.surface,
+                paddingBottom: sheetBottomPad,
+                maxHeight: sheetMaxHeight
+              }
+            ]}
+          >
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
           <View style={styles.headerRow}>
@@ -369,7 +370,8 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
               style={{ flex: 1 }}
             />
           </View>
-        </View>
+          </View>
+        </ModalKeyboardAvoiding>
       </View>
     </Modal>
   );

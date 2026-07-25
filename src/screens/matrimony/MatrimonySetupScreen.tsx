@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable, Image, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -446,7 +447,7 @@ export function MatrimonySetupScreen() {
   const incomeOptions = formOptions.income_ranges.map((r) => ({ label: r.label, value: r.code }));
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <AppKeyboardAvoidingView style={s.container}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text, marginBottom: 4 }}>Matrimony Profile</Text>
         <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
@@ -717,6 +718,6 @@ export function MatrimonySetupScreen() {
           </>
         )}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }

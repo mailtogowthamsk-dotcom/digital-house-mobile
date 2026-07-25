@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
@@ -12,6 +11,7 @@ import {
   ActivityIndicator,
   Keyboard
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -219,9 +219,8 @@ export function RegistrationScreen({ navigation }: any) {
     <View style={s.background}>
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <View style={s.overlay} />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={s.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -474,7 +473,7 @@ export function RegistrationScreen({ navigation }: any) {
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

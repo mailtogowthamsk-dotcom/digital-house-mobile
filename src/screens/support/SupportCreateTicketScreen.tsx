@@ -16,6 +16,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { Dropdown } from "../../components/ui/Dropdown";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import {
   BUG_CATEGORIES,
   collectSupportMetadata,
@@ -122,10 +123,12 @@ export function SupportCreateTicketScreen() {
   };
 
   return (
+    <AppKeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Text style={[styles.heading, { color: colors.text }]}>{screenTitle}</Text>
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
@@ -193,6 +196,7 @@ export function SupportCreateTicketScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
       )}
     </ScrollView>
+    </AppKeyboardAvoidingView>
   );
 }
 

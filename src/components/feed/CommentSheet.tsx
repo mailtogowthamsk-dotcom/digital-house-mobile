@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Platform,
   Keyboard,
-  KeyboardAvoidingView,
   useWindowDimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +27,8 @@ import { trackFeedAction } from "../../utils/feedAnalytics";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { appAlert } from "../../utils/appAlert";
+import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
+import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 
 type Props = {
   visible: boolean;
@@ -192,33 +193,10 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
   const [replyTo, setReplyTo] = useState<CommentItem | null>(null);
   const [editing, setEditing] = useState<CommentItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const loadGenRef = useRef(0);
   const showInitialSpinnerRef = useRef(true);
   const { height: windowHeight } = useWindowDimensions();
-
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const onShow = Keyboard.addListener(showEvent, (e) => {
-      // Prefer height; fall back to screen geometry for odd Android OEM reports.
-      const fromHeight = e.endCoordinates?.height ?? 0;
-      const fromScreen =
-        typeof e.endCoordinates?.screenY === "number"
-          ? Math.max(0, windowHeight - e.endCoordinates.screenY)
-          : 0;
-      setKeyboardHeight(Math.max(fromHeight, fromScreen));
-    });
-    const onHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, [windowHeight]);
+  const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
 
   const fetchComments = useCallback(
     async (sortMode: "newest" | "top", options?: { silent?: boolean }) => {
@@ -254,7 +232,6 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
       setReplyTo(null);
       setEditing(null);
       setText("");
-      setKeyboardHeight(0);
       setInitialLoading(false);
       setRefreshing(false);
       return;
@@ -347,14 +324,10 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     [handleReply, handleEdit, handleDelete]
   );
 
-  const keyboardOpen = keyboardHeight > 0;
   /**
-   * iOS: KeyboardAvoidingView lifts the sheet; shrink height to fit above the keyboard.
-   * Android Modals are not lifted by KAV — we must marginBottom by keyboardHeight so the
-   * composer stays above the keyboard (shrinking height alone leaves it bottom-anchored
-   * under the keys).
+   * Shrink sheet so it fits above the keyboard. Android lift is applied by
+   * ModalKeyboardAvoiding (marginBottom); iOS uses KeyboardAvoidingView padding.
    */
-  const androidKeyboardLift = Platform.OS === "android" && keyboardOpen ? keyboardHeight : 0;
   const availableHeight = keyboardOpen
     ? Math.max(windowHeight - keyboardHeight - insets.top - 8, 260)
     : Math.min(windowHeight * 0.78, 620);
@@ -530,11 +503,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
       <View style={s.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close comments" />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ width: "100%", marginBottom: androidKeyboardLift }}
-          keyboardVerticalOffset={0}
-        >
+        <ModalKeyboardAvoiding>
           <View style={[s.sheet, { height: sheetHeight }]}>
             <View style={s.handleWrap}>
               <View style={s.handle} />
@@ -656,7 +625,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
               </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardAvoiding>
       </View>
     </Modal>
   );

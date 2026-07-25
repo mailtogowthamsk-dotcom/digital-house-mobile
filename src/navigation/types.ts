@@ -24,6 +24,14 @@ export type RootStackParamList = {
   MyActivity: undefined;
   PostDetail: { postId: number };
   CreatePost: { initialPostType?: string; editPostId?: number } | undefined;
+  /** In-app photo/video review before Create Post upload. */
+  MediaPreview: {
+    mode?: "create" | "replace";
+    /** When false, picker replacement is images-only (marketplace). */
+    allowVideo?: boolean;
+  } | undefined;
+  /** Trim long videos to ≤ 60s + pick cover frame. */
+  VideoTrim: undefined;
   Menu: { messageCount?: number };
   Settings: undefined;
   Messages: undefined;

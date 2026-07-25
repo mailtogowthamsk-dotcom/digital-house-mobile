@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
@@ -13,6 +12,7 @@ import {
   Keyboard,
   StatusBar
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { googleAuth, loginRequest } from "../../api/auth.api";
 import { getApiBaseUrl, getAuthErrorMessage } from "../../api/client";
@@ -239,9 +239,8 @@ function LoginScreenBody({
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={s.overlay} pointerEvents="none" />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={s.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -357,7 +356,7 @@ function LoginScreenBody({
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

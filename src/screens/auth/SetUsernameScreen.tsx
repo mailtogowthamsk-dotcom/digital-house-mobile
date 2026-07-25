@@ -3,11 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ActivityIndicator
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Input } from "../../components/ui/Input";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -72,9 +71,8 @@ export function SetUsernameScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={[styles.fill, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         contentContainerStyle={[
@@ -114,7 +112,7 @@ export function SetUsernameScreen() {
           style={{ marginTop: spacing.lg }}
         />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }
 

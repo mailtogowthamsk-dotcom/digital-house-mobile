@@ -34,6 +34,8 @@ import { MyPostsScreen } from "./src/screens/home/MyPostsScreen";
 import { MyActivityScreen } from "./src/screens/home/MyActivityScreen";
 import { PostDetailScreen } from "./src/screens/home/PostDetailScreen";
 import { CreatePostScreen } from "./src/screens/home/CreatePostScreen";
+import { MediaPreviewScreen } from "./src/screens/media/MediaPreviewScreen";
+import { VideoTrimScreen } from "./src/screens/media/VideoTrimScreen";
 import { MenuScreen } from "./src/screens/home/MenuScreen";
 import { SettingsScreen } from "./src/screens/home/SettingsScreen";
 import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
@@ -149,6 +151,16 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="MyActivity" component={MyActivityScreen} options={{ headerShown: false }} />
         <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: "Post" }} />
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: "Create Post" }} />
+        <Stack.Screen
+          name="MediaPreview"
+          component={MediaPreviewScreen}
+          options={{ headerShown: false, animation: "fade" }}
+        />
+        <Stack.Screen
+          name="VideoTrim"
+          component={VideoTrimScreen}
+          options={{ headerShown: false, animation: "slide_from_bottom" }}
+        />
         <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen

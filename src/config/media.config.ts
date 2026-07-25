@@ -20,8 +20,17 @@ export const VIDEO_PICKER_MAX_BYTES = 200 * 1024 * 1024;
 /** Max video size after compression (must match backend). */
 export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
-/** Max video duration (2 minutes). */
-export const VIDEO_MAX_DURATION_SEC = 120;
+/** Max video duration after trim / for upload (1 minute). */
+export const VIDEO_MAX_DURATION_SEC = 60;
+
+/** Minimum allowed clip length after trim. */
+export const VIDEO_MIN_DURATION_SEC = 3;
+
+/**
+ * Max duration accepted from the gallery picker (before trim).
+ * Longer clips open the trim screen; must be trimmed to ≤ VIDEO_MAX_DURATION_SEC.
+ */
+export const VIDEO_PICKER_MAX_DURATION_SEC = 10 * 60;
 
 /** Longest edge after compression (720p). */
 export const VIDEO_MAX_DIMENSION = 720;

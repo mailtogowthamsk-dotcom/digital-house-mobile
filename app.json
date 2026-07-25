@@ -4,6 +4,7 @@
       "expo-web-browser",
       "expo-video",
       "react-native-compressor",
+      "./plugins/withGoogleModularHeaders",
       [
         "expo-notifications",
         {

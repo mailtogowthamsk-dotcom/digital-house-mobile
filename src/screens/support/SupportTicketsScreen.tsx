@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
-  KeyboardAvoidingView,
   Platform
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -156,9 +156,8 @@ export function SupportTicketDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.refBig, { color: colors.primary }]}>Ticket {ticket.ref}</Text>
@@ -212,7 +211,7 @@ export function SupportTicketDetailScreen() {
           </>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AppKeyboardAvoidingView>
   );
 }
 

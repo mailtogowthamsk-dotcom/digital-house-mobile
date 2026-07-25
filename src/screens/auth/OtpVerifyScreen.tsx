@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
@@ -14,6 +13,7 @@ import {
   StatusBar,
   useWindowDimensions
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp } from "../../api/auth.api";
 import { getAuthErrorMessage } from "../../api/client";
@@ -101,9 +101,8 @@ export function OtpVerifyScreen({ route, navigation }: any) {
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={s.overlay} />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={s.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={0}
       >
         <ScrollView
@@ -236,7 +235,7 @@ export function OtpVerifyScreen({ route, navigation }: any) {
             </Pressable>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }

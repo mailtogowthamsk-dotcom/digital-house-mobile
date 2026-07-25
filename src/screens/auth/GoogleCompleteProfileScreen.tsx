@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Image,
   Keyboard
 } from "react-native";
+import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -101,9 +101,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   return (
     <View style={styles.fill}>
       <LinearGradient colors={GRADIENT} style={StyleSheet.absoluteFill} />
-      <KeyboardAvoidingView
+      <AppKeyboardAvoidingView
         style={styles.fill}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           contentContainerStyle={{
@@ -188,7 +187,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
             </Text>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </AppKeyboardAvoidingView>
     </View>
   );
 }
