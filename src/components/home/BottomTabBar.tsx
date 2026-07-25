@@ -1,5 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+/**
+ * Floating glass bottom navigation — visual polish only.
+ * Tab ids / handlers unchanged.
+ */
+
+import React, { memo, useMemo } from "react";
+import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -16,192 +22,208 @@ type TabItem = {
 
 const TABS: TabItem[] = [
   { id: "home", label: "Home", icon: "home-outline", iconActive: "home" },
-  { id: "explore", label: "Explore", icon: "search-outline", iconActive: "search" },
+  { id: "explore", label: "Explore", icon: "compass-outline", iconActive: "compass" },
   { id: "create", label: "Create", icon: "add" },
   { id: "messages", label: "Messages", icon: "chatbubble-outline", iconActive: "chatbubble" },
   { id: "profile", label: "Profile", icon: "person-outline", iconActive: "person" }
 ];
 
-const BAR_HEIGHT = 52;
-const CREATE_BTN_SIZE = 48;
-const ICON_SIZE = 22;
-const ICON_ROW_HEIGHT = 28;
-const LABEL_GAP = 2;
+const BAR_HEIGHT = 58;
+const CREATE_SIZE = 32;
+const DOCK_H_PAD = 16;
 
 type BottomTabBarProps = {
   activeTab: TabId;
   onTabPress: (tab: TabId) => void;
-  /** Unread message count for the Messages tab badge */
   messageCount?: number;
+  bottomInset?: number;
 };
 
-/**
- * Bottom tab bar: 64px, themed surface, subtle top border.
- */
-export function BottomTabBar({ activeTab, onTabPress, messageCount = 0 }: BottomTabBarProps) {
-  const { colors } = useTheme();
+function BottomTabBarInner({
+  activeTab,
+  onTabPress,
+  messageCount = 0,
+  bottomInset = 0
+}: BottomTabBarProps) {
+  const { colors, mode } = useTheme();
   const tabsWithBadge = useMemo(
     () =>
       TABS.map((tab) =>
-        tab.id === "messages" && messageCount > 0
-          ? { ...tab, badge: messageCount }
-          : tab
+        tab.id === "messages" && messageCount > 0 ? { ...tab, badge: messageCount } : tab
       ),
     [messageCount]
   );
+
   const s = useMemo(
     () =>
       StyleSheet.create({
-        container: {
-          backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.border
+        dock: {
+          position: "absolute",
+          left: DOCK_H_PAD,
+          right: DOCK_H_PAD,
+          bottom: Math.max(bottomInset, 10),
+          zIndex: 50,
+          height: BAR_HEIGHT
+        },
+        shell: {
+          flex: 1,
+          borderRadius: BAR_HEIGHT / 2,
+          overflow: "hidden",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)",
+          ...Platform.select({
+            ios: {
+              shadowColor: "#0F172A",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: mode === "dark" ? 0.4 : 0.1,
+              shadowRadius: 20
+            },
+            android: { elevation: 12 },
+            default: {}
+          })
+        },
+        blurFill: { ...StyleSheet.absoluteFillObject },
+        tint: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor:
+            mode === "dark" ? "rgba(20,28,43,0.82)" : "rgba(255,255,255,0.78)"
         },
         bar: {
-          height: BAR_HEIGHT,
+          flex: 1,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-around",
-          paddingHorizontal: 4,
-          paddingTop: 4
+          paddingHorizontal: 4
         },
         tab: {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          minWidth: 0
+          height: "100%",
+          gap: 3,
+          paddingTop: 2
         },
-        pressed: { opacity: 0.8 },
-        iconRow: {
-          height: ICON_ROW_HEIGHT,
-          alignItems: "center",
-          justifyContent: "center"
-        },
+        pressed: { opacity: 0.65 },
         iconWrap: {
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 28,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          borderRadius: 14
         },
-        labelSpacer: { height: LABEL_GAP },
+        iconWrapActive: {
+          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.22)" : "rgba(37,99,235,0.12)"
+        },
         label: {
           fontSize: 10,
           fontWeight: "500",
-          color: colors.textSecondary
+          color: colors.textMuted,
+          letterSpacing: 0.1
         },
         labelActive: {
           color: colors.primary,
-          fontWeight: "600"
-        },
-        createBtnOuter: {
-          width: CREATE_BTN_SIZE + 8,
-          height: CREATE_BTN_SIZE + 8,
-          borderRadius: (CREATE_BTN_SIZE + 8) / 2,
-          backgroundColor: colors.surface,
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: -10,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 6
+          fontWeight: "700"
         },
         createBtn: {
-          width: CREATE_BTN_SIZE,
-          height: CREATE_BTN_SIZE,
-          borderRadius: CREATE_BTN_SIZE / 2,
+          width: CREATE_SIZE,
+          height: CREATE_SIZE,
+          borderRadius: CREATE_SIZE / 2,
           alignItems: "center",
           justifyContent: "center"
         },
         badge: {
           position: "absolute",
-          top: -4,
-          right: -8,
-          minWidth: 16,
-          height: 16,
+          top: -2,
+          right: -4,
+          minWidth: 15,
+          height: 15,
           borderRadius: 8,
           backgroundColor: colors.error,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 4
+          paddingHorizontal: 3,
+          borderWidth: 1.5,
+          borderColor: mode === "dark" ? colors.surface : "#FFFFFF"
         },
         badgeText: {
-          fontSize: 10,
-          fontWeight: "700",
+          fontSize: 8,
+          fontWeight: "800",
           color: colors.white
         }
       }),
-    [colors]
+    [bottomInset, colors, mode]
   );
 
   return (
-    <View style={s.container}>
-      <View style={s.bar}>
-        {tabsWithBadge.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const isCreate = tab.id === "create";
+    <View style={s.dock} pointerEvents="box-none">
+      <View style={s.shell}>
+        <BlurView
+          intensity={Platform.OS === "ios" ? 64 : 42}
+          tint={mode === "dark" ? "dark" : "light"}
+          style={s.blurFill}
+        />
+        <View style={s.tint} pointerEvents="none" />
+        <View style={s.bar}>
+          {tabsWithBadge.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const isCreate = tab.id === "create";
 
-          if (isCreate) {
+            if (isCreate) {
+              return (
+                <Pressable
+                  key={tab.id}
+                  style={({ pressed }) => [s.tab, pressed && s.pressed]}
+                  onPress={() => onTabPress("create")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create post"
+                >
+                  <View style={s.iconWrap}>
+                    <LinearGradient
+                      colors={[colors.primary, colors.secondary]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={s.createBtn}
+                    >
+                      <Ionicons name="add" size={20} color={colors.white} />
+                    </LinearGradient>
+                  </View>
+                  <Text style={s.label} numberOfLines={1}>
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            }
+
             return (
               <Pressable
                 key={tab.id}
                 style={({ pressed }) => [s.tab, pressed && s.pressed]}
                 onPress={() => onTabPress(tab.id)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isActive }}
               >
-                <View style={s.iconRow}>
-                  <View style={s.createBtnOuter}>
-                    <LinearGradient
-                      colors={[colors.primary, colors.accent]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={s.createBtn}
-                    >
-                      <Ionicons name="add" size={26} color={colors.white} />
-                    </LinearGradient>
-                  </View>
+                <View style={[s.iconWrap, isActive && s.iconWrapActive]}>
+                  <Ionicons
+                    name={(isActive ? tab.iconActive : tab.icon) as keyof typeof Ionicons.glyphMap}
+                    size={22}
+                    color={isActive ? colors.primary : colors.textMuted}
+                  />
+                  {tab.badge != null && tab.badge > 0 ? (
+                    <View style={s.badge}>
+                      <Text style={s.badgeText}>{tab.badge > 99 ? "99+" : tab.badge}</Text>
+                    </View>
+                  ) : null}
                 </View>
-                <View style={s.labelSpacer} />
-                <Text style={s.label} numberOfLines={1}>
+                <Text style={[s.label, isActive && s.labelActive]} numberOfLines={1}>
                   {tab.label}
                 </Text>
               </Pressable>
             );
-          }
-
-          return (
-            <Pressable
-              key={tab.id}
-              style={({ pressed }) => [s.tab, pressed && s.pressed]}
-              onPress={() => onTabPress(tab.id)}
-            >
-              <View style={s.iconRow}>
-                <View style={s.iconWrap}>
-                  <Ionicons
-                    name={(isActive ? tab.iconActive : tab.icon) as any}
-                    size={ICON_SIZE}
-                    color={isActive ? colors.primary : colors.textSecondary}
-                  />
-                  {tab.badge != null && tab.badge > 0 && (
-                    <View style={s.badge}>
-                      <Text style={s.badgeText}>
-                        {tab.badge > 99 ? "99+" : tab.badge}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <View style={s.labelSpacer} />
-              <Text
-                style={[s.label, isActive && s.labelActive]}
-                numberOfLines={1}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+          })}
+        </View>
       </View>
     </View>
   );
 }
+
+export const BottomTabBar = memo(BottomTabBarInner);
+export const FLOATING_TAB_BAR_HEIGHT = BAR_HEIGHT + 12;

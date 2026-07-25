@@ -1,13 +1,11 @@
 import { TextStyle } from "react-native";
 
 export const typography = {
-  /** Large hero / landing headline */
   hero: {
     fontSize: 26,
     fontWeight: "800" as const,
     lineHeight: 32
   },
-  /** Screen title */
   h1: {
     fontSize: 24,
     fontWeight: "700" as const,
@@ -23,7 +21,34 @@ export const typography = {
     fontWeight: "600" as const,
     lineHeight: 24
   },
-  /** Body */
+  feedUsername: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    lineHeight: 20,
+    letterSpacing: -0.25
+  },
+  feedTitle: {
+    fontSize: 17,
+    fontWeight: "600" as const,
+    lineHeight: 24,
+    letterSpacing: -0.2
+  },
+  feedCaption: {
+    fontSize: 15,
+    fontWeight: "400" as const,
+    lineHeight: 22,
+    letterSpacing: -0.05
+  },
+  feedMeta: {
+    fontSize: 13,
+    fontWeight: "500" as const,
+    lineHeight: 17
+  },
+  feedCount: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    lineHeight: 16
+  },
   body: {
     fontSize: 16,
     fontWeight: "400" as const,
@@ -34,7 +59,6 @@ export const typography = {
     fontWeight: "400" as const,
     lineHeight: 20
   },
-  /** Labels, captions */
   caption: {
     fontSize: 12,
     fontWeight: "500" as const,
@@ -45,7 +69,6 @@ export const typography = {
     fontWeight: "600" as const,
     lineHeight: 20
   },
-  /** Buttons */
   button: {
     fontSize: 16,
     fontWeight: "700" as const

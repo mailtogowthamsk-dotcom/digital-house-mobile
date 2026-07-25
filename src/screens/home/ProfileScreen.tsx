@@ -26,6 +26,9 @@ import {
   ActionButtons,
   ProfileSkeleton
 } from "../../components/profile";
+import { BottomTabBar, FLOATING_TAB_BAR_HEIGHT } from "../../components/home";
+import type { TabId } from "../../components/home/BottomTabBar";
+import { handleMainTabPress } from "../../navigation/mainTabs";
 
 /** Profile Screen – overview + links to My Posts / My Activity screens. */
 export function ProfileScreen() {
@@ -36,6 +39,15 @@ export function ProfileScreen() {
   const { profile, loading, error, refetch } = useProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+
+  const tabBottomPad = Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
+
+  const onTabPress = useCallback(
+    (tab: TabId) => {
+      handleMainTabPress(navigation, "profile", tab);
+    },
+    [navigation]
+  );
 
   const s = useMemo(
     () =>
@@ -49,7 +61,7 @@ export function ProfileScreen() {
         listContent: {
           flexGrow: 1,
           paddingHorizontal: spacing.xl,
-          paddingBottom: spacing.xxxl
+          paddingBottom: tabBottomPad
         },
         errorIconWrap: {
           width: 88,
@@ -76,7 +88,7 @@ export function ProfileScreen() {
         pressed: { opacity: 0.9 },
         retryBtnText: { ...typography.buttonSmall, color: colors.white }
       }),
-    [colors]
+    [colors, tabBottomPad]
   );
 
   useFocusEffect(
@@ -158,10 +170,19 @@ export function ProfileScreen() {
     [onEditPress, onLogoutPress, logoutDialogVisible, onLogoutConfirm, onLogoutCancel]
   );
 
+  const tabBar = (
+    <BottomTabBar
+      activeTab="profile"
+      onTabPress={onTabPress}
+      bottomInset={insets.bottom}
+    />
+  );
+
   if (loading && !profile) {
     return (
       <View style={s.container}>
         <ProfileSkeleton />
+        {tabBar}
       </View>
     );
   }
@@ -179,6 +200,7 @@ export function ProfileScreen() {
         <Pressable style={({ pressed }) => [s.retryBtn, pressed && s.pressed]} onPress={refetch}>
           <Text style={s.retryBtnText}>Try again</Text>
         </Pressable>
+        {tabBar}
       </View>
     );
   }
@@ -186,21 +208,22 @@ export function ProfileScreen() {
   if (!profile) return null;
 
   return (
-    <FlatList
-      style={s.container}
-      data={[]}
-      renderItem={() => null}
-      ListHeaderComponent={
-        <View style={{ paddingTop: insets.top + spacing.lg }}>{listHeader}</View>
-      }
-      ListFooterComponent={
-        <View style={{ paddingBottom: insets.bottom + spacing.xxl }}>{listFooter}</View>
-      }
-      contentContainerStyle={s.listContent}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-      }
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={s.container}>
+      <FlatList
+        style={s.container}
+        data={[]}
+        renderItem={() => null}
+        ListHeaderComponent={
+          <View style={{ paddingTop: insets.top + spacing.lg }}>{listHeader}</View>
+        }
+        ListFooterComponent={<View>{listFooter}</View>}
+        contentContainerStyle={s.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
+        showsVerticalScrollIndicator={false}
+      />
+      {tabBar}
+    </View>
   );
 }

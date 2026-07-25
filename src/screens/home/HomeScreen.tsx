@@ -6,13 +6,19 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
-  ActivityIndicator
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  Animated
 } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   Header,
+  FLOATING_HEADER_HEIGHT,
+  FLOATING_TAB_BAR_HEIGHT,
   DismissibleWelcomeCard,
   PostCard,
   BottomTabBar,
@@ -43,6 +49,8 @@ import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
 import { openMessagesInbox } from "../../navigation/openMessages";
+import { handleMainTabPress } from "../../navigation/mainTabs";
+import type { RootStackParamList } from "../../navigation/types";
 import { useNotificationsOptional } from "../../context/NotificationContext";
 import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
@@ -50,6 +58,7 @@ import { ExploreScreen } from "../explore/ExploreScreen";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
+const HEADER_HIDE_DELTA = 8;
 
 /**
  * Home Screen – community feed, welcome card, quick actions, highlights, bottom tabs.
@@ -58,8 +67,9 @@ const SECTION_MARGIN = 28;
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<RootStackParamList, "Home">>();
   const { signOut, user: authUser } = useAuth();
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const notifCtx = useNotificationsOptional();
   const welcomeCardVisible = useWelcomeCardVisible();
   const {
@@ -75,14 +85,19 @@ export function HomeScreen() {
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
   const navigateToPostAuthor = useNavigateToPostAuthor();
 
-  const [activeTab, setActiveTab] = useState<TabId>("home");
+  const [activeTab, setActiveTab] = useState<TabId>(
+    route.params?.tab === "explore" ? "explore" : "home"
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
   const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const commentPostIdRef = useRef<string | null>(null);
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<FlatList<PostCardData>>(null);
   const focusRefreshRef = useRef(false);
+  const headerHideProgress = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
+  const headerHiddenRef = useRef(false);
   const retrySummaryRef = useRef(retrySummary);
   retrySummaryRef.current = retrySummary;
   const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
@@ -155,6 +170,10 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const tab = route.params?.tab;
+      if (tab === "explore" || tab === "home") {
+        setActiveTab(tab);
+      }
       if (focusRefreshRef.current) {
         void retrySummaryRef.current();
       } else {
@@ -165,7 +184,7 @@ export function HomeScreen() {
         setPreloadMediaPostId(null);
         pauseAllFeedVideos();
       };
-    }, [])
+    }, [route.params?.tab])
   );
 
   useAppResume(() => {
@@ -180,14 +199,29 @@ export function HomeScreen() {
     if (feedError) handleAuthError(feedError);
   }, [feedError, handleAuthError]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetchAll();
+    setRefreshing(false);
+  }, [refetchAll]);
+
   const onTabPress = (tab: TabId) => {
     if (tab === "create") {
       navigation.navigate("CreatePost");
       return;
     }
     if (tab === "home" && activeTab === "home") {
-      onRefresh();
+      void onRefresh();
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      return;
+    }
+    if (tab === "home" || tab === "explore") {
+      if (tab !== activeTab) {
+        setActiveMediaPostId(null);
+        setPreloadMediaPostId(null);
+        pauseAllFeedVideos();
+      }
+      setActiveTab(tab);
       return;
     }
     if (tab !== activeTab) {
@@ -195,14 +229,7 @@ export function HomeScreen() {
       setPreloadMediaPostId(null);
       pauseAllFeedVideos();
     }
-    setActiveTab(tab);
-    if (tab === "profile") {
-      navigation.navigate("Profile");
-    }
-    if (tab === "messages") {
-      openMessagesInbox(navigation);
-    }
-    // explore: stay on HomeScreen and swap body content
+    handleMainTabPress(navigation, activeTab, tab);
   };
 
   const onMenuPress = () => {
@@ -210,12 +237,40 @@ export function HomeScreen() {
       messageCount: summary?.unreadMessagesCount ?? 0
     });
   };
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refetchAll();
-    setRefreshing(false);
-  }, [refetchAll]);
+  const onFeedScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = e.nativeEvent.contentOffset.y;
+      const dy = y - lastScrollY.current;
+      lastScrollY.current = y;
+      if (y <= 12) {
+        if (headerHiddenRef.current) {
+          headerHiddenRef.current = false;
+          Animated.timing(headerHideProgress, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true
+          }).start();
+        }
+        return;
+      }
+      if (dy > HEADER_HIDE_DELTA && !headerHiddenRef.current) {
+        headerHiddenRef.current = true;
+        Animated.timing(headerHideProgress, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true
+        }).start();
+      } else if (dy < -HEADER_HIDE_DELTA && headerHiddenRef.current) {
+        headerHiddenRef.current = false;
+        Animated.timing(headerHideProgress, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true
+        }).start();
+      }
+    },
+    [headerHideProgress]
+  );
 
   const realtimeHandlers = useMemo(
     () => ({
@@ -313,32 +368,37 @@ export function HomeScreen() {
     [navigation]
   );
 
+  const listTopPad = insets.top + FLOATING_HEADER_HEIGHT + 8;
+  const listBottomPad = Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
+
   const s = useMemo(
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        headerWrap: { backgroundColor: colors.surface },
-        feedList: { flex: 1, backgroundColor: colors.background },
+        feedBackdrop: {
+          ...StyleSheet.absoluteFillObject
+        },
+        feedList: { flex: 1, backgroundColor: "transparent" },
         headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
         feedSkeleton: { marginBottom: 0 },
-        footerLoader: { paddingVertical: 16, alignItems: "center" },
+        footerLoader: {
+          paddingVertical: 20,
+          alignItems: "center",
+          gap: 10
+        },
         endOfFeed: {
-          paddingVertical: 24,
+          paddingVertical: 28,
           alignItems: "center"
         },
-        endOfFeedText: { fontSize: 13, color: colors.textSecondary },
+        endOfFeedText: { fontSize: 13, fontWeight: "500", color: colors.textSecondary },
         errorCard: {
-          paddingVertical: 24,
+          marginHorizontal: 8,
+          paddingVertical: 28,
           paddingHorizontal: PADDING,
           alignItems: "center",
           backgroundColor: colors.surface,
-          borderRadius: 16,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
+          borderRadius: 22,
           gap: 12
         },
         errorText: { fontSize: 14, color: colors.textSecondary },
@@ -346,20 +406,16 @@ export function HomeScreen() {
           paddingHorizontal: 16,
           paddingVertical: 10,
           backgroundColor: colors.primary,
-          borderRadius: 10
+          borderRadius: 12
         },
         retryBtnText: { fontSize: 14, fontWeight: "600", color: colors.white },
         emptyFeed: {
-          paddingVertical: 40,
+          marginHorizontal: 8,
+          paddingVertical: 48,
           paddingHorizontal: PADDING,
           alignItems: "center",
           backgroundColor: colors.surface,
-          borderRadius: 16,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2
+          borderRadius: 22
         },
         emptyIconWrap: {
           width: 72,
@@ -381,17 +437,17 @@ export function HomeScreen() {
           color: colors.textSecondary,
           textAlign: "center",
           lineHeight: 22
-        },
-        tabBarWrap: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: colors.surface
-        },
-        tabBarInner: { backgroundColor: colors.surface }
+        }
       }),
     [colors]
+  );
+
+  const feedBackdropColors = useMemo(
+    () =>
+      mode === "dark"
+        ? (["#14532D", "#0B1220", "#7F1D1D"] as const)
+        : (["#166534", "#FFFFFF", "#991B1B"] as const),
+    [mode]
   );
 
   const ListHeaderComponent = useCallback(
@@ -449,7 +505,7 @@ export function HomeScreen() {
     if (feedLoadingMore) {
       return (
         <View style={s.footerLoader}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <FeedPostSkeleton />
         </View>
       );
     }
@@ -467,7 +523,7 @@ export function HomeScreen() {
       );
     }
     return null;
-  }, [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal, s, colors.primary]);
+  }, [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal, s]);
 
   const ListEmptyComponent = useCallback(() => {
     if (feedLoading) {
@@ -502,50 +558,66 @@ export function HomeScreen() {
 
   return (
     <View style={s.container}>
-      <View style={[s.headerWrap, { paddingTop: insets.top }]}>
-        <Header
-          notificationCount={
-            notifCtx?.counts.total ?? summary?.unreadNotificationsCount ?? 0
-          }
-          messageCount={summary?.unreadMessagesCount ?? 0}
-          onNotificationPress={() => navigation.navigate("Notifications")}
-          onMessagePress={() => openMessagesInbox(navigation)}
-          onMenuPress={onMenuPress}
-        />
-      </View>
+      <LinearGradient
+        colors={[...feedBackdropColors]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={s.feedBackdrop}
+        pointerEvents="none"
+      />
+
+      <Header
+        notificationCount={notifCtx?.counts.total ?? summary?.unreadNotificationsCount ?? 0}
+        messageCount={summary?.unreadMessagesCount ?? 0}
+        onNotificationPress={() => navigation.navigate("Notifications")}
+        onMessagePress={() => openMessagesInbox(navigation)}
+        onMenuPress={onMenuPress}
+        hideProgress={headerHideProgress}
+        topInset={insets.top}
+      />
+
       <PlatformBannerStrip />
       <PlatformAnnouncementCard />
       <PlatformHomeAd />
 
       {activeTab === "explore" ? (
-        <ExploreScreen bottomInset={insets.bottom + 72} />
+        <ExploreScreen bottomInset={listBottomPad} topInset={listTopPad} />
       ) : (
-      <FlatList
-        ref={listRef}
-        style={s.feedList}
-        data={feedItems}
-        renderItem={renderFeedItem}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={hasScrollHeader ? ListHeaderComponent : null}
-        ListFooterComponent={ListFooterComponent}
-        ListEmptyComponent={ListEmptyComponent}
-        onEndReached={loadMoreFeed}
-        onEndReachedThreshold={0.3}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        removeClippedSubviews
-        maxToRenderPerBatch={8}
-        windowSize={7}
-        initialNumToRender={6}
-        contentContainerStyle={{
-          paddingTop: hasScrollHeader ? PADDING : 0,
-          paddingBottom: insets.bottom + 72
-        }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
+        <FlatList
+          ref={listRef}
+          style={s.feedList}
+          data={feedItems}
+          renderItem={renderFeedItem}
+          keyExtractor={keyExtractor}
+          ListHeaderComponent={hasScrollHeader ? ListHeaderComponent : null}
+          ListFooterComponent={ListFooterComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          onEndReached={loadMoreFeed}
+          onEndReachedThreshold={0.35}
+          onScroll={onFeedScroll}
+          scrollEventThrottle={16}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          extraData={`${activeMediaPostId}:${preloadMediaPostId}`}
+          removeClippedSubviews
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          initialNumToRender={6}
+          contentContainerStyle={{
+            paddingTop: listTopPad + (hasScrollHeader ? 8 : 0),
+            paddingBottom: listBottomPad
+          }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              progressViewOffset={listTopPad}
+            />
+          }
+        />
       )}
 
       {commentPost ? (
@@ -574,15 +646,12 @@ export function HomeScreen() {
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
 
-      <View style={s.tabBarWrap}>
-        <View style={[s.tabBarInner, { paddingBottom: Math.max(insets.bottom - 4, 4) }]}>
-          <BottomTabBar
-            activeTab={activeTab}
-            onTabPress={onTabPress}
-            messageCount={summary?.unreadMessagesCount ?? 0}
-          />
-        </View>
-      </View>
+      <BottomTabBar
+        activeTab={activeTab}
+        onTabPress={onTabPress}
+        messageCount={summary?.unreadMessagesCount ?? 0}
+        bottomInset={insets.bottom}
+      />
     </View>
   );
 }

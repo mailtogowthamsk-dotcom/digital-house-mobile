@@ -2,6 +2,7 @@ export { colors } from "./colors";
 export { typography } from "./typography";
 export { spacing, radius } from "./spacing";
 export { messages } from "./messages";
+export { feedRadius, feedCardShadow, feedNavShadow, feedAvatarRing } from "./feedStyles";
 
 import { colors } from "./colors";
 import { typography } from "./typography";

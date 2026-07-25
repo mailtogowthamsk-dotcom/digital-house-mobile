@@ -40,6 +40,8 @@ type ThreadListPanelProps = {
   onSearch?: () => void;
   folder?: "inbox" | "archived";
   onFolderChange?: (folder: "inbox" | "archived") => void;
+  /** Extra bottom padding so list clears floating tab bar. */
+  contentBottomInset?: number;
 };
 
 function ThreadListPanelComponent(props: ThreadListPanelProps) {
@@ -56,7 +58,8 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     onBack,
     onSearch,
     folder = "inbox",
-    onFolderChange
+    onFolderChange,
+    contentBottomInset = 0
   } = props;
 
   const isArchived = folder === "archived";
@@ -174,7 +177,10 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             keyExtractor={keyThread}
             renderItem={renderThread}
             style={styles.list}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              contentBottomInset > 0 ? { paddingBottom: contentBottomInset } : null
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />

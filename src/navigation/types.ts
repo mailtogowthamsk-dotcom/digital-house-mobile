@@ -17,7 +17,7 @@ export type RootStackParamList = {
     profileImage?: string | null;
   };
   OtpVerify: { email: string };
-  Home: undefined;
+  Home: { tab?: "home" | "explore" | "messages" | "profile" } | undefined;
   Profile: undefined;
   EditProfile: undefined;
   MyPosts: undefined;

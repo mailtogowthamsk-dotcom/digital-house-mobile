@@ -1,11 +1,15 @@
-export { Header, type HeaderActionId } from "./Header";
+export { Header, type HeaderActionId, FLOATING_HEADER_HEIGHT } from "./Header";
 export { WelcomeCard } from "./WelcomeCard";
 export { DismissibleWelcomeCard } from "./DismissibleWelcomeCard";
 export { hasHighlightsData } from "./HighlightSection";
 export { QuickActionGrid, type QuickActionItem } from "./QuickActionGrid";
 export { PostCard, type PostCardData } from "./PostCard";
+export { PostHeader } from "./PostHeader";
+export { PostActions } from "./PostActions";
+export { PostCaption } from "./PostCaption";
+export { CommentPreview } from "./CommentPreview";
 export { PostMedia } from "./PostMedia";
-export { BottomTabBar, type TabId } from "./BottomTabBar";
+export { BottomTabBar, type TabId, FLOATING_TAB_BAR_HEIGHT } from "./BottomTabBar";
 export { HighlightSection } from "./HighlightSection";
 export { SkeletonCard, WelcomeCardSkeleton, SkeletonLine } from "./SkeletonCard";
 export { FeedPostSkeleton } from "./FeedPostSkeleton";

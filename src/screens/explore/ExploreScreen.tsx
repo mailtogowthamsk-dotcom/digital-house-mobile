@@ -32,13 +32,15 @@ import type { PostLiker } from "../../api/posts.api";
 type Props = {
   /** Extra bottom padding for floating tab bar */
   bottomInset?: number;
+  /** Clearance under floating glass header */
+  topInset?: number;
 };
 
 /**
  * Explore discovery panel — keyword + hashtag search over community posts.
  * Reuses PostCard / feed interactions. Designed to embed under Home tabs.
  */
-export function ExploreScreen({ bottomInset = 72 }: Props) {
+export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const explore = useExploreSearch();
@@ -240,7 +242,10 @@ export function ExploreScreen({ bottomInset = 72 }: Props) {
         viewabilityConfig={viewabilityConfig}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ paddingBottom: bottomInset, paddingTop: spacing.md }}
+        contentContainerStyle={{
+          paddingBottom: bottomInset,
+          paddingTop: topInset + spacing.md
+        }}
         removeClippedSubviews
         maxToRenderPerBatch={8}
         windowSize={7}

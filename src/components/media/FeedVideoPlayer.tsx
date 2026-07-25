@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Modal,
   useWindowDimensions,
   StatusBar,
@@ -76,6 +75,16 @@ function VideoPosterShell({
           ...StyleSheet.absoluteFillObject,
           alignItems: "center",
           justifyContent: "center"
+        },
+        playGlyph: {
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: "rgba(15,23,42,0.4)",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(255,255,255,0.3)",
+          alignItems: "center",
+          justifyContent: "center"
         }
       }),
     [colors.surfaceElevated, height]
@@ -93,11 +102,15 @@ function VideoPosterShell({
           accessibilityRole="button"
           accessibilityLabel="Play video"
         >
-          <Ionicons name="play-circle" size={64} color="rgba(255,255,255,0.92)" />
+          <View style={s.playGlyph}>
+            <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+          </View>
         </Pressable>
       ) : showPlayIcon ? (
         <View style={s.center} pointerEvents="none">
-          <Ionicons name="play-circle" size={64} color="rgba(255,255,255,0.92)" />
+          <View style={s.playGlyph}>
+            <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+          </View>
         </View>
       ) : null}
     </View>
@@ -237,18 +250,31 @@ function ActiveFeedVideoPlayer({
           alignItems: "center",
           justifyContent: "center"
         },
-        controls: {
+        controlsBar: {
           position: "absolute",
-          right: 10,
-          bottom: 10,
+          right: 12,
+          bottom: 12,
           flexDirection: "row",
-          gap: 8
+          gap: 8,
+          zIndex: 4
         },
         ctrlBtn: {
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: "rgba(0,0,0,0.55)",
+          width: 42,
+          height: 42,
+          borderRadius: 15,
+          backgroundColor: "rgba(15,23,42,0.45)",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(255,255,255,0.25)",
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        playGlyph: {
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: "rgba(15,23,42,0.4)",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(255,255,255,0.3)",
           alignItems: "center",
           justifyContent: "center"
         },
@@ -297,16 +323,19 @@ function ActiveFeedVideoPlayer({
           <Image source={{ uri: thumbnailUrl }} style={s.poster} resizeMode="cover" />
         ) : null}
         {!ready ? (
-          <View style={s.center}>
-            <ActivityIndicator color="#fff" />
-          </View>
+          <View
+            style={[s.center, { backgroundColor: "rgba(15,23,42,0.22)" }]}
+            pointerEvents="none"
+          />
         ) : null}
         <Pressable style={s.center} onPress={togglePlay}>
           {!playing ? (
-            <Ionicons name="play-circle" size={64} color="rgba(255,255,255,0.92)" />
+            <View style={s.playGlyph}>
+              <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+            </View>
           ) : null}
         </Pressable>
-        <View style={s.controls}>
+        <View style={s.controlsBar} pointerEvents="box-none">
           <Pressable
             style={s.ctrlBtn}
             onPress={toggleMute}

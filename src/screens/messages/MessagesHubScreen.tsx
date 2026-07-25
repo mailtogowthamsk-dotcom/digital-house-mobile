@@ -36,6 +36,9 @@ import { ThreadListPanel, ThreadRow } from "../../components/messages/ThreadList
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
+import { BottomTabBar, FLOATING_TAB_BAR_HEIGHT } from "../../components/home";
+import type { TabId } from "../../components/home/BottomTabBar";
+import { handleMainTabPress } from "../../navigation/mainTabs";
 
 const HISTORY_LIMIT = 50;
 
@@ -504,6 +507,28 @@ export function MessagesHubScreen() {
 
   const keyThread = useCallback((t: Thread) => String(t.otherUser.id), []);
 
+  const tabBottomPad = Math.max(layout.insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
+  const unreadMessageCount = useMemo(
+    () => threads.reduce((sum, t) => sum + (t.unreadCount ?? 0), 0),
+    [threads]
+  );
+
+  const onTabPress = useCallback(
+    (tab: TabId) => {
+      handleMainTabPress(navigation, "messages", tab);
+    },
+    [navigation]
+  );
+
+  const tabBar = (
+    <BottomTabBar
+      activeTab="messages"
+      onTabPress={onTabPress}
+      messageCount={unreadMessageCount}
+      bottomInset={layout.insets.bottom}
+    />
+  );
+
   const threadPanel = (
     <ThreadListPanel
       width={layout.sidebarWidth}
@@ -519,6 +544,7 @@ export function MessagesHubScreen() {
       keyThread={keyThread}
       folder={folder}
       onFolderChange={onFolderChange}
+      contentBottomInset={tabBottomPad}
     />
   );
 
@@ -544,6 +570,7 @@ export function MessagesHubScreen() {
         edges={["top", "left", "right"]}
       >
         <View style={styles.fill}>{threadPanel}</View>
+        {tabBar}
       </SafeAreaView>
     );
   }
@@ -552,7 +579,7 @@ export function MessagesHubScreen() {
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]} edges={["top", "left", "right"]}>
       <View style={styles.splitRow}>
         {threadPanel}
-        <View style={styles.chatColumn}>
+        <View style={[styles.chatColumn, { paddingBottom: tabBottomPad }]}>
           {selectedUser ? (
             <ChatPanel
               title={selectedUser.fullName}
@@ -599,6 +626,7 @@ export function MessagesHubScreen() {
           )}
         </View>
       </View>
+      {tabBar}
     </SafeAreaView>
   );
 }

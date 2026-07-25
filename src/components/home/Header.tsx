@@ -1,10 +1,13 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+/**
+ * Premium floating glass header — presentation polish only.
+ */
+
+import React, { memo, useMemo } from "react";
+import { View, Text, StyleSheet, Pressable, Platform, Animated } from "react-native";
+import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
-
-const BAR_HEIGHT = 56;
-const PADDING_HORIZONTAL = 16;
+import { spacing } from "../../theme/spacing";
 
 export type HeaderActionId =
   | "create"
@@ -27,143 +30,195 @@ type HeaderProps = {
   onNotificationPress?: () => void;
   onMessagePress?: () => void;
   onMenuPress?: () => void;
+  /** 0 = fully visible, 1 = hidden (translated up). */
+  hideProgress?: Animated.Value;
+  topInset?: number;
 };
 
-export function Header({
+const BAR_HEIGHT = 56;
+
+function HeaderInner({
   notificationCount = 0,
-  messageCount = 0,
   onNotificationPress,
-  onMessagePress,
-  onMenuPress
+  onMenuPress,
+  hideProgress,
+  topInset = 0
 }: HeaderProps) {
   const { colors, mode } = useTheme();
+  const travel = BAR_HEIGHT + topInset + 10;
+
+  const animStyle = hideProgress
+    ? {
+        transform: [
+          {
+            translateY: hideProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -travel]
+            })
+          }
+        ],
+        opacity: hideProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.12]
+        })
+      }
+    : undefined;
+
   const s = useMemo(
     () =>
       StyleSheet.create({
+        wrap: {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 40,
+          paddingTop: topInset,
+          overflow: "hidden"
+        },
+        glass: {
+          ...StyleSheet.absoluteFillObject
+        },
+        tint: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: colors.glass,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.glassBorder
+        },
         bar: {
           height: BAR_HEIGHT,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: PADDING_HORIZONTAL,
-          backgroundColor: colors.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.04,
-          shadowRadius: 6,
-          elevation: 2
+          paddingHorizontal: spacing.lg
         },
-        left: {
-          width: 44,
-          alignItems: "flex-start",
-          justifyContent: "center"
+        brandRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 11,
+          flex: 1,
+          paddingRight: spacing.sm
         },
-        logoIconWrap: {
+        logoMark: {
           width: 36,
           height: 36,
-          borderRadius: 10,
-          backgroundColor: mode === "dark" ? "#1E3A5F" : "#EFF6FF",
-          alignItems: "center",
-          justifyContent: "center"
-        },
-        center: {
-          position: "absolute",
-          left: 0,
-          right: 0,
+          borderRadius: 12,
+          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.28)" : "rgba(37,99,235,0.1)",
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 60
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: mode === "dark" ? "rgba(37,99,235,0.35)" : "rgba(37,99,235,0.18)"
+        },
+        brandText: {
+          flexShrink: 1
         },
         title: {
-          fontSize: 18,
-          fontWeight: "600",
+          fontSize: 19,
+          fontWeight: "700",
+          letterSpacing: -0.45,
           color: colors.text
+        },
+        subtitle: {
+          marginTop: 1,
+          fontSize: 11,
+          fontWeight: "500",
+          color: colors.textMuted,
+          letterSpacing: 0.2
         },
         right: {
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "flex-end",
-          minWidth: 120
+          gap: 4
         },
         iconBtn: {
-          width: 40,
-          height: 40,
+          width: 42,
+          height: 42,
+          borderRadius: 21,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          backgroundColor: mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.03)"
         },
-        iconBtnPressed: { opacity: 0.7 },
+        iconBtnPressed: {
+          backgroundColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.07)",
+          transform: [{ scale: 0.96 }]
+        },
         badge: {
           position: "absolute",
-          top: 4,
-          right: 4,
+          top: 6,
+          right: 6,
           minWidth: 18,
           height: 18,
           borderRadius: 9,
           backgroundColor: colors.error,
           alignItems: "center",
           justifyContent: "center",
-          paddingHorizontal: 4
+          paddingHorizontal: 4,
+          borderWidth: 2,
+          borderColor: mode === "dark" ? colors.surface : "#F3F4F8"
         },
         badgeText: {
-          fontSize: 11,
-          fontWeight: "600",
-          color: colors.white
+          fontSize: 10,
+          fontWeight: "700",
+          color: colors.white,
+          letterSpacing: -0.2
         }
       }),
-    [colors, mode]
+    [colors, mode, topInset]
   );
 
   return (
-    <View style={s.bar}>
-      <View style={s.left}>
-        <View style={s.logoIconWrap}>
-          <Ionicons name="home" size={24} color={colors.primary} />
+    <Animated.View style={[s.wrap, animStyle]} pointerEvents="box-none">
+      <BlurView
+        intensity={Platform.OS === "ios" ? 64 : 42}
+        tint={mode === "dark" ? "dark" : "light"}
+        style={s.glass}
+      />
+      <View style={s.tint} pointerEvents="none" />
+      <View style={s.bar}>
+        <View style={s.brandRow}>
+          <View style={s.logoMark}>
+            <Ionicons name="home" size={18} color={colors.primary} />
+          </View>
+          <View style={s.brandText}>
+            <Text style={s.title} numberOfLines={1}>
+              Digital House
+            </Text>
+            <Text style={s.subtitle} numberOfLines={1}>
+              Community
+            </Text>
+          </View>
+        </View>
+        <View style={s.right}>
+          <Pressable
+            style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
+            onPress={onNotificationPress}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
+            {notificationCount > 0 ? (
+              <View style={s.badge}>
+                <Text style={s.badgeText}>
+                  {notificationCount > 99 ? "99+" : notificationCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
+            onPress={onMenuPress}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Menu"
+          >
+            <Ionicons name="menu-outline" size={23} color={colors.text} />
+          </Pressable>
         </View>
       </View>
-      <View style={s.center}>
-        <Text style={s.title} numberOfLines={1}>
-          Digital House
-        </Text>
-      </View>
-      <View style={s.right}>
-        <Pressable
-          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
-          onPress={onNotificationPress}
-          hitSlop={8}
-        >
-          <Ionicons name="notifications-outline" size={24} color={colors.text} />
-          {notificationCount > 0 && (
-            <View style={s.badge}>
-              <Text style={s.badgeText}>
-                {notificationCount > 99 ? "99+" : notificationCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-        {/* <Pressable
-          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
-          onPress={onMessagePress}
-          hitSlop={8}
-        >
-          <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
-          {messageCount > 0 && (
-            <View style={s.badge}>
-              <Text style={s.badgeText}>
-                {messageCount > 99 ? "99+" : messageCount}
-              </Text>
-            </View>
-          )}
-        </Pressable> */}
-        <Pressable
-          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
-          onPress={onMenuPress}
-          hitSlop={8}
-        >
-          <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
-        </Pressable>
-      </View>
-    </View>
+    </Animated.View>
   );
 }
+
+export const Header = memo(HeaderInner);
+export { BAR_HEIGHT as FLOATING_HEADER_HEIGHT };
