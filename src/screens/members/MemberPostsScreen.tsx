@@ -24,10 +24,12 @@ import { useMemberPosts } from "../../hooks/useMemberPosts";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { memberPostToCardData } from "../../utils/postMappers";
 import { trackFeedAction } from "../../utils/feedAnalytics";
+import { promptReportPost } from "../../utils/promptReportPost";
 import type { PostLiker } from "../../api/posts.api";
 import { getImageUrl } from "../../api/client";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
+import { useAuth } from "../../context/AuthContext";
 
 type Params = {
   MemberPosts: {
@@ -47,6 +49,7 @@ export function MemberPostsScreen() {
   const route = useRoute<RouteProp<Params, "MemberPosts">>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { user: authUser } = useAuth();
   const { userId, username, name, profileImage } = route.params;
   const identifier = username || userId;
 
@@ -78,8 +81,6 @@ export function MemberPostsScreen() {
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setActiveMediaId(null);
-        setPreloadMediaId(null);
         pauseAllFeedVideos();
       };
     }, [])
@@ -120,11 +121,18 @@ export function MemberPostsScreen() {
           isMediaActive: item.id === activeMediaId,
           isMediaPreload: item.id === preloadMediaId
         }}
-        onPress={() => {
-          trackFeedAction("post_open", Number(item.id), { source: "member_posts" });
-          navigation.navigate("PostDetail", { postId: Number(item.id) });
+        onMenuPress={
+          authUser?.id != null && item.authorUserId === authUser.id
+            ? undefined
+            : () => {
+                trackFeedAction("post_report", Number(item.id), { source: "member_posts" });
+                promptReportPost(Number(item.id));
+              }
+        }
+        onActivateMedia={(postId) => {
+          setActiveMediaId(postId);
+          setPreloadMediaId((prev) => (prev === postId ? null : prev));
         }}
-        onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
         onDoubleTap={() => addLike(item.id, item)}
         onLikePress={() => toggleLike(item.id, item)}
         onLikeCountPress={() => setLikesPost(item)}
@@ -143,7 +151,7 @@ export function MemberPostsScreen() {
         }}
       />
     ),
-    [activeMediaId, preloadMediaId, addLike, navigation, toggleLike, toggleSave]
+    [activeMediaId, preloadMediaId, addLike, toggleLike, toggleSave, authUser?.id]
   );
 
   return (

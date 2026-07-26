@@ -2,12 +2,13 @@ import React, { useCallback, useState } from "react";
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Image } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getMatrimonyMatches } from "../../api/matrimony.api";
+import { getMatrimonyMatches, removeMatrimonyMatch } from "../../api/matrimony.api";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
+import { appAlert } from "../../utils/appAlert";
 
 type MatchRow = {
   matchId: number;
@@ -27,6 +28,7 @@ export function MatrimonyMatchesScreen() {
   const { colors } = useTheme();
   const [items, setItems] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingUserId, setActingUserId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +45,31 @@ export function MatrimonyMatchesScreen() {
     }, [load])
   );
 
+  const confirmRemoveMatch = (otherUserId: number, name: string) => {
+    appAlert(
+      "Remove match?",
+      `Chat with ${name} will be disabled for both of you.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove match",
+          style: "destructive",
+          onPress: async () => {
+            setActingUserId(otherUserId);
+            try {
+              await removeMatrimonyMatch(otherUserId);
+              setItems((prev) => prev.filter((m) => m.candidate.userId !== otherUserId));
+            } catch (e) {
+              appAlert("Remove match", e instanceof Error ? e.message : "Failed");
+            } finally {
+              setActingUserId(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <MatrimonyBrowseGate>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -57,17 +84,15 @@ export function MatrimonyMatchesScreen() {
           ListHeaderComponent={
             items.length > 0 ? (
               <View style={styles.banner}>
-                <Text style={styles.bannerEmoji}>🎉</Text>
-                <Text style={styles.bannerTitle}>Mutual interests</Text>
+                <Text style={styles.bannerTitle}>Your matches</Text>
                 <Text style={styles.bannerBody}>
-                  Open a match to chat, share horoscope, or reveal contact when both have accepted.
+                  Open a match to chat, share horoscope, or reveal contact. You can remove a match anytime.
                 </Text>
               </View>
             ) : null
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={{ fontSize: 40, marginBottom: 12 }}>💑</Text>
               <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>No mutual matches yet</Text>
               <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 }}>
                 When you and another member both send and accept interest, they appear here with chat unlocked.
@@ -78,6 +103,7 @@ export function MatrimonyMatchesScreen() {
             const uri = item.candidate.photoUrl
               ? getImageUrl(item.candidate.photoUrl) ?? item.candidate.photoUrl
               : null;
+            const busy = actingUserId === item.candidate.userId;
             return (
               <Pressable
                 style={[styles.card, { backgroundColor: colors.surface, borderColor: "#86EFAC" }]}
@@ -102,7 +128,7 @@ export function MatrimonyMatchesScreen() {
                     </Text>
                   ) : null}
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                    <Text style={styles.matchedPill}>✅ Matched</Text>
+                    <Text style={styles.matchedPill}>Matched</Text>
                     {item.chatEnabled ? (
                       <Text style={[styles.matchedPill, { backgroundColor: "#EFF6FF", color: "#2563EB" }]}>
                         Chat on
@@ -122,10 +148,23 @@ export function MatrimonyMatchesScreen() {
                         });
                       }}
                       style={[styles.chatBtn, { backgroundColor: colors.primary }]}
+                      disabled={busy}
                     >
                       <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Chat</Text>
                     </Pressable>
                   ) : null}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      confirmRemoveMatch(item.candidate.userId, item.candidate.name);
+                    }}
+                    style={styles.removeBtn}
+                    disabled={busy}
+                  >
+                    <Text style={{ color: "#B91C1C", fontWeight: "700", fontSize: 11 }}>
+                      {busy ? "…" : "Remove"}
+                    </Text>
+                  </Pressable>
                   <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>Profile →</Text>
                 </View>
               </Pressable>
@@ -147,7 +186,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#86EFAC"
   },
-  bannerEmoji: { fontSize: 24, marginBottom: 4 },
   bannerTitle: { fontSize: 15, fontWeight: "800", color: "#14532D" },
   bannerBody: { fontSize: 12, color: "#166534", marginTop: 4, lineHeight: 18 },
   card: {
@@ -172,5 +210,13 @@ const styles = StyleSheet.create({
     overflow: "hidden"
   },
   empty: { alignItems: "center", marginTop: 48, paddingHorizontal: spacing.lg },
-  chatBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }
+  chatBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  removeBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2"
+  }
 });

@@ -1,7 +1,7 @@
 /**
  * Feed media — layout sizing only. Playback behavior unchanged.
  * Images use natural aspect ratio so the full photo is visible (no crop).
- * Videos keep an immersive 4:5 frame.
+ * Videos use a tall portrait frame (between 4:5 and 9:16).
  */
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
@@ -11,7 +11,7 @@ import { getImageUrl } from "../../api/client";
 import { isYouTubeUrl, getYouTubeEmbedUrl } from "../../utils/youtube";
 import { useTheme } from "../../theme/ThemeContext";
 import { Shimmer } from "../ui/Shimmer";
-import { FeedVideoPlayer } from "../media/FeedVideoPlayer";
+import { FeedVideoPlayer, type FeedVideoPlayerHandle } from "../media/FeedVideoPlayer";
 import {
   DEFAULT_FEED_ASPECT_RATIO,
   getCachedAspectRatio,
@@ -20,8 +20,8 @@ import {
 } from "../../utils/imageDimensions";
 import type { PostMediaKind } from "../../config/media.config";
 
-/** Video frame: width:height = 4:5 → height/width */
-const VIDEO_PORTRAIT_RATIO = 5 / 4;
+/** Video frame: tall portrait, slightly under 9:16. */
+const VIDEO_PORTRAIT_RATIO = 1.5;
 const CARD_H_MARGIN = 8;
 const MEDIA_H_INSET = 6;
 
@@ -36,6 +36,10 @@ type PostMediaProps = {
   style?: object;
   feedMode?: boolean;
   cornerRadius?: number;
+  /** Activate + play when the inactive poster is tapped. */
+  onRequestPlay?: () => void;
+  /** Double-tap like from the video surface. */
+  onDoubleTapLike?: () => void;
 };
 
 function resolveKind(
@@ -52,17 +56,23 @@ function resolveKind(
   return "image";
 }
 
-function PostMediaInner({
-  mediaUrl,
-  mediaType,
-  thumbnailUrl,
-  isActive = false,
-  isPreload = false,
-  height: heightProp,
-  style,
-  feedMode = false,
-  cornerRadius = 14
-}: PostMediaProps) {
+const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
+  function PostMediaInner(
+    {
+      mediaUrl,
+      mediaType,
+      thumbnailUrl,
+      isActive = false,
+      isPreload = false,
+      height: heightProp,
+      style,
+      feedMode = false,
+      cornerRadius = 14,
+      onRequestPlay,
+      onDoubleTapLike
+    },
+    ref
+  ) {
   const { colors } = useTheme();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const raw = mediaUrl?.trim();
@@ -80,15 +90,20 @@ function PostMediaInner({
     ? Math.max(240, screenWidth - CARD_H_MARGIN * 2 - MEDIA_H_INSET * 2)
     : screenWidth - 32;
 
+  /** Full card width for video (no side inset) — matches Instagram full-bleed stage. */
+  const videoContentWidth = feedMode
+    ? Math.max(240, screenWidth - CARD_H_MARGIN * 2)
+    : contentWidth;
+
   const maxImageHeight = Math.round(screenHeight * 0.85);
 
-  /** Videos stay cinematic 4:5. */
+  /** Tall portrait video — between 4:5 and 9:16. */
   const videoFrameHeight = useMemo(() => {
-    const ideal = contentWidth * VIDEO_PORTRAIT_RATIO;
-    const maxH = Math.min(screenHeight * 0.78, contentWidth * 1.45);
-    const minH = contentWidth * 0.9;
+    const ideal = videoContentWidth * VIDEO_PORTRAIT_RATIO;
+    const maxH = Math.min(screenHeight * 0.78, videoContentWidth * 1.65);
+    const minH = videoContentWidth * 1.1;
     return Math.round(Math.max(minH, Math.min(ideal, maxH)));
-  }, [contentWidth, screenHeight]);
+  }, [videoContentWidth, screenHeight]);
 
   useEffect(() => {
     if (!imageUri) {
@@ -127,7 +142,7 @@ function PostMediaInner({
         wrap: {
           width: "100%",
           overflow: "hidden",
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: cornerRadius === 0 ? "#0B1220" : colors.surfaceElevated,
           borderRadius: cornerRadius
         },
         webview: { flex: 1, width: "100%", backgroundColor: "transparent" },
@@ -179,11 +194,14 @@ function PostMediaInner({
     return (
       <View style={[s.wrapOuter, s.wrap, style]}>
         <FeedVideoPlayer
+          ref={ref}
           uri={videoUri}
           thumbnailUrl={thumbUri}
           height={videoHeight}
           isActive={isActive}
           isPreload={isPreload && !isActive}
+          onRequestPlay={onRequestPlay}
+          onDoubleTapLike={onDoubleTapLike}
         />
       </View>
     );
@@ -210,6 +228,7 @@ function PostMediaInner({
       </View>
     </View>
   );
-}
+  }
+);
 
 export const PostMedia = memo(PostMediaInner);

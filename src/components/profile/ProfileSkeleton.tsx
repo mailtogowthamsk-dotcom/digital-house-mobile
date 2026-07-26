@@ -37,81 +37,56 @@ export function ProfileSkeleton() {
   const s = useMemo(
     () =>
       StyleSheet.create({
-        container: { flex: 1, paddingHorizontal: spacing.xl },
-        box: { backgroundColor: colors.border, borderRadius: radius.sm },
-        headerCard: {
-          backgroundColor: colors.surface,
-          borderRadius: radius.lg,
-          padding: spacing.xxl,
-          alignItems: "center",
-          marginBottom: spacing.xl,
-          borderWidth: 1,
-          borderColor: colors.border
+        container: {
+          flex: 1,
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.xxl
         },
-        avatar: { borderRadius: 48, marginBottom: spacing.lg },
-        line: { marginBottom: spacing.md },
-        section: { marginBottom: spacing.xl },
-        sectionTitle: { marginBottom: spacing.md },
+        box: { backgroundColor: colors.border, borderRadius: radius.sm },
+        header: { alignItems: "center", marginBottom: spacing.xl },
+        avatar: { borderRadius: 48, marginBottom: spacing.md },
+        line: { marginBottom: spacing.sm },
+        editBtn: { borderRadius: radius.lg, marginTop: spacing.md },
+        section: { marginBottom: spacing.md },
         card: {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          padding: spacing.lg,
-          borderWidth: 1,
+          padding: spacing.md,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border
         },
         row: { marginBottom: spacing.md },
-        statsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-        statCard: { borderRadius: radius.md },
-        tabRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
-        btn: { borderRadius: radius.md, marginBottom: spacing.sm }
+        logout: { borderRadius: radius.lg, marginTop: spacing.lg }
       }),
     [colors]
   );
 
   return (
     <View style={s.container}>
-      <View style={s.headerCard}>
+      <View style={s.header}>
         <SkeletonBox width={96} height={96} style={s.avatar} boxStyle={s.box} />
-        <SkeletonBox width="60%" height={24} style={s.line} boxStyle={s.box} />
-        <SkeletonBox width="40%" height={16} style={s.line} boxStyle={s.box} />
+        <SkeletonBox width="50%" height={22} style={s.line} boxStyle={s.box} />
+        <SkeletonBox width="30%" height={14} style={s.line} boxStyle={s.box} />
+        <SkeletonBox width="100%" height={44} style={s.editBtn} boxStyle={s.box} />
       </View>
       <View style={s.section}>
-        <SkeletonBox width={140} height={18} style={s.sectionTitle} boxStyle={s.box} />
+        <SkeletonBox width={90} height={12} style={s.line} boxStyle={s.box} />
         <View style={s.card}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <SkeletonBox key={i} width="100%" height={20} style={s.row} boxStyle={s.box} />
-          ))}
+          <SkeletonBox width="100%" height={48} style={s.row} boxStyle={s.box} />
+          <SkeletonBox width="100%" height={48} boxStyle={s.box} />
         </View>
       </View>
       <View style={s.section}>
-        <SkeletonBox width={160} height={18} style={s.sectionTitle} boxStyle={s.box} />
         <View style={s.card}>
-          {[1, 2, 3, 4].map((i) => (
-            <SkeletonBox key={i} width="100%" height={20} style={s.row} boxStyle={s.box} />
-          ))}
+          <SkeletonBox width="100%" height={20} style={s.row} boxStyle={s.box} />
         </View>
       </View>
       <View style={s.section}>
-        <SkeletonBox width={120} height={18} style={s.sectionTitle} boxStyle={s.box} />
-        <View style={s.statsRow}>
-          {[1, 2, 3, 4].map((i) => (
-            <SkeletonBox key={i} width={80} height={70} style={s.statCard} boxStyle={s.box} />
-          ))}
+        <View style={s.card}>
+          <SkeletonBox width="100%" height={20} boxStyle={s.box} />
         </View>
       </View>
-      <View style={s.section}>
-        <SkeletonBox width={100} height={18} style={s.sectionTitle} boxStyle={s.box} />
-        <View style={s.tabRow}>
-          <SkeletonBox width={80} height={36} boxStyle={s.box} />
-          <SkeletonBox width={70} height={36} boxStyle={s.box} />
-          <SkeletonBox width={60} height={36} boxStyle={s.box} />
-        </View>
-        <SkeletonBox width="100%" height={120} style={s.card} boxStyle={s.box} />
-      </View>
-      <View style={s.section}>
-        <SkeletonBox width="100%" height={52} style={s.btn} boxStyle={s.box} />
-        <SkeletonBox width="100%" height={52} style={s.btn} boxStyle={s.box} />
-      </View>
+      <SkeletonBox width="100%" height={44} style={s.logout} boxStyle={s.box} />
     </View>
   );
 }

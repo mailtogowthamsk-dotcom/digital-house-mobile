@@ -61,6 +61,7 @@ const emptyForm = (): MatrimonyProfileData => ({
   nakshatram: null,
   dosham: "No",
   motherName: null,
+  fatherName: null,
   fatherOccupation: null,
   brothersCount: 0,
   sistersCount: 0,
@@ -157,13 +158,12 @@ export function MatrimonySetupScreen() {
       setChangeRequest(hub.pending);
       setRequestedFields(new Set(hub.pending?.requested_fields ?? []));
 
-      const base = hub.status === "CHANGES_REQUESTED" || hub.status === "REJECTED"
-        ? { ...emptyForm(), ...(hub.draft ?? {}) }
-        : {
-            ...emptyForm(),
-            ...(hub.draft ?? {}),
-            ...(hub.approved ?? {})
-          };
+      // Draft is the latest edit — always prefer it over approved snapshot.
+      const base = {
+        ...emptyForm(),
+        ...(hub.approved ?? {}),
+        ...(hub.draft ?? {})
+      };
 
       const merged = {
         ...base,
@@ -171,7 +171,11 @@ export function MatrimonySetupScreen() {
         profilePhotoUrl: base.candidatePhotoUrl ?? base.profilePhotoUrl ?? null,
         useAccountProfilePhoto: base.useAccountProfilePhoto ?? false,
         motherTongue: base.motherTongue ?? "Tamil",
-        kulamSnapshot: base.kulamSnapshot ?? hub.user_context.kulam ?? null
+        kulamSnapshot: base.kulamSnapshot ?? hub.user_context.kulam ?? null,
+        fatherName:
+          (typeof base.fatherName === "string" && base.fatherName.trim()) ||
+          hub.user_context.father_name ||
+          null
       };
       setForm(merged);
       setAccountProfilePhoto(hub.account_profile_photo ?? hub.user_context.profile_image ?? null);
@@ -304,14 +308,33 @@ export function MatrimonySetupScreen() {
     }
   };
 
-  const persistDraft = async () => {
-    const payload = {
+  const buildSavePayload = (omitNulls: boolean) => {
+    const raw: Record<string, unknown> = {
       ...form,
       kulamSnapshot: userKulam,
       matrimonyProfileActive: true
     };
+    if (!omitNulls) return raw as typeof form & { kulamSnapshot: string | null; matrimonyProfileActive: true };
+    return Object.fromEntries(
+      Object.entries(raw).filter(([, v]) => v !== null && v !== undefined)
+    ) as typeof form & { kulamSnapshot: string | null; matrimonyProfileActive: true };
+  };
+
+  const persistDraft = async () => {
+    // Omit nulls so step-0 save (family still empty) cannot wipe fatherName / family fields.
+    const payload = buildSavePayload(true);
     const hub = await saveMatrimonyDraft(payload);
     setCompletion(hub.completion_percentage);
+    if (hub.draft) {
+      setForm((prev) => ({
+        ...prev,
+        ...hub.draft,
+        fatherName:
+          (typeof hub.draft?.fatherName === "string" && hub.draft.fatherName.trim()) ||
+          (typeof prev.fatherName === "string" && prev.fatherName.trim()) ||
+          null
+      }));
+    }
     return hub;
   };
 
@@ -330,11 +353,7 @@ export function MatrimonySetupScreen() {
   const onSubmit = async () => {
     setSaving(true);
     try {
-      const hub = await submitMatrimonyProfile({
-        ...form,
-        kulamSnapshot: userKulam,
-        matrimonyProfileActive: true
-      });
+      const hub = await submitMatrimonyProfile(buildSavePayload(false));
       const alreadyQueued =
         hub.message?.includes("already under review") ||
         hub.message?.includes("already resubmitted");
@@ -624,6 +643,11 @@ export function MatrimonySetupScreen() {
             <View style={s.section}>
               <Text style={s.sectionTitle}>Family</Text>
               <Input value={form.motherName ?? ""} onChangeText={(t) => patch({ motherName: t || null })} placeholder="Mother's name *" />
+              <Input
+                value={form.fatherName ?? ""}
+                onChangeText={(t) => patch({ fatherName: t || null })}
+                placeholder="Father's name *"
+              />
               <Input
                 value={form.fatherOccupation ?? ""}
                 onChangeText={(t) => patch({ fatherOccupation: t || null })}

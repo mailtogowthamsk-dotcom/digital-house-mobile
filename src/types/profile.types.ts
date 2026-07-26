@@ -47,6 +47,7 @@ export type MatrimonySectionForm = {
   familyType: string | null;
   familyStatus: string | null;
   motherName: string | null;
+  fatherName: string | null;
   fatherOccupation: string | null;
   numberOfSiblings: number | null;
   partnerPreferences: string | null;

@@ -45,9 +45,11 @@ import { relationshipLabel } from "../../utils/relationshipStatus";
 import { memberPostToCardData } from "../../utils/postMappers";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { appAlert } from "../../utils/appAlert";
+import { promptReportPost } from "../../utils/promptReportPost";
 import { useMemberPosts } from "../../hooks/useMemberPosts";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import type { PostLiker } from "../../api/posts.api";
+import { useAuth } from "../../context/AuthContext";
 
 type Params = { MemberProfile: { userId?: number; username?: string } };
 
@@ -65,6 +67,7 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
 export function MemberProfileScreen() {
   const navigation = useNavigation<any>();
   const { colors, mode } = useTheme();
+  const { user: authUser } = useAuth();
   const route = useRoute<RouteProp<Params, "MemberProfile">>();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,8 +134,6 @@ export function MemberProfileScreen() {
     useCallback(() => {
       void load();
       return () => {
-        setActiveMediaId(null);
-        setPreloadMediaId(null);
         pauseAllFeedVideos();
       };
     }, [load])
@@ -697,11 +698,18 @@ export function MemberProfileScreen() {
               isMediaActive: item.id === activeMediaId,
               isMediaPreload: item.id === preloadMediaId
             }}
-            onPress={() => {
-              trackFeedAction("post_open", Number(item.id), { source: "member_profile" });
-              navigation.navigate("PostDetail", { postId: Number(item.id) });
+            onMenuPress={
+              authUser?.id != null && item.authorUserId === authUser.id
+                ? undefined
+                : () => {
+                    trackFeedAction("post_report", Number(item.id), { source: "member_profile" });
+                    promptReportPost(Number(item.id));
+                  }
+            }
+            onActivateMedia={(postId) => {
+              setActiveMediaId(postId);
+              setPreloadMediaId((prev) => (prev === postId ? null : prev));
             }}
-            onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
             onDoubleTap={() => addLike(item.id, item)}
             onLikePress={() => toggleLike(item.id, item)}
             onLikeCountPress={() => {

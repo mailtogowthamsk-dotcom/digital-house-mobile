@@ -32,6 +32,7 @@ import {
   syncPushTokenWithBackend
 } from "../../services/pushNotifications";
 import { getLinkedAccounts, type LinkedAccountsResponse } from "../../api/auth.api";
+import { appAlert } from "../../utils/appAlert";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -114,10 +115,21 @@ export function SettingsScreen() {
   const patch = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!prefs) return;
 
+    // Turning push ON: ask for OS permission when device push is supported.
+    // Always still persist the preference so on/off works (including Expo Go).
     if (key === "pushEnabled" && value) {
-      if (!isRemotePushSupported()) return;
-      const granted = await requestPushPermissions();
-      if (!granted) return;
+      if (!isRemotePushSupported()) {
+        // Preference can still be saved; device alerts need a real build.
+      } else {
+        const granted = await requestPushPermissions();
+        if (!granted) {
+          appAlert(
+            "Permission needed",
+            "Enable notifications in your phone settings to receive push alerts."
+          );
+          return;
+        }
+      }
     }
 
     const prev = prefs;
@@ -127,10 +139,24 @@ export function SettingsScreen() {
       const saved = await updateNotificationPreferences({ [key]: value });
       setPrefs(saved);
       if (key === "pushEnabled" && value) {
-        await syncPushTokenWithBackend(true);
+        if (isRemotePushSupported()) {
+          const synced = await syncPushTokenWithBackend(true);
+          if (!synced) {
+            appAlert(
+              "Push preference saved",
+              "Could not register this device for alerts yet. In-app notifications still work."
+            );
+          }
+        } else if (isExpoGo()) {
+          appAlert(
+            "Push preference saved",
+            "Device push alerts need a development build (npx expo run:android). In-app notifications still work in Expo Go."
+          );
+        }
       }
     } catch {
       setPrefs(prev);
+      appAlert("Couldn't update", "Please try again.");
     }
   };
 
@@ -307,11 +333,13 @@ export function SettingsScreen() {
             label="Push notifications"
             subtitle={
               isExpoGo()
-                ? "Requires dev build (npx expo run:android) — not available in Expo Go"
-                : "Device alerts when app is closed (FCM / Expo)"
+                ? "Saves your preference. Device alerts need a dev build — in-app alerts still work"
+                : !isRemotePushSupported()
+                  ? "Push alerts require a physical device"
+                  : "Device alerts when app is closed (FCM / Expo)"
             }
             value={prefs.pushEnabled}
-            onValueChange={(v) => patch("pushEnabled", v)}
+            onValueChange={(v) => void patch("pushEnabled", v)}
             colors={colors}
           />
         </View>

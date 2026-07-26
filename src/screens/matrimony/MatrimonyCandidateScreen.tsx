@@ -9,6 +9,8 @@ import {
   openMatrimonyProfile,
   sendMatrimonyInterest,
   respondMatrimonyInterest,
+  withdrawMatrimonyInterest,
+  removeMatrimonyMatch,
   getMatrimonyHoroscope,
   requestMatrimonyHoroscope,
   shareMatrimonyHoroscope,
@@ -30,7 +32,7 @@ import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MatrimonyProfileSection } from "../../components/matrimony/MatrimonyProfileSection";
 import { MatrimonyChipRow } from "../../components/matrimony/MatrimonyChip";
-import { buildDiscoverChips, interestStatusLabel } from "../../components/matrimony/matrimonyUi";
+import { buildDiscoverChips, interestStatusLabel, formatMatrimonyIncome, formatSiblingCounts } from "../../components/matrimony/matrimonyUi";
 import { useMatrimonyBrowseGuard } from "../../hooks/useMatrimonyBrowseGuard";
 import { appAlert } from "../../utils/appAlert";
 
@@ -158,6 +160,56 @@ export function MatrimonyCandidateScreen() {
     }
   };
 
+  const confirmWithdrawInterest = () => {
+    const interestId = profile?.sentInterestId;
+    if (!interestId) return;
+    appAlert("Withdraw interest?", "They will no longer see this interest request.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Withdraw",
+        style: "destructive",
+        onPress: async () => {
+          setActing(true);
+          try {
+            await withdrawMatrimonyInterest(interestId);
+            appAlert("Withdrawn", "Your interest has been withdrawn.");
+            await load();
+          } catch (e) {
+            appAlert("Withdraw", e instanceof Error ? e.message : "Failed");
+          } finally {
+            setActing(false);
+          }
+        }
+      }
+    ]);
+  };
+
+  const confirmRemoveMatch = () => {
+    appAlert(
+      "Remove match?",
+      "Chat will be disabled for both of you. You can send interest again later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove match",
+          style: "destructive",
+          onPress: async () => {
+            setActing(true);
+            try {
+              await removeMatrimonyMatch(userId);
+              appAlert("Match removed", "Chat is no longer available for this match.");
+              await load();
+            } catch (e) {
+              appAlert("Remove match", e instanceof Error ? e.message : "Failed");
+            } finally {
+              setActing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const openHoroscope = async () => {
     try {
       const { url } = await getMatrimonyHoroscope(userId);
@@ -232,16 +284,19 @@ export function MatrimonyCandidateScreen() {
 
   const toggleSave = async () => {
     if (!profile) return;
+    const nextSaved = !profile.saved;
     setActing(true);
+    setProfile((prev) => (prev ? { ...prev, saved: nextSaved } : prev));
     try {
-      if (profile.saved) {
-        await unsaveMatrimonyProfile(userId);
-      } else {
+      if (nextSaved) {
         await saveMatrimonyProfile(userId);
+      } else {
+        await unsaveMatrimonyProfile(userId);
       }
-      await load();
-    } catch (e) {
-      appAlert("Error", e instanceof Error ? e.message : "Failed");
+    } catch (e: unknown) {
+      setProfile((prev) => (prev ? { ...prev, saved: !nextSaved } : prev));
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      appAlert("Error", err.response?.data?.message ?? err.message ?? "Failed to save profile");
     } finally {
       setActing(false);
     }
@@ -428,18 +483,23 @@ export function MatrimonyCandidateScreen() {
                 <Text style={styles.verifiedText}>● Verified</Text>
               </View>
             ) : null}
-            {!profile.mutualMatch ? (
-              <View style={[styles.statusPill, status.tone === "pending" && styles.statusPending]}>
-                <Text
-                  style={[
-                    styles.statusText,
-                    status.tone === "pending" && { color: "#92400E" }
-                  ]}
-                >
-                  {status.label}
-                </Text>
-              </View>
-            ) : null}
+            <View
+              style={[
+                styles.statusPill,
+                status.tone === "pending" && styles.statusPending,
+                profile.mutualMatch && styles.statusMatched
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  status.tone === "pending" && { color: "#92400E" },
+                  profile.mutualMatch && { color: "#14532D" }
+                ]}
+              >
+                {status.label}
+              </Text>
+            </View>
           </View>
         </LinearGradient>
 
@@ -453,11 +513,20 @@ export function MatrimonyCandidateScreen() {
 
           {profile.interestStatus === "SENT_PENDING" && (
             <View style={styles.waitBanner}>
-              <Text style={styles.waitTitle}>⏳ Waiting for response</Text>
+              <Text style={styles.waitTitle}>Waiting for response</Text>
               <Text style={styles.waitBody}>
                 Your interest was sent. You will be notified when they accept. Contact unlocks after mutual
                 match.
               </Text>
+              {profile.sentInterestId ? (
+                <PrimaryButton
+                  title="Withdraw interest"
+                  variant="outline"
+                  onPress={confirmWithdrawInterest}
+                  disabled={acting}
+                  style={{ marginTop: 10 }}
+                />
+              ) : null}
             </View>
           )}
 
@@ -483,7 +552,7 @@ export function MatrimonyCandidateScreen() {
             </View>
           ) : null}
 
-          {profile.canSendInterest ? (
+          {!profile.mutualMatch && profile.canSendInterest ? (
             <View style={styles.actionCard}>
               <TextInput
                 value={interestIntro}
@@ -504,8 +573,10 @@ export function MatrimonyCandidateScreen() {
 
           {profile.mutualMatch && (
             <View style={styles.matchBanner}>
-              <Text style={styles.matchTitle}>🎉 Mutual interest</Text>
-              <Text style={styles.matchBody}>Chat, horoscope, and contact options are unlocked.</Text>
+              <Text style={styles.matchTitle}>Matched</Text>
+              <Text style={styles.matchBody}>
+                Manage this match below. Chat and horoscope stay available until the match is removed.
+              </Text>
               {profile.chatEnabled && (
                 <PrimaryButton
                   title="Open chat"
@@ -545,6 +616,22 @@ export function MatrimonyCandidateScreen() {
                   style={{ marginTop: 8 }}
                 />
               )}
+              <PrimaryButton
+                title="Remove match"
+                variant="outline"
+                onPress={confirmRemoveMatch}
+                disabled={acting}
+                style={{ marginTop: 8 }}
+              />
+              <View style={styles.matchSafetyRow}>
+                <Pressable onPress={openReportReasons} disabled={acting} hitSlop={6}>
+                  <Text style={styles.matchSafetyLink}>Report</Text>
+                </Pressable>
+                <Text style={styles.matchSafetyDot}>·</Text>
+                <Pressable onPress={confirmBlock} disabled={acting} hitSlop={6}>
+                  <Text style={[styles.matchSafetyLink, { color: "#B91C1C" }]}>Block</Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
@@ -552,8 +639,12 @@ export function MatrimonyCandidateScreen() {
             title="Personal details"
             icon="👤"
             fields={[
+              { label: "Gender", value: profile.gender },
+              { label: "District", value: profile.district },
+              { label: "Mother tongue", value: profile.motherTongue },
               { label: "Marital status", value: profile.maritalStatus },
-              { label: "Height · Complexion", value: [profile.height, profile.complexion].filter(Boolean).join(" · ") },
+              { label: "Height", value: profile.height },
+              { label: "Complexion", value: profile.complexion },
               { label: "About me", value: profile.aboutMe }
             ]}
           />
@@ -563,7 +654,9 @@ export function MatrimonyCandidateScreen() {
             icon="🕉"
             fields={[
               { label: "Kulam", value: profile.kulam ?? profile.kulamLabel },
-              { label: "Rashi · Nakshatram", value: [profile.rashi, profile.nakshatram].filter(Boolean).join(" · ") },
+              { label: "Gotra", value: profile.gotra },
+              { label: "Rashi", value: profile.rashi },
+              { label: "Nakshatram", value: profile.nakshatram },
               { label: "Dosham", value: profile.dosham }
             ]}
           />
@@ -573,7 +666,28 @@ export function MatrimonyCandidateScreen() {
             icon="🎓"
             fields={[
               { label: "Education", value: profile.education },
-              { label: "Occupation", value: profile.occupation }
+              { label: "Occupation", value: profile.occupation },
+              { label: "Employer", value: profile.employer },
+              {
+                label: "Annual income",
+                value: formatMatrimonyIncome(profile.annualIncome)
+              }
+            ]}
+          />
+
+          <MatrimonyProfileSection
+            title="Family"
+            icon="👨‍👩‍👧"
+            fields={[
+              { label: "Father's name", value: profile.fatherName },
+              { label: "Father's occupation", value: profile.fatherOccupation },
+              { label: "Mother's name", value: profile.motherName },
+              { label: "Family type", value: profile.familyType },
+              { label: "Family status", value: profile.familyStatus },
+              {
+                label: "Siblings",
+                value: formatSiblingCounts(profile.brothersCount, profile.sistersCount)
+              }
             ]}
           />
 
@@ -681,6 +795,7 @@ const styles = StyleSheet.create({
   verifiedText: { color: "#16A34A", fontSize: 11, fontWeight: "700" },
   statusPill: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusPending: { backgroundColor: "#FEF3C7" },
+  statusMatched: { backgroundColor: "#DCFCE7" },
   statusText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   body: { padding: spacing.lg, paddingTop: spacing.md },
   sectionPad: { marginBottom: spacing.md },
@@ -715,6 +830,15 @@ const styles = StyleSheet.create({
   },
   matchTitle: { fontSize: 15, fontWeight: "800", color: "#14532D" },
   matchBody: { fontSize: 13, color: "#166534", marginTop: 4, lineHeight: 18 },
+  matchSafetyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 12
+  },
+  matchSafetyLink: { fontSize: 13, fontWeight: "700", color: "#475569" },
+  matchSafetyDot: { fontSize: 13, color: "#94A3B8" },
   mediaCard: {
     borderRadius: radius.lg,
     borderWidth: 1,

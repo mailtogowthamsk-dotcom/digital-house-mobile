@@ -6,18 +6,30 @@
 
 type PauseHandle = () => void;
 
-const players = new Set<PauseHandle>();
+const players = new Map<object, PauseHandle>();
 
-export function registerFeedVideoPlayer(pause: PauseHandle): () => void {
-  players.add(pause);
+export function registerFeedVideoPlayer(key: object, pause: PauseHandle): () => void {
+  players.set(key, pause);
   return () => {
-    players.delete(pause);
+    players.delete(key);
   };
 }
 
 /** Pause every registered feed video (navigation / app background safety net). */
 export function pauseAllFeedVideos(): void {
-  for (const pause of [...players]) {
+  for (const pause of [...players.values()]) {
+    try {
+      pause();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Pause every registered feed video except the one about to play. */
+export function pauseOtherFeedVideos(exceptKey: object): void {
+  for (const [key, pause] of [...players.entries()]) {
+    if (key === exceptKey) continue;
     try {
       pause();
     } catch {

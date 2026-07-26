@@ -8,6 +8,8 @@ export type HomeUserBasic = {
   name: string;
   profileImage: string | null;
   verified: boolean;
+  community?: string | null;
+  kulam?: string | null;
 };
 
 export type QuickActionCounts = {

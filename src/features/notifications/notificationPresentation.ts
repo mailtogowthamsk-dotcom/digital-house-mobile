@@ -11,6 +11,7 @@ const MATRIMONY_PRIORITY_TYPES = new Set([
   "MATRIMONY_INTEREST_ACCEPTED",
   "MATRIMONY_INTEREST_DECLINED",
   "MATRIMONY_MATCH",
+  "MATRIMONY_MATCH_REMOVED",
   "MATRIMONY_PROFILE_APPROVED",
   "MATRIMONY_APPLICATION_SUBMITTED",
   "MATRIMONY_CHANGES_REQUESTED",
@@ -46,6 +47,8 @@ export function getNotificationVisual(type: string, category: NotificationCatego
       return { icon: "heart-dislike", accent: "#64748B", accentSoft: "rgba(100, 116, 139, 0.12)" };
     case "MATRIMONY_MATCH":
       return { icon: "sparkles", accent: "#DB2777", accentSoft: "rgba(219, 39, 119, 0.12)" };
+    case "MATRIMONY_MATCH_REMOVED":
+      return { icon: "heart-dislike", accent: "#64748B", accentSoft: "rgba(100, 116, 139, 0.12)" };
     case "MATRIMONY_PROFILE_APPROVED":
     case "ACCOUNT_VERIFIED":
       return { icon: "shield-checkmark", accent: "#059669", accentSoft: "rgba(5, 150, 105, 0.12)" };

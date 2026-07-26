@@ -25,6 +25,8 @@ export type HeaderActionId =
   | "help-support";
 
 type HeaderProps = {
+  /** Community label from DB — shown only when present. */
+  communityName?: string | null;
   notificationCount?: number;
   messageCount?: number;
   onNotificationPress?: () => void;
@@ -36,8 +38,10 @@ type HeaderProps = {
 };
 
 const BAR_HEIGHT = 56;
+const SIDE_WIDTH = 96;
 
 function HeaderInner({
+  communityName,
   notificationCount = 0,
   onNotificationPress,
   onMenuPress,
@@ -46,6 +50,10 @@ function HeaderInner({
 }: HeaderProps) {
   const { colors, mode } = useTheme();
   const travel = BAR_HEIGHT + topInset + 10;
+  const community =
+    typeof communityName === "string" && communityName.trim()
+      ? communityName.trim()
+      : null;
 
   const animStyle = hideProgress
     ? {
@@ -89,15 +97,25 @@ function HeaderInner({
           height: BAR_HEIGHT,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: spacing.lg
+          paddingHorizontal: spacing.md
         },
-        brandRow: {
+        side: {
+          width: SIDE_WIDTH,
           flexDirection: "row",
-          alignItems: "center",
-          gap: 11,
+          alignItems: "center"
+        },
+        sideLeft: {
+          justifyContent: "flex-start"
+        },
+        sideRight: {
+          justifyContent: "flex-end",
+          gap: 4
+        },
+        center: {
           flex: 1,
-          paddingRight: spacing.sm
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: spacing.xs
         },
         logoMark: {
           width: 36,
@@ -109,26 +127,20 @@ function HeaderInner({
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: mode === "dark" ? "rgba(37,99,235,0.35)" : "rgba(37,99,235,0.18)"
         },
-        brandText: {
-          flexShrink: 1
-        },
         title: {
           fontSize: 19,
           fontWeight: "700",
           letterSpacing: -0.45,
-          color: colors.text
+          color: colors.text,
+          textAlign: "center"
         },
         subtitle: {
           marginTop: 1,
           fontSize: 11,
           fontWeight: "500",
           color: colors.textMuted,
-          letterSpacing: 0.2
-        },
-        right: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 4
+          letterSpacing: 0.2,
+          textAlign: "center"
         },
         iconBtn: {
           width: 42,
@@ -175,20 +187,24 @@ function HeaderInner({
       />
       <View style={s.tint} pointerEvents="none" />
       <View style={s.bar}>
-        <View style={s.brandRow}>
+        <View style={[s.side, s.sideLeft]}>
           <View style={s.logoMark}>
             <Ionicons name="home" size={18} color={colors.primary} />
           </View>
-          <View style={s.brandText}>
-            <Text style={s.title} numberOfLines={1}>
-              Digital House
-            </Text>
-            <Text style={s.subtitle} numberOfLines={1}>
-              Community
-            </Text>
-          </View>
         </View>
-        <View style={s.right}>
+
+        <View style={s.center} pointerEvents="none">
+          <Text style={s.title} numberOfLines={1}>
+            Digital House
+          </Text>
+          {community ? (
+            <Text style={s.subtitle} numberOfLines={1}>
+              {community}
+            </Text>
+          ) : null}
+        </View>
+
+        <View style={[s.side, s.sideRight]}>
           <Pressable
             style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
             onPress={onNotificationPress}

@@ -116,7 +116,7 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
     "/notifications/preferences"
   );
   if (!data?.ok) throw new Error("Failed to load preferences");
-  return data;
+  return normalizePreferences(data);
 }
 
 export async function updateNotificationPreferences(
@@ -127,7 +127,20 @@ export async function updateNotificationPreferences(
     patch
   );
   if (!data?.ok) throw new Error("Failed to update preferences");
-  return data;
+  return normalizePreferences(data);
+}
+
+function normalizePreferences(
+  data: Partial<NotificationPreferences> & { ok?: boolean }
+): NotificationPreferences {
+  return {
+    socialEnabled: !!data.socialEnabled,
+    matrimonyEnabled: !!data.matrimonyEnabled,
+    messagesEnabled: !!data.messagesEnabled,
+    communityEnabled: !!data.communityEnabled,
+    systemEnabled: !!data.systemEnabled,
+    pushEnabled: !!data.pushEnabled
+  };
 }
 
 export async function registerPushToken(input: {

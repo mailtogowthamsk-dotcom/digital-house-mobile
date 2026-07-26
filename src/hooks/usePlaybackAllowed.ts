@@ -28,8 +28,10 @@ export function usePlaybackAllowed(): boolean {
 }
 
 /**
- * Clears an "active media id" when the screen blurs so returning to the feed
- * re-evaluates viewability instead of blindly resuming a stale player.
+ * Prefer pausing videos on blur without clearing the active media id.
+ * FlatList often does not re-fire viewability when a screen regains focus,
+ * so clearing the id leaves a dead poster with a non-interactive play button.
+ * Keep the active id mounted and gate playback with `usePlaybackAllowed`.
  */
 export function useClearActiveMediaOnBlur(clear: () => void): void {
   const isFocused = useIsFocused();

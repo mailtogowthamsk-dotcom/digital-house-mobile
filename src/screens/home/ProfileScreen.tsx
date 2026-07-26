@@ -21,7 +21,6 @@ import {
   ProfileHeader,
   PersonalInfoSection,
   ProfessionalInfoSection,
-  StatsCards,
   ProfileContentLinks,
   ActionButtons,
   ProfileSkeleton
@@ -60,7 +59,7 @@ export function ProfileScreen() {
         },
         listContent: {
           flexGrow: 1,
-          paddingHorizontal: spacing.xl,
+          paddingHorizontal: spacing.lg,
           paddingBottom: tabBottomPad
         },
         errorIconWrap: {
@@ -138,23 +137,23 @@ export function ProfileScreen() {
           verified={profile.verified}
           member_since={profile.member_since}
           completion_percentage={profile.completion_percentage}
+          onEditPress={onEditPress}
         />
-        <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
-        <ProfessionalInfoSection professional={profile.professional_info} />
-        <StatsCards stats={profile.stats} />
         <ProfileContentLinks
           totalPosts={profile.stats?.total_posts ?? 0}
           onMyPostsPress={() => navigation.navigate("MyPosts")}
           onMyActivityPress={() => navigation.navigate("MyActivity")}
         />
+        <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
+        <ProfessionalInfoSection professional={profile.professional_info} />
       </>
     );
-  }, [profile, navigation, user?.username]);
+  }, [profile, navigation, user?.username, onEditPress]);
 
   const listFooter = useMemo(
     () => (
       <>
-        <ActionButtons onEditPress={onEditPress} onLogoutPress={onLogoutPress} />
+        <ActionButtons onLogoutPress={onLogoutPress} />
         <ConfirmDialog
           visible={logoutDialogVisible}
           title={messages.confirm.logoutTitle}
@@ -167,7 +166,7 @@ export function ProfileScreen() {
         />
       </>
     ),
-    [onEditPress, onLogoutPress, logoutDialogVisible, onLogoutConfirm, onLogoutCancel]
+    [onLogoutPress, logoutDialogVisible, onLogoutConfirm, onLogoutCancel]
   );
 
   const tabBar = (
@@ -214,7 +213,7 @@ export function ProfileScreen() {
         data={[]}
         renderItem={() => null}
         ListHeaderComponent={
-          <View style={{ paddingTop: insets.top + spacing.lg }}>{listHeader}</View>
+          <View style={{ paddingTop: insets.top + spacing.md }}>{listHeader}</View>
         }
         ListFooterComponent={<View>{listFooter}</View>}
         contentContainerStyle={s.listContent}

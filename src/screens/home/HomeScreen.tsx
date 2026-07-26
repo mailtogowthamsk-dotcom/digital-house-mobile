@@ -48,6 +48,7 @@ import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
+import { promptReportPost } from "../../utils/promptReportPost";
 import { openMessagesInbox } from "../../navigation/openMessages";
 import { handleMainTabPress } from "../../navigation/mainTabs";
 import type { RootStackParamList } from "../../navigation/types";
@@ -179,9 +180,10 @@ export function HomeScreen() {
       } else {
         focusRefreshRef.current = true;
       }
+      // Pause only — keep activeMediaPostId so the player stays mounted and
+      // resumes when playbackAllowed becomes true again (viewability often
+      // does not re-fire on focus, which left a dead play button).
       return () => {
-        setActiveMediaPostId(null);
-        setPreloadMediaPostId(null);
         pauseAllFeedVideos();
       };
     }, [route.params?.tab])
@@ -217,6 +219,7 @@ export function HomeScreen() {
     }
     if (tab === "home" || tab === "explore") {
       if (tab !== activeTab) {
+        // Switching feed panes: drop active players so the other pane starts clean.
         setActiveMediaPostId(null);
         setPreloadMediaPostId(null);
         pauseAllFeedVideos();
@@ -224,9 +227,8 @@ export function HomeScreen() {
       setActiveTab(tab);
       return;
     }
+    // Leaving to Messages / Profile / etc. — pause but keep active id for resume.
     if (tab !== activeTab) {
-      setActiveMediaPostId(null);
-      setPreloadMediaPostId(null);
       pauseAllFeedVideos();
     }
     handleMainTabPress(navigation, activeTab, tab);
@@ -303,11 +305,18 @@ export function HomeScreen() {
           isMediaPreload: item.id === preloadMediaPostId
         }}
         onAuthorPress={() => handleAuthorPress(item)}
-        onPress={() => {
-          trackFeedAction("post_open", Number(item.id));
-          navigation.navigate("PostDetail", { postId: Number(item.id) });
+        onMenuPress={
+          authUser?.id != null && item.authorUserId === authUser.id
+            ? undefined
+            : () => {
+                trackFeedAction("post_report", Number(item.id));
+                promptReportPost(Number(item.id));
+              }
+        }
+        onActivateMedia={(postId) => {
+          setActiveMediaPostId(postId);
+          setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
         }}
-        onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
         onDoubleTap={() => addLike(item.id, item)}
         onLikePress={() => toggleLike(item.id, item)}
         onLikeCountPress={() => {
@@ -332,7 +341,15 @@ export function HomeScreen() {
         }}
       />
     ),
-    [navigation, addLike, toggleLike, toggleSave, activeMediaPostId, preloadMediaPostId, handleAuthorPress]
+    [
+      addLike,
+      toggleLike,
+      toggleSave,
+      activeMediaPostId,
+      preloadMediaPostId,
+      handleAuthorPress,
+      authUser?.id
+    ]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -363,9 +380,19 @@ export function HomeScreen() {
   const onHighlightPress = useCallback(
     (item: { postId: number }) => {
       trackFeedAction("post_open", item.postId, { source: "highlight" });
-      navigation.navigate("PostDetail", { postId: item.postId });
+      const index = feedItems.findIndex((p) => Number(p.id) === item.postId);
+      if (index >= 0) {
+        try {
+          listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.05 });
+        } catch {
+          /* index may be off-screen until layout */
+        }
+        return;
+      }
+      const match = feedItems.find((p) => Number(p.id) === item.postId);
+      if (match) setCommentPost(match);
     },
-    [navigation]
+    [feedItems]
   );
 
   const listTopPad = insets.top + FLOATING_HEADER_HEIGHT + 8;
@@ -568,6 +595,13 @@ export function HomeScreen() {
       />
 
       <Header
+        communityName={
+          summary?.user?.community?.trim() ||
+          summary?.user?.kulam?.trim() ||
+          authUser?.community?.trim() ||
+          authUser?.kulam?.trim() ||
+          null
+        }
         notificationCount={notifCtx?.counts.total ?? summary?.unreadNotificationsCount ?? 0}
         messageCount={summary?.unreadMessagesCount ?? 0}
         onNotificationPress={() => navigation.navigate("Notifications")}

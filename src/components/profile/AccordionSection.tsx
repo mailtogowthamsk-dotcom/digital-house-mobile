@@ -28,26 +28,37 @@ export function AccordionSection({
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
           overflow: "hidden",
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border
         },
         header: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingVertical: spacing.lg,
-          paddingHorizontal: spacing.xl
+          paddingVertical: 14,
+          paddingHorizontal: spacing.md
         },
-        headerPressed: { opacity: 0.9 },
-        titleRow: { flexDirection: "row", alignItems: "center", flex: 1 },
-        icon: { marginRight: spacing.md },
-        title: { ...typography.h3, color: colors.text, flex: 1 },
+        headerPressed: { backgroundColor: colors.surfaceElevated },
+        titleRow: { flexDirection: "row", alignItems: "center", flex: 1, gap: spacing.sm },
+        iconWrap: {
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          backgroundColor: colors.primary + "14",
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        title: {
+          ...typography.bodySmall,
+          fontWeight: "700",
+          color: colors.text,
+          flex: 1
+        },
         content: {
-          borderTopWidth: 1,
+          borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          paddingHorizontal: spacing.xl,
-          paddingVertical: spacing.lg,
-          paddingBottom: spacing.xxl
+          paddingHorizontal: spacing.md,
+          paddingBottom: spacing.sm
         }
       }),
     [colors]
@@ -58,13 +69,17 @@ export function AccordionSection({
       <Pressable
         style={({ pressed }) => [s.header, pressed ? s.headerPressed : null]}
         onPress={() => setExpanded((e) => !e)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
       >
         <View style={s.titleRow}>
-          <Ionicons name={icon} size={22} color={colors.primary} style={s.icon} />
+          <View style={s.iconWrap}>
+            <Ionicons name={icon} size={16} color={colors.primary} />
+          </View>
           <Text style={s.title}>{title}</Text>
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
-            size={22}
+            size={18}
             color={colors.textMuted}
           />
         </View>

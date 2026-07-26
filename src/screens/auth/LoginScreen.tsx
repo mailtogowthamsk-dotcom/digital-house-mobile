@@ -371,7 +371,9 @@ const s = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    justifyContent: "center"
+    // Avoid justifyContent:"center" — with Android keyboard resize it can
+    // jump the focused field and feel like the keyboard is fighting focus.
+    justifyContent: "flex-start"
   },
   backWrap: {
     flexDirection: "row",

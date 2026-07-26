@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getMatrimonyInterestsReceived,
   getMatrimonyInterestsSent,
-  respondMatrimonyInterest
+  respondMatrimonyInterest,
+  withdrawMatrimonyInterest,
+  removeMatrimonyMatch
 } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -76,6 +78,38 @@ export function MatrimonyInterestsScreen() {
     }
   };
 
+  const confirmWithdraw = (item: InterestRow) => {
+    const isAccepted = item.status === "ACCEPTED";
+    appAlert(
+      isAccepted ? "Remove match?" : "Withdraw interest?",
+      isAccepted
+        ? "This will end the match and disable chat for both of you."
+        : "They will no longer see this interest request.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: isAccepted ? "Remove match" : "Withdraw",
+          style: "destructive",
+          onPress: async () => {
+            setActingId(item.id);
+            try {
+              if (isAccepted) {
+                await removeMatrimonyMatch(item.candidate.userId);
+              } else {
+                await withdrawMatrimonyInterest(item.id);
+              }
+              await load();
+            } catch (e: unknown) {
+              appAlert("Could not withdraw", e instanceof Error ? e.message : "Try again");
+            } finally {
+              setActingId(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <MatrimonyBrowseGate>
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -118,6 +152,8 @@ export function MatrimonyInterestsScreen() {
               const st = statusStyle(item.status);
               const initial = item.candidate.name?.charAt(0) ?? "?";
               const pendingReceived = tab === "received" && item.status === "PENDING";
+              const canWithdrawSent =
+                tab === "sent" && (item.status === "PENDING" || item.status === "ACCEPTED");
               return (
                 <Pressable
                   style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -169,6 +205,29 @@ export function MatrimonyInterestsScreen() {
                           }}
                         >
                           <Text style={{ color: colors.text, fontWeight: "700", fontSize: 12 }}>Decline</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                    {canWithdrawSent ? (
+                      <View style={styles.actions}>
+                        <Pressable
+                          style={[
+                            styles.actionBtn,
+                            { backgroundColor: "#FEF2F2", borderColor: "#FECACA", borderWidth: 1 }
+                          ]}
+                          disabled={actingId === item.id}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            confirmWithdraw(item);
+                          }}
+                        >
+                          <Text style={{ color: "#B91C1C", fontWeight: "700", fontSize: 12 }}>
+                            {actingId === item.id
+                              ? "…"
+                              : item.status === "ACCEPTED"
+                                ? "Remove match"
+                                : "Withdraw"}
+                          </Text>
                         </Pressable>
                       </View>
                     ) : null}

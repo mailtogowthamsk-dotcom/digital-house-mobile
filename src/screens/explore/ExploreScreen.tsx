@@ -25,9 +25,11 @@ import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
+import { promptReportPost } from "../../utils/promptReportPost";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import type { PostLiker } from "../../api/posts.api";
+import { useAuth } from "../../context/AuthContext";
 
 type Props = {
   /** Extra bottom padding for floating tab bar */
@@ -43,6 +45,7 @@ type Props = {
 export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
+  const { user: authUser } = useAuth();
   const explore = useExploreSearch();
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(explore.updatePost);
   const navigateToPostAuthor = useNavigateToPostAuthor();
@@ -75,8 +78,6 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setActiveMediaPostId(null);
-        setPreloadMediaPostId(null);
         pauseAllFeedVideos();
       };
     }, [])
@@ -102,11 +103,18 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
           isMediaPreload: item.id === preloadMediaPostId
         }}
         onAuthorPress={() => handleAuthorPress(item)}
-        onPress={() => {
-          trackFeedAction("post_open", Number(item.id), { source: "explore" });
-          navigation.navigate("PostDetail", { postId: Number(item.id) });
+        onMenuPress={
+          authUser?.id != null && item.authorUserId === authUser.id
+            ? undefined
+            : () => {
+                trackFeedAction("post_report", Number(item.id), { source: "explore" });
+                promptReportPost(Number(item.id));
+              }
+        }
+        onActivateMedia={(postId) => {
+          setActiveMediaPostId(postId);
+          setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
         }}
-        onViewDetails={() => navigation.navigate("PostDetail", { postId: Number(item.id) })}
         onDoubleTap={() => addLike(item.id, item)}
         onLikePress={() => toggleLike(item.id, item)}
         onLikeCountPress={() => {
@@ -131,7 +139,15 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         }}
       />
     ),
-    [activeMediaPostId, preloadMediaPostId, addLike, handleAuthorPress, navigation, toggleLike, toggleSave]
+    [
+      activeMediaPostId,
+      preloadMediaPostId,
+      addLike,
+      handleAuthorPress,
+      toggleLike,
+      toggleSave,
+      authUser?.id
+    ]
   );
 
   const handleCommentCountChange = useCallback(

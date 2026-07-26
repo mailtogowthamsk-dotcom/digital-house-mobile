@@ -20,19 +20,20 @@ export function ProfileContentLinks({
   const s = useMemo(
     () =>
       StyleSheet.create({
-        section: { marginBottom: spacing.xl },
+        section: { marginBottom: spacing.lg },
         sectionTitle: {
           fontSize: 12,
           fontWeight: "700",
           color: colors.textMuted,
-          letterSpacing: 0.6,
+          letterSpacing: 0.5,
           textTransform: "uppercase",
-          marginBottom: spacing.md
+          marginBottom: spacing.sm,
+          marginLeft: 2
         },
         card: {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           overflow: "hidden"
         },
@@ -40,23 +41,24 @@ export function ProfileContentLinks({
           flexDirection: "row",
           alignItems: "center",
           gap: spacing.md,
-          paddingVertical: spacing.md + 2,
-          paddingHorizontal: spacing.md,
+          paddingVertical: 14,
+          paddingHorizontal: spacing.md
+        },
+        rowBorder: {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border
         },
-        rowLast: { borderBottomWidth: 0 },
         rowPressed: { backgroundColor: colors.surfaceElevated },
         icon: {
-          width: 44,
-          height: 44,
-          borderRadius: 14,
+          width: 40,
+          height: 40,
+          borderRadius: 12,
           alignItems: "center",
           justifyContent: "center"
         },
         body: { flex: 1, minWidth: 0 },
         title: { fontSize: 15, fontWeight: "700", color: colors.text },
-        sub: { marginTop: 2, fontSize: 12, color: colors.textSecondary }
+        sub: { marginTop: 2, fontSize: 12, color: colors.textSecondary, lineHeight: 16 }
       }),
     [colors]
   );
@@ -64,11 +66,11 @@ export function ProfileContentLinks({
   const links = [
     {
       key: "posts",
-      title: "My Posts",
+      title: "My posts",
       sub:
         totalPosts > 0
-          ? `${totalPosts} ${totalPosts === 1 ? "post" : "posts"} you’ve shared`
-          : "View and manage posts you’ve shared",
+          ? `${totalPosts} ${totalPosts === 1 ? "post" : "posts"} shared`
+          : "Posts you’ve shared with the community",
       icon: "grid-outline" as const,
       tint: "#2563EB",
       tintBg: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
@@ -76,31 +78,31 @@ export function ProfileContentLinks({
     },
     {
       key: "activity",
-      title: "My Activity",
-      sub: "Saved bookmarks and posts you’ve liked",
-      icon: "pulse-outline" as const,
-      tint: "#7C3AED",
-      tintBg: mode === "dark" ? colors.surfaceElevated : "#F5F3FF",
+      title: "My activity",
+      sub: "Bookmarks and posts you’ve liked",
+      icon: "heart-outline" as const,
+      tint: "#DB2777",
+      tintBg: mode === "dark" ? colors.surfaceElevated : "#FDF2F8",
       onPress: onMyActivityPress
     }
   ];
 
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle}>Content</Text>
+      <Text style={s.sectionTitle}>Your content</Text>
       <View style={s.card}>
         {links.map((link, idx) => (
           <Pressable
             key={link.key}
             style={({ pressed }) => [
               s.row,
-              idx === links.length - 1 && s.rowLast,
+              idx < links.length - 1 && s.rowBorder,
               pressed && s.rowPressed
             ]}
             onPress={link.onPress}
           >
             <View style={[s.icon, { backgroundColor: link.tintBg }]}>
-              <Ionicons name={link.icon} size={22} color={link.tint} />
+              <Ionicons name={link.icon} size={20} color={link.tint} />
             </View>
             <View style={s.body}>
               <Text style={s.title}>{link.title}</Text>
@@ -108,7 +110,7 @@ export function ProfileContentLinks({
                 {link.sub}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
         ))}
       </View>

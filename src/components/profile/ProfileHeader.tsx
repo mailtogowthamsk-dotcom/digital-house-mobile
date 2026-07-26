@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { AvatarImage } from "../ui/AvatarImage";
-import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -16,6 +15,7 @@ export type ProfileHeaderProps = {
   member_since: string;
   communityRole?: string | null;
   completion_percentage?: number;
+  onEditPress?: () => void;
 };
 
 export function ProfileHeader({
@@ -25,122 +25,182 @@ export function ProfileHeader({
   verified,
   member_since,
   communityRole,
-  completion_percentage
+  completion_percentage,
+  onEditPress
 }: ProfileHeaderProps) {
-  const { colors, mode } = useTheme();
-  const gradientColors: readonly [string, string, ...string[]] =
-    mode === "dark" ? [colors.surface, colors.surfaceElevated] : ["#EFF6FF", "#FFFFFF"];
+  const { colors } = useTheme();
+  const showCompletion =
+    completion_percentage != null && completion_percentage < 100;
+
   const s = useMemo(
     () =>
       StyleSheet.create({
-        wrapper: {
-          marginBottom: spacing.xl,
-          borderRadius: radius.lg,
-          overflow: "hidden",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          elevation: 4
-        },
-        gradient: {
-          paddingVertical: spacing.xxl + spacing.lg,
-          paddingHorizontal: spacing.xxl,
-          alignItems: "center"
-        },
-        avatarRing: {
-          width: 104,
-          height: 104,
-          borderRadius: 52,
-          backgroundColor: colors.surface,
+        section: {
           alignItems: "center",
-          justifyContent: "center",
-          marginBottom: spacing.lg,
-          borderWidth: 4,
-          borderColor: mode === "dark" ? colors.border : "rgba(255,255,255,0.9)",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
+          marginBottom: spacing.xl,
+          paddingTop: spacing.sm
+        },
+        avatarWrap: {
+          marginBottom: spacing.md,
+          borderRadius: 52,
+          borderWidth: 3,
+          borderColor: colors.surface,
+          backgroundColor: colors.surface,
+          shadowColor: "#0F172A",
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.08,
-          shadowRadius: 8,
+          shadowRadius: 12,
           elevation: 3
         },
-        avatar: { width: 92, height: 92, borderRadius: 46 },
-        avatarPlaceholder: {
-          width: 92,
-          height: 92,
-          borderRadius: 46,
-          backgroundColor: colors.primary,
-          alignItems: "center",
-          justifyContent: "center"
+        name: {
+          ...typography.h1,
+          fontSize: 22,
+          lineHeight: 28,
+          color: colors.text,
+          textAlign: "center"
         },
-        avatarText: { fontSize: 32, fontWeight: "700", color: colors.white },
-        name: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
         username: {
-          ...typography.body,
+          ...typography.bodySmall,
           color: colors.primary,
-          fontWeight: "700",
-          marginBottom: spacing.sm
+          fontWeight: "600",
+          marginTop: 4
         },
-        role: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
-        verifiedPill: {
+        role: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          marginTop: spacing.xs
+        },
+        metaRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.sm,
+          marginTop: spacing.md
+        },
+        chip: {
           flexDirection: "row",
           alignItems: "center",
-          gap: 6,
-          paddingVertical: spacing.xs,
-          paddingHorizontal: spacing.md,
+          gap: 5,
+          paddingVertical: 5,
+          paddingHorizontal: 10,
           borderRadius: radius.full,
-          backgroundColor: colors.success + "20",
-          marginBottom: spacing.sm
+          backgroundColor: colors.surface,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border
         },
-        verifiedText: { ...typography.caption, color: colors.success, fontWeight: "600" },
-        memberSince: { ...typography.caption, color: colors.textMuted },
-        completionWrap: { width: "100%", marginTop: spacing.lg, paddingHorizontal: spacing.sm },
+        chipVerified: {
+          backgroundColor: colors.success + "14",
+          borderColor: colors.success + "33"
+        },
+        chipText: {
+          ...typography.caption,
+          color: colors.textSecondary,
+          fontWeight: "600"
+        },
+        chipTextVerified: { color: colors.success },
+        editBtn: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: spacing.sm,
+          marginTop: spacing.lg,
+          alignSelf: "stretch",
+          paddingVertical: 12,
+          borderRadius: radius.lg,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        editBtnPressed: { backgroundColor: colors.surfaceElevated },
+        editBtnText: {
+          ...typography.buttonSmall,
+          color: colors.text,
+          fontWeight: "700"
+        },
+        completionWrap: {
+          width: "100%",
+          marginTop: spacing.md
+        },
         completionBar: {
-          height: 6,
+          height: 4,
           backgroundColor: colors.border,
-          borderRadius: 3,
+          borderRadius: 2,
           overflow: "hidden",
-          marginBottom: spacing.xs
+          marginBottom: 6
         },
-        completionFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
-        completionText: { ...typography.caption, color: colors.textMuted, textAlign: "center" }
+        completionFill: {
+          height: "100%",
+          backgroundColor: colors.primary,
+          borderRadius: 2
+        },
+        completionText: {
+          ...typography.caption,
+          color: colors.textMuted,
+          textAlign: "center"
+        }
       }),
-    [colors, mode]
+    [colors]
   );
 
   return (
-    <View style={s.wrapper}>
-      <LinearGradient colors={gradientColors} style={s.gradient}>
-        <View style={s.avatarRing}>
-          <AvatarImage
-            uri={profile_image}
-            name={name}
-            size={92}
-            placeholderColor={colors.primary}
-            textColor={colors.white}
-          />
-        </View>
-        <Text style={s.name}>{name}</Text>
-        {username?.trim() ? (
-          <Text style={s.username}>{formatUsername(username.trim())}</Text>
+    <View style={s.section}>
+      <View style={s.avatarWrap}>
+        <AvatarImage
+          uri={profile_image}
+          name={name}
+          size={96}
+          placeholderColor={colors.primary}
+          textColor={colors.white}
+        />
+      </View>
+
+      <Text style={s.name}>{name}</Text>
+      {username?.trim() ? (
+        <Text style={s.username}>{formatUsername(username.trim())}</Text>
+      ) : null}
+      {communityRole ? <Text style={s.role}>{communityRole}</Text> : null}
+
+      <View style={s.metaRow}>
+        {verified ? (
+          <View style={[s.chip, s.chipVerified]}>
+            <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+            <Text style={[s.chipText, s.chipTextVerified]}>Verified</Text>
+          </View>
         ) : null}
-        {communityRole ? <Text style={s.role}>{communityRole}</Text> : null}
-        {verified && (
-          <View style={s.verifiedPill}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-            <Text style={s.verifiedText}>Verified member</Text>
+        <View style={s.chip}>
+          <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
+          <Text style={s.chipText}>Joined {member_since}</Text>
+        </View>
+      </View>
+
+      {showCompletion ? (
+        <View style={s.completionWrap}>
+          <View style={s.completionBar}>
+            <View
+              style={[
+                s.completionFill,
+                { width: `${Math.min(100, completion_percentage!)}%` }
+              ]}
+            />
           </View>
-        )}
-        <Text style={s.memberSince}>Member since {member_since}</Text>
-        {completion_percentage != null && (
-          <View style={s.completionWrap}>
-            <View style={s.completionBar}>
-              <View style={[s.completionFill, { width: `${Math.min(100, completion_percentage)}%` }]} />
-            </View>
-            <Text style={s.completionText}>Profile {completion_percentage}% complete</Text>
-          </View>
-        )}
-      </LinearGradient>
+          <Text style={s.completionText}>
+            Profile {completion_percentage}% complete — tap Edit to finish
+          </Text>
+        </View>
+      ) : null}
+
+      {onEditPress ? (
+        <Pressable
+          style={({ pressed }) => [s.editBtn, pressed && s.editBtnPressed]}
+          onPress={onEditPress}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+        >
+          <Ionicons name="create-outline" size={18} color={colors.text} />
+          <Text style={s.editBtnText}>Edit profile</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

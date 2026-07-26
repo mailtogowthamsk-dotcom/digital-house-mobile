@@ -1,5 +1,5 @@
 /**
- * Premium post author row — padded header; media breaks out below.
+ * Premium post author row — default below media, or overlay on video (Instagram-style).
  */
 
 import React, { memo, useMemo } from "react";
@@ -21,6 +21,8 @@ type Props = {
   isTrending?: boolean;
   onAuthorPress?: () => void;
   onMenuPress?: () => void;
+  /** Overlay sits on top of video with light text. */
+  variant?: "default" | "overlay";
 };
 
 function privacyIcon(audience?: string): keyof typeof Ionicons.glyphMap {
@@ -40,9 +42,11 @@ function PostHeaderInner({
   isVerified = false,
   isTrending = false,
   onAuthorPress,
-  onMenuPress
+  onMenuPress,
+  variant = "default"
 }: Props) {
   const { colors, mode } = useTheme();
+  const overlay = variant === "overlay";
 
   const s = useMemo(
     () =>
@@ -50,18 +54,20 @@ function PostHeaderInner({
         row: {
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 20,
-          paddingTop: 18,
-          paddingBottom: 14,
+          paddingHorizontal: overlay ? 14 : 20,
+          paddingTop: overlay ? 14 : 18,
+          paddingBottom: overlay ? 12 : 14,
           gap: 12
         },
         avatarOuter: {
           borderRadius: 999,
           padding: 2,
-          backgroundColor: colors.surface,
-          ...feedAvatarRing(mode)
+          backgroundColor: overlay ? "rgba(255,255,255,0.2)" : colors.surface,
+          ...(overlay ? {} : feedAvatarRing(mode)),
+          borderWidth: overlay ? StyleSheet.hairlineWidth : 0,
+          borderColor: overlay ? "rgba(255,255,255,0.45)" : "transparent"
         },
-        textCol: { flex: 1, minWidth: 0, gap: 5 },
+        textCol: { flex: 1, minWidth: 0, gap: 4 },
         nameRow: {
           flexDirection: "row",
           alignItems: "center",
@@ -70,8 +76,11 @@ function PostHeaderInner({
         },
         name: {
           ...typography.feedUsername,
-          color: colors.text,
-          flexShrink: 1
+          color: overlay ? "#FFFFFF" : colors.text,
+          flexShrink: 1,
+          textShadowColor: overlay ? "rgba(0,0,0,0.45)" : "transparent",
+          textShadowOffset: overlay ? { width: 0, height: 1 } : { width: 0, height: 0 },
+          textShadowRadius: overlay ? 3 : 0
         },
         metaRow: {
           flexDirection: "row",
@@ -81,26 +90,37 @@ function PostHeaderInner({
         },
         time: {
           ...typography.feedMeta,
-          color: colors.textMuted,
-          fontWeight: "500"
+          color: overlay ? "rgba(255,255,255,0.85)" : colors.textMuted,
+          fontWeight: "500",
+          textShadowColor: overlay ? "rgba(0,0,0,0.4)" : "transparent",
+          textShadowOffset: overlay ? { width: 0, height: 1 } : { width: 0, height: 0 },
+          textShadowRadius: overlay ? 2 : 0
         },
         handle: {
           fontSize: 12,
           fontWeight: "500",
-          color: colors.textMuted
+          color: overlay ? "rgba(255,255,255,0.8)" : colors.textMuted
         },
         chip: {
           paddingHorizontal: 9,
           paddingVertical: 3,
           borderRadius: 999,
-          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.18)" : "rgba(37,99,235,0.08)",
+          backgroundColor: overlay
+            ? "rgba(255,255,255,0.22)"
+            : mode === "dark"
+              ? "rgba(37,99,235,0.18)"
+              : "rgba(37,99,235,0.08)",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? "rgba(37,99,235,0.28)" : "rgba(37,99,235,0.14)"
+          borderColor: overlay
+            ? "rgba(255,255,255,0.35)"
+            : mode === "dark"
+              ? "rgba(37,99,235,0.28)"
+              : "rgba(37,99,235,0.14)"
         },
         chipText: {
           fontSize: 11,
           fontWeight: "600",
-          color: colors.primary,
+          color: overlay ? "#FFFFFF" : colors.primary,
           letterSpacing: 0.1
         },
         privacyChip: {
@@ -110,22 +130,31 @@ function PostHeaderInner({
           paddingHorizontal: 8,
           paddingVertical: 3,
           borderRadius: 999,
-          backgroundColor: mode === "dark" ? "rgba(148,163,184,0.14)" : "rgba(148,163,184,0.12)"
+          backgroundColor: overlay
+            ? "rgba(255,255,255,0.18)"
+            : mode === "dark"
+              ? "rgba(148,163,184,0.14)"
+              : "rgba(148,163,184,0.12)"
         },
         privacyText: {
           fontSize: 11,
           fontWeight: "500",
-          color: colors.textSecondary
+          color: overlay ? "rgba(255,255,255,0.9)" : colors.textSecondary
         },
         menuBtn: {
           width: 40,
           height: 40,
           borderRadius: 20,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          backgroundColor: overlay ? "rgba(15,23,42,0.28)" : "transparent"
         },
         menuBtnPressed: {
-          backgroundColor: mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)"
+          backgroundColor: overlay
+            ? "rgba(15,23,42,0.45)"
+            : mode === "dark"
+              ? "rgba(255,255,255,0.06)"
+              : "rgba(15,23,42,0.05)"
         },
         trending: {
           flexDirection: "row",
@@ -134,16 +163,23 @@ function PostHeaderInner({
           paddingHorizontal: 7,
           paddingVertical: 3,
           borderRadius: 999,
-          backgroundColor: mode === "dark" ? "rgba(234,88,12,0.2)" : "rgba(234,88,12,0.1)"
+          backgroundColor: overlay
+            ? "rgba(234,88,12,0.45)"
+            : mode === "dark"
+              ? "rgba(234,88,12,0.2)"
+              : "rgba(234,88,12,0.1)"
         },
         trendingText: {
           fontSize: 10,
           fontWeight: "700",
-          color: colors.accent
+          color: overlay ? "#FFFFFF" : colors.accent
         }
       }),
-    [colors, mode]
+    [colors, mode, overlay]
   );
+
+  const iconColor = overlay ? "#FFFFFF" : colors.textSecondary;
+  const verifiedColor = overlay ? "#FFFFFF" : colors.primary;
 
   return (
     <View style={s.row}>
@@ -158,7 +194,7 @@ function PostHeaderInner({
           <AvatarImage
             uri={userAvatarUri}
             name={userName}
-            size={48}
+            size={overlay ? 40 : 48}
             placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
             textColor={colors.primary}
           />
@@ -177,10 +213,10 @@ function PostHeaderInner({
               {userName}
             </Text>
             {isVerified ? (
-              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+              <Ionicons name="checkmark-circle" size={16} color={verifiedColor} />
             ) : null}
           </View>
-          {authorUsername ? (
+          {authorUsername && !overlay ? (
             <Text style={s.handle} numberOfLines={1}>
               @{authorUsername}
             </Text>
@@ -198,7 +234,7 @@ function PostHeaderInner({
           ) : null}
           {audience ? (
             <View style={s.privacyChip}>
-              <Ionicons name={privacyIcon(audience)} size={11} color={colors.textSecondary} />
+              <Ionicons name={privacyIcon(audience)} size={11} color={iconColor} />
               <Text style={s.privacyText} numberOfLines={1}>
                 {audience}
               </Text>
@@ -206,22 +242,27 @@ function PostHeaderInner({
           ) : null}
           {isTrending ? (
             <View style={s.trending}>
-              <Ionicons name="flame" size={11} color={colors.accent} />
+              <Ionicons name="flame" size={11} color={overlay ? "#FFFFFF" : colors.accent} />
               <Text style={s.trendingText}>Hot</Text>
             </View>
           ) : null}
         </View>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [s.menuBtn, pressed && s.menuBtnPressed]}
-        onPress={onMenuPress}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Post options"
-      >
-        <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
-      </Pressable>
+      {onMenuPress ? (
+        <Pressable
+          style={({ pressed }) => [s.menuBtn, pressed && s.menuBtnPressed]}
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            onMenuPress();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Report post"
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={iconColor} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

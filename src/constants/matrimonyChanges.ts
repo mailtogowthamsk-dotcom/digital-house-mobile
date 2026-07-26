@@ -7,6 +7,7 @@ export const MATRIMONY_FIELD_LABELS: Record<string, string> = {
   gotra: "Gotra",
   aboutMe: "About me",
   motherName: "Mother's name",
+  fatherName: "Father's name",
   fatherOccupation: "Father's occupation",
   brothersCount: "Brothers",
   sistersCount: "Sisters",

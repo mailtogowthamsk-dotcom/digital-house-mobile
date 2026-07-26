@@ -47,8 +47,39 @@ export function interestStatusLabel(status: string): { label: string; tone: "pen
     case "RECEIVED_PENDING":
       return { label: "Respond to interest", tone: "pending" };
     case "MATCHED":
-      return { label: "Mutual match", tone: "ok" };
+      return { label: "Matched", tone: "ok" };
     default:
       return { label: "No interest yet", tone: "muted" };
   }
+}
+
+const INCOME_LABELS: Record<string, string> = {
+  NOT_EMPLOYED: "Not employed / Student",
+  BELOW_2L: "Below ₹2 Lakhs",
+  LAKHS_2_5: "₹2 – 5 Lakhs",
+  LAKHS_5_10: "₹5 – 10 Lakhs",
+  LAKHS_10_15: "₹10 – 15 Lakhs",
+  LAKHS_15_25: "₹15 – 25 Lakhs",
+  LAKHS_25_50: "₹25 – 50 Lakhs",
+  ABOVE_50L: "Above ₹50 Lakhs",
+  PREFER_NOT_SAY: "Prefer not to say"
+};
+
+export function formatMatrimonyIncome(code: string | null | undefined): string | null {
+  if (!code?.trim()) return null;
+  return INCOME_LABELS[code] ?? code;
+}
+
+export function formatSiblingCounts(
+  brothers: number | null | undefined,
+  sisters: number | null | undefined
+): string | null {
+  if (brothers == null && sisters == null) return null;
+  const b = brothers ?? 0;
+  const s = sisters ?? 0;
+  if (b === 0 && s === 0) return "No siblings";
+  const parts: string[] = [];
+  if (b > 0) parts.push(`${b} brother${b === 1 ? "" : "s"}`);
+  if (s > 0) parts.push(`${s} sister${s === 1 ? "" : "s"}`);
+  return parts.join(", ");
 }

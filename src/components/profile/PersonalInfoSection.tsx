@@ -5,6 +5,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
+import { AccordionSection } from "./AccordionSection";
 
 export type PersonalInfo = {
   masked_mobile: string;
@@ -40,15 +41,15 @@ function Row({
     <View style={[s.row, isLast && s.rowLast]}>
       <View style={s.rowHeader}>
         <Text style={s.rowLabel}>{label}</Text>
-        {isProtected && (
+        {isProtected ? (
           <View style={s.protectedBadge}>
-            <Ionicons name="lock-closed" size={12} color={colors.sensitive} />
+            <Ionicons name="lock-closed" size={11} color={colors.sensitive} />
             <Text style={s.protectedText}>{messages.sensitive.protected}</Text>
           </View>
-        )}
+        ) : null}
       </View>
       <Text style={[s.rowValue, isProtected && s.rowValueProtected]}>{value}</Text>
-      {!isLast && <View style={s.divider} />}
+      {!isLast ? <View style={s.divider} /> : null}
     </View>
   );
 }
@@ -58,42 +59,15 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
   const s = useMemo(
     () =>
       StyleSheet.create({
-        section: { marginBottom: spacing.xl },
-        sectionTitleRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          marginBottom: spacing.md,
-          gap: spacing.sm
-        },
-        sectionIconWrap: {
-          width: 32,
-          height: 32,
-          borderRadius: radius.sm,
-          backgroundColor: colors.primary + "1A",
-          alignItems: "center",
-          justifyContent: "center"
-        },
-        sectionTitle: { ...typography.label, color: colors.text },
-        card: {
-          backgroundColor: colors.surface,
-          borderRadius: radius.lg,
-          paddingHorizontal: spacing.lg,
-          overflow: "hidden",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2
-        },
         row: { paddingVertical: spacing.md },
-        rowLast: { paddingBottom: spacing.sm },
+        rowLast: { paddingBottom: spacing.xs },
         rowHeader: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 2
+          marginBottom: 3
         },
-        rowLabel: { ...typography.caption, color: colors.textMuted },
+        rowLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
         protectedBadge: {
           flexDirection: "row",
           alignItems: "center",
@@ -109,14 +83,14 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
           color: colors.sensitive,
           fontWeight: "600"
         },
-        rowValue: { ...typography.body, color: colors.text },
+        rowValue: { ...typography.bodySmall, color: colors.text, fontWeight: "500" },
         rowValueProtected: { color: colors.textSecondary },
         divider: {
           position: "absolute",
           left: 0,
           right: 0,
           bottom: 0,
-          height: 1,
+          height: StyleSheet.hairlineWidth,
           backgroundColor: colors.border
         }
       }),
@@ -134,36 +108,28 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
   };
   const address = [p.city, p.district].filter(Boolean).join(", ") || null;
   const rows: { label: string; value: string; isProtected?: boolean }[] = [
-    { label: "Full Name", value: fullName ?? "—" },
+    { label: "Full name", value: fullName ?? "—" },
     { label: "Mobile", value: p.masked_mobile, isProtected: true },
     { label: "Email", value: p.masked_email, isProtected: true },
     { label: "Gender", value: p.gender ?? "—" },
-    { label: "Date of Birth", value: p.dob ?? "—" },
-    ...(p.blood_group ? [{ label: "Blood Group", value: p.blood_group }] : []),
-    ...(address ? [{ label: "Address", value: address }] : [])
+    { label: "Date of birth", value: p.dob ?? "—" },
+    ...(p.blood_group ? [{ label: "Blood group", value: p.blood_group }] : []),
+    ...(address ? [{ label: "Location", value: address }] : [])
   ];
 
   return (
-    <View style={s.section}>
-      <View style={s.sectionTitleRow}>
-        <View style={s.sectionIconWrap}>
-          <Ionicons name="person-outline" size={18} color={colors.primary} />
-        </View>
-        <Text style={s.sectionTitle}>Personal Information</Text>
-      </View>
-      <View style={s.card}>
-        {rows.map((r, i) => (
-          <Row
-            key={r.label}
-            label={r.label}
-            value={r.value}
-            isLast={i === rows.length - 1}
-            isProtected={r.isProtected}
-            s={s}
-            colors={colors}
-          />
-        ))}
-      </View>
-    </View>
+    <AccordionSection title="Personal information" icon="person-outline" defaultExpanded>
+      {rows.map((r, i) => (
+        <Row
+          key={r.label}
+          label={r.label}
+          value={r.value}
+          isLast={i === rows.length - 1}
+          isProtected={r.isProtected}
+          s={s}
+          colors={colors}
+        />
+      ))}
+    </AccordionSection>
   );
 }

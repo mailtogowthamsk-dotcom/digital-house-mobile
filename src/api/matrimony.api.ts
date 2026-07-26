@@ -52,6 +52,7 @@ export type MatrimonyProfileData = {
   familyType?: string | null;
   familyStatus?: string | null;
   motherName?: string | null;
+  fatherName?: string | null;
   fatherOccupation?: string | null;
   brothersCount?: number | null;
   sistersCount?: number | null;
@@ -235,10 +236,22 @@ export type CandidateDetail = DiscoverCard & {
   nakshatram: string | null;
   maritalStatus: string | null;
   dosham: string | null;
+  motherTongue: string | null;
+  gotra: string | null;
+  employer: string | null;
+  annualIncome: string | null;
+  motherName: string | null;
+  fatherName: string | null;
+  fatherOccupation: string | null;
+  familyType: string | null;
+  familyStatus: string | null;
+  brothersCount: number | null;
+  sistersCount: number | null;
   interestStatus: string;
   canSendInterest: boolean;
   canRespondInterest: boolean;
   pendingInterestId?: number | null;
+  sentInterestId?: number | null;
   mutualMatch: boolean;
   chatEnabled: boolean;
   contactVisible: boolean;
@@ -535,6 +548,21 @@ export async function getMatrimonyMatches() {
   return data.items ?? [];
 }
 
+export async function removeMatrimonyMatch(otherUserId: number) {
+  const { data } = await api.post<{ ok: boolean; removed?: boolean }>(
+    `/matrimony/matches/${otherUserId}/unmatch`,
+    {}
+  );
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to remove match");
+  return data;
+}
+
+export async function withdrawMatrimonyInterest(interestId: number) {
+  const { data } = await api.post<{ ok: boolean }>(`/matrimony/interests/${interestId}/withdraw`, {});
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to withdraw interest");
+  return data;
+}
+
 export async function requestMatrimonyHoroscope(otherUserId: number) {
   const { data } = await api.post<{ ok: boolean; requested: boolean }>(
     `/matrimony/matches/${otherUserId}/horoscope/request`
@@ -574,9 +602,13 @@ export async function getMatrimonySavedProfiles() {
 }
 
 export async function saveMatrimonyProfile(userId: number) {
-  const { data } = await api.post<{ ok: boolean; saved: boolean }>(`/matrimony/saved/${userId}`);
-  if (!data?.ok) throw new Error("Could not save profile");
-  return data;
+  try {
+    const { data } = await api.post<{ ok: boolean; saved: boolean }>(`/matrimony/saved/${userId}`);
+    if (!data?.ok) throw new Error("Could not save profile");
+    return data;
+  } catch (e: unknown) {
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function unsaveMatrimonyProfile(userId: number) {

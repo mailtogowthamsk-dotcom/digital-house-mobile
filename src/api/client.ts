@@ -193,7 +193,9 @@ export function getAuthErrorMessage(err: unknown): string {
     return msg || "Your account cannot access this feature yet.";
   }
   if (status === 400) return "Invalid request. Please check your details.";
-  if (status === 409) return "An account with this email or mobile already exists.";
+  if (status === 409) {
+    return msg || "This mobile number/email is already registered.";
+  }
   if (status === 500) return "Server error. Please try again in a moment.";
   if (status === 503) return "Server is starting up. Please try again in a few seconds.";
   if (status === 404) {

@@ -99,6 +99,8 @@ export type MeUser = {
   registrationRequestedFields?: string[];
   pendingMobile?: string | null;
   pendingProfilePhoto?: string | null;
+  community?: string | null;
+  kulam?: string | null;
 };
 
 export type GoogleAuthResponse = {

@@ -23,6 +23,10 @@ type Props = {
 /**
  * Screen-level keyboard avoidance for forms / composers.
  * Prefer this over raw KeyboardAvoidingView with Android behavior=undefined.
+ *
+ * IMPORTANT: Always keep a stable child View. Conditionally swapping
+ * `children` ↔ `<View>{children}</View>` remounts TextInputs on Android
+ * when the keyboard opens and immediately dismisses the keyboard.
  */
 export function AppKeyboardAvoidingView({
   children,
@@ -56,11 +60,7 @@ export function AppKeyboardAvoidingView({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
-      {androidInset > 0 ? (
-        <View style={{ flex: 1, paddingBottom: androidInset }}>{children}</View>
-      ) : (
-        children
-      )}
+      <View style={{ flex: 1, paddingBottom: androidInset }}>{children}</View>
     </KeyboardAvoidingView>
   );
 }

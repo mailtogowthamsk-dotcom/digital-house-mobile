@@ -33,7 +33,7 @@ export type HomeState = {
 
 import { formatPostType } from "../utils/postMappers";
 
-const FEED_PAGE_SIZE = 20;
+const FEED_PAGE_SIZE = 7;
 
 function feedItemToPostCard(item: FeedItem): PostCardData {
   return {
