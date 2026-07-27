@@ -18,7 +18,13 @@ import {
   type MessageAccess,
   type MessageItem
 } from "../../api/messages.api";
-import { blockMember, reportMember, MEMBER_REPORT_REASONS } from "../../api/users.api";
+import {
+  blockMember,
+  unblockMember,
+  listBlockedMembers,
+  reportMember,
+  MEMBER_REPORT_REASONS
+} from "../../api/users.api";
 import { getSocket } from "../../realtime/socket";
 import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
 import { subscribePresence, isUserOnlineCached, hasPresenceSynced, formatLastSeen, getCachedLastSeenAt } from "../../realtime/presenceRealtime";
@@ -71,8 +77,38 @@ export function ChatScreen() {
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(false);
   const [threadArchived, setThreadArchived] = useState(false);
+  /** True when *I* blocked the other user (Unblock is available). */
+  const [blockedByMe, setBlockedByMe] = useState(false);
   const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
   const chatLockMessage = chatAccess?.message ?? null;
+  const isBlocked =
+    chatAccess?.reason === "blocked" || chatAccess?.code === "BLOCKED";
+  const canRestoreMessaging =
+    !blockedByMe &&
+    !isBlocked &&
+    !!chatAccess &&
+    (chatAccess.readOnly || !chatAccess.allowed) &&
+    (chatAccess.reason === "legacy_thread" || chatAccess.code === "READ_ONLY_LEGACY");
+
+  const refreshChatAccess = useCallback(async () => {
+    const access = await getMessageAccess(otherUserId);
+    setChatAccess(access);
+    const accessBlocked = access.reason === "blocked" || access.code === "BLOCKED";
+    if (accessBlocked) {
+      const blocked = await listBlockedMembers().catch(() => []);
+      setBlockedByMe(blocked.some((b) => b.id === otherUserId));
+    } else {
+      setBlockedByMe(false);
+    }
+    if (!access.canViewHistory) {
+      setLoadError(access.message ?? "You cannot view this conversation.");
+      setMessages([]);
+      return access;
+    }
+    setLoadError(null);
+    await loadInitial();
+    return access;
+  }, [loadInitial, otherUserId]);
 
   const scrollToBottomIfNeeded = useCallback((animated = true) => {
     if (listRef.current?.shouldAutoScroll() !== false) {
@@ -153,6 +189,7 @@ export function ChatScreen() {
     setLoadError(null);
     setThreadMuted(false);
     setThreadArchived(false);
+    setBlockedByMe(false);
     setMessages([]);
     setSendError(null);
     setInput("");
@@ -164,6 +201,14 @@ export function ChatScreen() {
         const access = await getMessageAccess(otherUserId);
         if (cancelled) return;
         setChatAccess(access);
+        const accessBlocked = access.reason === "blocked" || access.code === "BLOCKED";
+        if (accessBlocked) {
+          const blocked = await listBlockedMembers().catch(() => []);
+          if (cancelled) return;
+          setBlockedByMe(blocked.some((b) => b.id === otherUserId));
+        } else {
+          setBlockedByMe(false);
+        }
         const allThreads = await listThreads({ includeArchived: true }).catch(() => []);
         if (cancelled) return;
         const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
@@ -375,7 +420,7 @@ export function ChatScreen() {
   const confirmBlock = () => {
     appAlert(
       "Block member?",
-      "They will be hidden from search, messaging, and connections.",
+      "They will be hidden from search, messaging, and connections. Unblock anytime from Messages → Blocked.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -385,9 +430,61 @@ export function ChatScreen() {
             void (async () => {
               try {
                 await blockMember(otherUserId);
-                navigation.goBack();
+                setBlockedByMe(true);
+                await refreshChatAccess();
               } catch (e: unknown) {
                 appAlert("Error", e instanceof Error ? e.message : "Failed to block");
+              }
+            })()
+        }
+      ]
+    );
+  };
+
+  const confirmUnblock = () => {
+    appAlert(
+      "Unblock member?",
+      "Your previous connection or matrimony match will be restored so you can message again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unblock",
+          onPress: () =>
+            void (async () => {
+              try {
+                setLoading(true);
+                await unblockMember(otherUserId);
+                await refreshChatAccess();
+              } catch (e: unknown) {
+                appAlert("Error", e instanceof Error ? e.message : "Failed to unblock");
+              } finally {
+                setLoading(false);
+              }
+            })()
+        }
+      ]
+    );
+  };
+
+  const restoreMessaging = () => {
+    appAlert(
+      "Restore messaging?",
+      "This reconnects you with this member so you can send messages again (used after an earlier block).",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore",
+          onPress: () =>
+            void (async () => {
+              try {
+                setLoading(true);
+                // Unblock is idempotent: also restores cancelled connection / match.
+                await unblockMember(otherUserId);
+                await refreshChatAccess();
+              } catch (e: unknown) {
+                appAlert("Error", e instanceof Error ? e.message : "Failed to restore messaging");
+              } finally {
+                setLoading(false);
               }
             })()
         }
@@ -461,7 +558,9 @@ export function ChatScreen() {
             { text: "Cancel", style: "cancel" }
           ])
       },
-      { text: "Block member", style: "destructive", onPress: confirmBlock },
+      isBlocked && blockedByMe
+        ? { text: "Unblock member", onPress: confirmUnblock }
+        : { text: "Block member", style: "destructive", onPress: confirmBlock },
       { text: "Cancel", style: "cancel" }
     ]);
   };
@@ -525,22 +624,41 @@ export function ChatScreen() {
           placeholderColor={colors.surfaceElevated}
         />
         <View style={styles.centered}>
-          <Ionicons name="cloud-offline-outline" size={44} color={colors.textSecondary} />
-          <Text style={{ color: colors.text, fontWeight: "800", marginTop: spacing.md }}>Couldn’t load chat</Text>
-          <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, textAlign: "center" }}>{loadError}</Text>
-          <Pressable
-            style={{ marginTop: spacing.lg, padding: spacing.md }}
-            onPress={() => {
-              setLoading(true);
-              loadInitial()
-                .catch((e: unknown) =>
-                  setLoadError(e instanceof Error ? e.message : "Failed to load chat")
-                )
-                .finally(() => setLoading(false));
-            }}
-          >
-            <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
-          </Pressable>
+          <Ionicons
+            name={blockedByMe ? "hand-left-outline" : "cloud-offline-outline"}
+            size={44}
+            color={colors.textSecondary}
+          />
+          <Text style={{ color: colors.text, fontWeight: "800", marginTop: spacing.md }}>
+            {blockedByMe ? "Member blocked" : "Couldn’t load chat"}
+          </Text>
+          <Text style={{ color: colors.textSecondary, marginTop: spacing.sm, textAlign: "center" }}>
+            {blockedByMe
+              ? "You blocked this member. Unblock to message them again if messaging is allowed."
+              : loadError}
+          </Text>
+          {blockedByMe ? (
+            <Pressable
+              style={{ marginTop: spacing.lg, padding: spacing.md }}
+              onPress={confirmUnblock}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "700" }}>Unblock member</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={{ marginTop: spacing.lg, padding: spacing.md }}
+              onPress={() => {
+                setLoading(true);
+                void refreshChatAccess()
+                  .catch((e: unknown) =>
+                    setLoadError(e instanceof Error ? e.message : "Failed to load chat")
+                  )
+                  .finally(() => setLoading(false));
+              }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );
@@ -562,9 +680,18 @@ export function ChatScreen() {
       {chatLockMessage ? (
         <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
           <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
-          <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
-            {chatLockMessage}
-          </Text>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
+              {chatLockMessage}
+            </Text>
+            {canRestoreMessaging ? (
+              <Pressable onPress={restoreMessaging} hitSlop={6}>
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                  Restore messaging
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : laneLabels.length > 0 && !threadArchived ? (
         <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>

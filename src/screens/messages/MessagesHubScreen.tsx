@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { getImageUrl } from "../../api/client";
 import { hapticSendMessage } from "../../utils/chatHaptics";
@@ -32,13 +32,19 @@ import { useChatSocket } from "../../hooks/useChatSocket";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { useAppResume } from "../../hooks/useAppResume";
-import { ThreadListPanel, ThreadRow } from "../../components/messages/ThreadListPanel";
+import { ThreadListPanel, ThreadRow, type MessagesFolder } from "../../components/messages/ThreadListPanel";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
 import { BottomTabBar, FLOATING_TAB_BAR_HEIGHT } from "../../components/home";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { handleMainTabPress } from "../../navigation/mainTabs";
+import {
+  listBlockedMembers,
+  unblockMember,
+  type BlockedMember
+} from "../../api/users.api";
+import { appAlert } from "../../utils/appAlert";
 
 const HISTORY_LIMIT = 50;
 
@@ -51,12 +57,16 @@ type SelectedChat = {
 
 export function MessagesHubScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<{ Messages: { folder?: MessagesFolder } | undefined }, "Messages">>();
   const layout = useChatLayout();
   const { colors } = useTheme();
 
   const [meId, setMeId] = useState<number | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [folder, setFolder] = useState<"inbox" | "archived">("inbox");
+  const [folder, setFolder] = useState<MessagesFolder>(
+    () => route.params?.folder ?? "inbox"
+  );
+  const [blockedMembers, setBlockedMembers] = useState<BlockedMember[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [threadsError, setThreadsError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<SelectedChat | null>(null);
@@ -127,7 +137,7 @@ export function MessagesHubScreen() {
   folderRef.current = folder;
 
   const loadThreads = useCallback(async (
-    activeFolder?: "inbox" | "archived",
+    activeFolder?: MessagesFolder,
     opts?: { soft?: boolean }
   ) => {
     const folderToLoad = activeFolder ?? folderRef.current;
@@ -135,38 +145,46 @@ export function MessagesHubScreen() {
     setThreadsError(null);
     if (!opts?.soft) setLoadingThreads(true);
     try {
-      const data =
-        folderToLoad === "archived"
-          ? await listThreads({ archivedOnly: true })
-          : await listThreads();
-      if (gen !== threadsLoadGenRef.current) return;
-      const merged =
-        hasPresenceSynced()
-          ? data.map((t) => ({
-              ...t,
-              otherUser: {
-                ...t.otherUser,
-                online: isUserOnlineCached(t.otherUser.id)
+      if (folderToLoad === "blocked") {
+        const blocked = await listBlockedMembers();
+        if (gen !== threadsLoadGenRef.current) return;
+        setBlockedMembers(blocked);
+        setThreads([]);
+      } else {
+        const data =
+          folderToLoad === "archived"
+            ? await listThreads({ archivedOnly: true })
+            : await listThreads();
+        if (gen !== threadsLoadGenRef.current) return;
+        const merged =
+          hasPresenceSynced()
+            ? data.map((t) => ({
+                ...t,
+                otherUser: {
+                  ...t.otherUser,
+                  online: isUserOnlineCached(t.otherUser.id)
+                }
+              }))
+            : data.map((t) => ({
+                ...t,
+                otherUser: {
+                  ...t.otherUser,
+                  online: t.otherUser.online || isUserOnlineCached(t.otherUser.id)
+                }
+              }));
+        setThreads(merged);
+        setBlockedMembers([]);
+        setSelectedUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                online: hasPresenceSynced()
+                  ? isUserOnlineCached(prev.id)
+                  : !!prev.online || isUserOnlineCached(prev.id)
               }
-            }))
-          : data.map((t) => ({
-              ...t,
-              otherUser: {
-                ...t.otherUser,
-                online: t.otherUser.online || isUserOnlineCached(t.otherUser.id)
-              }
-            }));
-      setThreads(merged);
-      setSelectedUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              online: hasPresenceSynced()
-                ? isUserOnlineCached(prev.id)
-                : !!prev.online || isUserOnlineCached(prev.id)
-            }
-          : prev
-      );
+            : prev
+        );
+      }
     } catch (e: unknown) {
       if (gen === threadsLoadGenRef.current) {
         setThreadsError(e instanceof Error ? e.message : "Failed to load conversations");
@@ -179,7 +197,7 @@ export function MessagesHubScreen() {
   }, []);
 
   const onFolderChange = useCallback(
-    (next: "inbox" | "archived") => {
+    (next: MessagesFolder) => {
       setFolder(next);
       setSelectedUser(null);
       setSelectedThreadUserId(null);
@@ -187,6 +205,15 @@ export function MessagesHubScreen() {
     },
     [loadThreads]
   );
+
+  useEffect(() => {
+    const requested = route.params?.folder;
+    if (!requested || requested === folderRef.current) return;
+    setFolder(requested);
+    setSelectedUser(null);
+    setSelectedThreadUserId(null);
+    void loadThreads(requested);
+  }, [loadThreads, route.params?.folder]);
 
   useEffect(() => {
     loadMe().catch(() => {});
@@ -529,6 +556,42 @@ export function MessagesHubScreen() {
     />
   );
 
+  const handleUnblockMember = useCallback(
+    (member: BlockedMember) => {
+      appAlert(
+        "Unblock member?",
+        `Unblock ${member.fullName}? You will be able to message again if you were connected or matched before.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Unblock",
+            onPress: () =>
+              void (async () => {
+                try {
+                  await unblockMember(member.id);
+                  setBlockedMembers((prev) => prev.filter((b) => b.id !== member.id));
+                } catch (e: unknown) {
+                  appAlert("Error", e instanceof Error ? e.message : "Failed to unblock");
+                }
+              })()
+          }
+        ]
+      );
+    },
+    []
+  );
+
+  const openBlockedMember = useCallback(
+    (member: BlockedMember) => {
+      navigation.navigate("Chat", {
+        otherUserId: member.id,
+        name: member.fullName,
+        profileImage: null
+      });
+    },
+    [navigation]
+  );
+
   const threadPanel = (
     <ThreadListPanel
       width={layout.sidebarWidth}
@@ -545,6 +608,9 @@ export function MessagesHubScreen() {
       folder={folder}
       onFolderChange={onFolderChange}
       contentBottomInset={tabBottomPad}
+      blockedMembers={blockedMembers}
+      onUnblockMember={handleUnblockMember}
+      onOpenBlockedMember={openBlockedMember}
     />
   );
 

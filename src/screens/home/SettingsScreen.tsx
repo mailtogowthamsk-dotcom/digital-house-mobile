@@ -19,10 +19,7 @@ import {
   type NotificationPreferences
 } from "../../api/notifications.api";
 import {
-  listBlockedMembers,
-  unblockMember,
-  updateConnectionRequests,
-  type BlockedMember
+  updateConnectionRequests
 } from "../../api/users.api";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -44,8 +41,6 @@ export function SettingsScreen() {
   const [linked, setLinked] = useState<LinkedAccountsResponse | null>(null);
   const [loadingLinked, setLoadingLinked] = useState(true);
   const [acceptingRequests, setAcceptingRequests] = useState(user?.allowConnectionRequests !== false);
-  const [blocked, setBlocked] = useState<BlockedMember[]>([]);
-  const [loadingBlocked, setLoadingBlocked] = useState(true);
 
   const loadPrefs = useCallback(async () => {
     setLoadingPrefs(true);
@@ -79,19 +74,6 @@ export function SettingsScreen() {
     setAcceptingRequests(user?.allowConnectionRequests !== false);
   }, [user?.allowConnectionRequests]);
 
-  useEffect(() => {
-    void (async () => {
-      setLoadingBlocked(true);
-      try {
-        setBlocked(await listBlockedMembers());
-      } catch {
-        setBlocked([]);
-      } finally {
-        setLoadingBlocked(false);
-      }
-    })();
-  }, []);
-
   const patchConnectionRequests = async (value: boolean) => {
     const prev = acceptingRequests;
     setAcceptingRequests(value);
@@ -100,15 +82,6 @@ export function SettingsScreen() {
       await refreshSession();
     } catch {
       setAcceptingRequests(prev);
-    }
-  };
-
-  const handleUnblock = async (member: BlockedMember) => {
-    try {
-      await unblockMember(member.id);
-      setBlocked((prev) => prev.filter((b) => b.id !== member.id));
-    } catch {
-      // ignore
     }
   };
 
@@ -226,39 +199,29 @@ export function SettingsScreen() {
           colors={colors}
         />
       </View>
-      {loadingBlocked ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
-      ) : blocked.length > 0 ? (
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.md }
-          ]}
-        >
-          <Text style={[styles.linkedHeading, { color: colors.text }]}>Blocked members</Text>
-          {blocked.map((member, idx) => (
-            <View key={member.id}>
-              {idx > 0 ? <View style={[styles.separator, { backgroundColor: colors.border }]} /> : null}
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>{member.fullName}</Text>
-                  {member.username ? (
-                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>
-                      @{member.username}
-                    </Text>
-                  ) : null}
-                </View>
-                <Pressable onPress={() => void handleUnblock(member)} hitSlop={8}>
-                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Unblock</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-          <Text style={[styles.linkedHint, { color: colors.textMuted }]}>
-            Unblocking does not restore connections or matrimony matches.
-          </Text>
+      <Pressable
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            marginTop: spacing.md,
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.lg
+          }
+        ]}
+        onPress={() => navigation.navigate("Messages", { folder: "blocked" })}
+      >
+        <View style={styles.row}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>Blocked members</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>
+              Manage in Messages → Blocked
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </View>
-      ) : null}
+      </Pressable>
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: spacing.xl }]}>
         Appearance

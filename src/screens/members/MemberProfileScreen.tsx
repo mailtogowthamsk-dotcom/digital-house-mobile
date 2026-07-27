@@ -325,7 +325,7 @@ export function MemberProfileScreen() {
     if (!profile) return;
     appAlert(
       "Block member?",
-      "They will be hidden from search, messaging, and connections. You can unblock them later in Settings.",
+      "They will be hidden from search, messaging, and connections. Unblock anytime from Messages → Blocked.",
       [
         { text: "Cancel", style: "cancel" },
         {

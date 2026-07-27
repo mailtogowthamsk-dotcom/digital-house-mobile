@@ -34,7 +34,7 @@ export type RootStackParamList = {
   VideoTrim: undefined;
   Menu: { messageCount?: number };
   Settings: undefined;
-  Messages: undefined;
+  Messages: { folder?: "inbox" | "archived" | "blocked" } | undefined;
   Chat: {
     otherUserId: number;
     name: string;

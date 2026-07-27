@@ -12,6 +12,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { AvatarImage } from "../ui/AvatarImage";
 import type { ChatLane, Thread } from "../../api/messages.api";
 
+export type MessagesFolder = "inbox" | "archived" | "blocked";
+
+export type BlockedListMember = {
+  id: number;
+  fullName: string;
+  username: string | null;
+};
+
 type Colors = {
   background: string;
   surface: string;
@@ -38,10 +46,14 @@ type ThreadListPanelProps = {
   onBack?: () => void;
   /** Opens member / conversation search (messages hub). */
   onSearch?: () => void;
-  folder?: "inbox" | "archived";
-  onFolderChange?: (folder: "inbox" | "archived") => void;
+  folder?: MessagesFolder;
+  onFolderChange?: (folder: MessagesFolder) => void;
   /** Extra bottom padding so list clears floating tab bar. */
   contentBottomInset?: number;
+  /** Shown when folder is Blocked. */
+  blockedMembers?: BlockedListMember[];
+  onUnblockMember?: (member: BlockedListMember) => void;
+  onOpenBlockedMember?: (member: BlockedListMember) => void;
 };
 
 function ThreadListPanelComponent(props: ThreadListPanelProps) {
@@ -59,10 +71,34 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     onSearch,
     folder = "inbox",
     onFolderChange,
-    contentBottomInset = 0
+    contentBottomInset = 0,
+    blockedMembers = [],
+    onUnblockMember,
+    onOpenBlockedMember
   } = props;
 
   const isArchived = folder === "archived";
+  const isBlocked = folder === "blocked";
+
+  const subtitle = isBlocked
+    ? "People you blocked. Tap Unblock to allow messaging again."
+    : isArchived
+      ? "Archived chats stay here until you unarchive them. Open a chat → ⋮ → Unarchive."
+      : "Archive a chat from its options menu. Find blocked people under Blocked.";
+
+  const emptyTitle = isBlocked
+    ? "No blocked members"
+    : isArchived
+      ? "No archived chats"
+      : "No conversations yet";
+
+  const emptySubtitle = isBlocked
+    ? "When you block someone from a chat, they appear here so you can unblock them anytime."
+    : isArchived
+      ? "When you archive a chat, it moves here and leaves your Inbox."
+      : "When you match on Matrimony or connect with a member, your chats will appear here.";
+
+  const listEmpty = isBlocked ? blockedMembers.length === 0 : threads.length === 0;
 
   return (
     <View
@@ -106,48 +142,37 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
 
         {onFolderChange ? (
           <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]}>
-            <Pressable
-              style={[
-                styles.segmentBtn,
-                folder === "inbox" && { backgroundColor: colors.surface }
-              ]}
-              onPress={() => onFolderChange("inbox")}
-            >
-              <Text
+            {(
+              [
+                { id: "inbox", label: "Inbox" },
+                { id: "archived", label: "Archived" },
+                { id: "blocked", label: "Blocked" }
+              ] as const
+            ).map((tab) => (
+              <Pressable
+                key={tab.id}
                 style={[
-                  styles.segmentText,
-                  { color: colors.textSecondary },
-                  folder === "inbox" && { color: colors.primary, fontWeight: "700" }
+                  styles.segmentBtn,
+                  folder === tab.id && { backgroundColor: colors.surface }
                 ]}
+                onPress={() => onFolderChange(tab.id)}
               >
-                Inbox
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.segmentBtn,
-                folder === "archived" && { backgroundColor: colors.surface }
-              ]}
-              onPress={() => onFolderChange("archived")}
-            >
-              <Text
-                style={[
-                  styles.segmentText,
-                  { color: colors.textSecondary },
-                  folder === "archived" && { color: colors.primary, fontWeight: "700" }
-                ]}
-              >
-                Archived
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: colors.textSecondary },
+                    folder === tab.id && { color: colors.primary, fontWeight: "700" }
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         ) : null}
 
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {isArchived
-            ? "Archived chats stay here until you unarchive them. Open a chat → ⋮ → Unarchive."
-            : "Archive a chat from its options menu. Find it again under Archived."}
-        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
       </View>
 
       <View style={styles.listWrap}>
@@ -160,16 +185,65 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             subtitle={threadsError}
             colors={colors}
           />
-        ) : threads.length === 0 ? (
+        ) : listEmpty ? (
           <EmptyState
-            icon={isArchived ? "archive-outline" : "chatbubble-ellipses-outline"}
-            title={isArchived ? "No archived chats" : "No conversations yet"}
-            subtitle={
-              isArchived
-                ? "When you archive a chat, it moves here and leaves your Inbox."
-                : "When you match on Matrimony or connect with a member, your chats will appear here."
+            icon={
+              isBlocked
+                ? "hand-left-outline"
+                : isArchived
+                  ? "archive-outline"
+                  : "chatbubble-ellipses-outline"
             }
+            title={emptyTitle}
+            subtitle={emptySubtitle}
             colors={colors}
+          />
+        ) : isBlocked ? (
+          <FlatList
+            data={blockedMembers}
+            keyExtractor={(m) => String(m.id)}
+            style={styles.list}
+            contentContainerStyle={[
+              styles.listContent,
+              contentBottomInset > 0 ? { paddingBottom: contentBottomInset } : null
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.blockedRow, { borderBottomColor: colors.border }]}
+                onPress={() => onOpenBlockedMember?.(item)}
+              >
+                <AvatarImage
+                  uri={null}
+                  name={item.fullName}
+                  size={44}
+                  placeholderColor={colors.surfaceElevated}
+                  textColor={colors.textSecondary}
+                />
+                <View style={styles.blockedTextCol}>
+                  <Text style={[styles.blockedName, { color: colors.text }]} numberOfLines={1}>
+                    {item.fullName}
+                  </Text>
+                  {item.username ? (
+                    <Text style={{ color: colors.textMuted, fontSize: 13 }} numberOfLines={1}>
+                      @{item.username}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: colors.textMuted, fontSize: 13 }}>Blocked</Text>
+                  )}
+                </View>
+                <Pressable
+                  onPress={() => onUnblockMember?.(item)}
+                  hitSlop={8}
+                  style={styles.unblockBtn}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>
+                    Unblock
+                  </Text>
+                </Pressable>
+              </Pressable>
+            )}
           />
         ) : (
           <FlatList
@@ -263,7 +337,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   segmentText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600"
   },
   listWrap: {
@@ -275,6 +349,27 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1
+  },
+  blockedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth
+  },
+  blockedTextCol: {
+    flex: 1,
+    minWidth: 0
+  },
+  blockedName: {
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  unblockBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    flexShrink: 0
   },
   centered: {
     flex: 1,
