@@ -1,8 +1,18 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, StyleSheet, Pressable, Animated, Easing } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Animated,
+  Easing,
+  Modal,
+  StatusBar,
+  useWindowDimensions
+} from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useIsFocused } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { usePlaybackAllowed } from "../../hooks/usePlaybackAllowed";
@@ -210,6 +220,8 @@ function ActiveFeedVideoPlayer({
 }: ActivePlayerProps) {
   const playbackAllowed = usePlaybackAllowed();
   const { muted, toggleMute, setMuted } = useFeedAudioControls();
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const alreadyWarmed = isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
   const [ready, setReady] = useState(alreadyWarmed);
   const [loading, setLoading] = useState(!alreadyWarmed);
@@ -218,7 +230,6 @@ function ActiveFeedVideoPlayer({
   const [showPoster, setShowPoster] = useState(!alreadyWarmed || isPreload || isRetain);
   const userPausedRef = useRef(false);
   const aliveRef = useRef(true);
-  const videoRef = useRef<VideoView | null>(null);
   const lastTapTime = useRef(0);
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -325,11 +336,6 @@ function ActiveFeedVideoPlayer({
 
   useEffect(() => {
     if (!playbackAllowed && fullscreen) {
-      try {
-        void videoRef.current?.exitFullscreen();
-      } catch {
-        /* ignore */
-      }
       setFullscreen(false);
     }
   }, [playbackAllowed, fullscreen]);
@@ -366,7 +372,7 @@ function ActiveFeedVideoPlayer({
 
   const togglePlay = useCallback(() => {
     if (!playbackAllowed) return;
-    if ((isPreload || isRetain) && !isActive) return;
+    if ((isPreload || isRetain) && !isActive && !fullscreen) return;
     try {
       if (player.playing) {
         userPausedRef.current = true;
@@ -380,7 +386,7 @@ function ActiveFeedVideoPlayer({
         setPlaying(true);
       }
     } catch (_) {}
-  }, [player, playbackAllowed, isPreload, isRetain, isActive]);
+  }, [player, playbackAllowed, isPreload, isRetain, isActive, fullscreen]);
 
   useEffect(() => {
     if (!onTogglePlayRef) return;
@@ -419,22 +425,13 @@ function ActiveFeedVideoPlayer({
     }, 280);
   }, [onDoubleTapLike, togglePlay]);
 
-  const openNativeFullscreen = useCallback(async () => {
+  const openFullscreen = useCallback(() => {
     if (!playbackAllowed) return;
-    try {
-      await videoRef.current?.enterFullscreen();
-    } catch {
-      /* unsupported */
-    }
+    setFullscreen(true);
   }, [playbackAllowed]);
 
-  const onFullscreenEnter = useCallback(() => {
-    setFullscreen(true);
-  }, []);
-
-  const onFullscreenExit = useCallback(() => {
+  const closeFullscreen = useCallback(() => {
     setFullscreen(false);
-    // Native fullscreen tears down its surface — resume inline if still active.
     if (!aliveRef.current) return;
     try {
       if (isActive && playbackAllowed && !userPausedRef.current) {
@@ -491,9 +488,41 @@ function ActiveFeedVideoPlayer({
           borderColor: "rgba(255,255,255,0.35)",
           alignItems: "center",
           justifyContent: "center"
+        },
+        fsRoot: {
+          flex: 1,
+          backgroundColor: "#000",
+          justifyContent: "center",
+          alignItems: "center"
+        },
+        fsVideo: {
+          width: screenWidth,
+          height: screenHeight,
+          backgroundColor: "#000"
+        },
+        fsTopBar: {
+          position: "absolute",
+          left: 0,
+          right: 0,
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 10,
+          paddingHorizontal: 16,
+          zIndex: 8
+        },
+        fsBtn: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: "rgba(15,23,42,0.72)",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(255,255,255,0.32)",
+          alignItems: "center",
+          justifyContent: "center"
         }
       }),
-    [height]
+    [height, screenWidth, screenHeight]
   );
 
   // Preload-only: warm disk cache / buffers, no VideoView (saves compositor work).
@@ -510,68 +539,135 @@ function ActiveFeedVideoPlayer({
   }
 
   const showPausedGlyph = !showLoader && !playing && ready && isActive && !isRetain;
+  const showFsPausedGlyph = !showLoader && !playing && ready;
 
+  /**
+   * Only one VideoView may attach to the player at a time.
+   * In fullscreen we unmount the inline view and mount the modal view (avoids Android stuck exit).
+   */
   return (
-    <View style={[s.wrap, style]}>
-      <VideoView
-        ref={videoRef}
-        style={s.video}
-        player={player}
-        contentFit="cover"
-        nativeControls={false}
-        fullscreenOptions={{ enable: true, orientation: "default" }}
-        onFullscreenEnter={onFullscreenEnter}
-        onFullscreenExit={onFullscreenExit}
-      />
-      {showPoster && thumbnailUrl ? (
-        <Image
-          source={{ uri: thumbnailUrl }}
-          style={s.poster}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
-        />
-      ) : null}
-      {showLoader ? (
-        <View
-          style={[s.center, { backgroundColor: "rgba(15,23,42,0.28)" }]}
-          pointerEvents="none"
-        >
-          <FeedVideoLoader />
-        </View>
-      ) : (
-        <Pressable
-          style={s.center}
-          onPress={handleSurfacePress}
-          accessibilityRole="button"
-          accessibilityLabel={playing ? "Pause video" : "Play video"}
-        >
-          {showPausedGlyph ? (
-            <View style={s.playGlyph} pointerEvents="none">
-              <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
-            </View>
-          ) : null}
-        </Pressable>
-      )}
-      <View style={s.controlsBar} pointerEvents="box-none">
-        <Pressable
-          style={s.ctrlBtn}
-          onPress={toggleMute}
-          accessibilityRole="button"
-          accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-        >
-          <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color="#fff" />
-        </Pressable>
-        <Pressable
-          style={s.ctrlBtn}
-          onPress={() => void openNativeFullscreen()}
-          accessibilityRole="button"
-          accessibilityLabel="Fullscreen"
-        >
-          <Ionicons name="expand" size={18} color="#fff" />
-        </Pressable>
+    <>
+      <View style={[s.wrap, style]}>
+        {!fullscreen ? (
+          <VideoView
+            style={s.video}
+            player={player}
+            contentFit="cover"
+            nativeControls={false}
+            fullscreenOptions={{ enable: false }}
+          />
+        ) : (
+          <View style={s.video} />
+        )}
+        {showPoster && thumbnailUrl && !fullscreen ? (
+          <Image
+            source={{ uri: thumbnailUrl }}
+            style={s.poster}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
+          />
+        ) : null}
+        {showLoader && !fullscreen ? (
+          <View
+            style={[s.center, { backgroundColor: "rgba(15,23,42,0.28)" }]}
+            pointerEvents="none"
+          >
+            <FeedVideoLoader />
+          </View>
+        ) : !fullscreen ? (
+          <Pressable
+            style={s.center}
+            onPress={handleSurfacePress}
+            accessibilityRole="button"
+            accessibilityLabel={playing ? "Pause video" : "Play video"}
+          >
+            {showPausedGlyph ? (
+              <View style={s.playGlyph} pointerEvents="none">
+                <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
+        {!fullscreen ? (
+          <View style={s.controlsBar} pointerEvents="box-none">
+            <Pressable
+              style={s.ctrlBtn}
+              onPress={toggleMute}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? "Unmute video" : "Mute video"}
+            >
+              <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color="#fff" />
+            </Pressable>
+            <Pressable
+              style={s.ctrlBtn}
+              onPress={openFullscreen}
+              accessibilityRole="button"
+              accessibilityLabel="Fullscreen"
+            >
+              <Ionicons name="expand" size={18} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
-    </View>
+
+      <Modal
+        visible={fullscreen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
+        onRequestClose={closeFullscreen}
+        statusBarTranslucent
+      >
+        <StatusBar hidden />
+        <View style={s.fsRoot}>
+          <VideoView
+            style={s.fsVideo}
+            player={player}
+            contentFit="contain"
+            nativeControls={false}
+            fullscreenOptions={{ enable: false }}
+          />
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={handleSurfacePress}
+            accessibilityRole="button"
+            accessibilityLabel={playing ? "Pause video" : "Play video"}
+          >
+            {showFsPausedGlyph ? (
+              <View style={s.center} pointerEvents="none">
+                <View style={s.playGlyph}>
+                  <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+                </View>
+              </View>
+            ) : null}
+          </Pressable>
+          <View
+            style={[s.fsTopBar, { top: Math.max(insets.top, 12) + 4 }]}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              style={s.fsBtn}
+              onPress={toggleMute}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={muted ? "Unmute video" : "Mute video"}
+            >
+              <Ionicons name={muted ? "volume-mute" : "volume-high"} size={20} color="#fff" />
+            </Pressable>
+            <Pressable
+              style={s.fsBtn}
+              onPress={closeFullscreen}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close fullscreen"
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
