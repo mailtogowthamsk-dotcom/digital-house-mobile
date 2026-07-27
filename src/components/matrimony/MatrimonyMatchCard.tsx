@@ -1,5 +1,6 @@
-import React from "react";
-import { View, Text, Image, Pressable, StyleSheet } from "react-native";
+import React, { memo } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyChipRow } from "./MatrimonyChip";
@@ -12,7 +13,7 @@ type Props = {
   onPress: () => void;
 };
 
-export function MatrimonyMatchCard({ item, chips, onPress }: Props) {
+function MatrimonyMatchCardInner({ item, chips, onPress }: Props) {
   const { colors } = useTheme();
   const lockedPhoto = item.photoBlurred || item.photoPlaceholder;
   const uri =
@@ -29,7 +30,13 @@ export function MatrimonyMatchCard({ item, chips, onPress }: Props) {
       <View style={styles.top}>
         <View style={styles.photoWrap}>
           {uri ? (
-            <Image source={{ uri }} style={styles.photo} />
+            <Image
+              source={{ uri }}
+              style={styles.photo}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={uri}
+            />
           ) : (
             <View style={[styles.photo, styles.photoPh, { backgroundColor: colors.border }]}>
               <Text style={{ fontSize: 28 }}>👤</Text>
@@ -78,6 +85,8 @@ export function MatrimonyMatchCard({ item, chips, onPress }: Props) {
     </Pressable>
   );
 }
+
+export const MatrimonyMatchCard = memo(MatrimonyMatchCardInner);
 
 const styles = StyleSheet.create({
   card: {

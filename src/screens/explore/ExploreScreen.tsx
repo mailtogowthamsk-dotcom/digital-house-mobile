@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
 import { ExploreSearchBar } from "../../components/explore/ExploreSearchBar";
 import { ExploreDiscoveryPane } from "../../components/explore/ExploreDiscoveryPane";
-import { PostCard, FeedPostSkeleton, type PostCardData } from "../../components/home";
+import { FeedPostCardRow, FeedPostSkeleton, type PostCardData } from "../../components/home";
+import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
 import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
@@ -27,7 +28,7 @@ import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
 import { promptReportPost } from "../../utils/promptReportPost";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
-import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
+import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
 import type { PostLiker } from "../../api/posts.api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -55,6 +56,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
   const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
+  const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const resultsRef = useRef<PostCardData[]>([]);
   const commentPostIdRef = useRef<string | null>(null);
   commentPostIdRef.current = commentPost?.id ?? null;
@@ -66,14 +68,35 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
-        viewableItems,
-        resultsRef.current
-      );
-      setActiveMediaPostId(activeId);
-      setPreloadMediaPostId(preloadId);
+      const { activeId } = pickActiveAndPreloadPostIds(viewableItems, resultsRef.current);
+      if (activeId) setActiveMediaPostId(activeId);
     }
   ).current;
+
+  useEffect(() => {
+    const items = explore.results;
+    if (!items.length) {
+      setActiveMediaPostId(null);
+      setPreloadMediaPostId(null);
+      setRetainMediaPostId(null);
+      return;
+    }
+    setActiveMediaPostId((prev) =>
+      prev && items.some((p) => p.id === prev) ? prev : items[0]!.id
+    );
+  }, [explore.results]);
+
+  useEffect(() => {
+    const items = explore.results;
+    if (!items.length || !activeMediaPostId) {
+      setPreloadMediaPostId(null);
+      setRetainMediaPostId(null);
+      return;
+    }
+    const idx = items.findIndex((p) => p.id === activeMediaPostId);
+    setPreloadMediaPostId(idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null);
+    setRetainMediaPostId(idx > 0 ? items[idx - 1]!.id : null);
+  }, [explore.results, activeMediaPostId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -94,60 +117,62 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     [navigateToPostAuthor]
   );
 
+  const feedActionsRef = useRef<FeedPostCardActions>({
+    onAuthorPress: () => {},
+    onDoubleTap: () => {},
+    onLikePress: () => {},
+    onLikeCountPress: () => {},
+    onCommentPress: () => {},
+    onSavePress: () => {},
+    onSharePress: () => {}
+  });
+  feedActionsRef.current = {
+    onAuthorPress: handleAuthorPress,
+    shouldShowMenu: (item) =>
+      !(authUser?.id != null && item.authorUserId === authUser.id),
+    onMenuPress: (item) => {
+      trackFeedAction("post_report", Number(item.id), { source: "explore" });
+      promptReportPost(Number(item.id));
+    },
+    onActivateMedia: (postId) => {
+      setActiveMediaPostId(postId);
+      setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
+    },
+    onDoubleTap: (item) => addLike(item.id, item),
+    onLikePress: (item) => toggleLike(item.id, item),
+    onLikeCountPress: (item) => {
+      trackFeedAction("likes_sheet_open", Number(item.id), { source: "explore" });
+      setLikesPost(item);
+    },
+    onCommentPress: (item) => {
+      trackFeedAction("comment_sheet_open", Number(item.id), { source: "explore" });
+      setCommentPost(item);
+    },
+    onSavePress: (item) => toggleSave(item.id, item),
+    onSharePress: (item) => {
+      trackFeedAction("share", Number(item.id), { source: "explore" });
+      setSharePost({
+        postId: Number(item.id),
+        title: item.title,
+        authorName: item.userName,
+        mediaUrl: item.imageUri,
+        mediaType: item.mediaType,
+        thumbnailUrl: item.thumbnailUrl
+      });
+    }
+  };
+
   const renderItem = useCallback(
     ({ item }: { item: PostCardData }) => (
-      <PostCard
-        post={{
-          ...item,
-          isMediaActive: item.id === activeMediaPostId,
-          isMediaPreload: item.id === preloadMediaPostId
-        }}
-        onAuthorPress={() => handleAuthorPress(item)}
-        onMenuPress={
-          authUser?.id != null && item.authorUserId === authUser.id
-            ? undefined
-            : () => {
-                trackFeedAction("post_report", Number(item.id), { source: "explore" });
-                promptReportPost(Number(item.id));
-              }
-        }
-        onActivateMedia={(postId) => {
-          setActiveMediaPostId(postId);
-          setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
-        }}
-        onDoubleTap={() => addLike(item.id, item)}
-        onLikePress={() => toggleLike(item.id, item)}
-        onLikeCountPress={() => {
-          trackFeedAction("likes_sheet_open", Number(item.id));
-          setLikesPost(item);
-        }}
-        onCommentPress={() => {
-          trackFeedAction("comment_sheet_open", Number(item.id));
-          setCommentPost(item);
-        }}
-        onSavePress={() => toggleSave(item.id, item)}
-        onSharePress={() => {
-          trackFeedAction("share", Number(item.id));
-          setSharePost({
-            postId: Number(item.id),
-            title: item.title,
-            authorName: item.userName,
-            mediaUrl: item.imageUri,
-            mediaType: item.mediaType,
-            thumbnailUrl: item.thumbnailUrl
-          });
-        }}
+      <FeedPostCardRow
+        post={item}
+        isMediaActive={item.id === activeMediaPostId}
+        isMediaPreload={item.id === preloadMediaPostId}
+        isMediaRetain={item.id === retainMediaPostId}
+        actionsRef={feedActionsRef}
       />
     ),
-    [
-      activeMediaPostId,
-      preloadMediaPostId,
-      addLike,
-      handleAuthorPress,
-      toggleLike,
-      toggleSave,
-      authUser?.id
-    ]
+    [activeMediaPostId, preloadMediaPostId, retainMediaPostId]
   );
 
   const handleCommentCountChange = useCallback(
@@ -158,7 +183,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         emitPostUpdated(Number(id), { commentCount: count });
       }
     },
-    [explore]
+    [explore.updatePost]
   );
 
   const handleLikerPress = useCallback(
@@ -233,15 +258,37 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         ) : null}
       </View>
     ),
-    [colors.textSecondary, explore, showResults]
+    [
+      colors.textSecondary,
+      explore.query,
+      explore.setQuery,
+      explore.loading,
+      explore.total,
+      explore.recent,
+      explore.discovery,
+      explore.applyRecent,
+      explore.clearHistory,
+      explore.removeRecent,
+      showResults
+    ]
   );
+
+  const listContentStyle = useMemo(
+    () => ({
+      paddingBottom: bottomInset,
+      paddingTop: topInset + spacing.md
+    }),
+    [bottomInset, topInset]
+  );
+
+  const keyExtractor = useCallback((item: PostCardData) => item.id, []);
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
       <FlatList
         style={styles.fill}
         data={showResults ? explore.results : []}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={showResults ? ListEmpty : null}
@@ -256,16 +303,15 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         onEndReachedThreshold={0.35}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        extraData={`${activeMediaPostId}:${preloadMediaPostId}:${retainMediaPostId}`}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{
-          paddingBottom: bottomInset,
-          paddingTop: topInset + spacing.md
-        }}
-        removeClippedSubviews
-        maxToRenderPerBatch={8}
-        windowSize={7}
-        initialNumToRender={4}
+        contentContainerStyle={listContentStyle}
+        removeClippedSubviews={false}
+        maxToRenderPerBatch={2}
+        windowSize={3}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={2}
       />
 
       {commentPost ? (

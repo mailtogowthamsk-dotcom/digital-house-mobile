@@ -1,5 +1,7 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, Image, StyleSheet, ActivityIndicator, Linking, Pressable, TextInput } from "react-native";
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Linking, Pressable, TextInput } from "react-native";
+import { Image } from "expo-image";
+import * as WebBrowser from "expo-web-browser";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,7 +26,7 @@ import {
   type CandidateDetail,
   type ProfileLockedTeaser
 } from "../../api/matrimony.api";
-import { getImageUrl } from "../../api/client";
+import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { checkoutMatrimonyContactReveal } from "../../services/matrimonyCheckout";
@@ -213,10 +215,22 @@ export function MatrimonyCandidateScreen() {
   const openHoroscope = async () => {
     try {
       const { url } = await getMatrimonyHoroscope(userId);
-      if (url) await Linking.openURL(url);
-      else appAlert("Horoscope", "Document not available.");
+      if (!url) {
+        appAlert("Horoscope", "They have not uploaded a horoscope document yet.");
+        return;
+      }
+      try {
+        await WebBrowser.openBrowserAsync(url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN
+        });
+      } catch {
+        await Linking.openURL(url);
+      }
     } catch (e) {
-      appAlert("Horoscope", e instanceof Error ? e.message : "Available after mutual match only.");
+      appAlert(
+        "Horoscope",
+        e instanceof Error ? e.message : "Available after mutual match only."
+      );
     }
   };
 
@@ -236,7 +250,7 @@ export function MatrimonyCandidateScreen() {
     setActing(true);
     try {
       await shareMatrimonyHoroscope(userId);
-      appAlert("Shared", "Your horoscope is now visible to your match.");
+      appAlert("Shared", "Horoscope exchange is unlocked for this match. You can view theirs now.");
       await load();
     } catch (e) {
       appAlert("Horoscope", e instanceof Error ? e.message : "Failed");
@@ -245,13 +259,49 @@ export function MatrimonyCandidateScreen() {
     }
   };
 
+  /** Horoscope card / CTA — unlock flow when not yet shared. */
+  const onHoroscopePress = () => {
+    if (!profile?.mutualMatch) {
+      appAlert("Horoscope", "Horoscope opens after you are mutually matched.");
+      return;
+    }
+    if (profile.horoscopeVisible) {
+      void openHoroscope();
+      return;
+    }
+    if (!profile.horoscopeAvailable) {
+      appAlert("Horoscope", "This profile has no horoscope on file yet.");
+      return;
+    }
+    appAlert(
+      "Unlock horoscope",
+      "Someone must share first. Share yours to unlock viewing, or request that they share.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Request", onPress: () => void onRequestHoroscope() },
+        { text: "Share mine", onPress: () => void onShareHoroscope() }
+      ]
+    );
+  };
+
   const showContact = async () => {
-    if (profile?.contactPaymentStatus !== "PAID") {
+    if (!profile?.mutualMatch) {
+      appAlert(
+        "Contact locked",
+        "Contact is available only after both of you accept interest (mutual match)."
+      );
+      return;
+    }
+    if (profile.contactPaymentStatus !== "PAID") {
       appAlert(
         `Reveal contact — ₹${contactPriceInr}`,
-        "One-time payment per profile after mutual match.",
+        "One-time payment per profile after mutual match. Gold or Platinum subscription is required.",
         [
           { text: "Cancel", style: "cancel" },
+          {
+            text: "View plans",
+            onPress: () => navigation.navigate("MatrimonyPlans")
+          },
           {
             text: `Pay ₹${contactPriceInr}`,
             onPress: async () => {
@@ -264,7 +314,15 @@ export function MatrimonyCandidateScreen() {
                 appAlert("Contact", res.mobile ? `Mobile: ${res.mobile}` : "No mobile on file.");
                 await load();
               } catch (e) {
-                appAlert("Payment", e instanceof Error ? e.message : "Failed");
+                const msg = getAuthErrorMessage(e);
+                if (/subscription|Gold|Platinum/i.test(msg)) {
+                  appAlert("Subscription required", msg, [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "View plans", onPress: () => navigation.navigate("MatrimonyPlans") }
+                  ]);
+                } else {
+                  appAlert("Payment", msg);
+                }
               } finally {
                 setActing(false);
               }
@@ -278,7 +336,7 @@ export function MatrimonyCandidateScreen() {
       const { mobile } = await revealMatrimonyContact(userId);
       appAlert("Contact", mobile ? `Mobile: ${mobile}` : "No mobile on file.");
     } catch (e) {
-      appAlert("Contact", e instanceof Error ? e.message : "Available after mutual match.");
+      appAlert("Contact", getAuthErrorMessage(e));
     }
   };
 
@@ -466,7 +524,7 @@ export function MatrimonyCandidateScreen() {
             </View>
           </View>
           {uri ? (
-            <Image source={{ uri }} style={styles.heroPhoto} />
+            <Image cachePolicy="memory-disk" contentFit="cover" source={{ uri }} style={styles.heroPhoto} />
           ) : (
             <View style={[styles.heroPhoto, styles.heroPhotoPh]}>
               <Text style={{ fontSize: 36, color: "#fff" }}>👤</Text>
@@ -608,11 +666,12 @@ export function MatrimonyCandidateScreen() {
                   />
                 </>
               )}
-              {profile.horoscopeVisible && (
+              {(profile.horoscopeVisible || profile.horoscopeAvailable) && (
                 <PrimaryButton
-                  title="View horoscope"
+                  title={profile.horoscopeVisible ? "View horoscope" : "View / unlock horoscope"}
                   variant="outline"
-                  onPress={openHoroscope}
+                  onPress={onHoroscopePress}
+                  disabled={acting}
                   style={{ marginTop: 8 }}
                 />
               )}
@@ -692,14 +751,29 @@ export function MatrimonyCandidateScreen() {
           />
 
           {profile.horoscopeAvailable && (
-            <View style={[styles.mediaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.mediaTitle, { color: colors.text }]}>📄 Horoscope</Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 10 }}>
-                {profile.horoscopeVisible
-                  ? "Available — tap View horoscope above"
-                  : "Shared after mutual match"}
-              </Text>
-            </View>
+            <Pressable
+              onPress={onHoroscopePress}
+              disabled={acting}
+              style={[styles.mediaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="View horoscope"
+            >
+              <View style={styles.mediaCardRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.mediaTitle, { color: colors.text }]}>📄 Horoscope</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4, lineHeight: 18 }}>
+                    {!profile.mutualMatch
+                      ? "Unlocks after mutual match"
+                      : profile.horoscopeVisible
+                        ? "Shared — tap to open document"
+                        : "Tap to request or share and unlock"}
+                  </Text>
+                </View>
+                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 13 }}>
+                  {profile.horoscopeVisible ? "Open →" : profile.mutualMatch ? "Unlock →" : "Locked"}
+                </Text>
+              </View>
+            </Pressable>
           )}
 
           <View style={[styles.contactBox, { borderColor: colors.border }]}>
@@ -707,7 +781,8 @@ export function MatrimonyCandidateScreen() {
               <Text style={{ fontSize: 18 }}>📞</Text>
               <Text style={[styles.contactTitle, { color: colors.text }]}>Contact details</Text>
             </View>
-            {profile.contactVisible || profile.contactPaymentStatus === "PAID" ? (
+            {profile.mutualMatch &&
+            (profile.contactVisible || profile.contactPaymentStatus === "PAID") ? (
               <PrimaryButton title="Reveal contact" variant="outline" onPress={showContact} />
             ) : profile.mutualMatch ? (
               <PrimaryButton
@@ -717,11 +792,11 @@ export function MatrimonyCandidateScreen() {
             ) : (
               <>
                 <Text style={[styles.contactLocked, { color: colors.textSecondary }]}>
-                  {profile.mutualMatch
-                    ? "Mutual match confirmed. Use Reveal contact when ready."
+                  {profile.contactPaymentStatus === "PAID"
+                    ? "You already paid for this contact. Rematch (both accept interest again) to reveal it."
                     : "Send interest and wait for acceptance. Contact is available after mutual match."}
                 </Text>
-                {!profile.mutualMatch && profile.canSendInterest && (
+                {profile.canSendInterest && (
                   <PrimaryButton
                     title="Send interest first"
                     onPress={() => void onSendInterest()}
@@ -844,6 +919,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.md,
     marginBottom: spacing.sm
+  },
+  mediaCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
   },
   mediaTitle: { fontSize: 14, fontWeight: "800" },
   contactBox: {

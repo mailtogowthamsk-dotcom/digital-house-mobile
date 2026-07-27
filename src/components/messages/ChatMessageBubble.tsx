@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from "react";
-import { View, Text, StyleSheet, Image, Pressable, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import type { MessageItem } from "../../api/messages.api";
@@ -78,7 +79,13 @@ function ChatMessageBubbleComponent({
       {!mine ? (
         <View style={styles.avatarCol}>
           {otherAvatarUri ? (
-            <Image source={{ uri: otherAvatarUri }} style={styles.avatar} />
+            <Image
+              source={{ uri: otherAvatarUri }}
+              style={styles.avatar}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={otherAvatarUri}
+            />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: colors.surfaceElevated }]}>
               <Ionicons name="person" size={16} color={colors.textMuted} />

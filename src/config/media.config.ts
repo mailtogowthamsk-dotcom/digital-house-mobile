@@ -45,13 +45,8 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/webp"
 ] as const;
 
-/** MP4, MOV (QuickTime), M4V */
-export const ALLOWED_VIDEO_TYPES = [
-  "video/mp4",
-  "video/quicktime",
-  "video/x-m4v",
-  "video/m4v"
-] as const;
+/** MP4 only for new uploads (server validates H.264/AAC). Legacy .mov still plays in feed. */
+export const ALLOWED_VIDEO_TYPES = ["video/mp4"] as const;
 
 export type PostMediaKind = "image" | "video" | "none";
 

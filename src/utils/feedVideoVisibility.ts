@@ -7,42 +7,50 @@ export function isFeedVideoItem(item: PostCardData): boolean {
   );
 }
 
-/**
- * From FlatList viewable items, pick the primary autoplay video and the next
- * video to warm (preload). Only one autoplays; preload never plays.
- *
- * If only one video is on screen, optionally look ahead in `feedItems` for the
- * next video below the active one (capped so far-off cells do not mount).
- */
-const PRELOAD_LOOKAHEAD_MAX = 2;
+export type FeedMediaWindow = {
+  /** Most visible / autoplay candidate */
+  activeId: string | null;
+  /** Next item — preload into disk cache */
+  preloadId: string | null;
+  /** Previous item — keep player reusable for instant scroll-back */
+  retainId: string | null;
+};
 
-export function pickActiveAndPreloadVideoIds(
+/**
+ * Current + next + previous media window (Instagram-style reuse).
+ */
+export function pickActiveAndPreloadPostIds(
   viewableItems: Array<{ item: PostCardData; isViewable: boolean; index?: number | null }>,
   feedItems?: PostCardData[]
-): { activeId: string | null; preloadId: string | null } {
-  const visibleVideos = viewableItems
-    .filter((v) => v.isViewable && isFeedVideoItem(v.item))
-    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-    .map((v) => v.item.id);
+): FeedMediaWindow {
+  const visible = viewableItems
+    .filter((v) => v.isViewable)
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 
-  const activeId = visibleVideos[0] ?? null;
-  let preloadId = visibleVideos.length > 1 ? visibleVideos[1]! : null;
+  const activeId = visible[0]?.item.id ?? null;
+  let preloadId: string | null = null;
+  let retainId: string | null = null;
 
-  if (!preloadId && activeId && feedItems && feedItems.length > 0) {
+  if (activeId && feedItems && feedItems.length > 0) {
     const idx = feedItems.findIndex((i) => i.id === activeId);
     if (idx >= 0) {
-      const end = Math.min(feedItems.length, idx + 1 + PRELOAD_LOOKAHEAD_MAX);
-      for (let i = idx + 1; i < end; i++) {
-        const candidate = feedItems[i];
-        if (candidate && isFeedVideoItem(candidate)) {
-          preloadId = candidate.id;
-          break;
-        }
-      }
+      if (idx + 1 < feedItems.length) preloadId = feedItems[idx + 1]!.id;
+      if (idx - 1 >= 0) retainId = feedItems[idx - 1]!.id;
     }
+  } else if (visible.length > 1) {
+    preloadId = visible[1]!.item.id;
   }
 
   if (preloadId === activeId) preloadId = null;
+  if (retainId === activeId || retainId === preloadId) retainId = null;
 
-  return { activeId, preloadId };
+  return { activeId, preloadId, retainId };
+}
+
+/** @deprecated Prefer pickActiveAndPreloadPostIds */
+export function pickActiveAndPreloadVideoIds(
+  viewableItems: Array<{ item: PostCardData; isViewable: boolean; index?: number | null }>,
+  feedItems?: PostCardData[]
+): FeedMediaWindow {
+  return pickActiveAndPreloadPostIds(viewableItems, feedItems);
 }

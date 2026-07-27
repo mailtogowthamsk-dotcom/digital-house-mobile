@@ -1,12 +1,6 @@
-import React, { memo, useMemo, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  type ImageStyle,
-  type ViewStyle
-} from "react-native";
+import React, { memo, useMemo, useState, useCallback, useEffect } from "react";
+import { View, Text, StyleSheet, type ImageStyle, type ViewStyle } from "react-native";
+import { Image } from "expo-image";
 import { getImageUrl } from "../../api/client";
 
 type Props = {
@@ -29,13 +23,14 @@ function AvatarImageInner({
   textColor = "#3B5BDB"
 }: Props) {
   const resolvedUri = useMemo(() => getImageUrl(uri ?? null), [uri]);
-  const [loaded, setLoaded] = useState(() => !resolvedUri);
   const [failed, setFailed] = useState(false);
 
-  const onLoad = useCallback(() => setLoaded(true), []);
+  useEffect(() => {
+    setFailed(false);
+  }, [resolvedUri]);
+
   const onError = useCallback(() => {
     setFailed(true);
-    setLoaded(true);
   }, []);
 
   const initial = (name ?? "?").trim().charAt(0).toUpperCase() || "?";
@@ -57,38 +52,31 @@ function AvatarImageInner({
         containerStyle
       ]}
     >
-      {!showImage ? (
-        <Text style={{ fontSize: size * 0.38, fontWeight: "700", color: textColor }}>{initial}</Text>
-      ) : (
-        <>
-          {!loaded ? (
-            <Text
-              style={[
-                StyleSheet.absoluteFillObject,
-                {
-                  fontSize: size * 0.38,
-                  fontWeight: "700",
-                  color: textColor,
-                  textAlign: "center",
-                  lineHeight: size
-                }
-              ]}
-            >
-              {initial}
-            </Text>
-          ) : null}
-          <Image
-            source={{ uri: resolvedUri! }}
-            style={[
-              { width: size, height: size, borderRadius, opacity: loaded ? 1 : 0 },
-              style
-            ]}
-            onLoad={onLoad}
-            onError={onError}
-            fadeDuration={0}
-          />
-        </>
-      )}
+      <Text
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            fontSize: size * 0.38,
+            fontWeight: "700",
+            color: textColor,
+            textAlign: "center",
+            lineHeight: size
+          }
+        ]}
+      >
+        {initial}
+      </Text>
+      {showImage ? (
+        <Image
+          source={{ uri: resolvedUri! }}
+          style={[{ width: size, height: size, borderRadius }, style]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={resolvedUri!}
+          transition={0}
+          onError={onError}
+        />
+      ) : null}
     </View>
   );
 }

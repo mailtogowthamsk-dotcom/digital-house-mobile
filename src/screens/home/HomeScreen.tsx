@@ -20,12 +20,14 @@ import {
   FLOATING_HEADER_HEIGHT,
   FLOATING_TAB_BAR_HEIGHT,
   DismissibleWelcomeCard,
-  PostCard,
+  FeedPostCardRow,
   BottomTabBar,
   HighlightSection,
   FeedPostSkeleton,
   hasHighlightsData
 } from "../../components/home";
+import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
+import type { PostCardData } from "../../components/home";
 import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
@@ -39,7 +41,7 @@ import { useHome } from "../../hooks/useHome";
 import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
-import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
+import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
@@ -52,8 +54,6 @@ import { promptReportPost } from "../../utils/promptReportPost";
 import { openMessagesInbox } from "../../navigation/openMessages";
 import { handleMainTabPress } from "../../navigation/mainTabs";
 import type { RootStackParamList } from "../../navigation/types";
-import { useNotificationsOptional } from "../../context/NotificationContext";
-import type { PostCardData } from "../../components/home/PostCard";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { ExploreScreen } from "../explore/ExploreScreen";
 
@@ -71,7 +71,6 @@ export function HomeScreen() {
   const route = useRoute<RouteProp<RootStackParamList, "Home">>();
   const { signOut, user: authUser } = useAuth();
   const { colors, mode } = useTheme();
-  const notifCtx = useNotificationsOptional();
   const welcomeCardVisible = useWelcomeCardVisible();
   const {
     state,
@@ -103,6 +102,7 @@ export function HomeScreen() {
   retrySummaryRef.current = retrySummary;
   const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
   const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
+  const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const feedItemsRef = useRef<PostCardData[]>([]);
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 65,
@@ -110,12 +110,8 @@ export function HomeScreen() {
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
-        viewableItems,
-        feedItemsRef.current
-      );
-      setActiveMediaPostId(activeId);
-      setPreloadMediaPostId(preloadId);
+      const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
+      if (activeId) setActiveMediaPostId(activeId);
     }
   ).current;
 
@@ -136,6 +132,32 @@ export function HomeScreen() {
   } = state;
 
   feedItemsRef.current = feedItems;
+
+  // Keep previous / next relative to current for instant scroll-back + preload.
+  useEffect(() => {
+    if (!feedItems.length) {
+      setActiveMediaPostId(null);
+      setPreloadMediaPostId(null);
+      setRetainMediaPostId(null);
+      return;
+    }
+    setActiveMediaPostId((prev) =>
+      prev && feedItems.some((p) => p.id === prev) ? prev : feedItems[0]!.id
+    );
+  }, [feedItems]);
+
+  useEffect(() => {
+    if (!feedItems.length || !activeMediaPostId) {
+      setPreloadMediaPostId(null);
+      setRetainMediaPostId(null);
+      return;
+    }
+    const idx = feedItems.findIndex((p) => p.id === activeMediaPostId);
+    setPreloadMediaPostId(
+      idx >= 0 && idx + 1 < feedItems.length ? feedItems[idx + 1]!.id : null
+    );
+    setRetainMediaPostId(idx > 0 ? feedItems[idx - 1]!.id : null);
+  }, [feedItems, activeMediaPostId]);
 
   const welcomeUser = useMemo(
     () =>
@@ -190,7 +212,8 @@ export function HomeScreen() {
   );
 
   useAppResume(() => {
-    void refetchAll();
+    // Soft: summary badges only — avoid full feed refetch on every foreground.
+    void retrySummaryRef.current();
   });
 
   useEffect(() => {
@@ -234,11 +257,19 @@ export function HomeScreen() {
     handleMainTabPress(navigation, activeTab, tab);
   };
 
-  const onMenuPress = () => {
+  const onMenuPress = useCallback(() => {
     navigation.navigate("Menu", {
       messageCount: summary?.unreadMessagesCount ?? 0
     });
-  };
+  }, [navigation, summary?.unreadMessagesCount]);
+
+  const onNotificationPress = useCallback(() => {
+    navigation.navigate("Notifications");
+  }, [navigation]);
+
+  const onMessagePress = useCallback(() => {
+    openMessagesInbox(navigation);
+  }, [navigation]);
   const onFeedScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
@@ -296,60 +327,62 @@ export function HomeScreen() {
     [navigateToPostAuthor]
   );
 
+  const feedActionsRef = useRef<FeedPostCardActions>({
+    onAuthorPress: () => {},
+    onDoubleTap: () => {},
+    onLikePress: () => {},
+    onLikeCountPress: () => {},
+    onCommentPress: () => {},
+    onSavePress: () => {},
+    onSharePress: () => {}
+  });
+  feedActionsRef.current = {
+    onAuthorPress: handleAuthorPress,
+    shouldShowMenu: (item) =>
+      !(authUser?.id != null && item.authorUserId === authUser.id),
+    onMenuPress: (item) => {
+      trackFeedAction("post_report", Number(item.id));
+      promptReportPost(Number(item.id));
+    },
+    onActivateMedia: (postId) => {
+      setActiveMediaPostId(postId);
+      setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
+    },
+    onDoubleTap: (item) => addLike(item.id, item),
+    onLikePress: (item) => toggleLike(item.id, item),
+    onLikeCountPress: (item) => {
+      trackFeedAction("likes_sheet_open", Number(item.id));
+      setLikesPost(item);
+    },
+    onCommentPress: (item) => {
+      trackFeedAction("comment_sheet_open", Number(item.id));
+      setCommentPost(item);
+    },
+    onSavePress: (item) => toggleSave(item.id, item),
+    onSharePress: (item) => {
+      trackFeedAction("share", Number(item.id));
+      setSharePost({
+        postId: Number(item.id),
+        title: item.title,
+        authorName: item.userName,
+        mediaUrl: item.imageUri,
+        mediaType: item.mediaType,
+        thumbnailUrl: item.thumbnailUrl
+      });
+    }
+  };
+
   const renderFeedItem = useCallback(
     ({ item }: { item: PostCardData }) => (
-      <PostCard
-        post={{
-          ...item,
-          isMediaActive: item.id === activeMediaPostId,
-          isMediaPreload: item.id === preloadMediaPostId
-        }}
-        onAuthorPress={() => handleAuthorPress(item)}
-        onMenuPress={
-          authUser?.id != null && item.authorUserId === authUser.id
-            ? undefined
-            : () => {
-                trackFeedAction("post_report", Number(item.id));
-                promptReportPost(Number(item.id));
-              }
-        }
-        onActivateMedia={(postId) => {
-          setActiveMediaPostId(postId);
-          setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
-        }}
-        onDoubleTap={() => addLike(item.id, item)}
-        onLikePress={() => toggleLike(item.id, item)}
-        onLikeCountPress={() => {
-          trackFeedAction("likes_sheet_open", Number(item.id));
-          setLikesPost(item);
-        }}
-        onCommentPress={() => {
-          trackFeedAction("comment_sheet_open", Number(item.id));
-          setCommentPost(item);
-        }}
-        onSavePress={() => toggleSave(item.id, item)}
-        onSharePress={() => {
-          trackFeedAction("share", Number(item.id));
-          setSharePost({
-            postId: Number(item.id),
-            title: item.title,
-            authorName: item.userName,
-            mediaUrl: item.imageUri,
-            mediaType: item.mediaType,
-            thumbnailUrl: item.thumbnailUrl
-          });
-        }}
+      <FeedPostCardRow
+        post={item}
+        isMediaActive={item.id === activeMediaPostId}
+        isMediaPreload={item.id === preloadMediaPostId}
+        isMediaRetain={item.id === retainMediaPostId}
+        actionsRef={feedActionsRef}
       />
     ),
-    [
-      addLike,
-      toggleLike,
-      toggleSave,
-      activeMediaPostId,
-      preloadMediaPostId,
-      handleAuthorPress,
-      authUser?.id
-    ]
+    [activeMediaPostId, preloadMediaPostId, retainMediaPostId]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -397,6 +430,14 @@ export function HomeScreen() {
 
   const listTopPad = insets.top + FLOATING_HEADER_HEIGHT + 8;
   const listBottomPad = Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
+
+  const feedContentStyle = useMemo(
+    () => ({
+      paddingTop: listTopPad + (hasScrollHeader ? 8 : 0),
+      paddingBottom: listBottomPad
+    }),
+    [listTopPad, listBottomPad, hasScrollHeader]
+  );
 
   const s = useMemo(
     () =>
@@ -602,10 +643,10 @@ export function HomeScreen() {
           authUser?.kulam?.trim() ||
           null
         }
-        notificationCount={notifCtx?.counts.total ?? summary?.unreadNotificationsCount ?? 0}
+        notificationCountFallback={summary?.unreadNotificationsCount ?? 0}
         messageCount={summary?.unreadMessagesCount ?? 0}
-        onNotificationPress={() => navigation.navigate("Notifications")}
-        onMessagePress={() => openMessagesInbox(navigation)}
+        onNotificationPress={onNotificationPress}
+        onMessagePress={onMessagePress}
         onMenuPress={onMenuPress}
         hideProgress={headerHideProgress}
         topInset={insets.top}
@@ -633,15 +674,13 @@ export function HomeScreen() {
           scrollEventThrottle={16}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          extraData={`${activeMediaPostId}:${preloadMediaPostId}`}
-          removeClippedSubviews
-          maxToRenderPerBatch={8}
-          windowSize={7}
-          initialNumToRender={6}
-          contentContainerStyle={{
-            paddingTop: listTopPad + (hasScrollHeader ? 8 : 0),
-            paddingBottom: listBottomPad
-          }}
+          extraData={`${activeMediaPostId}:${preloadMediaPostId}:${retainMediaPostId}`}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={2}
+          contentContainerStyle={feedContentStyle}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

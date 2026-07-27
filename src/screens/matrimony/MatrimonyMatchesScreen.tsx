@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Image } from "react-native";
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { Image } from "expo-image";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMatrimonyMatches, removeMatrimonyMatch } from "../../api/matrimony.api";
@@ -112,7 +113,7 @@ export function MatrimonyMatchesScreen() {
                 }
               >
                 {uri ? (
-                  <Image source={{ uri }} style={styles.thumb} />
+                  <Image source={{ uri }} cachePolicy="memory-disk" contentFit="cover" style={styles.thumb} />
                 ) : (
                   <View style={[styles.thumb, styles.thumbPh, { backgroundColor: colors.border }]}>
                     <Text style={{ fontSize: 22 }}>👤</Text>

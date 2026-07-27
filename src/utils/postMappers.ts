@@ -5,6 +5,7 @@ import type { FeedItem } from "../api/home.api";
 import type { PostCardData } from "../components/home/PostCard";
 import { timeAgo } from "./timeAgo";
 import { getImageUrl } from "../api/client";
+import { preferFeedImageUrl, preferThumbUrl, feedImageFallbackUrls } from "./mediaVariantUrls";
 
 const POST_TYPE_LABELS: Record<string, string> = {
   ANNOUNCEMENT: "Announcement",
@@ -56,7 +57,7 @@ export function profilePostToCardData(
     postType: post.postType,
     title: post.title,
     description: post.description ?? "",
-    imageUri: post.mediaUrl,
+    imageUri: preferFeedImageUrl({ mediaUrl: post.mediaUrl }),
     likeCount: post.counts.likes,
     commentCount: post.counts.comments,
     likedByMe: post.likedByMe,
@@ -78,9 +79,15 @@ export function memberPostToCardData(
     postType: formatPostType(post.postType),
     title: post.title,
     description: post.description ?? "",
-    imageUri: post.mediaUrl,
+    imageUri: preferFeedImageUrl({
+      mediaUrl: post.mediaUrl,
+      mediaType: post.mediaType ?? null
+    }),
     mediaType: post.mediaType ?? null,
-    thumbnailUrl: post.thumbnailUrl ?? null,
+    thumbnailUrl: preferThumbUrl({
+      thumbnailUrl: post.thumbnailUrl ?? null,
+      mediaUrl: post.mediaUrl
+    }),
     videoDuration: post.videoDuration ?? null,
     likeCount: post.counts.likes,
     commentCount: post.counts.comments,
@@ -105,9 +112,26 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
     postType: formatPostType(item.postType),
     title: item.title,
     description: item.description ?? "",
-    imageUri: item.mediaUrl,
+    imageUri: preferFeedImageUrl({
+      mediaUrl: item.mediaUrl,
+      mediaUrlMedium: item.mediaUrlMedium,
+      mediaUrlFull: item.mediaUrlFull,
+      mediaUrlThumb: item.mediaUrlThumb,
+      mediaType: item.mediaType ?? null
+    }),
+    imageUriFallbacks: feedImageFallbackUrls({
+      mediaUrl: item.mediaUrl,
+      mediaUrlMedium: item.mediaUrlMedium,
+      mediaUrlFull: item.mediaUrlFull,
+      mediaUrlThumb: item.mediaUrlThumb,
+      mediaType: item.mediaType ?? null
+    }),
     mediaType: item.mediaType ?? null,
-    thumbnailUrl: item.thumbnailUrl ?? null,
+    thumbnailUrl: preferThumbUrl({
+      thumbnailUrl: item.thumbnailUrl ?? null,
+      mediaUrlThumb: item.mediaUrlThumb ?? null,
+      mediaUrl: item.mediaUrl
+    }),
     videoDuration: item.videoDuration ?? null,
     likeCount: item.counts.likes,
     commentCount: item.counts.comments,

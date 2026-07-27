@@ -31,7 +31,8 @@ import {
 } from "../../api/connections.api";
 import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import { AvatarImage } from "../../components/ui/AvatarImage";
-import { PostCard, type PostCardData } from "../../components/home/PostCard";
+import { FeedPostCardRow, type PostCardData } from "../../components/home";
+import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
 import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
@@ -72,6 +73,8 @@ export function MemberProfileScreen() {
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const memberFocusOnceRef = useRef(false);
+  const memberLastFetchRef = useRef(0);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
@@ -132,7 +135,16 @@ export function MemberProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      const now = Date.now();
+      const first = !memberFocusOnceRef.current;
+      if (first) {
+        memberFocusOnceRef.current = true;
+        memberLastFetchRef.current = now;
+        void load();
+      } else if (now - memberLastFetchRef.current > 60_000) {
+        memberLastFetchRef.current = now;
+        void load();
+      }
       return () => {
         pauseAllFeedVideos();
       };
@@ -682,6 +694,63 @@ export function MemberProfileScreen() {
     );
   }
 
+  const feedActionsRef = useRef<FeedPostCardActions>({
+    onAuthorPress: () => {},
+    onDoubleTap: () => {},
+    onLikePress: () => {},
+    onLikeCountPress: () => {},
+    onCommentPress: () => {},
+    onSavePress: () => {},
+    onSharePress: () => {}
+  });
+  feedActionsRef.current = {
+    onAuthorPress: () => {},
+    shouldShowMenu: (item) =>
+      !(authUser?.id != null && item.authorUserId === authUser.id),
+    onMenuPress: (item) => {
+      trackFeedAction("post_report", Number(item.id), { source: "member_profile" });
+      promptReportPost(Number(item.id));
+    },
+    onActivateMedia: (postId) => {
+      setActiveMediaId(postId);
+      setPreloadMediaId((prev) => (prev === postId ? null : prev));
+    },
+    onDoubleTap: (item) => addLike(item.id, item),
+    onLikePress: (item) => toggleLike(item.id, item),
+    onLikeCountPress: (item) => {
+      trackFeedAction("likes_sheet_open", Number(item.id));
+      setLikesPost(item);
+    },
+    onCommentPress: (item) => {
+      trackFeedAction("comment_sheet_open", Number(item.id));
+      setCommentPost(item);
+    },
+    onSavePress: (item) => toggleSave(item.id, item),
+    onSharePress: (item) => {
+      trackFeedAction("share", Number(item.id));
+      setSharePost({
+        postId: Number(item.id),
+        title: item.title,
+        authorName: item.userName,
+        mediaUrl: item.imageUri,
+        mediaType: item.mediaType,
+        thumbnailUrl: item.thumbnailUrl
+      });
+    }
+  };
+
+  const renderFeedItem = useCallback(
+    ({ item }: { item: PostCardData }) => (
+      <FeedPostCardRow
+        post={item}
+        isMediaActive={item.id === activeMediaId}
+        isMediaPreload={item.id === preloadMediaId}
+        actionsRef={feedActionsRef}
+      />
+    ),
+    [activeMediaId, preloadMediaId]
+  );
+
   return (
     <>
       <FlatList
@@ -691,54 +760,14 @@ export function MemberProfileScreen() {
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={listFooter}
-        renderItem={({ item }) => (
-          <PostCard
-            post={{
-              ...item,
-              isMediaActive: item.id === activeMediaId,
-              isMediaPreload: item.id === preloadMediaId
-            }}
-            onMenuPress={
-              authUser?.id != null && item.authorUserId === authUser.id
-                ? undefined
-                : () => {
-                    trackFeedAction("post_report", Number(item.id), { source: "member_profile" });
-                    promptReportPost(Number(item.id));
-                  }
-            }
-            onActivateMedia={(postId) => {
-              setActiveMediaId(postId);
-              setPreloadMediaId((prev) => (prev === postId ? null : prev));
-            }}
-            onDoubleTap={() => addLike(item.id, item)}
-            onLikePress={() => toggleLike(item.id, item)}
-            onLikeCountPress={() => {
-              trackFeedAction("likes_sheet_open", Number(item.id));
-              setLikesPost(item);
-            }}
-            onCommentPress={() => {
-              trackFeedAction("comment_sheet_open", Number(item.id));
-              setCommentPost(item);
-            }}
-            onSavePress={() => toggleSave(item.id, item)}
-            onSharePress={() => {
-              trackFeedAction("share", Number(item.id));
-              setSharePost({
-                postId: Number(item.id),
-                title: item.title,
-                authorName: item.userName,
-                mediaUrl: item.imageUri,
-                mediaType: item.mediaType,
-                thumbnailUrl: item.thumbnailUrl
-              });
-            }}
-          />
-        )}
+        renderItem={renderFeedItem}
+        extraData={`${activeMediaId}:${preloadMediaId}`}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         removeClippedSubviews
         maxToRenderPerBatch={6}
         windowSize={7}
+        updateCellsBatchingPeriod={50}
         initialNumToRender={4}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         contentContainerStyle={{ paddingBottom: spacing.xxxl }}

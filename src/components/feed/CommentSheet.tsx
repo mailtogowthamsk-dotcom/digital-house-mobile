@@ -472,6 +472,9 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     [colors, mode]
   );
 
+  const CommentSeparator = useCallback(() => <View style={s.separator} />, [s.separator]);
+  const keyComment = useCallback((c: { id: number | string }) => String(c.id), []);
+
   const listEmpty = useMemo(
     () =>
       initialLoading ? (
@@ -548,13 +551,17 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
                 style={s.list}
                 contentContainerStyle={s.listContent}
                 data={comments}
-                keyExtractor={(c) => String(c.id)}
+                keyExtractor={keyComment}
                 renderItem={renderItem}
-                ItemSeparatorComponent={() => <View style={s.separator} />}
+                ItemSeparatorComponent={CommentSeparator}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 ListEmptyComponent={listEmpty}
-                removeClippedSubviews={false}
+                removeClippedSubviews
+                maxToRenderPerBatch={10}
+                windowSize={8}
+                updateCellsBatchingPeriod={50}
+                initialNumToRender={8}
               />
               {refreshing && comments.length > 0 ? (
                 <View style={s.refreshOverlay}>

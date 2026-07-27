@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { configurePushNotifications } from "./src/services/pushNotifications";
+import { initFeedVideoDiskCache } from "./src/media/initVideoCache";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
@@ -74,6 +75,9 @@ import { PushNotificationBootstrap } from "./src/components/notifications/PushNo
 import { RazorpayWebCheckoutHost } from "./src/components/payments/RazorpayWebCheckoutHost";
 import { navigationRef } from "./src/navigation/rootNavigation";
 import type { RootStackParamList } from "./src/navigation/types";
+
+// Configure expo-video LRU disk cache before any player mounts.
+initFeedVideoDiskCache();
 
 export type { RootStackParamList };
 

@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { getTokenReliable } from "../storage/token.storage";
 import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
+import { stickySignedMediaUrl } from "../utils/stickySignedUrlCache";
 
 type RetryableConfig = InternalAxiosRequestConfig & {
   __retryCount?: number;
@@ -232,7 +233,8 @@ export function getImageUrl(uri: string | null | undefined): string | null {
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     const driveDirect = toGoogleDriveDirectUrl(trimmed);
     if (driveDirect) return driveDirect;
-    return trimmed;
+    // Reuse the same signature for a given object path until near expiry.
+    return stickySignedMediaUrl(trimmed) ?? trimmed;
   }
   const base = getServerBaseUrl().replace(/\/$/, "");
   return trimmed.startsWith("/") ? `${base}${trimmed}` : `${base}/${trimmed}`;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   searchExplore,
   getExploreDiscovery,
@@ -118,23 +118,43 @@ export function useExploreSearch() {
     void runSearch(debouncedQuery, 1, false);
   }, [debouncedQuery, runSearch]);
 
-  return {
-    query,
-    setQuery,
-    debouncedQuery,
-    results,
-    loading,
-    loadingMore,
-    error,
-    hasMore,
-    total,
-    recent,
-    discovery,
-    loadMore,
-    applyRecent,
-    clearHistory,
-    removeRecent,
-    updatePost,
-    retry
-  };
+  return useMemo(
+    () => ({
+      query,
+      setQuery,
+      debouncedQuery,
+      results,
+      loading,
+      loadingMore,
+      error,
+      hasMore,
+      total,
+      recent,
+      discovery,
+      loadMore,
+      applyRecent,
+      clearHistory,
+      removeRecent,
+      updatePost,
+      retry
+    }),
+    [
+      query,
+      debouncedQuery,
+      results,
+      loading,
+      loadingMore,
+      error,
+      hasMore,
+      total,
+      recent,
+      discovery,
+      loadMore,
+      applyRecent,
+      clearHistory,
+      removeRecent,
+      updatePost,
+      retry
+    ]
+  );
 }

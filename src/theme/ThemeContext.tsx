@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getStoredTheme, setStoredTheme, type ThemeMode } from "../storage/theme.storage";
 
 export type ThemeColors = {
@@ -112,8 +112,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const colors = mode === "dark" ? darkColors : lightColors;
 
+  const value = useMemo(
+    () => ({ mode, setMode, colors }),
+    [mode, setMode, colors]
+  );
+
   return (
-    <ThemeContext.Provider value={{ mode, setMode, colors }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

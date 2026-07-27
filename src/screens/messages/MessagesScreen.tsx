@@ -6,9 +6,9 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
-  ActivityIndicator,
-  Image
+  ActivityIndicator
 } from "react-native";
+import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -142,7 +142,17 @@ export function MessagesScreen() {
           }
         >
           <View style={s.avatarWrap}>
-            {avatarUri ? <Image source={{ uri: avatarUri }} style={s.avatar} /> : <View style={s.avatar} />}
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={s.avatar}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={avatarUri}
+              />
+            ) : (
+              <View style={s.avatar} />
+            )}
             {item.otherUser.online && <View style={s.onlineDot} />}
           </View>
           <View style={s.center}>
@@ -207,6 +217,11 @@ export function MessagesScreen() {
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            maxToRenderPerBatch={12}
+            windowSize={9}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={12}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           />
         </View>

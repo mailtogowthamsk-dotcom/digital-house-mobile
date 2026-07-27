@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
-import { PostCard, type PostCardData } from "../../components/home/PostCard";
+import { FeedPostCardRow, type PostCardData } from "../../components/home";
+import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
 import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
@@ -113,45 +114,55 @@ export function MemberPostsScreen() {
     setRefreshing(false);
   }, [reload]);
 
+  const feedActionsRef = useRef<FeedPostCardActions>({
+    onAuthorPress: () => {},
+    onDoubleTap: () => {},
+    onLikePress: () => {},
+    onLikeCountPress: () => {},
+    onCommentPress: () => {},
+    onSavePress: () => {},
+    onSharePress: () => {}
+  });
+  feedActionsRef.current = {
+    onAuthorPress: () => {},
+    shouldShowMenu: (item) =>
+      !(authUser?.id != null && item.authorUserId === authUser.id),
+    onMenuPress: (item) => {
+      trackFeedAction("post_report", Number(item.id), { source: "member_posts" });
+      promptReportPost(Number(item.id));
+    },
+    onActivateMedia: (postId) => {
+      setActiveMediaId(postId);
+      setPreloadMediaId((prev) => (prev === postId ? null : prev));
+    },
+    onDoubleTap: (item) => addLike(item.id, item),
+    onLikePress: (item) => toggleLike(item.id, item),
+    onLikeCountPress: (item) => setLikesPost(item),
+    onCommentPress: (item) => setCommentPost(item),
+    onSavePress: (item) => toggleSave(item.id, item),
+    onSharePress: (item) => {
+      trackFeedAction("share", Number(item.id));
+      setSharePost({
+        postId: Number(item.id),
+        title: item.title,
+        authorName: item.userName,
+        mediaUrl: item.imageUri,
+        mediaType: item.mediaType,
+        thumbnailUrl: item.thumbnailUrl
+      });
+    }
+  };
+
   const renderItem = useCallback(
     ({ item }: { item: PostCardData }) => (
-      <PostCard
-        post={{
-          ...item,
-          isMediaActive: item.id === activeMediaId,
-          isMediaPreload: item.id === preloadMediaId
-        }}
-        onMenuPress={
-          authUser?.id != null && item.authorUserId === authUser.id
-            ? undefined
-            : () => {
-                trackFeedAction("post_report", Number(item.id), { source: "member_posts" });
-                promptReportPost(Number(item.id));
-              }
-        }
-        onActivateMedia={(postId) => {
-          setActiveMediaId(postId);
-          setPreloadMediaId((prev) => (prev === postId ? null : prev));
-        }}
-        onDoubleTap={() => addLike(item.id, item)}
-        onLikePress={() => toggleLike(item.id, item)}
-        onLikeCountPress={() => setLikesPost(item)}
-        onCommentPress={() => setCommentPost(item)}
-        onSavePress={() => toggleSave(item.id, item)}
-        onSharePress={() => {
-          trackFeedAction("share", Number(item.id));
-          setSharePost({
-            postId: Number(item.id),
-            title: item.title,
-            authorName: item.userName,
-            mediaUrl: item.imageUri,
-            mediaType: item.mediaType,
-            thumbnailUrl: item.thumbnailUrl
-          });
-        }}
+      <FeedPostCardRow
+        post={item}
+        isMediaActive={item.id === activeMediaId}
+        isMediaPreload={item.id === preloadMediaId}
+        actionsRef={feedActionsRef}
       />
     ),
-    [activeMediaId, preloadMediaId, addLike, toggleLike, toggleSave, authUser?.id]
+    [activeMediaId, preloadMediaId]
   );
 
   return (
@@ -219,6 +230,7 @@ export function MemberPostsScreen() {
           removeClippedSubviews
           maxToRenderPerBatch={8}
           windowSize={7}
+          updateCellsBatchingPeriod={50}
           initialNumToRender={6}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />

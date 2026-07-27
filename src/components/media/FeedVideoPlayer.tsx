@@ -1,23 +1,22 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Modal,
-  useWindowDimensions,
-  StatusBar,
-  Image,
-  Animated,
-  Easing
-} from "react-native";
+import { View, StyleSheet, Pressable, Animated, Easing } from "react-native";
+import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { useIsFocused } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { usePlaybackAllowed } from "../../hooks/usePlaybackAllowed";
 import { useFeedAudioControls } from "../../hooks/useFeedAudioControls";
 import { getFeedAudioMuted } from "../../media/feedAudioState";
 import { registerFeedVideoPlayer, pauseOtherFeedVideos } from "../../media/feedVideoPlayback";
-
+import { markVideoUriWarmed, isVideoUriWarmed } from "../../utils/videoUriWarmCache";
+import { buildFeedVideoSource } from "../../utils/videoSource";
+import {
+  peekCachedVideoUri,
+  resolveCachedVideoUri,
+  isVideoFileCached
+} from "../../utils/feedVideoFileCache";
+import { stickySignedMediaUrl } from "../../utils/stickySignedUrlCache";
 /** Feed-branded spinner — dark green / white / dark red (matches feed backdrop). */
 function FeedVideoLoader({ size = 44 }: { size?: number }) {
   const spin = useRef(new Animated.Value(0)).current;
@@ -83,6 +82,11 @@ type FeedVideoPlayerProps = {
    * Must never autoplay — only the active item plays.
    */
   isPreload?: boolean;
+  /**
+   * Previous clip kept mounted (paused) so scroll-back hits disk cache + warm decoder.
+   * Never autoplays.
+   */
+  isRetain?: boolean;
   style?: object;
   /** Invoked when the inactive poster play control is pressed. */
   onRequestPlay?: () => void;
@@ -100,10 +104,9 @@ type ActivePlayerProps = {
   height: number;
   isActive: boolean;
   isPreload: boolean;
+  isRetain: boolean;
   style?: object;
   colors: { surfaceElevated: string };
-  screenWidth: number;
-  screenHeight: number;
   onTogglePlayRef?: React.MutableRefObject<(() => void) | null>;
   onDoubleTapLike?: () => void;
 };
@@ -159,7 +162,13 @@ function VideoPosterShell({
   return (
     <View style={[s.wrap, style]}>
       {thumbnailUrl ? (
-        <Image source={{ uri: thumbnailUrl }} style={s.poster} resizeMode="cover" />
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={s.poster}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
+        />
       ) : null}
       {onPressPlay ? (
         <Pressable
@@ -193,35 +202,60 @@ function ActiveFeedVideoPlayer({
   height,
   isActive,
   isPreload,
+  isRetain,
   style,
   colors,
-  screenWidth,
-  screenHeight,
   onTogglePlayRef,
   onDoubleTapLike
 }: ActivePlayerProps) {
   const playbackAllowed = usePlaybackAllowed();
   const { muted, toggleMute, setMuted } = useFeedAudioControls();
-  const [ready, setReady] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const alreadyWarmed = isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
+  const [ready, setReady] = useState(alreadyWarmed);
+  const [loading, setLoading] = useState(!alreadyWarmed);
   const [playing, setPlaying] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [showPoster, setShowPoster] = useState(true);
+  const [showPoster, setShowPoster] = useState(!alreadyWarmed || isPreload || isRetain);
   const userPausedRef = useRef(false);
+  const aliveRef = useRef(true);
+  const videoRef = useRef<VideoView | null>(null);
   const lastTapTime = useRef(0);
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const player = useVideoPlayer(uri, (p) => {
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
+  const source = useMemo(() => buildFeedVideoSource(uri), [uri]);
+
+  const player = useVideoPlayer(source, (p) => {
     p.loop = true;
     p.volume = 1;
-    // Snapshot global preference at player create — effect keeps it in sync after.
     p.muted = getFeedAudioMuted();
     p.audioMixingMode = getFeedAudioMuted() ? "auto" : "doNotMix";
+    try {
+      // Prefer uninterrupted playback over aggressive prefetch (avoids stall after ~2s on slow links).
+      p.bufferOptions = {
+        preferredForwardBufferDuration: 8,
+        waitsToMinimizeStalling: true,
+        minBufferForPlayback: 0.8,
+        prioritizeTimeOverSizeThreshold: true
+      };
+    } catch {
+      /* older native builds */
+    }
   });
 
-  const shouldAutoplay = isActive && playbackAllowed && !isPreload;
-  const shouldPlay = playbackAllowed && ((isActive && !isPreload) || fullscreen);
-  const showLoader = loading || !ready;
+  const shouldAutoplay = isActive && playbackAllowed && !isPreload && !isRetain;
+  const shouldPlay = playbackAllowed && ((isActive && !isPreload && !isRetain) || fullscreen);
+  const showLoader =
+    (loading || !ready) &&
+    !alreadyWarmed &&
+    !isRetain &&
+    !(uri.startsWith("file:") || uri.startsWith("/"));
 
   useEffect(() => {
     try {
@@ -233,11 +267,20 @@ function ActiveFeedVideoPlayer({
     }
   }, [muted, player]);
 
+  // Do not reset ready/loading when only active↔preload↔retain flags change.
   useEffect(() => {
-    setReady(false);
-    setLoading(true);
-    setShowPoster(true);
+    const warmed =
+      isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
+    setReady(warmed);
+    setLoading(!warmed);
+    setShowPoster(!warmed || isPreload || isRetain);
   }, [uri]);
+
+  useEffect(() => {
+    if (isPreload || isRetain) {
+      setShowPoster(true);
+    }
+  }, [isPreload, isRetain]);
 
   useEffect(() => {
     const statusSub = player.addListener("statusChange", (payload) => {
@@ -245,8 +288,9 @@ function ActiveFeedVideoPlayer({
       if (status === "readyToPlay") {
         setReady(true);
         setLoading(false);
+        markVideoUriWarmed(uri);
       } else if (status === "loading") {
-        setLoading(true);
+        if (!isVideoUriWarmed(uri)) setLoading(true);
       } else if (status === "error") {
         setLoading(false);
       }
@@ -261,6 +305,7 @@ function ActiveFeedVideoPlayer({
         setShowPoster(false);
         setLoading(false);
         setReady(true);
+        markVideoUriWarmed(uri);
       }
     });
     return () => {
@@ -268,7 +313,7 @@ function ActiveFeedVideoPlayer({
       mutedSub.remove();
       playingSub.remove();
     };
-  }, [player, setMuted]);
+  }, [player, setMuted, uri]);
 
   useEffect(() => {
     return registerFeedVideoPlayer(player, () => {
@@ -280,45 +325,48 @@ function ActiveFeedVideoPlayer({
 
   useEffect(() => {
     if (!playbackAllowed && fullscreen) {
+      try {
+        void videoRef.current?.exitFullscreen();
+      } catch {
+        /* ignore */
+      }
       setFullscreen(false);
     }
   }, [playbackAllowed, fullscreen]);
 
   useEffect(() => {
+    if (!aliveRef.current) return;
     try {
       if (shouldPlay && !userPausedRef.current) {
         pauseOtherFeedVideos(player);
         player.play();
         if (shouldAutoplay) setShowPoster(false);
       } else if (!shouldPlay) {
-        userPausedRef.current = false;
+        // Leaving active viewport — pause, but keep userPaused so resume stays intentional.
         player.pause();
-        if (isPreload && !isActive) setShowPoster(true);
+        if ((isPreload || isRetain) && !isActive) setShowPoster(true);
       } else {
-        // shouldPlay but user paused — keep paused
+        // shouldPlay but user paused
         player.pause();
       }
-    } catch (_) {}
-  }, [shouldPlay, shouldAutoplay, player, isPreload, isActive]);
+    } catch {
+      /* released */
+    }
+  }, [shouldPlay, shouldAutoplay, player, isPreload, isRetain, isActive]);
 
   useEffect(() => {
     return () => {
       try {
         player.pause();
-        void player.replaceAsync?.(null as any);
-      } catch (_) {
-        try {
-          player.replace?.(null as any);
-        } catch {
-          /* ignore */
-        }
+      } catch {
+        /* already released */
       }
     };
   }, [player]);
 
   const togglePlay = useCallback(() => {
     if (!playbackAllowed) return;
-    if (isPreload && !isActive) return;
+    if ((isPreload || isRetain) && !isActive) return;
     try {
       if (player.playing) {
         userPausedRef.current = true;
@@ -332,7 +380,7 @@ function ActiveFeedVideoPlayer({
         setPlaying(true);
       }
     } catch (_) {}
-  }, [player, playbackAllowed, isPreload, isActive]);
+  }, [player, playbackAllowed, isPreload, isRetain, isActive]);
 
   useEffect(() => {
     if (!onTogglePlayRef) return;
@@ -353,7 +401,7 @@ function ActiveFeedVideoPlayer({
 
   const handleSurfacePress = useCallback(() => {
     const now = Date.now();
-    // Double-tap like only — no single-tap play/pause (Instagram-style autoplay).
+    // Double-tap → like; single-tap → play / pause
     if (onDoubleTapLike && now - lastTapTime.current < 280) {
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -367,8 +415,38 @@ function ActiveFeedVideoPlayer({
     if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
     singleTapTimer.current = setTimeout(() => {
       singleTapTimer.current = null;
+      togglePlay();
     }, 280);
-  }, [onDoubleTapLike]);
+  }, [onDoubleTapLike, togglePlay]);
+
+  const openNativeFullscreen = useCallback(async () => {
+    if (!playbackAllowed) return;
+    try {
+      await videoRef.current?.enterFullscreen();
+    } catch {
+      /* unsupported */
+    }
+  }, [playbackAllowed]);
+
+  const onFullscreenEnter = useCallback(() => {
+    setFullscreen(true);
+  }, []);
+
+  const onFullscreenExit = useCallback(() => {
+    setFullscreen(false);
+    // Native fullscreen tears down its surface — resume inline if still active.
+    if (!aliveRef.current) return;
+    try {
+      if (isActive && playbackAllowed && !userPausedRef.current) {
+        pauseOtherFeedVideos(player);
+        player.play();
+        setShowPoster(false);
+        setPlaying(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [isActive, playbackAllowed, player]);
 
   const s = useMemo(
     () =>
@@ -397,10 +475,10 @@ function ActiveFeedVideoPlayer({
         ctrlBtn: {
           width: 42,
           height: 42,
-          borderRadius: 15,
-          backgroundColor: "rgba(15,23,42,0.45)",
+          borderRadius: 21,
+          backgroundColor: "rgba(15,23,42,0.55)",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.25)",
+          borderColor: "rgba(255,255,255,0.28)",
           alignItems: "center",
           justifyContent: "center"
         },
@@ -408,31 +486,17 @@ function ActiveFeedVideoPlayer({
           width: 72,
           height: 72,
           borderRadius: 36,
-          backgroundColor: "rgba(15,23,42,0.4)",
+          backgroundColor: "rgba(15,23,42,0.55)",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.3)",
+          borderColor: "rgba(255,255,255,0.35)",
           alignItems: "center",
           justifyContent: "center"
-        },
-        fsWrap: {
-          flex: 1,
-          backgroundColor: "#000",
-          justifyContent: "center"
-        },
-        fsVideo: { width: screenWidth, height: screenHeight },
-        fsControls: {
-          position: "absolute",
-          top: 48,
-          right: 16,
-          flexDirection: "row",
-          gap: 8
         }
       }),
-    [height, screenWidth, screenHeight]
+    [height]
   );
 
-  // Preload-only: warm buffers, no VideoView (saves compositor work).
-  // No audio-state subscription needed — poster shell has no mute control.
+  // Preload-only: warm disk cache / buffers, no VideoView (saves compositor work).
   if (isPreload && !isActive) {
     return (
       <VideoPosterShell
@@ -445,100 +509,76 @@ function ActiveFeedVideoPlayer({
     );
   }
 
-  return (
-    <>
-      <View style={[s.wrap, style]}>
-        <VideoView
-          style={s.video}
-          player={player}
-          contentFit="cover"
-          nativeControls={false}
-          allowsFullscreen={false}
-        />
-        {showPoster && thumbnailUrl ? (
-          <Image source={{ uri: thumbnailUrl }} style={s.poster} resizeMode="cover" />
-        ) : null}
-        {showLoader ? (
-          <View
-            style={[s.center, { backgroundColor: "rgba(15,23,42,0.28)" }]}
-            pointerEvents="none"
-          >
-            <FeedVideoLoader />
-          </View>
-        ) : (
-          <Pressable style={s.center} onPress={handleSurfacePress}>
-            {/* Autoplay — no play glyph; double-tap likes */}
-          </Pressable>
-        )}
-        <View style={s.controlsBar} pointerEvents="box-none">
-          <Pressable
-            style={s.ctrlBtn}
-            onPress={toggleMute}
-            accessibilityRole="button"
-            accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-          >
-            <Ionicons
-              name={muted ? "volume-mute" : "volume-high"}
-              size={18}
-              color="#fff"
-            />
-          </Pressable>
-          <Pressable
-            style={s.ctrlBtn}
-            onPress={() => {
-              if (!playbackAllowed) return;
-              setFullscreen(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Fullscreen"
-          >
-            <Ionicons name="expand" size={18} color="#fff" />
-          </Pressable>
-        </View>
-      </View>
+  const showPausedGlyph = !showLoader && !playing && ready && isActive && !isRetain;
 
-      <Modal visible={fullscreen} animationType="fade" onRequestClose={() => setFullscreen(false)}>
-        <StatusBar hidden />
-        <View style={s.fsWrap}>
-          <VideoView
-            style={s.fsVideo}
-            player={player}
-            contentFit="contain"
-            nativeControls
-            allowsFullscreen
-          />
-          <View style={s.fsControls}>
-            <Pressable
-              style={s.ctrlBtn}
-              onPress={toggleMute}
-              accessibilityRole="button"
-              accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-            >
-              <Ionicons
-                name={muted ? "volume-mute" : "volume-high"}
-                size={18}
-                color="#fff"
-              />
-            </Pressable>
-            <Pressable
-              style={s.ctrlBtn}
-              onPress={() => setFullscreen(false)}
-              accessibilityRole="button"
-              accessibilityLabel="Close fullscreen"
-            >
-              <Ionicons name="close" size={20} color="#fff" />
-            </Pressable>
-          </View>
+  return (
+    <View style={[s.wrap, style]}>
+      <VideoView
+        ref={videoRef}
+        style={s.video}
+        player={player}
+        contentFit="cover"
+        nativeControls={false}
+        fullscreenOptions={{ enable: true, orientation: "default" }}
+        onFullscreenEnter={onFullscreenEnter}
+        onFullscreenExit={onFullscreenExit}
+      />
+      {showPoster && thumbnailUrl ? (
+        <Image
+          source={{ uri: thumbnailUrl }}
+          style={s.poster}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
+        />
+      ) : null}
+      {showLoader ? (
+        <View
+          style={[s.center, { backgroundColor: "rgba(15,23,42,0.28)" }]}
+          pointerEvents="none"
+        >
+          <FeedVideoLoader />
         </View>
-      </Modal>
-    </>
+      ) : (
+        <Pressable
+          style={s.center}
+          onPress={handleSurfacePress}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? "Pause video" : "Play video"}
+        >
+          {showPausedGlyph ? (
+            <View style={s.playGlyph} pointerEvents="none">
+              <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+            </View>
+          ) : null}
+        </Pressable>
+      )}
+      <View style={s.controlsBar} pointerEvents="box-none">
+        <Pressable
+          style={s.ctrlBtn}
+          onPress={toggleMute}
+          accessibilityRole="button"
+          accessibilityLabel={muted ? "Unmute video" : "Mute video"}
+        >
+          <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color="#fff" />
+        </Pressable>
+        <Pressable
+          style={s.ctrlBtn}
+          onPress={() => void openNativeFullscreen()}
+          accessibilityRole="button"
+          accessibilityLabel="Fullscreen"
+        >
+          <Ionicons name="expand" size={18} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 /**
  * Feed video with Instagram-like lifecycle:
- * - Poster only until active / preload.
- * - Unmount releases the native player (memory).
+ * - Poster only until active / preload / retain.
+ * - expo-video `useCaching` — disk LRU; scroll-back should not re-download.
  * - Mute is feed-global (see feedAudioState) — not per video.
  */
 const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPlayerProps>(
@@ -549,6 +589,7 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       height = 320,
       isActive = false,
       isPreload = false,
+      isRetain = false,
       style,
       onRequestPlay,
       onDoubleTapLike
@@ -556,8 +597,22 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
     ref
   ) {
     const { colors } = useTheme();
-    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+    const isScreenFocused = useIsFocused();
     const togglePlayRef = useRef<(() => void) | null>(null);
+    // Pick source once per remote URI. Never remount mid-play (no remote→file swap).
+    const [bootUri, setBootUri] = useState(
+      () => peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri
+    );
+
+    useEffect(() => {
+      setBootUri(peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri);
+    }, [uri]);
+
+    // Disk pin only after scroll-away — never while active/preload (that stalled V1 / hung V2).
+    useEffect(() => {
+      if (!isRetain) return;
+      void resolveCachedVideoUri(uri).then(() => markVideoUriWarmed(uri));
+    }, [isRetain, uri]);
 
     useEffect(() => {
       if (!ref) return;
@@ -578,9 +633,10 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       };
     }, [ref, onRequestPlay]);
 
-    const shouldMountPlayer = isActive || isPreload;
+    // Active + retain only. Preload is poster-only (no parallel decoder/network vs current).
+    const shouldMountPlayer = (isActive || isRetain) && isScreenFocused && !isPreload;
 
-    if (!shouldMountPlayer) {
+    if (isPreload && !isActive && isScreenFocused) {
       return (
         <VideoPosterShell
           thumbnailUrl={thumbnailUrl}
@@ -592,22 +648,40 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       );
     }
 
+    if (!shouldMountPlayer) {
+      return (
+        <VideoPosterShell
+          thumbnailUrl={thumbnailUrl}
+          height={height}
+          style={style}
+          colors={colors}
+          showPlayIcon
+          onPressPlay={onRequestPlay}
+        />
+      );
+    }
+
     return (
       <ActiveFeedVideoPlayer
-        uri={uri}
+        key={stableBootKey(uri)}
+        uri={bootUri}
         thumbnailUrl={thumbnailUrl}
         height={height}
         isActive={isActive}
-        isPreload={isPreload && !isActive}
+        isPreload={false}
+        isRetain={isRetain && !isActive}
         style={style}
         colors={colors}
-        screenWidth={screenWidth}
-        screenHeight={screenHeight}
         onTogglePlayRef={togglePlayRef}
         onDoubleTapLike={onDoubleTapLike}
       />
     );
   }
 );
+
+function stableBootKey(remoteOrLocal: string): string {
+  const q = remoteOrLocal.indexOf("?");
+  return q >= 0 ? remoteOrLocal.slice(0, q) : remoteOrLocal;
+}
 
 export const FeedVideoPlayer = memo(FeedVideoPlayerInner);

@@ -8,6 +8,7 @@ import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
+import { useNotificationsOptional } from "../../context/NotificationContext";
 
 export type HeaderActionId =
   | "create"
@@ -27,7 +28,8 @@ export type HeaderActionId =
 type HeaderProps = {
   /** Community label from DB — shown only when present. */
   communityName?: string | null;
-  notificationCount?: number;
+  /** Used when NotificationContext is unavailable (e.g. before bootstrap). */
+  notificationCountFallback?: number;
   messageCount?: number;
   onNotificationPress?: () => void;
   onMessagePress?: () => void;
@@ -42,13 +44,16 @@ const SIDE_WIDTH = 96;
 
 function HeaderInner({
   communityName,
-  notificationCount = 0,
+  notificationCountFallback = 0,
   onNotificationPress,
   onMenuPress,
   hideProgress,
   topInset = 0
 }: HeaderProps) {
   const { colors, mode } = useTheme();
+  // Isolate badge updates here so Home FlatList does not re-render on every count tick.
+  const notifCtx = useNotificationsOptional();
+  const notificationCount = notifCtx?.counts.total ?? notificationCountFallback;
   const travel = BAR_HEIGHT + topInset + 10;
   const community =
     typeof communityName === "string" && communityName.trim()

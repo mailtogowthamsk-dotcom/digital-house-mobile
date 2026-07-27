@@ -32,6 +32,9 @@ export type FinalizeMediaResponse = {
   width: number;
   height: number;
   byteSize: number;
+  thumbnailUrl?: string | null;
+  durationSec?: number | null;
+  mediaType?: "image" | "video";
 };
 
 /**
@@ -51,20 +54,23 @@ export async function getUploadUrl(payload: UploadUrlRequest): Promise<UploadUrl
 }
 
 /**
- * POST /api/media/finalize – server optimizes uploaded image into WebP variants.
+ * POST /api/media/finalize – image WebP variants or video H.264/AAC + posters.
  */
 export async function finalizeMedia(mediaFileId: number): Promise<FinalizeMediaResponse> {
   const { data } = await api.post<{ ok: boolean } & FinalizeMediaResponse>("/media/finalize", {
     mediaFileId
   });
-  if (!data.ok) throw new Error("Failed to process image");
+  if (!data.ok) throw new Error("Failed to process media");
   return {
     mediaFileId: data.mediaFileId,
     publicUrl: data.publicUrl,
     variants: data.variants,
     width: data.width,
     height: data.height,
-    byteSize: data.byteSize
+    byteSize: data.byteSize,
+    thumbnailUrl: data.thumbnailUrl ?? null,
+    durationSec: data.durationSec ?? null,
+    mediaType: data.mediaType
   };
 }
 

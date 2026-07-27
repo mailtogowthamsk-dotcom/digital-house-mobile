@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -103,8 +103,17 @@ export function MatrimonyBrowseScreen() {
     [effectiveFilters]
   );
 
+  const lastFocusLoadRef = useRef(0);
+  const itemsLenRef = useRef(0);
+  itemsLenRef.current = items.length;
+  const STALE_MS = 60_000;
+
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      const stale = now - lastFocusLoadRef.current > STALE_MS;
+      if (!stale && itemsLenRef.current > 0) return;
+      lastFocusLoadRef.current = now;
       getMatrimonyHub()
         .then((h) => {
           setViewerDistrict(h.user_context?.district ?? null);
@@ -140,6 +149,28 @@ export function MatrimonyBrowseScreen() {
 
   const sheetFiltersActive = hasActiveFilters(filters);
   const activeFilters = sheetFiltersActive || quickFilter !== "all";
+
+  const keyBrowse = useCallback((i: DiscoverCard) => `browse-${i.userId}`, []);
+  const onOpenCandidate = useCallback(
+    (userId: number) => {
+      navigation.navigate("MatrimonyCandidate", { userId });
+    },
+    [navigation]
+  );
+  const renderBrowseItem = useCallback(
+    ({ item }: { item: DiscoverCard }) => (
+      <MatrimonyMatchCard
+        item={item}
+        chips={buildDiscoverChips(item, viewerDistrict)}
+        onPress={() => onOpenCandidate(item.userId)}
+      />
+    ),
+    [viewerDistrict, onOpenCandidate]
+  );
+  const browseContentStyle = useMemo(
+    () => ({ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }),
+    []
+  );
 
   return (
     <MatrimonyBrowseGate>
@@ -207,8 +238,8 @@ export function MatrimonyBrowseScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(i, index) => `browse-${i.userId}-${index}`}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }}
+          keyExtractor={keyBrowse}
+          contentContainerStyle={browseContentStyle}
           refreshControl={
             <RefreshControl refreshing={loading && !loadingMore} onRefresh={() => load(1, false)} />
           }
@@ -216,6 +247,11 @@ export function MatrimonyBrowseScreen() {
             if (!loadingMoreRef.current && hasMore && !loading) void load(page + 1, true);
           }}
           onEndReachedThreshold={0.35}
+          removeClippedSubviews
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={6}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32, lineHeight: 22, paddingHorizontal: spacing.lg }}>
               {emptyHint ??
@@ -231,13 +267,7 @@ export function MatrimonyBrowseScreen() {
               </Text>
             ) : null
           }
-          renderItem={({ item }) => (
-            <MatrimonyMatchCard
-              item={item}
-              chips={buildDiscoverChips(item, viewerDistrict)}
-              onPress={() => navigation.navigate("MatrimonyCandidate", { userId: item.userId })}
-            />
-          )}
+          renderItem={renderBrowseItem}
         />
       )}
 

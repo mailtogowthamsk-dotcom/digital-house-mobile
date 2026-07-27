@@ -83,6 +83,15 @@ export function MessagesHubScreen() {
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingActiveRef = useRef(false);
+  // Cleanup typing timers on unmount — avoid setState after leave.
+  useEffect(() => {
+    return () => {
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
+
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const listRef = useRef<ChatMessageListHandle>(null);
 
@@ -592,12 +601,20 @@ export function MessagesHubScreen() {
     [navigation]
   );
 
+  const onThreadPanelBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const onThreadPanelSearch = useCallback(() => {
+    navigation.navigate("SearchMembers", { context: "messages" });
+  }, [navigation]);
+
   const threadPanel = (
     <ThreadListPanel
       width={layout.sidebarWidth}
       fullWidth={layout.isPhone}
-      onBack={() => navigation.goBack()}
-      onSearch={() => navigation.navigate("SearchMembers", { context: "messages" })}
+      onBack={onThreadPanelBack}
+      onSearch={onThreadPanelSearch}
       colors={threadColors}
       titleSize={layout.titleSize}
       loadingThreads={loadingThreads}

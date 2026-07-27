@@ -32,8 +32,37 @@ export type HomeState = {
 };
 
 import { formatPostType } from "../utils/postMappers";
+import { preferFeedImageUrl, preferThumbUrl, feedImageFallbackUrls } from "../utils/mediaVariantUrls";
 
-const FEED_PAGE_SIZE = 7;
+const FEED_PAGE_SIZE = 3;
+
+function mediaPathKey(uri?: string | null): string {
+  if (!uri) return "";
+  const q = uri.indexOf("?");
+  return q >= 0 ? uri.slice(0, q) : uri;
+}
+
+/** On feed refresh, reuse prior media URLs when the R2 object path is unchanged. */
+function mergeFeedCardsPreservingMedia(
+  prev: PostCardData[],
+  next: PostCardData[]
+): PostCardData[] {
+  if (!prev.length) return next;
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  return next.map((n) => {
+    const o = prevById.get(n.id);
+    if (!o) return n;
+    const sameImage = mediaPathKey(o.imageUri) === mediaPathKey(n.imageUri);
+    const sameThumb = mediaPathKey(o.thumbnailUrl) === mediaPathKey(n.thumbnailUrl);
+    if (!sameImage || !sameThumb) return n;
+    return {
+      ...n,
+      imageUri: o.imageUri,
+      imageUriFallbacks: o.imageUriFallbacks ?? n.imageUriFallbacks,
+      thumbnailUrl: o.thumbnailUrl
+    };
+  });
+}
 
 function feedItemToPostCard(item: FeedItem): PostCardData {
   return {
@@ -46,9 +75,26 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
     postType: formatPostType(item.postType),
     title: item.title,
     description: item.description ?? "",
-    imageUri: item.mediaUrl,
+    imageUri: preferFeedImageUrl({
+      mediaUrl: item.mediaUrl,
+      mediaUrlMedium: item.mediaUrlMedium,
+      mediaUrlFull: item.mediaUrlFull,
+      mediaUrlThumb: item.mediaUrlThumb,
+      mediaType: item.mediaType ?? null
+    }),
+    imageUriFallbacks: feedImageFallbackUrls({
+      mediaUrl: item.mediaUrl,
+      mediaUrlMedium: item.mediaUrlMedium,
+      mediaUrlFull: item.mediaUrlFull,
+      mediaUrlThumb: item.mediaUrlThumb,
+      mediaType: item.mediaType ?? null
+    }),
     mediaType: item.mediaType ?? null,
-    thumbnailUrl: item.thumbnailUrl ?? null,
+    thumbnailUrl: preferThumbUrl({
+      thumbnailUrl: item.thumbnailUrl ?? null,
+      mediaUrlThumb: item.mediaUrlThumb ?? null,
+      mediaUrl: item.mediaUrl
+    }),
     videoDuration: item.videoDuration ?? null,
     likeCount: item.counts.likes,
     commentCount: item.counts.comments,
@@ -132,9 +178,12 @@ export function useHome() {
           return [...prev, ...mapped.filter((p) => !ids.has(p.id))];
         });
       } else {
-        setFeedItems(mapped);
+        // Keep prior signed media URLs when object path is unchanged — new signatures
+        // remount every image and make the list "shake" as heights remeasure.
+        setFeedItems((prev) => mergeFeedCardsPreservingMedia(prev, mapped));
       }
       const mediaUris = mapped
+        .slice(0, 2)
         .map((p) => getImageUrl(p.imageUri))
         .filter((u): u is string => !!u);
       if (mediaUris.length) prefetchAspectRatios(mediaUris);

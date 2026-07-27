@@ -25,11 +25,15 @@ export type PostCardData = {
   title: string;
   description: string;
   imageUri?: string | null;
+  /** Extra signed image URLs if primary fails (medium / full / thumb). */
+  imageUriFallbacks?: string[];
   mediaType?: "image" | "video" | "none" | string | null;
   thumbnailUrl?: string | null;
   videoDuration?: number | null;
   isMediaActive?: boolean;
   isMediaPreload?: boolean;
+  /** Keep previous video player mounted for instant scroll-back (disk cache warm). */
+  isMediaRetain?: boolean;
   likeCount: number;
   commentCount: number;
   likedByMe?: boolean;
@@ -59,6 +63,10 @@ function isVideoPost(post: PostCardData): boolean {
 
 type PostCardProps = {
   post: PostCardData;
+  /** Prefer separate flags over mutating `post` — keeps React.memo effective. */
+  isMediaActive?: boolean;
+  isMediaPreload?: boolean;
+  isMediaRetain?: boolean;
   onPress?: () => void;
   onAuthorPress?: () => void;
   onDoubleTap?: () => void;
@@ -73,6 +81,9 @@ type PostCardProps = {
 
 function PostCardInner({
   post,
+  isMediaActive: isMediaActiveProp,
+  isMediaPreload: isMediaPreloadProp,
+  isMediaRetain: isMediaRetainProp,
   onAuthorPress,
   onDoubleTap,
   onLikePress,
@@ -93,6 +104,9 @@ function PostCardInner({
   const glowOpacity = useRef(new Animated.Value(0.6)).current;
 
   const video = isVideoPost(post);
+  const isMediaActive = isMediaActiveProp ?? Boolean(post.isMediaActive);
+  const isMediaPreload = isMediaPreloadProp ?? Boolean(post.isMediaPreload);
+  const isMediaRetain = isMediaRetainProp ?? Boolean(post.isMediaRetain);
 
   const runHeartAnimation = useCallback(() => {
     heartScale.setValue(0);
@@ -146,6 +160,13 @@ function PostCardInner({
     },
     [onDoubleTap, post.likedByMe, runHeartAnimation]
   );
+
+  /** Stable — avoids new function identity breaking PostMedia / FeedVideoPlayer memo. */
+  const onMediaDoubleTapLike = useCallback(() => {
+    if (!onDoubleTap || post.likedByMe) return;
+    setHeartPosition({ x: 80, y: 140 });
+    triggerDoubleTapLike();
+  }, [onDoubleTap, post.likedByMe, triggerDoubleTapLike]);
 
   /** Image posts: double-tap like on media. Video: handled inside player (no single-tap play). */
   const handleImageRegionPress = useCallback(
@@ -313,18 +334,12 @@ function PostCardInner({
             mediaType={post.mediaType}
             thumbnailUrl={post.thumbnailUrl}
             videoDuration={post.videoDuration}
-            isActive={Boolean(post.isMediaActive)}
-            isPreload={Boolean(post.isMediaPreload)}
+            isActive={isMediaActive}
+            isPreload={isMediaPreload}
+            isRetain={isMediaRetain}
             feedMode
             cornerRadius={0}
-            onDoubleTapLike={
-              onDoubleTap && !post.likedByMe
-                ? () => {
-                    setHeartPosition({ x: 80, y: 140 });
-                    triggerDoubleTapLike();
-                  }
-                : undefined
-            }
+            onDoubleTapLike={onDoubleTap && !post.likedByMe ? onMediaDoubleTapLike : undefined}
           />
           <LinearGradient
             colors={["rgba(0,0,0,0.55)", "rgba(0,0,0,0.2)", "transparent"]}
@@ -346,11 +361,13 @@ function PostCardInner({
               <View style={s.mediaClip}>
                 <PostMedia
                   mediaUrl={post.imageUri}
+                  mediaUrlFallbacks={post.imageUriFallbacks}
                   mediaType={post.mediaType}
                   thumbnailUrl={post.thumbnailUrl}
                   videoDuration={post.videoDuration}
-                  isActive={Boolean(post.isMediaActive)}
-                  isPreload={Boolean(post.isMediaPreload)}
+                  isActive={isMediaActive}
+                  isPreload={isMediaPreload}
+                  isRetain={isMediaRetain}
                   feedMode
                   cornerRadius={14}
                 />
@@ -389,4 +406,21 @@ function PostCardInner({
   );
 }
 
-export const PostCard = memo(PostCardInner);
+export const PostCard = memo(PostCardInner, (prev, next) => {
+  const a = prev.post;
+  const b = next.post;
+  return (
+    a === b &&
+    prev.isMediaActive === next.isMediaActive &&
+    prev.isMediaPreload === next.isMediaPreload &&
+    prev.isMediaRetain === next.isMediaRetain &&
+    prev.onAuthorPress === next.onAuthorPress &&
+    prev.onDoubleTap === next.onDoubleTap &&
+    prev.onLikePress === next.onLikePress &&
+    prev.onLikeCountPress === next.onLikeCountPress &&
+    prev.onCommentPress === next.onCommentPress &&
+    prev.onSavePress === next.onSavePress &&
+    prev.onSharePress === next.onSharePress &&
+    prev.onMenuPress === next.onMenuPress
+  );
+});

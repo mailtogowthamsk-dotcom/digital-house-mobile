@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useMemo } from "react";
+import React, { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -90,8 +90,19 @@ export function ProfileScreen() {
     [colors, tabBottomPad]
   );
 
+  const profileFocusOnceRef = useRef(false);
+  const profileLastFetchRef = useRef(0);
+
   useFocusEffect(
     useCallback(() => {
+      // useProfile already fetches on mount — avoid double request on first focus.
+      if (!profileFocusOnceRef.current) {
+        profileFocusOnceRef.current = true;
+        profileLastFetchRef.current = Date.now();
+        return;
+      }
+      if (Date.now() - profileLastFetchRef.current < 60_000) return;
+      profileLastFetchRef.current = Date.now();
       void refetch();
     }, [refetch])
   );

@@ -1,5 +1,6 @@
 import React, { memo, useMemo, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, Image, Animated } from "react-native";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
+import { Image } from "expo-image";
 import { Swipeable } from "react-native-gesture-handler";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -203,7 +204,13 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
             <View style={s.unreadWash} pointerEvents="none" />
             <View style={s.avatarWrap}>
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={s.avatar} />
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={s.avatar}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  recyclingKey={avatarUri}
+                />
               ) : (
                 <View style={s.iconCircle}>
                   <Ionicons name={visual.icon as any} size={22} color={visual.accent} />

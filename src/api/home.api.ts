@@ -43,6 +43,9 @@ export type FeedItem = {
   description: string | null;
   mediaUrl: string | null;
   mediaType?: "image" | "video" | "none";
+  mediaUrlThumb?: string | null;
+  mediaUrlMedium?: string | null;
+  mediaUrlFull?: string | null;
   thumbnailUrl?: string | null;
   videoDuration?: number | null;
   mimeType?: string | null;

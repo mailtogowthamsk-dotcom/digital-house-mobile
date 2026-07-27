@@ -1,7 +1,7 @@
 /**
  * Direct upload to R2 via pre-signed PUT URL.
- * Images: optimize → upload → finalize (server variants).
- * Videos: validate → compress (≤720p) → thumbnail → upload (no finalize).
+ * Images: optimize → upload → finalize (server WebP variants).
+ * Videos: validate → compress (≤720p) → thumbnail → upload → finalize (H.264/AAC + posters).
  */
 
 import { Platform } from "react-native";
@@ -72,11 +72,7 @@ export function isAllowedImageType(mime: string): boolean {
 
 export function isAllowedVideoType(mime: string): boolean {
   const m = mime.toLowerCase();
-  return (
-    (ALLOWED_VIDEO_TYPES as readonly string[]).includes(m) ||
-    m === "video/mov" ||
-    m === "video/x-m4v"
-  );
+  return m === "video/mp4" || m === "video/m4v" || m === "video/x-m4v";
 }
 
 export function validateImagePickerSize(bytes: number): void {
@@ -271,8 +267,7 @@ export async function generateVideoThumbnail(
 }
 
 /**
- * Validate, compress (≤720p), and upload a video to R2.
- * Optionally uploads a WebP thumbnail. Does not call finalize on the video object.
+ * Validate, compress (≤720p), upload video to R2, then server finalize (H.264/AAC + posters).
  */
 export async function uploadVideo(
   localUri: string,
@@ -286,39 +281,41 @@ export async function uploadVideo(
   onProgress?.(0.02);
 
   const rawMime = (options.mimeType || getMimeFromUri(localUri, "video/mp4")).toLowerCase();
-  if (!isAllowedVideoType(rawMime) && !/\.(mp4|mov|m4v)(\?|$)/i.test(localUri)) {
-    throw new Error("Only MP4, MOV, or M4V videos are allowed");
+  // Accept picker MOV/M4V then re-encode to MP4 via compressor / server finalize.
+  const pickerOk =
+    isAllowedVideoType(rawMime) ||
+    rawMime === "video/quicktime" ||
+    rawMime === "video/mov" ||
+    /\.(mp4|mov|m4v)(\?|$)/i.test(localUri);
+  if (!pickerOk) {
+    throw new Error("Only MP4 videos are supported for upload");
   }
 
   const durationSec = options.durationSec ?? 0;
   validateVideoDuration(durationSec);
 
   const optimized = await optimizeVideoForUpload(localUri, {
-    onProgress: (p) => onProgress?.(0.02 + p * 0.38)
+    onProgress: (p) => onProgress?.(0.02 + p * 0.35)
   });
 
   let thumbnailUrl: string | null = null;
   try {
     validateVideoSize(optimized.size);
 
-    // Prefer H.264 MP4 after compression; keep QuickTime only when we did not re-encode a .mov.
-    const uploadMime =
-      optimized.didCompress || rawMime.includes("m4v") || rawMime.includes("mp4")
-        ? "video/mp4"
-        : normalizeVideoMime(rawMime);
-
+    // Always upload as MP4 after client compress (or remux on server).
+    const uploadMime = "video/mp4";
     const fileName =
       options.fileName?.trim()?.replace(/\.(mov|m4v)$/i, ".mp4") ||
       `vid_${Date.now()}.mp4`;
 
     onStage?.("processing");
-    onProgress?.(0.42);
+    onProgress?.(0.4);
     const coverMs =
       options.coverFrameMs != null && options.coverFrameMs >= 0
         ? options.coverFrameMs
         : 500;
     const thumb = await generateVideoThumbnail(optimized.uri, coverMs);
-    onProgress?.(0.48);
+    onProgress?.(0.45);
 
     if (thumb?.uri) {
       try {
@@ -332,16 +329,16 @@ export async function uploadVideo(
           purpose: "video_thumbnail"
         });
         await uploadToR2(thumbPresign.uploadUrl, optimizedThumb.uri, optimizedThumb.mime);
-        const finalized = await finalizeMedia(thumbPresign.mediaFileId);
-        thumbnailUrl = finalized.publicUrl;
+        const finalizedThumb = await finalizeMedia(thumbPresign.mediaFileId);
+        thumbnailUrl = finalizedThumb.variants?.medium || finalizedThumb.publicUrl;
       } catch {
         thumbnailUrl = null;
       }
     }
 
     onStage?.("uploading");
-    onProgress?.(0.55);
-    const { uploadUrl, publicUrl, mediaFileId } = await getUploadUrl({
+    onProgress?.(0.5);
+    const { uploadUrl, mediaFileId } = await getUploadUrl({
       fileName,
       fileType: uploadMime,
       fileSize: optimized.size,
@@ -350,25 +347,28 @@ export async function uploadVideo(
     });
 
     await uploadToR2(uploadUrl, optimized.uri, uploadMime, (p) => {
-      onProgress?.(0.55 + p * 0.42);
+      onProgress?.(0.5 + p * 0.3);
     });
 
+    onStage?.("processing");
+    onProgress?.(0.85);
+    // Server: validate codecs, H.264/AAC faststart, Cache-Control, poster variants.
+    const finalized = await finalizeMedia(mediaFileId);
     onStage?.("done");
     onProgress?.(1);
 
     return {
-      publicUrl,
+      publicUrl: finalized.publicUrl,
       mediaFileId,
       thumbnailUri: thumb?.uri ?? null,
-      thumbnailUrl,
-      durationSec: Math.floor(durationSec),
-      byteSize: optimized.size,
-      mimeType: uploadMime,
+      thumbnailUrl: finalized.thumbnailUrl || thumbnailUrl,
+      durationSec: Math.floor(finalized.durationSec ?? durationSec),
+      byteSize: finalized.byteSize || optimized.size,
+      mimeType: "video/mp4",
       fileName,
       mediaType: "video"
     };
   } catch (e) {
-    // Video failed after thumbnail uploaded — remove orphan thumb.
     if (thumbnailUrl) {
       void deleteMediaUrls([thumbnailUrl]).catch(() => undefined);
     }

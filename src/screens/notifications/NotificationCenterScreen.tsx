@@ -269,6 +269,7 @@ export function NotificationCenterScreen() {
           initialNumToRender={12}
           maxToRenderPerBatch={10}
           windowSize={9}
+          updateCellsBatchingPeriod={50}
           removeClippedSubviews={Platform.OS === "android"}
           refreshControl={
             <RefreshControl

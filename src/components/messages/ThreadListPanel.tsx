@@ -257,6 +257,11 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            maxToRenderPerBatch={12}
+            windowSize={9}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={12}
           />
         )}
       </View>

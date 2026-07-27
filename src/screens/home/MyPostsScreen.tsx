@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -46,8 +46,19 @@ export function MyPostsScreen() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const postsFocusOnceRef = useRef(false);
+  const postsLastFetchRef = useRef(0);
+
   useFocusEffect(
     useCallback(() => {
+      // useProfilePosts fetches on mount — skip duplicate on first focus.
+      if (!postsFocusOnceRef.current) {
+        postsFocusOnceRef.current = true;
+        postsLastFetchRef.current = Date.now();
+        return;
+      }
+      if (Date.now() - postsLastFetchRef.current < 60_000) return;
+      postsLastFetchRef.current = Date.now();
       void refetch();
     }, [refetch])
   );

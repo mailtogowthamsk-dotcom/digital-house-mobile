@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, Pressable, Image, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { PrimaryButton } from "../ui/PrimaryButton";

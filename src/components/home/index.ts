@@ -4,6 +4,7 @@ export { DismissibleWelcomeCard } from "./DismissibleWelcomeCard";
 export { hasHighlightsData } from "./HighlightSection";
 export { QuickActionGrid, type QuickActionItem } from "./QuickActionGrid";
 export { PostCard, type PostCardData } from "./PostCard";
+export { FeedPostCardRow, type FeedPostCardActions } from "./FeedPostCardRow";
 export { PostHeader } from "./PostHeader";
 export { PostActions } from "./PostActions";
 export { PostCaption } from "./PostCaption";

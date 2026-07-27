@@ -3,12 +3,12 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   ActivityIndicator,
   RefreshControl
 } from "react-native";
+import { Image } from "expo-image";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -80,7 +80,7 @@ export function MatrimonySavedScreen() {
                 onPress={() => navigation.navigate("MatrimonyCandidate", { userId: item.userId })}
               >
                 {uri ? (
-                  <Image source={{ uri }} style={styles.photo} />
+                  <Image source={{ uri }} cachePolicy="memory-disk" contentFit="cover" style={styles.photo} />
                 ) : (
                   <View style={[styles.photo, { backgroundColor: colors.border }]} />
                 )}

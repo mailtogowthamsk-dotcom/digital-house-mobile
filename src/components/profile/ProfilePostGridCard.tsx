@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, Image } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -106,7 +107,13 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
     >
       <View style={s.thumbWrap}>
         {post.mediaUrl && !/\.(mp4|mov)(\?|$)/i.test(post.mediaUrl) ? (
-          <Image source={{ uri: post.mediaUrl }} style={s.thumb} resizeMode="cover" />
+          <Image
+            source={{ uri: post.mediaUrl }}
+            style={s.thumb}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={post.mediaUrl}
+          />
         ) : post.mediaUrl ? (
           <View style={[s.thumb, s.thumbPlaceholder, { backgroundColor: "#0f172a" }]}>
             <Ionicons name="play-circle" size={40} color="#fff" />

@@ -40,7 +40,7 @@ export function assetFromPickerResult(asset: ImagePickerAsset): PendingMediaAsse
 
   if (isVideo) {
     if (!isAllowedVideoType(mime) && !/\.(mp4|mov|m4v)(\?|$)/i.test(uri)) {
-      appAlert("Unsupported video", "Only MP4, MOV, or M4V videos are allowed.");
+      appAlert("Unsupported video", "Only MP4 (H.264 + AAC) videos are allowed. Other formats are remuxed when possible.");
       return null;
     }
     if (durationSec != null && durationSec > 0 && durationSec > VIDEO_PICKER_MAX_DURATION_SEC) {

@@ -476,20 +476,28 @@ export async function subscribeMatrimonyPlan(plan: "GOLD" | "PLATINUM", duration
 }
 
 export async function startMatrimonyContactPayment(otherUserId: number) {
-  const { data } = await api.post<{
-    ok: boolean;
-    payment: { id: number; amountPaise: number; amountInr: number; status: string };
-  }>(`/matrimony/matches/${otherUserId}/contact/pay`);
-  if (!data?.ok) throw new Error("Could not start payment");
-  return data.payment;
+  try {
+    const { data } = await api.post<{
+      ok: boolean;
+      payment: { id: number; amountPaise: number; amountInr: number; status: string };
+    }>(`/matrimony/matches/${otherUserId}/contact/pay`);
+    if (!data?.ok) throw new Error("Could not start payment");
+    return data.payment;
+  } catch (e: unknown) {
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function confirmMatrimonyContactPayment(otherUserId: number) {
-  const { data } = await api.post<{ ok: boolean; mobile: string | null; message?: string }>(
-    `/matrimony/matches/${otherUserId}/contact/confirm`
-  );
-  if (!data?.ok) throw new Error("Payment confirmation failed");
-  return data;
+  try {
+    const { data } = await api.post<{ ok: boolean; mobile: string | null; message?: string }>(
+      `/matrimony/matches/${otherUserId}/contact/confirm`
+    );
+    if (!data?.ok) throw new Error("Payment confirmation failed");
+    return data;
+  } catch (e: unknown) {
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function getMatrimonyProfileViews() {
@@ -588,11 +596,15 @@ export async function getMatrimonyHoroscope(otherUserId: number) {
 }
 
 export async function revealMatrimonyContact(otherUserId: number) {
-  const { data } = await api.post<{ ok: boolean; mobile: string | null }>(
-    `/matrimony/matches/${otherUserId}/contact`
-  );
-  if (!data?.ok) throw new Error("Contact not available");
-  return data;
+  try {
+    const { data } = await api.post<{ ok: boolean; mobile: string | null }>(
+      `/matrimony/matches/${otherUserId}/contact`
+    );
+    if (!data?.ok) throw new Error("Contact not available");
+    return data;
+  } catch (e: unknown) {
+    throw new Error(getAuthErrorMessage(e));
+  }
 }
 
 export async function getMatrimonySavedProfiles() {
