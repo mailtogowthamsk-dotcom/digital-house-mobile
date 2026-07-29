@@ -12,12 +12,14 @@ export type FeedMediaWindow = {
   activeId: string | null;
   /** Next item — preload into disk cache */
   preloadId: string | null;
-  /** Previous item — keep player reusable for instant scroll-back */
+  /** Previous item — poster / image warm for scroll-back (no second decoder) */
   retainId: string | null;
 };
 
 /**
- * Current + next + previous media window (Instagram-style reuse).
+ * Current + next + previous media window.
+ * Active = autoplay decoder. Preload/retain = poster (and image warm) only —
+ * never mount a second native player (reverse scroll freeze).
  */
 export function pickActiveAndPreloadPostIds(
   viewableItems: Array<{ item: PostCardData; isViewable: boolean; index?: number | null }>,

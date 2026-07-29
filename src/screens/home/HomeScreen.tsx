@@ -104,16 +104,30 @@ export function HomeScreen() {
   const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
   const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const feedItemsRef = useRef<PostCardData[]>([]);
+  const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 65,
-    minimumViewTime: 120
+    minimumViewTime: 160
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
-      if (activeId) setActiveMediaPostId(activeId);
+      if (!activeId) return;
+      // Hysteresis — slow reverse scroll used to thrash active↔retain and freeze the UI.
+      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+      activeMediaSwitchTimer.current = setTimeout(() => {
+        activeMediaSwitchTimer.current = null;
+        setActiveMediaPostId((prev) => (prev === activeId ? prev : activeId));
+      }, 180);
     }
   ).current;
+
+  useEffect(
+    () => () => {
+      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+    },
+    []
+  );
 
   commentPostIdRef.current = commentPost?.id ?? null;
 
@@ -674,12 +688,12 @@ export function HomeScreen() {
           scrollEventThrottle={16}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          extraData={`${activeMediaPostId}:${preloadMediaPostId}:${retainMediaPostId}`}
+          extraData={activeMediaPostId}
           removeClippedSubviews={false}
-          maxToRenderPerBatch={2}
-          windowSize={3}
+          maxToRenderPerBatch={3}
+          windowSize={5}
           updateCellsBatchingPeriod={50}
-          initialNumToRender={2}
+          initialNumToRender={3}
           contentContainerStyle={feedContentStyle}
           showsVerticalScrollIndicator={false}
           refreshControl={

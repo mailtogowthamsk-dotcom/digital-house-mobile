@@ -59,19 +59,32 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const resultsRef = useRef<PostCardData[]>([]);
   const commentPostIdRef = useRef<string | null>(null);
+  const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   commentPostIdRef.current = commentPost?.id ?? null;
   resultsRef.current = explore.results;
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 65,
-    minimumViewTime: 120
+    minimumViewTime: 160
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, resultsRef.current);
-      if (activeId) setActiveMediaPostId(activeId);
+      if (!activeId) return;
+      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+      activeMediaSwitchTimer.current = setTimeout(() => {
+        activeMediaSwitchTimer.current = null;
+        setActiveMediaPostId((prev) => (prev === activeId ? prev : activeId));
+      }, 180);
     }
   ).current;
+
+  useEffect(
+    () => () => {
+      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const items = explore.results;
@@ -303,15 +316,15 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         onEndReachedThreshold={0.35}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        extraData={`${activeMediaPostId}:${preloadMediaPostId}:${retainMediaPostId}`}
+        extraData={activeMediaPostId}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={listContentStyle}
         removeClippedSubviews={false}
-        maxToRenderPerBatch={2}
-        windowSize={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
         updateCellsBatchingPeriod={50}
-        initialNumToRender={2}
+        initialNumToRender={3}
       />
 
       {commentPost ? (

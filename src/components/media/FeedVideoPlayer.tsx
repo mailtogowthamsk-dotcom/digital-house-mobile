@@ -23,7 +23,6 @@ import { markVideoUriWarmed, isVideoUriWarmed } from "../../utils/videoUriWarmCa
 import { buildFeedVideoSource } from "../../utils/videoSource";
 import {
   peekCachedVideoUri,
-  resolveCachedVideoUri,
   isVideoFileCached
 } from "../../utils/feedVideoFileCache";
 import { stickySignedMediaUrl } from "../../utils/stickySignedUrlCache";
@@ -611,62 +610,64 @@ function ActiveFeedVideoPlayer({
         ) : null}
       </View>
 
-      <Modal
-        visible={fullscreen}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
-        onRequestClose={closeFullscreen}
-        statusBarTranslucent
-      >
-        <StatusBar hidden />
-        <View style={s.fsRoot}>
-          <VideoView
-            style={s.fsVideo}
-            player={player}
-            contentFit="contain"
-            nativeControls={false}
-            fullscreenOptions={{ enable: false }}
-          />
-          <Pressable
-            style={StyleSheet.absoluteFillObject}
-            onPress={handleSurfacePress}
-            accessibilityRole="button"
-            accessibilityLabel={playing ? "Pause video" : "Play video"}
-          >
-            {showFsPausedGlyph ? (
-              <View style={s.center} pointerEvents="none">
-                <View style={s.playGlyph}>
-                  <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+      {fullscreen ? (
+        <Modal
+          visible
+          animationType="fade"
+          presentationStyle="fullScreen"
+          supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
+          onRequestClose={closeFullscreen}
+          statusBarTranslucent
+        >
+          <StatusBar hidden />
+          <View style={s.fsRoot}>
+            <VideoView
+              style={s.fsVideo}
+              player={player}
+              contentFit="contain"
+              nativeControls={false}
+              fullscreenOptions={{ enable: false }}
+            />
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={handleSurfacePress}
+              accessibilityRole="button"
+              accessibilityLabel={playing ? "Pause video" : "Play video"}
+            >
+              {showFsPausedGlyph ? (
+                <View style={s.center} pointerEvents="none">
+                  <View style={s.playGlyph}>
+                    <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+                  </View>
                 </View>
-              </View>
-            ) : null}
-          </Pressable>
-          <View
-            style={[s.fsTopBar, { top: Math.max(insets.top, 12) + 4 }]}
-            pointerEvents="box-none"
-          >
-            <Pressable
-              style={s.fsBtn}
-              onPress={toggleMute}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-            >
-              <Ionicons name={muted ? "volume-mute" : "volume-high"} size={20} color="#fff" />
+              ) : null}
             </Pressable>
-            <Pressable
-              style={s.fsBtn}
-              onPress={closeFullscreen}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Close fullscreen"
+            <View
+              style={[s.fsTopBar, { top: Math.max(insets.top, 12) + 4 }]}
+              pointerEvents="box-none"
             >
-              <Ionicons name="close" size={22} color="#fff" />
-            </Pressable>
+              <Pressable
+                style={s.fsBtn}
+                onPress={toggleMute}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={muted ? "Unmute video" : "Mute video"}
+              >
+                <Ionicons name={muted ? "volume-mute" : "volume-high"} size={20} color="#fff" />
+              </Pressable>
+              <Pressable
+                style={s.fsBtn}
+                onPress={closeFullscreen}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close fullscreen"
+              >
+                <Ionicons name="close" size={22} color="#fff" />
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      ) : null}
     </>
   );
 }
@@ -704,11 +705,9 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       setBootUri(peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri);
     }, [uri]);
 
-    // Disk pin only after scroll-away — never while active/preload (that stalled V1 / hung V2).
-    useEffect(() => {
-      if (!isRetain) return;
-      void resolveCachedVideoUri(uri).then(() => markVideoUriWarmed(uri));
-    }, [isRetain, uri]);
+    // Never pin-download on the scroll path (retain/active). That stalled V1 / hung V2 /
+    // and freezes the UI when crawling back up the feed. expo-video useCaching covers reuse.
+    // Idle disk pin can be done elsewhere if needed — not while FlatList is recycling.
 
     useEffect(() => {
       if (!ref) return;
@@ -729,10 +728,11 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       };
     }, [ref, onRequestPlay]);
 
-    // Active + retain only. Preload is poster-only (no parallel decoder/network vs current).
-    const shouldMountPlayer = (isActive || isRetain) && isScreenFocused && !isPreload;
+    // Only the active viewport clip mounts a native player.
+    // Preload + retain stay poster-only so reverse scroll cannot spawn N decoders.
+    const shouldMountPlayer = isActive && isScreenFocused && !isPreload;
 
-    if (isPreload && !isActive && isScreenFocused) {
+    if ((isPreload || isRetain) && !isActive && isScreenFocused) {
       return (
         <VideoPosterShell
           thumbnailUrl={thumbnailUrl}
@@ -765,7 +765,7 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
         height={height}
         isActive={isActive}
         isPreload={false}
-        isRetain={isRetain && !isActive}
+        isRetain={false}
         style={style}
         colors={colors}
         onTogglePlayRef={togglePlayRef}
