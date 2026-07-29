@@ -99,6 +99,37 @@ function friendlyTrimError(e: unknown): string {
   return message || "Could not trim this video. Please try again.";
 }
 
+/** Best-effort probe of output duration after trim (lossless cut can snap to keyframes). */
+async function probeVideoDurationSec(uri: string, fallbackSec: number): Promise<number> {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    if (!info.exists || info.isDirectory) {
+      throw new Error("Trimmed file missing");
+    }
+    const size = typeof (info as { size?: number }).size === "number" ? (info as { size: number }).size : 0;
+    if (size <= 0) throw new Error("Trimmed file empty");
+
+    // Prefer compressor metadata when the native module is linked (dev / EAS builds).
+    try {
+      const { NativeModules } = await import("react-native");
+      if (NativeModules.Compressor != null) {
+        const { getVideoMetaData } = await import("react-native-compressor");
+        const meta = await getVideoMetaData(uri);
+        const d = Number(meta?.duration);
+        if (Number.isFinite(d) && d > 0) {
+          // Library returns seconds on most platforms; guard against ms.
+          return d > 1000 ? d / 1000 : d;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  } catch {
+    /* fall through to requested range */
+  }
+  return fallbackSec;
+}
+
 /**
  * Trim once on user confirm. Does not run while dragging handles.
  */
@@ -132,14 +163,46 @@ export async function trimVideoOnce(
 
   const startMs = Math.max(0, Math.round(range.startSec * 1000));
   const endMs = Math.max(startMs + VIDEO_MIN_DURATION_SEC * 1000, Math.round(range.endSec * 1000));
+  const requestedDurationSec = trimmedDurationSec({
+    startSec: startMs / 1000,
+    endSec: endMs / 1000
+  });
+
+  if (__DEV__) {
+    console.log("[Trim] start", {
+      sourceUri,
+      sourceDurationSec,
+      startSec: range.startSec,
+      endSec: range.endSec,
+      startMs,
+      endMs,
+      requestedDurationSec
+    });
+  }
 
   try {
     const { uri } = await trimAsync(sourceUri, { startMs, endMs });
     trackTempVideoUri(uri);
-    const durationSec = trimmedDurationSec({
-      startSec: startMs / 1000,
-      endSec: endMs / 1000
-    });
+    const durationSec = await probeVideoDurationSec(uri, requestedDurationSec);
+
+    // Reject clearly broken outputs (empty / far outside requested window).
+    if (durationSec < VIDEO_MIN_DURATION_SEC) {
+      await cleanupTempVideoUri(uri);
+      throw new Error("Trimmed video is shorter than 3 seconds. Adjust the handles and try again.");
+    }
+    if (durationSec > VIDEO_MAX_DURATION_SEC + 1.5) {
+      await cleanupTempVideoUri(uri);
+      throw new Error("Trimmed video is still longer than 1 minute. Adjust the handles and try again.");
+    }
+
+    if (__DEV__) {
+      console.log("[Trim] output", {
+        uri,
+        durationSec,
+        requestedDurationSec
+      });
+    }
+
     return {
       uri,
       durationSec,

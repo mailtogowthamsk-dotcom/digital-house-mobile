@@ -5,7 +5,9 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -60,24 +62,47 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const resultsRef = useRef<PostCardData[]>([]);
   const commentPostIdRef = useRef<string | null>(null);
   const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeMediaPostIdRef = useRef<string | null>(null);
+  activeMediaPostIdRef.current = activeMediaPostId;
   commentPostIdRef.current = commentPost?.id ?? null;
   resultsRef.current = explore.results;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 65,
+    itemVisiblePercentThreshold: 55,
     minimumViewTime: 160
+  }).current;
+  const queueActiveMediaId = useRef((id: string | null) => {
+    if (!id || activeMediaPostIdRef.current === id) return;
+    if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+    // First assignment is applied synchronously — see HomeScreen.
+    if (!activeMediaPostIdRef.current) {
+      activeMediaSwitchTimer.current = null;
+      activeMediaPostIdRef.current = id;
+      setActiveMediaPostId(id);
+      return;
+    }
+    activeMediaSwitchTimer.current = setTimeout(() => {
+      activeMediaSwitchTimer.current = null;
+      setActiveMediaPostId((prev) => (prev === id ? prev : id));
+    }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, resultsRef.current);
-      if (!activeId) return;
-      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
-      activeMediaSwitchTimer.current = setTimeout(() => {
-        activeMediaSwitchTimer.current = null;
-        setActiveMediaPostId((prev) => (prev === activeId ? prev : activeId));
-      }, 180);
+      queueActiveMediaId(activeId);
     }
   ).current;
+
+  // The first card sits under the list header at offset 0, so it never reaches the
+  // viewability threshold. Viewability alone would leave the old (off-screen) post active.
+  const onExploreScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (e.nativeEvent.contentOffset.y <= 12) {
+        queueActiveMediaId(resultsRef.current[0]?.id ?? null);
+      }
+    },
+    [queueActiveMediaId]
+  );
 
   useEffect(
     () => () => {
@@ -148,6 +173,11 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
       promptReportPost(Number(item.id));
     },
     onActivateMedia: (postId) => {
+      if (activeMediaSwitchTimer.current) {
+        clearTimeout(activeMediaSwitchTimer.current);
+        activeMediaSwitchTimer.current = null;
+      }
+      activeMediaPostIdRef.current = postId;
       setActiveMediaPostId(postId);
       setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
     },
@@ -314,6 +344,8 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         }
         onEndReached={explore.loadMore}
         onEndReachedThreshold={0.35}
+        onScroll={onExploreScroll}
+        scrollEventThrottle={16}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         extraData={activeMediaPostId}

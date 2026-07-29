@@ -34,19 +34,26 @@ function VideoTimelineInner({ uri, durationSec, frameCount = 10, height = 56 }: 
     setLoading(true);
     setFrames([]);
     (async () => {
-      const uris: string[] = [];
-      for (const t of timesMs) {
-        try {
-          const thumb = await VideoThumbnails.getThumbnailAsync(uri, {
-            time: t,
-            quality: 0.35
-          });
-          if (cancelled) return;
-          uris.push(thumb.uri);
-        } catch {
-          uris.push("");
+      // Generate thumbnails with limited concurrency to avoid UI stalls.
+      const concurrency = 3;
+      const uris: string[] = new Array(timesMs.length).fill("");
+      let index = 0;
+      const workers = Array.from({ length: Math.min(concurrency, timesMs.length) }, async () => {
+        while (index < timesMs.length) {
+          const i = index++;
+          const t = timesMs[i];
+          try {
+            const thumb = await VideoThumbnails.getThumbnailAsync(uri, {
+              time: t,
+              quality: 0.35
+            });
+            if (!cancelled) uris[i] = thumb.uri;
+          } catch {
+            if (!cancelled) uris[i] = "";
+          }
         }
-      }
+      });
+      await Promise.all(workers);
       if (!cancelled) {
         setFrames(uris);
         setLoading(false);

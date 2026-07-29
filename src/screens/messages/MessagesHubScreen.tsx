@@ -16,10 +16,11 @@ import {
   type MessageItem,
   type Thread
 } from "../../api/messages.api";
-import { getSocket } from "../../realtime/socket";
-import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
+import { getSocketInstance } from "../../realtime/socket";
+import { sendChatMessage } from "../../realtime/sendChatMessage";
 import {
   subscribePresence,
+  watchPresence,
   isUserOnlineCached,
   hasPresenceSynced,
   refreshPresenceSnapshot,
@@ -29,6 +30,7 @@ import {
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
 import { registerGlobalMessageHandler } from "../../realtime/chatRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
+import { useChatTyping } from "../../hooks/useChatTyping";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { useAppResume } from "../../hooks/useAppResume";
@@ -78,19 +80,6 @@ export function MessagesHubScreen() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [otherTyping, setOtherTyping] = useState(false);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingActiveRef = useRef(false);
-  // Cleanup typing timers on unmount — avoid setState after leave.
-  useEffect(() => {
-    return () => {
-      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
-      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, []);
 
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const listRef = useRef<ChatMessageListHandle>(null);
@@ -139,6 +128,9 @@ export function MessagesHubScreen() {
     const me = await getMe();
     setMeId(me.id);
   }, []);
+
+  const meIdRef = useRef<number | null>(null);
+  meIdRef.current = meId;
 
   const threadsLoadGenRef = useRef(0);
 
@@ -224,9 +216,31 @@ export function MessagesHubScreen() {
     void loadThreads(requested);
   }, [loadThreads, route.params?.folder]);
 
+  /**
+   * Every realtime subscription below is gated on `meId`. A single swallowed
+   * failure here used to leave the inbox on focus-refetch only, so retry with
+   * backoff until it resolves.
+   */
   useEffect(() => {
-    loadMe().catch(() => {});
-  }, [loadMe]);
+    if (meId != null) return;
+    let cancelled = false;
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const attemptLoad = () => {
+      loadMe().catch(() => {
+        if (cancelled) return;
+        attempt += 1;
+        timer = setTimeout(attemptLoad, Math.min(1_000 * 2 ** attempt, 30_000));
+      });
+    };
+    attemptLoad();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [loadMe, meId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -291,10 +305,13 @@ export function MessagesHubScreen() {
         if (ackAs != null) {
           void ackUndeliveredMessages(hist.messages, ackAs);
         }
-        await markRead(other.id).catch(() => {});
         setThreads((prev) => clearThreadUnread(prev, other.id));
-        const sock = await getSocket();
-        sock.emit("message:read", { withUserId: other.id });
+        const sock = getSocketInstance();
+        if (sock?.connected) {
+          sock.emit("message:read", { withUserId: other.id });
+        } else {
+          await markRead(other.id).catch(() => {});
+        }
       } catch (e: unknown) {
         setChatError(e instanceof Error ? e.message : "Failed to load chat");
       } finally {
@@ -304,33 +321,17 @@ export function MessagesHubScreen() {
     [layout.isSplit, meId, navigation]
   );
 
-  const emitTyping = useCallback(
-    (typing: boolean) => {
-      if (!selectedUser || chatLocked) return;
-      typingActiveRef.current = typing;
-      void getSocket()
-        .then((sock) => emitTypingEvent(sock, selectedUser.id, typing))
-        .catch(() => {});
-    },
-    [chatLocked, selectedUser]
-  );
+  const typing = useChatTyping(selectedUser?.id ?? null, !chatLocked);
+  const { onInputChange, stopTyping, applyPeerTyping } = typing;
 
   const onChangeComposer = useCallback(
     (t: string) => {
       if (chatLocked) return;
       setInput(t);
       setSendError(null);
-      const hasText = t.trim().length > 0;
-      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
-      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
-      if (!hasText) {
-        if (typingActiveRef.current) emitTyping(false);
-        return;
-      }
-      typingDebounceRef.current = setTimeout(() => emitTyping(true), 280);
-      typingIdleRef.current = setTimeout(() => emitTyping(false), 2200);
+      onInputChange(t);
     },
-    [chatLocked, emitTyping]
+    [chatLocked, onInputChange]
   );
 
   const mergeSplitMessage = useCallback(
@@ -388,21 +389,27 @@ export function MessagesHubScreen() {
     registerGlobalMessageHandler(handlerId, (m) => {
       if (disposed) return;
       const otherId = Number(m.senderId) === meId ? Number(m.recipientId) : Number(m.senderId);
-      if (layout.isSplit && selectedUser?.id === otherId) {
+      const isOpenInSplit = layout.isSplit && selectedUser?.id === otherId;
+      if (isOpenInSplit) {
         mergeSplitMessageRef.current(m);
       }
+
+      // Reload decision is taken outside the updater: React may invoke an
+      // updater more than once, and it must stay free of side effects.
+      let missingThread = false;
       setThreads((prev) => {
         const { threads: patched, needsFullReload } = patchThreadsFromMessage(prev, m, meId);
-        if (needsFullReload && folderRef.current === "inbox") {
-          loadThreads("inbox", { soft: true }).catch(() => {});
-        } else if (needsFullReload) {
-          loadThreads(undefined, { soft: true }).catch(() => {});
-        }
-        if (layout.isSplit && selectedUser?.id === otherId) {
-          return clearThreadUnread(patched, otherId);
-        }
-        return patched;
+        missingThread = needsFullReload;
+        return isOpenInSplit ? clearThreadUnread(patched, otherId) : patched;
       });
+
+      if (missingThread) {
+        // First message of a brand new conversation — the peer's name and photo
+        // are not in the socket payload, so the row has to come from the API.
+        loadThreads(folderRef.current === "inbox" ? "inbox" : undefined, {
+          soft: true
+        }).catch(() => {});
+      }
     });
 
     return () => {
@@ -412,14 +419,58 @@ export function MessagesHubScreen() {
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
 
+  /**
+   * Watch presence for every peer in the list. Transitions are delivered to
+   * watchers only, so an unwatched row would keep whatever dot it loaded with.
+   */
+  const presenceWatchId = useRef(Symbol("hub-presence"));
+  const watchedPeerKey = useMemo(
+    () =>
+      threads
+        .map((t) => Number(t.otherUser.id))
+        .sort((a, b) => a - b)
+        .join(","),
+    [threads]
+  );
+
+  useEffect(() => {
+    const ids = watchedPeerKey ? watchedPeerKey.split(",").map(Number) : [];
+    if (selectedUser?.id != null && !ids.includes(selectedUser.id)) {
+      ids.push(selectedUser.id);
+    }
+    watchPresence(presenceWatchId.current, ids);
+  }, [watchedPeerKey, selectedUser?.id]);
+
+  useEffect(() => {
+    const watchId = presenceWatchId.current;
+    return () => watchPresence(watchId, null);
+  }, []);
+
+  /** Merge-only catch-up for the open split-view thread; never wipes live state. */
+  const reloadOpenThread = useCallback(
+    async (otherUserId: number) => {
+      try {
+        const hist = await getHistory(otherUserId, HISTORY_LIMIT);
+        setMessages((prev) => mergeChatMessages(prev, hist.messages));
+        const ackAs = meIdRef.current;
+        if (ackAs != null) void ackUndeliveredMessages(hist.messages, ackAs);
+      } catch {
+        // offline
+      }
+    },
+    []
+  );
+
+  /** Socket-first; the REST route emits the same event when we are offline. */
   const markReadSplitRef = useRef<(id: number) => void>(() => {});
   markReadSplitRef.current = (otherUserId: number) => {
-    markRead(otherUserId)
-      .then(() => setThreads((prev) => clearThreadUnread(prev, otherUserId)))
-      .catch(() => {});
-    getSocket()
-      .then((sock) => sock.emit("message:read", { withUserId: otherUserId }))
-      .catch(() => {});
+    setThreads((prev) => clearThreadUnread(prev, otherUserId));
+    const sock = getSocketInstance();
+    if (sock?.connected) {
+      sock.emit("message:read", { withUserId: otherUserId });
+      return;
+    }
+    markRead(otherUserId).catch(() => {});
   };
 
   useChatSocket(
@@ -439,17 +490,17 @@ export function MessagesHubScreen() {
           prev.map((m) => (m.recipientId === otherUserId ? { ...m, readAt } : m))
         );
       },
-      onTyping: (typing) => {
-        setOtherTyping(typing);
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        if (typing) {
-          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 2500);
-        }
-      },
+      onTyping: applyPeerTyping,
       onIncomingFromOther: () => {
         const otherUserId = selectedUser?.id;
         if (otherUserId == null) return;
         markReadSplitRef.current(otherUserId);
+      },
+      onReconnect: () => {
+        // No server-side replay after a drop: re-pull the list and the open thread.
+        void loadThreads(undefined, { soft: true });
+        const otherUserId = selectedUser?.id;
+        if (otherUserId != null) void reloadOpenThread(otherUserId);
       }
     }
   );
@@ -460,7 +511,7 @@ export function MessagesHubScreen() {
     setSending(true);
     setSendError(null);
     setInput("");
-    if (typingActiveRef.current) emitTyping(false);
+    stopTyping();
 
     const recipientId = selectedUser.id;
     const clientId = `m_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -509,7 +560,7 @@ export function MessagesHubScreen() {
           : "Could not send message. Check your connection and try again."
       );
     }
-  }, [chatLocked, emitTyping, input, loadThreads, meId, selectedUser, sending]);
+  }, [chatLocked, input, loadThreads, meId, selectedUser, sending, stopTyping]);
 
   const renderThread = useCallback(
     ({ item }: { item: Thread }) => {
@@ -667,7 +718,7 @@ export function MessagesHubScreen() {
             <ChatPanel
               title={selectedUser.fullName}
               subtitle={
-                otherTyping
+                typing.peerTyping
                   ? "Typing…"
                   : selectedUser.online
                     ? "Online"

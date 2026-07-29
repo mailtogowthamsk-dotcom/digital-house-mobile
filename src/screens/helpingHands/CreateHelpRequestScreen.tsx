@@ -23,6 +23,7 @@ import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { appAlert } from "../../utils/appAlert";
+import { ensureMediaLibraryRead } from "../../permissions";
 import {
   HELP_CATEGORIES,
   HELP_URGENCIES,
@@ -143,11 +144,12 @@ export function CreateHelpRequestScreen() {
   );
 
   const pickPhotos = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Allow photo access to attach images.");
-      return;
-    }
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Attach photos",
+      rationaleMessage:
+        "Digital House needs access to your photos so you can attach images to this help request."
+    });
+    if (!permission.ok) return;
     const remaining = HELP_MAX_PHOTOS - galleryUrls.length;
     if (remaining <= 0) {
       appAlert("Photo limit", `You can add up to ${HELP_MAX_PHOTOS} photos.`);

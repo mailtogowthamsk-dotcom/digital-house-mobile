@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, View, Text } from "react-native";
 import { useRoute, RouteProp, useNavigation, useIsFocused } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -25,11 +25,20 @@ import {
   reportMember,
   MEMBER_REPORT_REASONS
 } from "../../api/users.api";
-import { getSocket } from "../../realtime/socket";
-import { sendChatMessage, emitTypingEvent } from "../../realtime/sendChatMessage";
-import { subscribePresence, isUserOnlineCached, hasPresenceSynced, formatLastSeen, getCachedLastSeenAt } from "../../realtime/presenceRealtime";
+import { getSocketInstance } from "../../realtime/socket";
+import { sendChatMessage } from "../../realtime/sendChatMessage";
+import {
+  subscribePresence,
+  watchPresence,
+  isUserOnlineCached,
+  hasPresenceSynced,
+  formatLastSeen,
+  getCachedLastSeenAt
+} from "../../realtime/presenceRealtime";
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
+import { useChatTyping } from "../../hooks/useChatTyping";
+import { useAppResume } from "../../hooks/useAppResume";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
@@ -62,25 +71,12 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [otherTyping, setOtherTyping] = useState(false);
   const [otherOnline, setOtherOnline] = useState(
     () => !!route.params.online || isUserOnlineCached(otherUserId)
   );
   const [otherLastSeen, setOtherLastSeen] = useState<string | null>(() =>
     getCachedLastSeenAt(otherUserId)
   );
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingActiveRef = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
-      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, []);
 
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
@@ -98,26 +94,6 @@ export function ChatScreen() {
     !!chatAccess &&
     (chatAccess.readOnly || !chatAccess.allowed) &&
     (chatAccess.reason === "legacy_thread" || chatAccess.code === "READ_ONLY_LEGACY");
-
-  const refreshChatAccess = useCallback(async () => {
-    const access = await getMessageAccess(otherUserId);
-    setChatAccess(access);
-    const accessBlocked = access.reason === "blocked" || access.code === "BLOCKED";
-    if (accessBlocked) {
-      const blocked = await listBlockedMembers().catch(() => []);
-      setBlockedByMe(blocked.some((b) => b.id === otherUserId));
-    } else {
-      setBlockedByMe(false);
-    }
-    if (!access.canViewHistory) {
-      setLoadError(access.message ?? "You cannot view this conversation.");
-      setMessages([]);
-      return access;
-    }
-    setLoadError(null);
-    await loadInitial();
-    return access;
-  }, [loadInitial, otherUserId]);
 
   const scrollToBottomIfNeeded = useCallback((animated = true) => {
     if (listRef.current?.shouldAutoScroll() !== false) {
@@ -168,14 +144,39 @@ export function ChatScreen() {
     }
   }, [meId, otherUserId]);
 
+  const refreshChatAccess = useCallback(async () => {
+    const access = await getMessageAccess(otherUserId);
+    setChatAccess(access);
+    const accessBlocked = access.reason === "blocked" || access.code === "BLOCKED";
+    if (accessBlocked) {
+      const blocked = await listBlockedMembers().catch(() => []);
+      setBlockedByMe(blocked.some((b) => b.id === otherUserId));
+    } else {
+      setBlockedByMe(false);
+    }
+    if (!access.canViewHistory) {
+      setLoadError(access.message ?? "You cannot view this conversation.");
+      setMessages([]);
+      return access;
+    }
+    setLoadError(null);
+    await loadInitial();
+    return access;
+  }, [loadInitial, otherUserId]);
+
   useEffect(() => {
     navigation.setOptions?.({ title: name });
   }, [navigation, name]);
 
+  const presenceWatchId = useRef(Symbol("chat-presence"));
+
   useEffect(() => {
     setOtherOnline(!!route.params.online || isUserOnlineCached(otherUserId));
     setOtherLastSeen(getCachedLastSeenAt(otherUserId));
-    return subscribePresence({
+    // Join this peer's presence watch room so transitions reach us regardless
+    // of whether we share a community with them.
+    watchPresence(presenceWatchId.current, [otherUserId]);
+    const unsubscribe = subscribePresence({
       onUpdate: (uid, online, lastSeenAt) => {
         if (uid !== otherUserId) return;
         setOtherOnline(online);
@@ -189,6 +190,12 @@ export function ChatScreen() {
         else setOtherLastSeen(null);
       }
     });
+
+    const watchId = presenceWatchId.current;
+    return () => {
+      unsubscribe();
+      watchPresence(watchId, null);
+    };
   }, [otherUserId, route.params.online]);
 
   useEffect(() => {
@@ -202,7 +209,6 @@ export function ChatScreen() {
     setMessages([]);
     setSendError(null);
     setInput("");
-    setOtherTyping(false);
 
     (async () => {
       try {
@@ -251,42 +257,27 @@ export function ChatScreen() {
     };
   }, [loadInitial, otherUserId]);
 
-  const emitTyping = useCallback(
-    (typing: boolean) => {
-      typingActiveRef.current = typing;
-      void getSocket()
-        .then((sock) => emitTypingEvent(sock, otherUserId, typing))
-        .catch(() => {});
-    },
-    [otherUserId]
-  );
+  const typing = useChatTyping(otherUserId, !chatLocked);
+  const { onInputChange, stopTyping, applyPeerTyping } = typing;
 
   const onChangeText = useCallback(
     (t: string) => {
       if (chatLocked) return;
       setInput(t);
       setSendError(null);
-      const hasText = t.trim().length > 0;
-      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
-      if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
-      if (!hasText) {
-        if (typingActiveRef.current) emitTyping(false);
-        return;
-      }
-      typingDebounceRef.current = setTimeout(() => emitTyping(true), 280);
-      typingIdleRef.current = setTimeout(() => emitTyping(false), 2200);
+      onInputChange(t);
     },
-    [chatLocked, emitTyping]
+    [chatLocked, onInputChange]
   );
 
+  /** Socket-first; REST covers the offline case and emits the same event server-side. */
   const markReadNow = useCallback(async () => {
-    await markRead(otherUserId).catch(() => {});
-    try {
-      const sock = await getSocket();
+    const sock = getSocketInstance();
+    if (sock?.connected) {
       sock.emit("message:read", { withUserId: otherUserId });
-    } catch {
-      // REST applied
+      return;
     }
+    await markRead(otherUserId).catch(() => {});
   }, [otherUserId]);
 
   useEffect(() => {
@@ -294,37 +285,21 @@ export function ChatScreen() {
     markReadNow().catch(() => {});
   }, [isFocused, markReadNow]);
 
-  /** Re-sync missed messages when socket reconnects while this chat is open. */
-  useEffect(() => {
-    let cancelled = false;
-    let sock: Awaited<ReturnType<typeof getSocket>> | null = null;
-    let sawDisconnect = false;
-    const onDisconnect = () => {
-      sawDisconnect = true;
-    };
-    const onConnect = () => {
-      if (cancelled || !sawDisconnect) return;
-      void syncRecent();
-    };
-    void getSocket({ skipRewire: true })
-      .then((s) => {
-        if (cancelled) return;
-        sock = s;
-        s.on("disconnect", onDisconnect);
-        s.on("connect", onConnect);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      sock?.off("disconnect", onDisconnect);
-      sock?.off("connect", onConnect);
-    };
-  }, [otherUserId, syncRecent]);
-
   const markReadNowRef = useRef(markReadNow);
   markReadNowRef.current = markReadNow;
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
+  const syncRecentRef = useRef(syncRecent);
+  syncRecentRef.current = syncRecent;
+
+  /**
+   * Nothing is replayed after a drop and no events arrive while backgrounded,
+   * so reconcile on both transitions instead of polling.
+   */
+  useAppResume(() => {
+    void syncRecentRef.current();
+    if (isFocusedRef.current) markReadNowRef.current().catch(() => {});
+  });
 
   useChatSocket(otherUserId, true, {
     onMessage: mergeIncomingMessage,
@@ -340,16 +315,14 @@ export function ChatScreen() {
         )
       );
     },
-    onTyping: (typing) => {
-      setOtherTyping(typing);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (typing) {
-        typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 2500);
-      }
-    },
+    onTyping: applyPeerTyping,
     onIncomingFromOther: (_m, _sock) => {
       if (!isFocusedRef.current) return;
       markReadNowRef.current().catch(() => {});
+    },
+    onReconnect: () => {
+      void syncRecentRef.current();
+      if (isFocusedRef.current) markReadNowRef.current().catch(() => {});
     }
   });
 
@@ -359,7 +332,7 @@ export function ChatScreen() {
     setSending(true);
     setSendError(null);
     setInput("");
-    if (typingActiveRef.current) emitTyping(false);
+    stopTyping();
 
     const clientId = `m_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     pendingClientIdsRef.current.add(clientId);
@@ -408,7 +381,7 @@ export function ChatScreen() {
           : "Could not send message. Check your connection and try again."
       );
     }
-  }, [chatLocked, emitTyping, input, meId, otherUserId, sending]);
+  }, [chatLocked, input, meId, otherUserId, sending, stopTyping]);
 
   const handleSharedPostPress = useCallback(
     (sharedPostId: number) => {
@@ -574,18 +547,23 @@ export function ChatScreen() {
     ]);
   };
 
-  const panelColors = {
-    background: colors.background,
-    surface: colors.surface,
-    border: colors.border,
-    surfaceElevated: colors.surfaceElevated,
-    text: colors.text,
-    textSecondary: colors.textSecondary,
-    textMuted: colors.textMuted,
-    primary: colors.primary,
-    white: colors.white,
-    error: colors.error
-  };
+  // Memoized: a fresh object every render defeats memo() on the panel, which
+  // cascades into re-rendering every message bubble on each keystroke.
+  const panelColors = useMemo(
+    () => ({
+      background: colors.background,
+      surface: colors.surface,
+      border: colors.border,
+      surfaceElevated: colors.surfaceElevated,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      textMuted: colors.textMuted,
+      primary: colors.primary,
+      white: colors.white,
+      error: colors.error
+    }),
+    [colors]
+  );
 
   const backButton = (
     <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
@@ -716,7 +694,7 @@ export function ChatScreen() {
   );
 
   const lastSeenLabel = formatLastSeen(otherLastSeen);
-  const presenceSubtitle = otherTyping
+  const presenceSubtitle = typing.peerTyping
     ? "Typing…"
     : otherOnline
       ? "Online"

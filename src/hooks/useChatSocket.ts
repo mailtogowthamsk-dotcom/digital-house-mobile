@@ -9,6 +9,8 @@ type ChatSocketHandlers = {
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
+  /** Socket recovered after a drop — reconcile anything missed while offline. */
+  onReconnect?: () => void;
 };
 
 /**
@@ -37,7 +39,8 @@ export function useChatSocket(
       onDelivered: (p) => handlersRef.current.onDelivered(p),
       onRead: (p) => handlersRef.current.onRead(p),
       onTyping: (t) => handlersRef.current.onTyping(t),
-      onIncomingFromOther: (m, sock) => handlersRef.current.onIncomingFromOther?.(m, sock)
+      onIncomingFromOther: (m, sock) => handlersRef.current.onIncomingFromOther?.(m, sock),
+      onReconnect: () => handlersRef.current.onReconnect?.()
     });
 
     return () => registerChatRealtime(subIdRef.current, null);

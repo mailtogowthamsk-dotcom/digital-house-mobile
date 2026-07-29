@@ -94,6 +94,7 @@ function getExpoProjectId(): string | undefined {
   return eas?.projectId ?? Constants.easConfig?.projectId;
 }
 
+/** Raw OS request — prefer `ensurePushNotifications` from `src/permissions` for UX. */
 export async function requestPushPermissions(): Promise<boolean> {
   if (!isRemotePushSupported()) {
     warnExpoGoOnce();
@@ -111,11 +112,31 @@ export async function requestPushPermissions(): Promise<boolean> {
   return status === "granted";
 }
 
-export async function getExpoPushToken(): Promise<string | null> {
+export async function hasPushPermission(): Promise<boolean> {
+  if (!isRemotePushSupported()) return false;
+  const Notifications = await loadNotifications();
+  const existing = await Notifications.getPermissionsAsync();
+  return existing.status === "granted";
+}
+
+/**
+ * Resolve Expo push token.
+ * By default does NOT show the system permission dialog — only returns a token
+ * when permission is already granted (safe for auth bootstrap / cold start).
+ * Pass `requestIfNeeded: true` only from an explicit user gesture path.
+ */
+export async function getExpoPushToken(opts?: {
+  requestIfNeeded?: boolean;
+}): Promise<string | null> {
   if (!isRemotePushSupported()) return null;
 
-  const granted = await requestPushPermissions();
-  if (!granted) return null;
+  if (opts?.requestIfNeeded) {
+    const granted = await requestPushPermissions();
+    if (!granted) return null;
+  } else {
+    const granted = await hasPushPermission();
+    if (!granted) return null;
+  }
 
   await ensureAndroidChannels();
 
@@ -161,14 +182,20 @@ async function postPushTokenToBackend(expoToken: string): Promise<boolean> {
   }
 }
 
-/** Register device push token once per session; backs off after failures. */
-export async function syncPushTokenWithBackend(force = false): Promise<boolean> {
+/**
+ * Register device push token once per session; backs off after failures.
+ * Does not request permission unless `requestIfNeeded` is true.
+ */
+export async function syncPushTokenWithBackend(
+  force = false,
+  opts?: { requestIfNeeded?: boolean }
+): Promise<boolean> {
   if (!isRemotePushSupported()) return false;
   if (!force && syncInFlight) return syncInFlight;
 
   syncInFlight = (async () => {
     try {
-      const token = await getExpoPushToken();
+      const token = await getExpoPushToken({ requestIfNeeded: opts?.requestIfNeeded === true });
       if (!token) return false;
       if (force) lastSyncedToken = null;
       return await postPushTokenToBackend(token);

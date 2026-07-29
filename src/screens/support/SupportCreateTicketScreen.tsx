@@ -27,6 +27,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { uploadOptimizedImage } from "../../utils/mediaUpload";
 import { appAlert } from "../../utils/appAlert";
+import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
 
 const TITLES: Record<string, string> = {
@@ -61,11 +62,12 @@ export function SupportCreateTicketScreen() {
   );
 
   const pickScreenshot = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      appAlert("Permission needed", "Allow photo library access to attach a screenshot.");
-      return;
-    }
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Attach a screenshot",
+      rationaleMessage:
+        "Digital House needs access to your photos so you can attach a screenshot to this support request."
+    });
+    if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8

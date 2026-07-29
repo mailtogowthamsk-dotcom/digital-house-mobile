@@ -24,6 +24,13 @@ import { getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
+import {
+  LEGAL_FALLBACK_LINKS,
+  LEGAL_REGISTRATION_KEYS,
+  listLegalCatalog,
+  type LegalAcceptance,
+  type LegalCatalogItem
+} from "../../api/legal.api";
 
 const LOGO = require("../../../assets/logo_digital_house.png");
 const GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
@@ -51,6 +58,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const [kulamOptions, setKulamOptions] = useState(KULAM_OPTIONS);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [legalDocs, setLegalDocs] = useState<LegalCatalogItem[]>([]);
+  const [acceptedLegal, setAcceptedLegal] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void (async () => {
@@ -68,6 +77,53 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
     })();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const catalog = await listLegalCatalog();
+        if (cancelled) return;
+        const required = catalog.filter((d) =>
+          (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+        );
+        setLegalDocs(
+          required.length
+            ? required
+            : LEGAL_FALLBACK_LINKS.filter((d) =>
+                (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+              ).map((d) => ({
+                ...d,
+                description: null,
+                version: "",
+                publishedAt: null,
+                requiredAtRegistration: true,
+                requiresReacceptance: false,
+                sortOrder: 0
+              }))
+        );
+      } catch {
+        if (!cancelled) {
+          setLegalDocs(
+            LEGAL_FALLBACK_LINKS.filter((d) =>
+              (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+            ).map((d) => ({
+              ...d,
+              description: null,
+              version: "",
+              publishedAt: null,
+              requiredAtRegistration: true,
+              requiresReacceptance: false,
+              sortOrder: 0
+            }))
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const onSubmit = async () => {
     Keyboard.dismiss();
     setMsg(null);
@@ -77,8 +133,19 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
     if (!district) return setMsg("Please select district.");
     if (!kulam) return setMsg("Please select your Kulam.");
 
+    const publishedRequired = legalDocs.filter((d) => d.version);
+    for (const doc of legalDocs) {
+      if (!acceptedLegal[doc.documentKey]) {
+        return setMsg(`Please accept the ${doc.title}.`);
+      }
+    }
+
     setLoading(true);
     try {
+      const legalAcceptances: LegalAcceptance[] = publishedRequired.map((doc) => ({
+        documentKey: doc.documentKey,
+        version: doc.version
+      }));
       await completeGoogleProfile({
         username: username.trim().toLowerCase(),
         gender,
@@ -87,7 +154,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         kulam,
         community: community.trim() || null,
         location: district,
-        mobile: mobile.trim() || null
+        mobile: mobile.trim() || null,
+        ...(legalAcceptances.length ? { legalAcceptances } : {})
       });
       await refreshSession();
       /* App remounts stack via initialRoute key after session refresh */
@@ -180,6 +248,50 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               keyboardType="phone-pad"
               variant="light"
             />
+
+            <Text style={styles.legalHeading}>Legal agreements</Text>
+            <Text style={styles.legalHint}>
+              Accept the latest Privacy Policy, Terms & Conditions, and Community Guidelines to continue.
+            </Text>
+            {legalDocs.map((doc) => {
+              const checked = !!acceptedLegal[doc.documentKey];
+              return (
+                <View key={doc.documentKey} style={styles.legalRow}>
+                  <Pressable
+                    onPress={() =>
+                      setAcceptedLegal((prev) => ({
+                        ...prev,
+                        [doc.documentKey]: !prev[doc.documentKey]
+                      }))
+                    }
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={checked ? "checkbox" : "square-outline"}
+                      size={22}
+                      color={checked ? "#2563EB" : "#6B7280"}
+                    />
+                  </Pressable>
+                  <Text style={styles.legalText}>
+                    I accept the{" "}
+                    <Text
+                      style={styles.legalLink}
+                      onPress={() =>
+                        navigation.navigate("LegalDocument", {
+                          documentKey: doc.documentKey,
+                          slug: doc.slug,
+                          title: doc.title
+                        })
+                      }
+                    >
+                      {doc.title}
+                    </Text>
+                    {doc.version ? ` (v${doc.version})` : ""}
+                  </Text>
+                </View>
+              );
+            })}
+
             {msg ? <Text style={styles.error}>{msg}</Text> : null}
             <PrimaryButton title="Continue" onPress={() => void onSubmit()} loading={loading} />
             <Text style={styles.hint}>
@@ -213,5 +325,10 @@ const styles = StyleSheet.create({
   dobLabel: { fontSize: 12, color: "#6B7280", marginBottom: 4 },
   dobValue: { fontSize: 16, color: "#111827", fontWeight: "600" },
   error: { color: "#EF4444", fontSize: 14 },
+  legalHeading: { fontSize: 14, fontWeight: "800", color: "#111827", marginTop: spacing.sm },
+  legalHint: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
+  legalRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  legalText: { flex: 1, fontSize: 14, color: "#111827", lineHeight: 20 },
+  legalLink: { color: "#2563EB", fontWeight: "700", textDecorationLine: "underline" },
   hint: { fontSize: 12, color: "#6B7280", textAlign: "center", lineHeight: 18 }
 });

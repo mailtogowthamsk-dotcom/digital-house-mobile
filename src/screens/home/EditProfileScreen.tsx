@@ -13,6 +13,7 @@ import { getErrorStatus, getImageUrl } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { uploadOptimizedImage, isAllowedImageType } from "../../utils/mediaUpload";
 import { MatrimonyEditProfileCard } from "../../components/matrimony/MatrimonyEditProfileCard";
+import { ensureMediaLibraryRead } from "../../permissions";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -439,11 +440,12 @@ export function EditProfileScreen() {
 
   const handleProfilePhotoUpload = useCallback(async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        appAlert("Permission needed", "Allow access to photos to set your profile photo.");
-        return;
-      }
+      const permission = await ensureMediaLibraryRead({
+        rationaleTitle: "Update profile photo",
+        rationaleMessage:
+          "Digital House needs access to your photos so you can set or change your profile picture."
+      });
+      if (!permission.ok) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,

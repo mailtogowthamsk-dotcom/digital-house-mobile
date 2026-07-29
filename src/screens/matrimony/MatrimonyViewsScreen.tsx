@@ -68,7 +68,7 @@ export function MatrimonyViewsScreen() {
 
   return (
     <MatrimonyBrowseGate>
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="Who viewed me" onBack={() => navigation.goBack()} />
 
       <View style={[styles.banner, { backgroundColor: "#EDE9FE" }]}>
@@ -108,7 +108,7 @@ export function MatrimonyViewsScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => String(i.viewerId)}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", color: colors.textSecondary, lineHeight: 20 }}>
               No one has opened your profile yet this month. Stay active in browse — views appear when

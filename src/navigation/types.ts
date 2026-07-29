@@ -34,6 +34,14 @@ export type RootStackParamList = {
   VideoTrim: undefined;
   Menu: { messageCount?: number };
   Settings: undefined;
+  /** Catalog of published legal documents (Settings). */
+  LegalIndex: undefined;
+  /** Single published legal document (HTML body from API). */
+  LegalDocument: {
+    title?: string;
+    documentKey?: string;
+    slug?: string;
+  };
   Messages: { folder?: "inbox" | "archived" | "blocked" } | undefined;
   Chat: {
     otherUserId: number;

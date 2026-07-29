@@ -35,6 +35,7 @@ import {
   groupNotificationsByDate,
   type NotificationSection
 } from "../../features/notifications/notificationPresentation";
+import { maybePromptPushAfterMeaningfulUse } from "../../permissions";
 
 const PAGE_SIZE = 25;
 
@@ -105,6 +106,21 @@ export function NotificationCenterScreen() {
     useCallback(() => {
       void load(1, false, tab);
     }, [load, tab])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      // After the user opens notifications (meaningful use), offer push once —
+      // never on cold start / login bootstrap.
+      let cancelled = false;
+      const t = setTimeout(() => {
+        if (!cancelled) void maybePromptPushAfterMeaningfulUse();
+      }, 1200);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    }, [])
   );
 
   const onTab = (id: NotificationCategory) => {

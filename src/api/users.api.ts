@@ -177,6 +177,25 @@ export async function updateConnectionRequests(allowConnectionRequests: boolean)
   return res.data.allowConnectionRequests;
 }
 
+export type LastSeenVisibility = "EVERYONE" | "MATCHES_ONLY" | "NOBODY";
+
+export async function getLastSeenVisibility(): Promise<LastSeenVisibility> {
+  const res = await api.get<{ ok: true; visibility: LastSeenVisibility }>(
+    "/users/me/last-seen-visibility"
+  );
+  return res.data.visibility;
+}
+
+export async function updateLastSeenVisibility(
+  visibility: LastSeenVisibility
+): Promise<LastSeenVisibility> {
+  const res = await api.patch<{ ok: true; visibility: LastSeenVisibility }>(
+    "/users/me/last-seen-visibility",
+    { visibility }
+  );
+  return res.data.visibility;
+}
+
 export type BlockedMember = {
   id: number;
   fullName: string;

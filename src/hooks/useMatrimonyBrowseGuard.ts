@@ -6,6 +6,12 @@ import { appAlert } from "../utils/appAlert";
 
 function browseBlockedMessage(hub: Awaited<ReturnType<typeof getMatrimonyHub>>): string {
   if (hub.can_browse) return "";
+  if (hub.status === "PAUSED") {
+    return "Your matrimony profile is paused. Matches and chats stay available from Matrimony Home.";
+  }
+  if (hub.status === "CLOSED") {
+    return "Your matrimony profile is closed. Reactivate it to browse again. Matches and chats stay available.";
+  }
   if (hub.status === "PENDING" || hub.status === "RESUBMITTED") {
     return "Your matrimony profile is under admin review. Browsing unlocks after approval.";
   }

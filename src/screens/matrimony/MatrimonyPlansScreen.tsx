@@ -67,9 +67,11 @@ export function MatrimonyPlansScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="Choose a plan" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+      >
         <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20, marginBottom: spacing.md }}>
           Open full profiles with photos and horoscope. Contact reveal (₹500) is separate after mutual match.
         </Text>

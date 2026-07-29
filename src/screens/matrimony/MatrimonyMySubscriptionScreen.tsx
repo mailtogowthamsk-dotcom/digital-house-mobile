@@ -54,10 +54,10 @@ export function MatrimonyMySubscriptionScreen() {
   const renew = () => navigation.navigate("MatrimonyPlans");
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="My subscription" onBack={() => navigation.goBack()} />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
       >
         {loading && !detail ? (

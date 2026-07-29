@@ -14,6 +14,8 @@ export type Thread = {
   otherUser: { id: number; name: string; profileImage: string | null; online: boolean };
   chatLanes?: ChatLane[];
   primaryLane?: ChatLane | null;
+  /** Absent on older servers — callers must fall back to lane inspection. */
+  canSend?: boolean;
   muted?: boolean;
   archived?: boolean;
   lastMessage: {

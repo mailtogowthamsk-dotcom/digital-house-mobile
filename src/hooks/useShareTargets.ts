@@ -93,11 +93,11 @@ export function useShareTargets(enabled: boolean) {
 
       for (const t of threads) {
         const lanes = t.chatLanes;
+        // An empty lane list means messaging is closed (connection removed,
+        // blocked, or a read-only legacy thread). Listing those people made the
+        // share request fail server-side, so keep them out.
         const accessOk =
-          lanes == null ||
-          lanes.length === 0 ||
-          lanes.includes("community") ||
-          lanes.includes("matrimony");
+          t.canSend ?? (lanes == null || lanes.includes("community") || lanes.includes("matrimony"));
         if (!accessOk) continue;
         const isMatrimonyOnly =
           Array.isArray(lanes) && lanes.includes("matrimony") && !lanes.includes("community");

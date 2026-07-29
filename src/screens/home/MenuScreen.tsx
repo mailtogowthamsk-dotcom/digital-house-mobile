@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import { AvatarImage } from "../../components/ui/AvatarImage";
 import { spacing, radius } from "../../theme/spacing";
 import type { HeaderActionId } from "../../components/home/Header";
 import { openMessagesInbox } from "../../navigation/openMessages";
@@ -163,6 +164,7 @@ export function MenuScreen() {
   const gridGap = spacing.md;
   const gridPad = spacing.lg;
   const tileWidth = (width - gridPad * 2 - gridGap) / 2;
+  const wideTileWidth = width - gridPad * 2;
 
   const s = useMemo(
     () =>
@@ -179,7 +181,7 @@ export function MenuScreen() {
           borderBottomColor: colors.border,
           gap: 8
         },
-        backBtn: {
+        iconBtn: {
           width: 40,
           height: 40,
           borderRadius: 20,
@@ -187,6 +189,7 @@ export function MenuScreen() {
           justifyContent: "center",
           backgroundColor: colors.surfaceElevated
         },
+        iconBtnPressed: { opacity: 0.7 },
         headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.text },
         scroll: { flex: 1 },
         content: {
@@ -202,15 +205,22 @@ export function MenuScreen() {
           borderWidth: 1,
           borderColor: colors.border
         },
-        greetingHi: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        greetingTop: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md
+        },
+        greetingTopPressed: { opacity: 0.7 },
+        greetingHi: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         greetingName: {
-          marginTop: 2,
+          marginTop: 1,
           fontSize: 20,
           fontWeight: "800",
           color: colors.text
         },
+        greetingHandle: { marginTop: 1, fontSize: 12, color: colors.textMuted },
         greetingSub: {
-          marginTop: 4,
+          marginTop: spacing.md,
           fontSize: 13,
           lineHeight: 18,
           color: colors.textSecondary
@@ -251,9 +261,18 @@ export function MenuScreen() {
           borderColor: colors.border,
           minHeight: 112
         },
+        tileWide: {
+          width: wideTileWidth,
+          minHeight: 0,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.md,
+          paddingVertical: spacing.lg
+        },
         tilePressed: {
           backgroundColor: mode === "dark" ? colors.surfaceElevated : "#F8FAFC",
-          borderColor: colors.primary + "55"
+          borderColor: colors.primary + "55",
+          transform: [{ scale: 0.98 }]
         },
         tileIcon: {
           width: 40,
@@ -263,6 +282,7 @@ export function MenuScreen() {
           justifyContent: "center",
           marginBottom: spacing.sm
         },
+        tileIconWide: { marginBottom: 0 },
         tileLabel: { fontSize: 15, fontWeight: "700", color: colors.text },
         tileSub: {
           marginTop: 2,
@@ -281,7 +301,7 @@ export function MenuScreen() {
         row: {
           flexDirection: "row",
           alignItems: "center",
-          minHeight: 56,
+          minHeight: 60,
           paddingVertical: spacing.md,
           paddingHorizontal: spacing.md,
           gap: spacing.md,
@@ -297,7 +317,10 @@ export function MenuScreen() {
           alignItems: "center",
           justifyContent: "center"
         },
-        rowLabel: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
+        rowBody: { flex: 1 },
+        rowLabel: { fontSize: 15, fontWeight: "600", color: colors.text },
+        rowSub: { marginTop: 2, fontSize: 12, lineHeight: 16, color: colors.textSecondary },
+        rowRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
         badge: {
           minWidth: 22,
           height: 22,
@@ -307,9 +330,22 @@ export function MenuScreen() {
           justifyContent: "center",
           paddingHorizontal: 6
         },
-        badgeText: { fontSize: 11, fontWeight: "700", color: colors.white }
+        badgeText: { fontSize: 11, fontWeight: "700", color: colors.white },
+        empty: {
+          alignItems: "center",
+          gap: spacing.sm,
+          paddingVertical: spacing.xxxl,
+          paddingHorizontal: spacing.lg
+        },
+        emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+        emptyText: {
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.textSecondary,
+          textAlign: "center"
+        }
       }),
-    [colors, mode, tileWidth, insets.bottom, gridPad, gridGap]
+    [colors, mode, tileWidth, wideTileWidth, insets.bottom, gridPad, gridGap]
   );
 
   const onActionPress = (actionId: HeaderActionId) => {
@@ -327,13 +363,15 @@ export function MenuScreen() {
     else if (actionId === "help-support") navigation.navigate("HelpSupport");
   };
 
-  const firstName = (user?.name || "Member").trim().split(/\s+/)[0];
+  const fullName = (user?.fullName || "Member").trim();
+  const firstName = fullName.split(/\s+/)[0];
+  const chipBg = (item: MenuItem) => (mode === "dark" ? `${item.tint}26` : item.tintBg);
 
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
         <Pressable
-          style={s.backBtn}
+          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
           onPress={() => navigation.goBack()}
           hitSlop={8}
           accessibilityRole="button"
@@ -343,7 +381,7 @@ export function MenuScreen() {
         </Pressable>
         <Text style={s.headerTitle}>Menu</Text>
         <Pressable
-          style={s.backBtn}
+          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
           onPress={() => navigation.navigate("Settings")}
           hitSlop={8}
           accessibilityRole="button"
@@ -359,12 +397,32 @@ export function MenuScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.greeting}>
-          <Text style={s.greetingHi}>Welcome back</Text>
-          <Text style={s.greetingName}>{firstName}</Text>
+          <Pressable
+            style={({ pressed }) => [s.greetingTop, pressed && s.greetingTopPressed]}
+            onPress={() => navigation.navigate("Profile")}
+            accessibilityRole="button"
+            accessibilityLabel="Open your profile"
+          >
+            <AvatarImage uri={user?.profilePhoto} name={fullName} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.greetingHi}>Welcome back</Text>
+              <Text style={s.greetingName} numberOfLines={1}>
+                {firstName}
+              </Text>
+              {user?.username ? (
+                <Text style={s.greetingHandle} numberOfLines={1}>
+                  @{user.username}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
           <Text style={s.greetingSub}>Jump into community modules or create something new.</Text>
           <Pressable
             style={({ pressed }) => [s.createBtn, pressed && s.createBtnPressed]}
             onPress={() => onActionPress("create")}
+            accessibilityRole="button"
+            accessibilityLabel="Create post"
           >
             <Ionicons name="add-circle" size={20} color={colors.white} />
             <Text style={s.createText}>Create Post</Text>
@@ -375,19 +433,38 @@ export function MenuScreen() {
           <>
             <Text style={s.sectionLabel}>Explore</Text>
             <View style={s.grid}>
-              {exploreItems.map((item) => {
-                const tintBg = mode === "dark" ? colors.surfaceElevated : item.tintBg;
+              {exploreItems.map((item, idx) => {
+                // An odd item count would leave a half-width tile alone on the last row.
+                const isWide =
+                  exploreItems.length % 2 === 1 && idx === exploreItems.length - 1;
                 return (
                   <Pressable
                     key={item.id}
-                    style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
+                    style={({ pressed }) => [
+                      s.tile,
+                      isWide && s.tileWide,
+                      pressed && s.tilePressed
+                    ]}
                     onPress={() => onActionPress(item.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
                   >
-                    <View style={[s.tileIcon, { backgroundColor: tintBg }]}>
+                    <View
+                      style={[
+                        s.tileIcon,
+                        isWide && s.tileIconWide,
+                        { backgroundColor: chipBg(item) }
+                      ]}
+                    >
                       <Ionicons name={item.icon as any} size={22} color={item.tint} />
                     </View>
-                    <Text style={s.tileLabel}>{item.label}</Text>
-                    {item.subtitle ? <Text style={s.tileSub}>{item.subtitle}</Text> : null}
+                    <View style={isWide ? { flex: 1 } : undefined}>
+                      <Text style={s.tileLabel}>{item.label}</Text>
+                      {item.subtitle ? <Text style={s.tileSub}>{item.subtitle}</Text> : null}
+                    </View>
+                    {isWide ? (
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -403,7 +480,6 @@ export function MenuScreen() {
                 const isLast = idx === connectItems.length - 1;
                 const badge =
                   item.id === "messages" && messageCount > 0 ? messageCount : null;
-                const tintBg = mode === "dark" ? colors.surfaceElevated : item.tintBg;
                 return (
                   <Pressable
                     key={item.id}
@@ -413,23 +489,39 @@ export function MenuScreen() {
                       pressed && s.rowPressed
                     ]}
                     onPress={() => onActionPress(item.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
                   >
-                    <View style={[s.rowIcon, { backgroundColor: tintBg }]}>
+                    <View style={[s.rowIcon, { backgroundColor: chipBg(item) }]}>
                       <Ionicons name={item.icon as any} size={20} color={item.tint} />
                     </View>
-                    <Text style={s.rowLabel}>{item.label}</Text>
-                    {badge != null && badge > 0 ? (
-                      <View style={s.badge}>
-                        <Text style={s.badgeText}>{badge > 99 ? "99+" : badge}</Text>
-                      </View>
-                    ) : (
+                    <View style={s.rowBody}>
+                      <Text style={s.rowLabel}>{item.label}</Text>
+                      {item.subtitle ? <Text style={s.rowSub}>{item.subtitle}</Text> : null}
+                    </View>
+                    <View style={s.rowRight}>
+                      {badge != null && badge > 0 ? (
+                        <View style={s.badge}>
+                          <Text style={s.badgeText}>{badge > 99 ? "99+" : badge}</Text>
+                        </View>
+                      ) : null}
                       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                    )}
+                    </View>
                   </Pressable>
                 );
               })}
             </View>
           </>
+        ) : null}
+
+        {exploreItems.length === 0 && connectItems.length === 0 ? (
+          <View style={s.empty}>
+            <Ionicons name="apps-outline" size={32} color={colors.textMuted} />
+            <Text style={s.emptyTitle}>No modules available</Text>
+            <Text style={s.emptyText}>
+              Community modules are currently switched off. Check back later or contact support.
+            </Text>
+          </View>
         ) : null}
       </ScrollView>
     </View>

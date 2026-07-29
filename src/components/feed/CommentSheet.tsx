@@ -26,7 +26,6 @@ import { hapticComment } from "../../utils/feedHaptics";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
-import { appAlert } from "../../utils/appAlert";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 
@@ -193,6 +192,9 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
   const [replyTo, setReplyTo] = useState<CommentItem | null>(null);
   const [editing, setEditing] = useState<CommentItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<CommentItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const loadGenRef = useRef(0);
   const showInitialSpinnerRef = useRef(true);
   const { height: windowHeight } = useWindowDimensions();
@@ -234,6 +236,9 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
       setText("");
       setInitialLoading(false);
       setRefreshing(false);
+      setPendingDelete(null);
+      setDeleting(false);
+      setActionError(null);
       return;
     }
 
@@ -250,6 +255,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     const body = text.trim();
     if (!body || submitting) return;
     setSubmitting(true);
+    setActionError(null);
     void hapticComment();
     try {
       if (editing) {
@@ -277,7 +283,12 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
         await fetchComments(sort, { silent: true });
       }
     } catch {
-      appAlert("Could not save", "Please try again.");
+      // Reported inline: appAlert renders a Modal from the app root, which iOS
+      // cannot present above this sheet's Modal — it lands behind it as an
+      // invisible touch blocker and the app appears frozen.
+      setActionError(
+        editing ? "Could not save your edit. Please try again." : "Could not post your comment. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -296,26 +307,37 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
     inputRef.current?.focus();
   }, []);
 
-  const handleDelete = useCallback(
-    (c: CommentItem) => {
-      appAlert("Delete comment?", "This cannot be undone.", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteComment(postId, c.id);
-              await fetchComments(sort, { silent: true });
-            } catch {
-              appAlert("Delete failed");
-            }
-          }
-        }
-      ]);
-    },
-    [postId, sort, fetchComments]
-  );
+  /**
+   * Confirmation is rendered inside this sheet instead of via appAlert: a second
+   * Modal presented from the app root cannot appear above this one on iOS, and
+   * blocks the sheet from being dismissed.
+   */
+  const handleDelete = useCallback((c: CommentItem) => {
+    Keyboard.dismiss();
+    setActionError(null);
+    setPendingDelete(c);
+  }, []);
+
+  const cancelDelete = useCallback(() => {
+    if (deleting) return;
+    setPendingDelete(null);
+  }, [deleting]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await deleteComment(postId, pendingDelete.id);
+      setPendingDelete(null);
+      await fetchComments(sort, { silent: true });
+    } catch {
+      setPendingDelete(null);
+      setActionError("Could not delete that comment. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }, [pendingDelete, deleting, postId, sort, fetchComments]);
 
   const renderItem = useCallback(
     ({ item }: { item: CommentItem }) => (
@@ -467,7 +489,69 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           backgroundColor: colors.surfaceElevated
         },
         sendBtnActive: { backgroundColor: colors.primary },
-        sendBtnDisabled: { opacity: 0.45 }
+        sendBtnDisabled: { opacity: 0.45 },
+        errorBanner: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: spacing.sm,
+          marginBottom: spacing.sm,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: radius.md,
+          backgroundColor: mode === "dark" ? "#3F1D1D" : "#FEF2F2"
+        },
+        errorText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "600", color: colors.error },
+        confirmOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: "rgba(0,0,0,0.45)",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: spacing.xl
+        },
+        confirmCard: {
+          width: "100%",
+          maxWidth: 340,
+          borderRadius: radius.lg,
+          backgroundColor: colors.surface,
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.lg,
+          alignItems: "center"
+        },
+        confirmIcon: {
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.error + "18",
+          marginBottom: spacing.md
+        },
+        confirmTitle: { fontSize: 17, fontWeight: "800", color: colors.text, textAlign: "center" },
+        confirmMessage: {
+          marginTop: spacing.sm,
+          fontSize: 14,
+          lineHeight: 20,
+          color: colors.textSecondary,
+          textAlign: "center"
+        },
+        confirmActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg, width: "100%" },
+        confirmBtn: {
+          flex: 1,
+          minHeight: 46,
+          borderRadius: radius.md,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: spacing.md
+        },
+        confirmCancel: {
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border
+        },
+        confirmDestructive: { backgroundColor: colors.error },
+        confirmCancelText: { fontSize: 15, fontWeight: "700", color: colors.text },
+        confirmDestructiveText: { fontSize: 15, fontWeight: "700", color: colors.white }
       }),
     [colors, mode]
   );
@@ -495,12 +579,21 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
 
   const canSend = !!text.trim() && !submitting;
 
+  // Android back dismisses the confirmation first, not the whole sheet.
+  const handleRequestClose = useCallback(() => {
+    if (pendingDelete) {
+      cancelDelete();
+      return;
+    }
+    onClose();
+  }, [pendingDelete, cancelDelete, onClose]);
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleRequestClose}
       statusBarTranslucent
     >
       <View style={s.overlay}>
@@ -571,6 +664,13 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
             </View>
 
             <View style={[s.composer, { paddingBottom: composerBottomPad }]}>
+              {actionError ? (
+                <Pressable style={s.errorBanner} onPress={() => setActionError(null)}>
+                  <Ionicons name="alert-circle-outline" size={18} color={colors.error} />
+                  <Text style={s.errorText}>{actionError}</Text>
+                  <Ionicons name="close" size={16} color={colors.error} />
+                </Pressable>
+              ) : null}
               {replyTo ? (
                 <View style={s.contextBanner}>
                   <Text style={s.contextText} numberOfLines={1}>
@@ -631,6 +731,46 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
                 </Pressable>
               </View>
             </View>
+
+            {pendingDelete ? (
+              <Pressable style={s.confirmOverlay} onPress={cancelDelete}>
+                <Pressable style={s.confirmCard} onPress={(e) => e.stopPropagation()}>
+                  <View style={s.confirmIcon}>
+                    <Ionicons name="trash-outline" size={26} color={colors.error} />
+                  </View>
+                  <Text style={s.confirmTitle}>Delete comment?</Text>
+                  <Text style={s.confirmMessage}>This cannot be undone.</Text>
+                  <View style={s.confirmActions}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        s.confirmBtn,
+                        s.confirmCancel,
+                        pressed && { opacity: 0.85 }
+                      ]}
+                      onPress={cancelDelete}
+                      disabled={deleting}
+                    >
+                      <Text style={s.confirmCancelText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        s.confirmBtn,
+                        s.confirmDestructive,
+                        (pressed || deleting) && { opacity: 0.85 }
+                      ]}
+                      onPress={() => void confirmDelete()}
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                      ) : (
+                        <Text style={s.confirmDestructiveText}>Delete</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </Pressable>
+            ) : null}
           </View>
         </ModalKeyboardAvoiding>
       </View>

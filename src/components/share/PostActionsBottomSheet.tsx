@@ -21,6 +21,7 @@ import { useShareTargets, type ShareTarget } from "../../hooks/useShareTargets";
 import { sharePostToConnections, repostPost } from "../../api/postShare.api";
 import { downloadPostMedia } from "../../services/postMediaDownload";
 import { appAlert } from "../../utils/appAlert";
+import { openAppSettings } from "../../permissions";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 
@@ -101,6 +102,7 @@ function PostActionsBottomSheetInner({
   const [sending, setSending] = useState(false);
   const [reposting, setReposting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { targets, loading, error, reload } = useShareTargets(visible && panel === "connections");
 
@@ -112,6 +114,7 @@ function PostActionsBottomSheetInner({
     setSending(false);
     setReposting(false);
     setDownloading(false);
+    setActionError(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -119,9 +122,35 @@ function PostActionsBottomSheetInner({
     onClose();
   }, [onClose, resetState]);
 
+  /**
+   * appAlert renders its own Modal from the provider at the app root. iOS cannot
+   * present it above this sheet's Modal, so it lands behind as an invisible
+   * full-screen touch blocker and the app appears frozen. Always dismiss the
+   * sheet first and let it finish animating out.
+   */
+  const closeThenAlert = useCallback(
+    (...args: Parameters<typeof appAlert>) => {
+      handleClose();
+      setTimeout(() => appAlert(...args), 250);
+    },
+    [handleClose]
+  );
+
   useEffect(() => {
     if (!visible) resetState();
   }, [visible, resetState]);
+
+  // Drop anyone who left the list (access revoked mid-session) so Send can never
+  // be retried against a recipient the server will reject.
+  useEffect(() => {
+    if (targets.length === 0) return;
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set<number>();
+      for (const t of targets) if (prev.has(t.id)) valid.add(t.id);
+      return valid.size === prev.size ? prev : valid;
+    });
+  }, [targets]);
 
   const filteredTargets = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -134,6 +163,7 @@ function PostActionsBottomSheetInner({
   }, [targets, query]);
 
   const toggleSelect = useCallback((id: number) => {
+    setActionError(null);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -142,43 +172,69 @@ function PostActionsBottomSheetInner({
     });
   }, []);
 
+  const showPanel = useCallback((next: Panel) => {
+    setActionError(null);
+    setPanel(next);
+  }, []);
+
+  const errorBanner = actionError ? (
+    <View
+      style={[
+        styles.errorBanner,
+        { backgroundColor: mode === "dark" ? "#3F1D1D" : "#FEF2F2" }
+      ]}
+    >
+      <Ionicons name="alert-circle-outline" size={18} color={colors.error} />
+      <Text style={[styles.errorText, { color: colors.error }]}>{actionError}</Text>
+    </View>
+  ) : null;
+
   const handleSend = useCallback(async () => {
     if (!post || selected.size === 0) return;
     setSending(true);
+    setActionError(null);
     try {
       const result = await sharePostToConnections(post.postId, {
         recipientIds: [...selected],
         message: note.trim() || undefined
       });
       const failed = result.failed.length;
-      appAlert(
+      closeThenAlert(
         "Sent",
         failed > 0
           ? `Shared with ${result.sent} member${result.sent === 1 ? "" : "s"}. ${failed} could not be reached.`
           : `Shared with ${result.sent} person${result.sent === 1 ? "" : "s"}.`
       );
-      handleClose();
     } catch (e) {
-      appAlert("Could not share", e instanceof Error ? e.message : "Please try again.");
+      // Reported inline: the recipient is usually no longer someone you can
+      // message, and keeping the sheet open lets them change the selection.
+      setActionError(
+        e instanceof Error
+          ? e.message
+          : "Could not share this post. Please try again."
+      );
+      void reload();
     } finally {
       setSending(false);
     }
-  }, [post, selected, note, handleClose]);
+  }, [post, selected, note, closeThenAlert, reload]);
 
   const handleRepost = useCallback(async () => {
     if (!post) return;
     setReposting(true);
+    setActionError(null);
     try {
       await repostPost(post.postId);
-      appAlert("Reposted", "This post is now on your profile timeline.");
       onReposted?.();
-      handleClose();
+      closeThenAlert("Reposted", "This post is now on your profile timeline.");
     } catch (e) {
-      appAlert("Could not repost", e instanceof Error ? e.message : "Please try again.");
+      setActionError(
+        e instanceof Error ? e.message : "Could not repost. Please try again."
+      );
     } finally {
       setReposting(false);
     }
-  }, [post, onReposted, handleClose]);
+  }, [post, onReposted, closeThenAlert]);
 
   const handleDownload = useCallback(async () => {
     if (!post?.mediaUrl) {
@@ -190,6 +246,7 @@ function PostActionsBottomSheetInner({
         ? "video"
         : "image";
     setDownloading(true);
+    setActionError(null);
     try {
       const result = await downloadPostMedia({
         url: post.mediaUrl,
@@ -198,20 +255,28 @@ function PostActionsBottomSheetInner({
       });
       setDownloading(false);
       if (result.ok) {
-        handleClose();
-        // Defer alert so Modal unmount doesn't freeze the UI thread.
-        setTimeout(() => appAlert("Saved", result.message), 250);
+        closeThenAlert("Saved", result.message);
+      } else if (result.permissionDenied) {
+        // Needs buttons, so it has to be a dialog — dismiss the sheet first.
+        closeThenAlert("Gallery access needed", result.message, [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Open Settings",
+            onPress: () => {
+              void openAppSettings();
+            }
+          }
+        ]);
       } else {
-        appAlert("Download failed", result.message);
+        setActionError(result.message);
       }
     } catch (e) {
       setDownloading(false);
-      appAlert(
-        "Download failed",
+      setActionError(
         e instanceof Error ? e.message : "Could not save media."
       );
     }
-  }, [post, handleClose]);
+  }, [post, closeThenAlert]);
 
   const sheetStyle = useMemo(() => {
     const closedMax = panel === "connections" ? windowHeight * 0.88 : windowHeight * 0.52;
@@ -305,7 +370,7 @@ function PostActionsBottomSheetInner({
 
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             {panel === "connections" ? (
-              <Pressable onPress={() => setPanel("menu")} hitSlop={8} style={styles.backBtn}>
+              <Pressable onPress={() => showPanel("menu")} hitSlop={8} style={styles.backBtn}>
                 <Ionicons name="chevron-back" size={22} color={colors.text} />
               </Pressable>
             ) : (
@@ -333,7 +398,7 @@ function PostActionsBottomSheetInner({
                 icon="chatbubbles-outline"
                 label="Send to Chat"
                 subtitle="Share with anyone you can message"
-                onPress={() => setPanel("connections")}
+                onPress={() => showPanel("connections")}
               />
               <ActionRow
                 icon="repeat-outline"
@@ -354,6 +419,7 @@ function PostActionsBottomSheetInner({
               {reposting || downloading ? (
                 <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.primary} />
               ) : null}
+              {errorBanner}
             </View>
           ) : (
             <>
@@ -443,6 +509,8 @@ function PostActionsBottomSheetInner({
                   keyboardShouldPersistTaps="handled"
                 />
               )}
+
+              {errorBanner}
 
               {filteredTargets.length > 0 ? (
                 <Pressable
@@ -586,5 +654,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48
   },
-  sendBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 }
+  sendBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md
+  },
+  errorText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "600" }
 });

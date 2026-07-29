@@ -3,7 +3,7 @@
  * Images use natural aspect ratio so the full photo is visible (no crop).
  * Videos use a tall portrait frame (between 4:5 and 9:16).
  *
- * Feed photos use expo-image (same stack as avatars) — always painted, no opacity:0 gate.
+ * Feed photos use expo-image (same stack as avatars) — loader while cold download.
  */
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
@@ -14,6 +14,7 @@ import { getImageUrl } from "../../api/client";
 import { isYouTubeUrl, getYouTubeEmbedUrl } from "../../utils/youtube";
 import { useTheme } from "../../theme/ThemeContext";
 import { FeedVideoPlayer, type FeedVideoPlayerHandle } from "../media/FeedVideoPlayer";
+import { FeedMediaLoader } from "../media/FeedMediaLoader";
 import {
   DEFAULT_FEED_ASPECT_RATIO,
   getCachedAspectRatio,
@@ -28,6 +29,21 @@ import type { PostMediaKind } from "../../config/media.config";
 const VIDEO_PORTRAIT_RATIO = 1.5;
 const CARD_H_MARGIN = 8;
 const MEDIA_H_INSET = 6;
+
+/** Session-warmed image URIs — skip loader on scroll-back / remount. */
+const warmedImageUris = new Set<string>();
+
+function imageWarmKey(uri: string): string {
+  return stableMediaCacheKey(uri) || uri;
+}
+
+function isImageUriWarmed(uri: string): boolean {
+  return warmedImageUris.has(imageWarmKey(uri));
+}
+
+function markImageUriWarmed(uri: string): void {
+  warmedImageUris.add(imageWarmKey(uri));
+}
 
 type PostMediaProps = {
   mediaUrl: string | null | undefined;
@@ -111,6 +127,9 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
     const [aspectRatio, setAspectRatio] = useState<number | null>(() =>
       imageUri ? getCachedAspectRatio(imageUri) : null
     );
+    const [imageLoading, setImageLoading] = useState(() =>
+      imageUri ? !isImageUriWarmed(imageUri) : false
+    );
 
     const contentWidth = feedMode
       ? Math.max(240, screenWidth - CARD_H_MARGIN * 2 - MEDIA_H_INSET * 2)
@@ -132,6 +151,30 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
     useEffect(() => {
       setCandidateIndex(0);
     }, [raw]);
+
+    useEffect(() => {
+      if (!imageUri) {
+        setImageLoading(false);
+        return;
+      }
+      if (isImageUriWarmed(imageUri)) {
+        setImageLoading(false);
+        return;
+      }
+      setImageLoading(true);
+      let cancelled = false;
+      // expo-image disk cache is keyed by source URI (unless cacheKey is set).
+      Image.getCachePathAsync(imageUri)
+        .then((path) => {
+          if (cancelled || !path) return;
+          markImageUriWarmed(imageUri);
+          setImageLoading(false);
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, [imageUri]);
 
     useEffect(() => {
       if (!imageUri) {
@@ -179,13 +222,22 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
             backgroundColor: cornerRadius === 0 ? "#0B1220" : colors.surfaceElevated,
             borderRadius: cornerRadius
           },
-          webview: { flex: 1, width: "100%", backgroundColor: "transparent" }
+          webview: { flex: 1, width: "100%", backgroundColor: "transparent" },
+          loaderCenter: {
+            ...StyleSheet.absoluteFillObject,
+            alignItems: "center",
+            justifyContent: "center"
+          }
         }),
       [colors, cornerRadius]
     );
 
     const onImageLoad = useCallback(
       (e: { source?: { width?: number; height?: number } }) => {
+        if (imageUri) {
+          markImageUriWarmed(imageUri);
+          setImageLoading(false);
+        }
         const w = e?.source?.width ?? 0;
         const h = e?.source?.height ?? 0;
         if (imageUri && w > 0 && h > 0) {
@@ -199,6 +251,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
     );
 
     const onImageError = useCallback(() => {
+      setImageLoading(false);
       if (candidateIndex < candidates.length - 1) {
         setCandidateIndex((i) => i + 1);
         return;
@@ -258,6 +311,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
     const contentFit = naturalH > maxImageHeight ? "contain" : "cover";
     // Feed images: current + next (+ retained previous for layout consistency).
     const shouldLoadRemote = !feedMode || isActive || isPreload || isRetain;
+    const showImageLoader = shouldLoadRemote && imageLoading;
 
     return (
       <View style={[s.wrapOuter, style]}>
@@ -272,12 +326,20 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
               }}
               contentFit={contentFit}
               cachePolicy="memory-disk"
-              recyclingKey={stableMediaCacheKey(imageUri) || imageUri}
+              recyclingKey={imageWarmKey(imageUri)}
               transition={0}
+              onLoadStart={() => {
+                if (!isImageUriWarmed(imageUri)) setImageLoading(true);
+              }}
               onLoad={onImageLoad}
               onError={onImageError}
               priority="high"
             />
+          ) : null}
+          {showImageLoader ? (
+            <View style={s.loaderCenter} pointerEvents="none">
+              <FeedMediaLoader accessibilityLabel="Loading image" />
+            </View>
           ) : null}
         </View>
       </View>

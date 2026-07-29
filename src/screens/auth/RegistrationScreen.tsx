@@ -27,6 +27,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
+import { ensureMediaLibraryRead } from "../../permissions";
+import {
+  LEGAL_FALLBACK_LINKS,
+  LEGAL_REGISTRATION_KEYS,
+  listLegalCatalog,
+  type LegalAcceptance,
+  type LegalCatalogItem
+} from "../../api/legal.api";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
@@ -67,6 +75,8 @@ export function RegistrationScreen({ navigation }: any) {
   const [locationOptions, setLocationOptions] = useState<{ label: string; value: string }[]>(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState<{ label: string; value: string }[]>(KULAM_OPTIONS);
   const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
+  const [legalDocs, setLegalDocs] = useState<LegalCatalogItem[]>([]);
+  const [acceptedLegal, setAcceptedLegal] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +110,71 @@ export function RegistrationScreen({ navigation }: any) {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const catalog = await listLegalCatalog();
+        if (cancelled) return;
+        // Prefer API `requiredAtRegistration`; fall back to known registration keys.
+        let required = catalog.filter((d) => d.requiredAtRegistration && d.version);
+        if (!required.length) {
+          required = catalog.filter(
+            (d) =>
+              d.version &&
+              (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+          );
+        }
+        // Only show mandatory checkboxes when published versions exist.
+        // If catalog is empty (nothing published), do not block registration.
+        if (required.length) {
+          setLegalDocs(required);
+          return;
+        }
+        const fallbackLabels = LEGAL_FALLBACK_LINKS.filter((d) =>
+          (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+        );
+        setLegalDocs(
+          fallbackLabels.map((d) => ({
+            ...d,
+            description: null,
+            version: "",
+            publishedAt: null,
+            requiredAtRegistration: true,
+            requiresReacceptance: false,
+            sortOrder: 0
+          }))
+        );
+      } catch {
+        if (!cancelled) {
+          setLegalDocs(
+            LEGAL_FALLBACK_LINKS.filter((d) =>
+              (LEGAL_REGISTRATION_KEYS as readonly string[]).includes(d.documentKey)
+            ).map((d) => ({
+              ...d,
+              description: null,
+              version: "",
+              publishedAt: null,
+              requiredAtRegistration: true,
+              requiresReacceptance: false,
+              sortOrder: 0
+            }))
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const pickPhoto = useCallback(async () => {
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Add a profile photo",
+      rationaleMessage:
+        "Digital House needs access to your photos so you can choose a profile picture during registration."
+    });
+    if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -171,8 +245,23 @@ export function RegistrationScreen({ navigation }: any) {
       setMsg("Please select your Kulam.");
       return;
     }
+
+    const publishedRequired = legalDocs.filter((d) => d.version);
+    // Always require checkboxes shown on Review (Privacy / Terms / Guidelines).
+    for (const doc of legalDocs) {
+      if (!acceptedLegal[doc.documentKey]) {
+        setMsg(`Please accept the ${doc.title}.`);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const legalAcceptances: LegalAcceptance[] = [];
+      for (const doc of publishedRequired) {
+        legalAcceptances.push({ documentKey: doc.documentKey, version: doc.version });
+      }
+
       const payload: RegisterPayload = {
         fullName: fullName.trim(),
         username: username.trim().toLowerCase(),
@@ -183,7 +272,8 @@ export function RegistrationScreen({ navigation }: any) {
         occupation: occupation.trim() || null,
         location: location.trim(),
         community: community.trim() || null,
-        kulam: kulam.trim()
+        kulam: kulam.trim(),
+        ...(legalAcceptances.length ? { legalAcceptances } : {})
       };
       const registered = await registerApi(payload);
       let sessionUser = registered.user;
@@ -413,6 +503,55 @@ export function RegistrationScreen({ navigation }: any) {
                 <Text style={s.reviewValue}>{location || "—"}</Text>
                 <Text style={s.reviewLabel}>Kulam</Text>
                 <Text style={s.reviewValue}>{kulam || "—"}</Text>
+
+                <Text style={[s.reviewLabel, { marginTop: spacing.md }]}>Legal agreements</Text>
+                <Text style={[s.reviewHint, { marginTop: spacing.sm }]}>
+                  {legalDocs.some((d) => d.version)
+                    ? "You must review and accept the latest Privacy Policy, Terms & Conditions, and Community Guidelines."
+                    : "Please review and accept the Privacy Policy, Terms & Conditions, and Community Guidelines. Tap a title to read the latest published version."}
+                </Text>
+                {legalDocs.map((doc) => {
+                  const checked = !!acceptedLegal[doc.documentKey];
+                  return (
+                    <View key={doc.documentKey} style={s.legalRow}>
+                      <Pressable
+                        onPress={() =>
+                          setAcceptedLegal((prev) => ({
+                            ...prev,
+                            [doc.documentKey]: !prev[doc.documentKey]
+                          }))
+                        }
+                        hitSlop={8}
+                        style={s.legalCheck}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked }}
+                      >
+                        <Ionicons
+                          name={checked ? "checkbox" : "square-outline"}
+                          size={22}
+                          color={checked ? "#2563EB" : "#6B7280"}
+                        />
+                      </Pressable>
+                      <Text style={s.legalText}>
+                        I accept the{" "}
+                        <Text
+                          style={s.legalLink}
+                          onPress={() =>
+                            navigation.navigate("LegalDocument", {
+                              documentKey: doc.documentKey,
+                              slug: doc.slug,
+                              title: doc.title
+                            })
+                          }
+                        >
+                          {doc.title}
+                        </Text>
+                        {doc.version ? ` (v${doc.version})` : ""}
+                      </Text>
+                    </View>
+                  );
+                })}
+
                 <Text style={s.reviewHint}>
                   Your account will be reviewed by an admin (1–2 days). No password needed—login with OTP
                   after approval.
@@ -574,6 +713,15 @@ const s = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md
   },
+  legalRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: spacing.sm
+  },
+  legalCheck: { paddingTop: 2 },
+  legalText: { flex: 1, fontSize: 14, color: "#111827", lineHeight: 20 },
+  legalLink: { color: "#2563EB", fontWeight: "700", textDecorationLine: "underline" },
   messageWrap: { minHeight: 24, marginBottom: spacing.sm },
   messageError: { fontSize: 14, color: "#EF4444" },
   btnWrap: { width: "100%", marginTop: spacing.sm, marginBottom: spacing.lg },

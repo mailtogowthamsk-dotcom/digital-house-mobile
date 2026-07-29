@@ -26,7 +26,9 @@ function handleNotificationTap(
 }
 
 /**
- * Registers Expo push token and wires tap → deep link navigation.
+ * Syncs Expo push token when already granted, and wires tap → deep link navigation.
+ * Does NOT request notification permission on login / cold start — that is
+ * user-initiated via Settings or the notification-center soft prompt.
  * No-op in Expo Go (use a development build for device push).
  */
 export function PushNotificationBootstrap() {
@@ -37,7 +39,8 @@ export function PushNotificationBootstrap() {
     const gateOk =
       status === "home" || status === "pending" || status === "changes_requested";
     if (!gateOk || !pushSupported) return;
-    void syncPushTokenWithBackend();
+    // Sync only if OS permission already granted — never prompt here.
+    void syncPushTokenWithBackend(false, { requestIfNeeded: false });
   }, [status, pushSupported]);
 
   useEffect(() => {

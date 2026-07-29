@@ -12,13 +12,22 @@ import { useIsFocused } from "@react-navigation/native";
  * Use inside video players so leaving Home (or any screen) always stops
  * audio/video even when the screen stays mounted under a stack push.
  */
+/**
+ * On a cold start `AppState.currentState` can still be "unknown"/null, and no
+ * "change" event follows while the app stays foregrounded — treating that as
+ * inactive would block autoplay for the whole session.
+ */
+function isForeground(state: AppStateStatus | null | undefined): boolean {
+  return state !== "background" && state !== "inactive";
+}
+
 export function usePlaybackAllowed(): boolean {
   const isFocused = useIsFocused();
-  const [appActive, setAppActive] = useState(() => AppState.currentState === "active");
+  const [appActive, setAppActive] = useState(() => isForeground(AppState.currentState));
 
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      setAppActive(next === "active");
+      setAppActive(isForeground(next));
     };
     const sub = AppState.addEventListener("change", onChange);
     return () => sub.remove();

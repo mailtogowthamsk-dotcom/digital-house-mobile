@@ -39,6 +39,8 @@ import { MediaPreviewScreen } from "./src/screens/media/MediaPreviewScreen";
 import { VideoTrimScreen } from "./src/screens/media/VideoTrimScreen";
 import { MenuScreen } from "./src/screens/home/MenuScreen";
 import { SettingsScreen } from "./src/screens/home/SettingsScreen";
+import { LegalIndexScreen } from "./src/screens/legal/LegalIndexScreen";
+import { LegalDocumentScreen } from "./src/screens/legal/LegalDocumentScreen";
 import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
 import { ChatScreen } from "./src/screens/messages/ChatScreen";
 import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen";
@@ -73,6 +75,7 @@ import {
 import { NotificationProvider } from "./src/context/NotificationContext";
 import { PushNotificationBootstrap } from "./src/components/notifications/PushNotificationBootstrap";
 import { RazorpayWebCheckoutHost } from "./src/components/payments/RazorpayWebCheckoutHost";
+import { LegalAcceptanceGateHost } from "./src/components/legal/LegalAcceptanceGateHost";
 import { navigationRef } from "./src/navigation/rootNavigation";
 import type { RootStackParamList } from "./src/navigation/types";
 
@@ -167,6 +170,8 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         />
         <Stack.Screen name="Menu" component={MenuScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+        <Stack.Screen name="LegalIndex" component={LegalIndexScreen} options={{ title: "Legal" }} />
+        <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} options={{ title: "Legal" }} />
         <Stack.Screen
           name="Notifications"
           component={NotificationCenterScreen}
@@ -250,6 +255,7 @@ function AppNavigation() {
       <StackNavigator initialRoute={initialRoute} />
       <PushNotificationBootstrap />
       <PlatformGateOverlay />
+      <LegalAcceptanceGateHost />
     </NavigationContainer>
   );
 }

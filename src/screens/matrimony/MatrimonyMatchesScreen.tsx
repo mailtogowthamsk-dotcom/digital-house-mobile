@@ -21,6 +21,12 @@ type MatchRow = {
     photoUrl?: string | null;
     district?: string | null;
   };
+  presence?: {
+    online: boolean;
+    lastSeenAt: string | null;
+    hidden: boolean;
+    label: string;
+  };
 };
 
 export function MatrimonyMatchesScreen() {
@@ -72,8 +78,8 @@ export function MatrimonyMatchesScreen() {
   };
 
   return (
-    <MatrimonyBrowseGate>
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <MatrimonyBrowseGate mode="relationships">
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="Mutual matches" onBack={() => navigation.goBack()} />
       {loading ? (
         <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
@@ -81,7 +87,7 @@ export function MatrimonyMatchesScreen() {
         <FlatList
           data={items}
           keyExtractor={(i, index) => `match-${i.matchId}-${index}`}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
           ListHeaderComponent={
             items.length > 0 ? (
               <View style={styles.banner}>
@@ -126,6 +132,18 @@ export function MatrimonyMatchesScreen() {
                   {item.candidate.district ? (
                     <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
                       {item.candidate.district}
+                    </Text>
+                  ) : null}
+                  {item.presence ? (
+                    <Text
+                      style={{
+                        color: item.presence.online ? "#16A34A" : colors.textMuted,
+                        fontSize: 12,
+                        marginTop: 4,
+                        fontWeight: item.presence.online ? "700" : "500"
+                      }}
+                    >
+                      {item.presence.online ? "Online" : item.presence.label}
                     </Text>
                   ) : null}
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap" }}>

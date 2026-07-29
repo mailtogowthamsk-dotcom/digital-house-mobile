@@ -29,6 +29,7 @@ import {
 import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
 import type { PostCardData } from "../../components/home";
 import { CommentSheet } from "../../components/feed/CommentSheet";
+import { PaginationFooter } from "../../components/ui/PaginationFooter";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
   PostActionsBottomSheet,
@@ -104,21 +105,35 @@ export function HomeScreen() {
   const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
   const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const feedItemsRef = useRef<PostCardData[]>([]);
+  const activeMediaPostIdRef = useRef<string | null>(null);
+  activeMediaPostIdRef.current = activeMediaPostId;
   const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 65,
+    itemVisiblePercentThreshold: 55,
     minimumViewTime: 160
+  }).current;
+  const queueActiveMediaId = useRef((id: string | null) => {
+    if (!id || activeMediaPostIdRef.current === id) return;
+    if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
+    // First assignment is applied synchronously: startup layout churn (header
+    // growth, highlights loading) emits repeated viewability updates that keep
+    // rescheduling the timer, which starves the very first activation.
+    if (!activeMediaPostIdRef.current) {
+      activeMediaSwitchTimer.current = null;
+      activeMediaPostIdRef.current = id;
+      setActiveMediaPostId(id);
+      return;
+    }
+    // Hysteresis — slow reverse scroll used to thrash active↔retain and freeze the UI.
+    activeMediaSwitchTimer.current = setTimeout(() => {
+      activeMediaSwitchTimer.current = null;
+      setActiveMediaPostId((prev) => (prev === id ? prev : id));
+    }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
-      if (!activeId) return;
-      // Hysteresis — slow reverse scroll used to thrash active↔retain and freeze the UI.
-      if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
-      activeMediaSwitchTimer.current = setTimeout(() => {
-        activeMediaSwitchTimer.current = null;
-        setActiveMediaPostId((prev) => (prev === activeId ? prev : activeId));
-      }, 180);
+      queueActiveMediaId(activeId);
     }
   ).current;
 
@@ -290,6 +305,9 @@ export function HomeScreen() {
       const dy = y - lastScrollY.current;
       lastScrollY.current = y;
       if (y <= 12) {
+        // The first card sits under the list header at offset 0, so it never reaches the
+        // viewability threshold. Viewability alone would leave the old (off-screen) post active.
+        queueActiveMediaId(feedItemsRef.current[0]?.id ?? null);
         if (headerHiddenRef.current) {
           headerHiddenRef.current = false;
           Animated.timing(headerHideProgress, {
@@ -316,7 +334,7 @@ export function HomeScreen() {
         }).start();
       }
     },
-    [headerHideProgress]
+    [headerHideProgress, queueActiveMediaId]
   );
 
   const realtimeHandlers = useMemo(
@@ -359,6 +377,11 @@ export function HomeScreen() {
       promptReportPost(Number(item.id));
     },
     onActivateMedia: (postId) => {
+      if (activeMediaSwitchTimer.current) {
+        clearTimeout(activeMediaSwitchTimer.current);
+        activeMediaSwitchTimer.current = null;
+      }
+      activeMediaPostIdRef.current = postId;
       setActiveMediaPostId(postId);
       setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
     },
@@ -464,16 +487,6 @@ export function HomeScreen() {
         headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
         feedSkeleton: { marginBottom: 0 },
-        footerLoader: {
-          paddingVertical: 20,
-          alignItems: "center",
-          gap: 10
-        },
-        endOfFeed: {
-          paddingVertical: 28,
-          alignItems: "center"
-        },
-        endOfFeedText: { fontSize: 13, fontWeight: "500", color: colors.textSecondary },
         errorCard: {
           marginHorizontal: 8,
           paddingVertical: 28,
@@ -583,29 +596,21 @@ export function HomeScreen() {
     ]
   );
 
-  const ListFooterComponent = useCallback(() => {
-    if (feedLoadingMore) {
-      return (
-        <View style={s.footerLoader}>
-          <FeedPostSkeleton />
-        </View>
-      );
-    }
-    if (
-      !feedLoading &&
-      !feedError &&
-      feedItems.length > 0 &&
-      feedTotal > 0 &&
-      feedItems.length >= feedTotal
-    ) {
-      return (
-        <View style={s.endOfFeed}>
-          <Text style={s.endOfFeedText}>You're all caught up</Text>
-        </View>
-      );
-    }
-    return null;
-  }, [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal, s]);
+  const ListFooterComponent = useCallback(
+    () => (
+      <PaginationFooter
+        loading={feedLoadingMore}
+        endReached={
+          !feedLoading &&
+          !feedError &&
+          feedItems.length > 0 &&
+          feedTotal > 0 &&
+          feedItems.length >= feedTotal
+        }
+      />
+    ),
+    [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal]
+  );
 
   const ListEmptyComponent = useCallback(() => {
     if (feedLoading) {

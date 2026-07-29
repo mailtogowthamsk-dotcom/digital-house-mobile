@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useMemo, useRef } from "react";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
   PanResponder,
-  type LayoutChangeEvent
+  type LayoutChangeEvent,
+  type GestureResponderEvent
 } from "react-native";
 import {
   VIDEO_MAX_DURATION_SEC,
@@ -24,6 +25,10 @@ type Handle = "start" | "end" | "window" | null;
 
 /**
  * Interactive left/right trim handles over a timeline track.
+ *
+ * Decorative children use pointerEvents="none" so touches hit the track and
+ * locationX is track-relative. pageX - locationX refreshes the track origin
+ * on each gesture for robustness across layout shifts.
  */
 function TrimHandlesInner({
   durationSec,
@@ -33,55 +38,70 @@ function TrimHandlesInner({
   onSeek,
   accentColor
 }: Props) {
-  const widthRef = useRef(1);
+  const [trackWidth, setTrackWidth] = useState(1);
+  const trackPageXRef = useRef(0);
   const rangeRef = useRef(range);
   rangeRef.current = range;
+  const durationRef = useRef(durationSec);
+  durationRef.current = durationSec;
+  const widthRef = useRef(trackWidth);
+  widthRef.current = trackWidth;
   const active = useRef<Handle>(null);
   const grabOffset = useRef(0);
 
-  const toX = useCallback((sec: number) => {
-    const w = widthRef.current || 1;
-    return (sec / Math.max(0.001, durationSec)) * w;
-  }, [durationSec]);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onSeekRef = useRef(onSeek);
+  onSeekRef.current = onSeek;
 
-  const toSec = useCallback(
-    (x: number) => {
-      const w = widthRef.current || 1;
-      return Math.max(0, Math.min(durationSec, (x / w) * durationSec));
-    },
-    [durationSec]
-  );
+  const toX = useCallback((sec: number, width = widthRef.current) => {
+    const w = Math.max(1, width);
+    const dur = Math.max(0.001, durationRef.current);
+    return (sec / dur) * w;
+  }, []);
 
-  const clampRange = useCallback(
-    (start: number, end: number): TrimRange => {
-      let s = Math.max(0, Math.min(start, durationSec));
-      let e = Math.max(0, Math.min(end, durationSec));
-      if (e - s < VIDEO_MIN_DURATION_SEC) {
-        if (active.current === "start") s = Math.max(0, e - VIDEO_MIN_DURATION_SEC);
-        else e = Math.min(durationSec, s + VIDEO_MIN_DURATION_SEC);
-      }
-      if (e - s > VIDEO_MAX_DURATION_SEC) {
-        if (active.current === "start") s = e - VIDEO_MAX_DURATION_SEC;
-        else if (active.current === "end") e = s + VIDEO_MAX_DURATION_SEC;
-        else {
-          // sliding window — keep duration, shift
-          const mid = (s + e) / 2;
-          s = mid - VIDEO_MAX_DURATION_SEC / 2;
-          e = mid + VIDEO_MAX_DURATION_SEC / 2;
-          if (s < 0) {
-            s = 0;
-            e = VIDEO_MAX_DURATION_SEC;
-          }
-          if (e > durationSec) {
-            e = durationSec;
-            s = Math.max(0, e - VIDEO_MAX_DURATION_SEC);
-          }
+  const toSec = useCallback((x: number) => {
+    const w = Math.max(1, widthRef.current);
+    const dur = durationRef.current;
+    return Math.max(0, Math.min(dur, (x / w) * dur));
+  }, []);
+
+  const clampRange = useCallback((start: number, end: number): TrimRange => {
+    const dur = durationRef.current;
+    let s = Math.max(0, Math.min(start, dur));
+    let e = Math.max(0, Math.min(end, dur));
+    if (e - s < VIDEO_MIN_DURATION_SEC) {
+      if (active.current === "start") s = Math.max(0, e - VIDEO_MIN_DURATION_SEC);
+      else e = Math.min(dur, s + VIDEO_MIN_DURATION_SEC);
+    }
+    if (e - s > VIDEO_MAX_DURATION_SEC) {
+      if (active.current === "start") s = e - VIDEO_MAX_DURATION_SEC;
+      else if (active.current === "end") e = s + VIDEO_MAX_DURATION_SEC;
+      else {
+        const mid = (s + e) / 2;
+        s = mid - VIDEO_MAX_DURATION_SEC / 2;
+        e = mid + VIDEO_MAX_DURATION_SEC / 2;
+        if (s < 0) {
+          s = 0;
+          e = VIDEO_MAX_DURATION_SEC;
+        }
+        if (e > dur) {
+          e = dur;
+          s = Math.max(0, e - VIDEO_MAX_DURATION_SEC);
         }
       }
-      return { startSec: s, endSec: e };
-    },
-    [durationSec]
-  );
+    }
+    return { startSec: s, endSec: e };
+  }, []);
+
+  const syncTrackOrigin = useCallback((evt: GestureResponderEvent) => {
+    // Children have pointerEvents="none", so locationX is relative to the track.
+    trackPageXRef.current = evt.nativeEvent.pageX - evt.nativeEvent.locationX;
+  }, []);
+
+  const trackXFromEvent = useCallback((evt: GestureResponderEvent) => {
+    return evt.nativeEvent.pageX - trackPageXRef.current;
+  }, []);
 
   const pan = useMemo(
     () =>
@@ -89,7 +109,8 @@ function TrimHandlesInner({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt) => {
-          const x = evt.nativeEvent.locationX;
+          syncTrackOrigin(evt);
+          const x = trackXFromEvent(evt);
           const startX = toX(rangeRef.current.startSec);
           const endX = toX(rangeRef.current.endSec);
           const handleHit = 28;
@@ -102,20 +123,24 @@ function TrimHandlesInner({
             grabOffset.current = x - startX;
           } else {
             active.current = null;
-            onSeek?.(toSec(x));
+            const clamped = Math.max(
+              rangeRef.current.startSec,
+              Math.min(rangeRef.current.endSec, toSec(x))
+            );
+            onSeekRef.current?.(clamped);
           }
         },
         onPanResponderMove: (evt) => {
-          const x = evt.nativeEvent.locationX;
+          const x = trackXFromEvent(evt);
           const cur = rangeRef.current;
           if (active.current === "start") {
-            onChange(clampRange(toSec(x), cur.endSec));
+            onChangeRef.current(clampRange(toSec(x), cur.endSec));
           } else if (active.current === "end") {
-            onChange(clampRange(cur.startSec, toSec(x)));
+            onChangeRef.current(clampRange(cur.startSec, toSec(x)));
           } else if (active.current === "window") {
             const span = cur.endSec - cur.startSec;
             const newStart = toSec(x - grabOffset.current);
-            onChange(clampRange(newStart, newStart + span));
+            onChangeRef.current(clampRange(newStart, newStart + span));
           }
         },
         onPanResponderRelease: () => {
@@ -125,21 +150,24 @@ function TrimHandlesInner({
           active.current = null;
         }
       }),
-    [clampRange, onChange, onSeek, toSec, toX]
+    [clampRange, syncTrackOrigin, toSec, toX, trackXFromEvent]
   );
 
   const onLayout = (e: LayoutChangeEvent) => {
-    widthRef.current = Math.max(1, e.nativeEvent.layout.width);
+    const w = Math.max(1, e.nativeEvent.layout.width);
+    widthRef.current = w;
+    setTrackWidth(w);
   };
 
-  const left = toX(range.startSec);
-  const right = toX(range.endSec);
-  const playX = toX(playheadSec);
+  const left = toX(range.startSec, trackWidth);
+  const right = toX(range.endSec, trackWidth);
+  const playX = toX(playheadSec, trackWidth);
 
   return (
     <View style={styles.track} onLayout={onLayout} {...pan.panHandlers}>
-      <View style={[styles.dim, { width: left }]} />
+      <View pointerEvents="none" style={[styles.dim, { width: left }]} />
       <View
+        pointerEvents="none"
         style={[
           styles.selection,
           {
@@ -149,12 +177,18 @@ function TrimHandlesInner({
           }
         ]}
       />
-      <View style={[styles.dim, { left: right, right: 0 }]} />
+      <View pointerEvents="none" style={[styles.dim, { left: right, right: 0 }]} />
 
-      <View style={[styles.handle, { left: left - 10, backgroundColor: accentColor }]} />
-      <View style={[styles.handle, { left: right - 10, backgroundColor: accentColor }]} />
+      <View
+        pointerEvents="none"
+        style={[styles.handle, { left: left - 10, backgroundColor: accentColor }]}
+      />
+      <View
+        pointerEvents="none"
+        style={[styles.handle, { left: right - 10, backgroundColor: accentColor }]}
+      />
 
-      <View style={[styles.playhead, { left: playX - 1 }]} />
+      <View pointerEvents="none" style={[styles.playhead, { left: playX - 1 }]} />
     </View>
   );
 }

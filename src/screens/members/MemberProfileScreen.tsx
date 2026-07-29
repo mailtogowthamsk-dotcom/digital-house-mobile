@@ -673,27 +673,6 @@ export function MemberProfileScreen() {
     );
   }, [canLoadPosts, cardPosts.length, postsTotal, colors, navigation, profile]);
 
-  if (loading) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="person-outline" size={42} color={colors.textSecondary} />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>Profile unavailable</Text>
-        <Text style={[styles.errorSub, { color: colors.textSecondary }]}>{error}</Text>
-        <Pressable onPress={() => void load()} style={{ marginTop: spacing.lg }}>
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   const feedActionsRef = useRef<FeedPostCardActions>({
     onAuthorPress: () => {},
     onDoubleTap: () => {},
@@ -750,6 +729,27 @@ export function MemberProfileScreen() {
     ),
     [activeMediaId, preloadMediaId]
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Ionicons name="person-outline" size={42} color={colors.textSecondary} />
+        <Text style={[styles.errorTitle, { color: colors.text }]}>Profile unavailable</Text>
+        <Text style={[styles.errorSub, { color: colors.textSecondary }]}>{error}</Text>
+        <Pressable onPress={() => void load()} style={{ marginTop: spacing.lg }}>
+          <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <>

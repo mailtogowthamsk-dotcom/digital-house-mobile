@@ -32,6 +32,11 @@ let lastOnlineIds: Set<number> = new Set();
 /** userId → ISO last-seen (only for offline users). */
 let lastSeenByUser: Map<number, string> = new Map();
 
+/** Peer ids each mounted screen displays; the union drives `presence:subscribe`. */
+const watchSets = new Map<symbol, number[]>();
+/** Last watch set acknowledged by the server, so we do not resend identical sets. */
+let sentWatchKey: string | null = null;
+
 function applySnapshot(ids: number[], lastSeen?: Record<string, string>) {
   lastOnlineIds = new Set(ids.filter((n) => Number.isFinite(n) && n > 0));
   if (lastSeen && typeof lastSeen === "object") {
@@ -48,6 +53,84 @@ function applySnapshot(ids: number[], lastSeen?: Record<string, string>) {
   for (const h of handlers) {
     h.onSnapshot?.(Array.from(lastOnlineIds));
   }
+}
+
+/**
+ * Merge a snapshot that only covers the peers we asked about. Users outside the
+ * queried set keep their cached state instead of being treated as offline.
+ */
+function applyScopedSnapshot(
+  queried: number[],
+  onlineIds: number[],
+  lastSeen?: Record<string, string>
+) {
+  const online = new Set(onlineIds.filter((n) => Number.isFinite(n) && n > 0));
+
+  for (const raw of queried) {
+    const uid = Number(raw);
+    if (!Number.isFinite(uid) || uid <= 0) continue;
+    if (online.has(uid)) {
+      lastOnlineIds.add(uid);
+      lastSeenByUser.delete(uid);
+    } else {
+      lastOnlineIds.delete(uid);
+    }
+  }
+
+  if (lastSeen && typeof lastSeen === "object") {
+    for (const [k, v] of Object.entries(lastSeen)) {
+      const uid = Number(k);
+      if (uid > 0 && typeof v === "string" && !lastOnlineIds.has(uid)) {
+        lastSeenByUser.set(uid, v);
+      }
+    }
+  }
+
+  presenceSynced = true;
+  for (const h of handlers) {
+    h.onSnapshot?.(Array.from(lastOnlineIds));
+  }
+}
+
+function watchUnion(): number[] {
+  const union = new Set<number>();
+  for (const ids of watchSets.values()) {
+    for (const id of ids) union.add(id);
+  }
+  return Array.from(union).sort((a, b) => a - b);
+}
+
+/**
+ * Tell the server which peers we render. Presence transitions are delivered to
+ * watchers only, so this must be re-sent on every connect: a reconnected socket
+ * is a new server-side socket with no rooms.
+ */
+function pushWatchSet(force = false) {
+  const sock = socketRef ?? getSocketInstance();
+  if (!sock?.connected) return;
+  const ids = watchUnion();
+  const key = ids.join(",");
+  if (!force && key === sentWatchKey) return;
+  sentWatchKey = key;
+  if (__DEV__) console.log("[presence] watch", ids.length);
+  sock.emit("presence:subscribe", { userIds: ids });
+}
+
+/**
+ * Track the peers a screen displays. Pass null on unmount.
+ * Returns nothing — presence updates arrive through `subscribePresence`.
+ */
+export function watchPresence(id: symbol, userIds: number[] | null): void {
+  if (userIds && userIds.length > 0) {
+    const normalized = userIds.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    watchSets.set(id, normalized);
+  } else if (!watchSets.has(id)) {
+    return;
+  } else {
+    watchSets.delete(id);
+  }
+  void ensureWired();
+  pushWatchSet();
 }
 
 function applyUpdate(userId: number, online: boolean, lastSeenAt?: string | null) {
@@ -86,10 +169,19 @@ function wireSocket(sock: Socket): void {
   };
 
   onSnapshotEvent = (raw: unknown) => {
-    const payload = raw as { onlineUserIds?: number[]; lastSeen?: Record<string, string> };
+    const payload = raw as {
+      scoped?: boolean;
+      userIds?: number[];
+      onlineUserIds?: number[];
+      lastSeen?: Record<string, string>;
+    };
     const ids = Array.isArray(payload?.onlineUserIds) ? payload.onlineUserIds.map(Number) : [];
     if (__DEV__) {
-      console.log("[presence] snapshot", ids.length);
+      console.log("[presence] snapshot", ids.length, payload?.scoped ? "(scoped)" : "");
+    }
+    if (payload?.scoped && Array.isArray(payload.userIds)) {
+      applyScopedSnapshot(payload.userIds.map(Number), ids, payload.lastSeen);
+      return;
     }
     applySnapshot(ids, payload?.lastSeen);
   };
@@ -98,7 +190,10 @@ function wireSocket(sock: Socket): void {
     if (__DEV__) console.log("[presence] socket connected");
     wired = true;
     socketRef = sock;
-    // Always re-pull after connect — covers handshake race + reconnects.
+    // A reconnect is a brand new server socket: rejoin the watch rooms before
+    // re-pulling, otherwise transitions for those peers never arrive.
+    sentWatchKey = null;
+    pushWatchSet(true);
     requestSnapshot(sock);
   };
 
@@ -106,6 +201,7 @@ function wireSocket(sock: Socket): void {
     if (__DEV__) console.log("[presence] socket disconnected");
     wired = false;
     presenceSynced = false;
+    sentWatchKey = null;
   };
 
   sock.on("presence:update", onUpdateEvent);
@@ -117,6 +213,7 @@ function wireSocket(sock: Socket): void {
   wired = sock.connected;
 
   if (sock.connected) {
+    pushWatchSet(true);
     requestSnapshot(sock);
   }
 }
@@ -131,25 +228,16 @@ async function ensureWired(): Promise<void> {
           wireSocket(existing);
           if (!existing.connected) {
             try {
-              await getSocket({ skipRewire: true, waitForConnection: true });
+              await getSocket({ waitForConnection: true });
             } catch {
               /* reconnect continues */
             }
-            if (existing.connected) requestSnapshot(existing);
           }
           return;
         }
 
-        const sock = await getSocket({ skipRewire: true, waitForConnection: false });
+        const sock = await getSocket({ waitForConnection: false });
         wireSocket(sock);
-        if (!sock.connected) {
-          try {
-            await getSocket({ skipRewire: true, waitForConnection: true });
-          } catch {
-            /* reconnect continues */
-          }
-          if (sock.connected) requestSnapshot(sock);
-        }
       } finally {
         wirePromise = null;
       }
@@ -167,6 +255,7 @@ export function ensurePresenceRealtime(): void {
 export function refreshPresenceSnapshot(): void {
   const sock = socketRef ?? getSocketInstance();
   if (sock?.connected) {
+    pushWatchSet(true);
     requestSnapshot(sock);
     return;
   }
@@ -246,10 +335,12 @@ export function unwirePresenceRealtime(): void {
   wired = false;
   wirePromise = null;
   presenceSynced = false;
+  sentWatchKey = null;
 }
 
 export function resetPresenceRealtime(): void {
   handlers.clear();
+  watchSets.clear();
   lastOnlineIds = new Set();
   lastSeenByUser = new Map();
   unwirePresenceRealtime();

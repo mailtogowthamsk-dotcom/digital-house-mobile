@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ type Props = {
   textColor: string;
   mutedColor: string;
   surfaceColor: string;
+  /** Fired when expo-video reports a real duration (picker metadata may be missing). */
+  onDurationResolved?: (durationSec: number) => void;
 };
 
 /**
@@ -37,7 +39,8 @@ function PreviewVideoPlayerInner({
   accentColor,
   textColor,
   mutedColor,
-  surfaceColor
+  surfaceColor,
+  onDurationResolved
 }: Props) {
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -45,6 +48,7 @@ function PreviewVideoPlayerInner({
   const [positionSec, setPositionSec] = useState(0);
   const [trackedDuration, setTrackedDuration] = useState(durationSec ?? 0);
   const [barWidth, setBarWidth] = useState(0);
+  const reportedDurationRef = useRef(false);
 
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
@@ -56,12 +60,26 @@ function PreviewVideoPlayerInner({
   }, [muted, player]);
 
   useEffect(() => {
+    reportedDurationRef.current = false;
+    setTrackedDuration(durationSec ?? 0);
+  }, [uri, durationSec]);
+
+  useEffect(() => {
+    const publishDuration = (d: number) => {
+      if (!(d > 0)) return;
+      setTrackedDuration(d);
+      if (!reportedDurationRef.current) {
+        reportedDurationRef.current = true;
+        onDurationResolved?.(d);
+      }
+    };
+
     const statusSub = player.addListener("statusChange", (payload: { status?: string } | string) => {
       const status = typeof payload === "string" ? payload : payload?.status;
       if (status === "readyToPlay") {
         setReady(true);
         try {
-          if (player.duration > 0) setTrackedDuration(player.duration);
+          if (player.duration > 0) publishDuration(player.duration);
         } catch {
           /* ignore */
         }
@@ -74,7 +92,7 @@ function PreviewVideoPlayerInner({
     const tick = setInterval(() => {
       try {
         setPositionSec(player.currentTime || 0);
-        if (player.duration > 0) setTrackedDuration(player.duration);
+        if (player.duration > 0) publishDuration(player.duration);
       } catch {
         /* player released */
       }
@@ -90,7 +108,7 @@ function PreviewVideoPlayerInner({
         /* unmount */
       }
     };
-  }, [player]);
+  }, [onDurationResolved, player]);
 
   const togglePlay = useCallback(() => {
     if (playing) player.pause();

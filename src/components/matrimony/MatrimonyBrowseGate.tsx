@@ -9,6 +9,12 @@ import { PrimaryButton } from "../ui/PrimaryButton";
 
 function blockedMessage(hub: MatrimonyHub): string {
   if (hub.can_browse) return "";
+  if (hub.status === "PAUSED") {
+    return "Your matrimony profile is paused. Matches and chats stay available from Matrimony Home.";
+  }
+  if (hub.status === "CLOSED") {
+    return "Your matrimony profile is closed. Reactivate it to browse again. Matches and chats stay available.";
+  }
   if (hub.status === "PENDING" || hub.status === "RESUBMITTED") {
     return "Your matrimony profile is under admin review. Browsing unlocks after approval.";
   }
@@ -18,7 +24,7 @@ function blockedMessage(hub: MatrimonyHub): string {
   if (hub.status === "REJECTED") {
     return "Your matrimony application was rejected. Update your profile and submit again.";
   }
-  if (hub.status === "APPROVED" && hub.completion_percentage < 100) {
+  if ((hub.status === "APPROVED" || hub.status === "PAUSED") && hub.completion_percentage < 100) {
     return `Complete your matrimony profile (${hub.completion_percentage}% done) before browsing.`;
   }
   if (hub.completion_percentage < 100) {
@@ -27,12 +33,21 @@ function blockedMessage(hub: MatrimonyHub): string {
   return "Complete matrimony setup and get admin approval before browsing profiles.";
 }
 
+function hasRelationshipAccess(hub: MatrimonyHub): boolean {
+  return hub.status === "APPROVED" || hub.status === "PAUSED" || hub.status === "CLOSED";
+}
+
 type Props = {
   children: React.ReactNode;
+  /**
+   * browse (default): requires can_browse
+   * relationships: allows paused/closed so matches & interests stay reachable
+   */
+  mode?: "browse" | "relationships";
 };
 
-/** Hard gate — no dismissible bypass when browse is locked. */
-export function MatrimonyBrowseGate({ children }: Props) {
+/** Hard gate — no dismissible bypass when access is locked. */
+export function MatrimonyBrowseGate({ children, mode = "browse" }: Props) {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const [hub, setHub] = useState<MatrimonyHub | null>(null);
@@ -80,16 +95,25 @@ export function MatrimonyBrowseGate({ children }: Props) {
     );
   }
 
-  if (!hub?.can_browse) {
+  const allowed =
+    mode === "relationships"
+      ? Boolean(hub && (hub.can_browse || hasRelationshipAccess(hub)))
+      : Boolean(hub?.can_browse);
+
+  if (!allowed) {
     return (
       <View style={[styles.locked, { backgroundColor: colors.background }]}>
         <View style={[styles.lockedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="lock-closed-outline" size={44} color={colors.primary} />
-          <Text style={[styles.lockedTitle, { color: colors.text }]}>Browsing locked</Text>
+          <Text style={[styles.lockedTitle, { color: colors.text }]}>
+            {mode === "relationships" ? "Matrimony locked" : "Browsing locked"}
+          </Text>
           <Text style={[styles.lockedBody, { color: colors.textSecondary }]}>{blockedMessage(hub!)}</Text>
           <PrimaryButton title="Go to matrimony setup" onPress={() => navigation.navigate("MatrimonySetup")} />
           <Pressable onPress={() => navigation.navigate("MatrimonyHome")} style={{ marginTop: spacing.md }}>
-            <Text style={{ color: colors.primary, fontWeight: "600", textAlign: "center" }}>Back to matrimony home</Text>
+            <Text style={{ color: colors.primary, fontWeight: "600", textAlign: "center" }}>
+              Back to matrimony home
+            </Text>
           </Pressable>
         </View>
       </View>

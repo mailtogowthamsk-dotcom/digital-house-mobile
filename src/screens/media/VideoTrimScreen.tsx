@@ -18,7 +18,7 @@ import { formatDuration, VIDEO_MAX_DURATION_SEC } from "../../config/media.confi
 import { VideoTimeline } from "../../components/media/trim/VideoTimeline";
 import { TrimHandles } from "../../components/media/trim/TrimHandles";
 import { CoverSelector } from "../../components/media/trim/CoverSelector";
-import { pendingMediaDraft } from "../../media/pendingMediaDraft";
+import { pendingMediaDraft, type PendingMediaAsset } from "../../media/pendingMediaDraft";
 import {
   defaultTrimRange,
   needsRequiredTrim,
@@ -47,10 +47,14 @@ export function VideoTrimScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const expoGo = isExpoGo();
+  const mountedRef = useRef(true);
 
-  const draft = pendingMediaDraft.getAsset();
+  // Snapshot the draft once — confirm() nulls the session mid-flow.
+  const [draft] = useState<PendingMediaAsset | null>(() => pendingMediaDraft.getAsset());
   const sourceUri = draft?.uri ?? "";
-  const sourceDuration = draft?.durationSec && draft.durationSec > 0 ? draft.durationSec : 0;
+  const [sourceDuration, setSourceDuration] = useState(
+    draft?.durationSec && draft.durationSec > 0 ? draft.durationSec : 0
+  );
 
   const [step, setStep] = useState<Step>("trim");
   const [range, setRange] = useState<TrimRange>(() =>
@@ -63,17 +67,29 @@ export function VideoTrimScreen() {
   const [trimmedDuration, setTrimmedDuration] = useState(0);
   const [coverMs, setCoverMs] = useState(500);
   const trimmedCleanupRef = useRef<(() => Promise<void>) | null>(null);
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const trimInFlightRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions?.({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {
-    if (!draft || draft.kind !== "video" || sourceDuration <= 0) {
+    if (!draft || draft.kind !== "video") {
       appAlert("Missing video", "Go back and choose a video again.");
       navigation.goBack();
     }
-  }, [draft, navigation, sourceDuration]);
+  }, [draft, navigation]);
 
   useEffect(() => {
     if (!expoGo) return;
@@ -84,6 +100,7 @@ export function VideoTrimScreen() {
   }, [expoGo]);
 
   useEffect(() => {
+    if (sourceDuration <= 0) return;
     setRange(defaultTrimRange(sourceDuration));
     setPlayhead(0);
   }, [sourceDuration, sourceUri]);
@@ -93,28 +110,68 @@ export function VideoTrimScreen() {
     p.muted = false;
   });
 
+  // Resolve duration from player when picker metadata was missing.
+  useEffect(() => {
+    if (!player || sourceDuration > 0) return;
+    const apply = () => {
+      try {
+        const d = player.duration;
+        if (d > 0 && mountedRef.current) {
+          setSourceDuration(d);
+          if (draft) {
+            pendingMediaDraft.updateAsset({
+              ...draft,
+              durationSec: d
+            });
+          }
+        }
+      } catch {
+        /* released */
+      }
+    };
+    const sub = player.addListener("statusChange", (payload: { status?: string } | string) => {
+      const status = typeof payload === "string" ? payload : payload?.status;
+      if (status === "readyToPlay") apply();
+    });
+    const tick = setInterval(apply, 400);
+    return () => {
+      sub.remove();
+      clearInterval(tick);
+    };
+  }, [draft, player, sourceDuration]);
+
+  // Playhead sync + loop within trim window only while playing.
   useEffect(() => {
     const tick = setInterval(() => {
       try {
         const t = player.currentTime || 0;
-        setPlayhead(t);
-        if (step === "trim" && (t < range.startSec - 0.05 || t > range.endSec)) {
-          player.currentTime = range.startSec;
+        if (mountedRef.current) setPlayhead(t);
+        const r = rangeRef.current;
+        if (stepRef.current === "trim" && player.playing) {
+          if (t < r.startSec - 0.05 || t >= r.endSec - 0.02) {
+            player.currentTime = r.startSec;
+            if (t >= r.endSec - 0.02) {
+              // Soft loop at trim end while previewing.
+            }
+          }
         }
       } catch {
         /* released */
       }
     }, 200);
     return () => clearInterval(tick);
-  }, [player, range.endSec, range.startSec, step]);
+  }, [player]);
 
   const selectionDuration = trimmedDurationSec(range);
   const validation = validateTrimRange(range, sourceDuration);
-  const canContinueTrim = validation.ok && !busy && !expoGo;
+  const canContinueTrim = validation.ok && !busy && !expoGo && sourceDuration > 0;
 
   const banner = useMemo(() => {
     if (expoGo) {
       return "Trim needs a development build — Expo Go is not supported.";
+    }
+    if (sourceDuration <= 0) {
+      return "Reading video duration…";
     }
     if (needsRequiredTrim(sourceDuration)) {
       return "This video is longer than 1 minute. Trim your video to continue.";
@@ -127,15 +184,30 @@ export function VideoTrimScreen() {
     try {
       if (player.playing) player.pause();
       else {
-        if (player.currentTime < range.startSec || player.currentTime > range.endSec) {
-          player.currentTime = range.startSec;
+        const r = rangeRef.current;
+        if (player.currentTime < r.startSec || player.currentTime >= r.endSec) {
+          player.currentTime = r.startSec;
         }
         player.play();
       }
     } catch {
       /* ignore */
     }
-  }, [player, range.endSec, range.startSec]);
+  }, [player]);
+
+  const handleSeek = useCallback(
+    (sec: number) => {
+      try {
+        const r = rangeRef.current;
+        const clamped = Math.max(r.startSec, Math.min(r.endSec, sec));
+        player.currentTime = clamped;
+        setPlayhead(clamped);
+      } catch {
+        /* ignore */
+      }
+    },
+    [player]
+  );
 
   const handleClose = useCallback(() => {
     void (async () => {
@@ -153,13 +225,27 @@ export function VideoTrimScreen() {
       );
       return;
     }
-    if (!sourceUri || !canContinueTrim) return;
+    if (!sourceUri || !canContinueTrim || trimInFlightRef.current) return;
+    trimInFlightRef.current = true;
     setBusy(true);
     setProgressLabel("Trimming video…");
     try {
       await trimmedCleanupRef.current?.();
       trimmedCleanupRef.current = null;
+      if (__DEV__) {
+        console.log("[TrimUI] confirm range", {
+          sourceUri,
+          sourceDuration,
+          startSec: range.startSec,
+          endSec: range.endSec,
+          selected: trimmedDurationSec(range)
+        });
+      }
       const result = await trimVideoOnce(sourceUri, range, sourceDuration);
+      if (!mountedRef.current) {
+        await result.cleanup();
+        return;
+      }
       trimmedCleanupRef.current = result.cleanup;
       setTrimmedUri(result.uri);
       setTrimmedDuration(result.durationSec);
@@ -171,19 +257,24 @@ export function VideoTrimScreen() {
       }
       setStep("cover");
     } catch (e) {
-      appAlert("Trim failed", e instanceof Error ? e.message : "Please try again.");
+      if (mountedRef.current) {
+        appAlert("Trim failed", e instanceof Error ? e.message : "Please try again.");
+      }
     } finally {
-      setBusy(false);
-      setProgressLabel(null);
+      trimInFlightRef.current = false;
+      if (mountedRef.current) {
+        setBusy(false);
+        setProgressLabel(null);
+      }
     }
   }, [canContinueTrim, expoGo, player, range, sourceDuration, sourceUri]);
 
-  const confirmAll = useCallback(async () => {
-    if (!draft || !trimmedUri) return;
+  const confirmAll = useCallback(() => {
+    if (!draft || !trimmedUri || trimInFlightRef.current) return;
     setBusy(true);
     setProgressLabel("Saving…");
     try {
-      const next = {
+      const next: PendingMediaAsset = {
         ...draft,
         uri: trimmedUri,
         durationSec: trimmedDuration,
@@ -194,6 +285,15 @@ export function VideoTrimScreen() {
         mimeType: "video/mp4",
         tempFileUri: trimmedUri
       };
+      if (__DEV__) {
+        console.log("[TrimUI] confirm upload asset", {
+          uri: next.uri,
+          durationSec: next.durationSec,
+          trimStartSec: next.trimStartSec,
+          trimEndSec: next.trimEndSec,
+          tempFileUri: next.tempFileUri
+        });
+      }
       pendingMediaDraft.confirm(next);
       trimmedCleanupRef.current = null;
       if (typeof navigation.pop === "function") {
@@ -203,13 +303,12 @@ export function VideoTrimScreen() {
       }
     } catch (e) {
       appAlert("Could not save", e instanceof Error ? e.message : "Please try again.");
-    } finally {
       setBusy(false);
       setProgressLabel(null);
     }
   }, [coverMs, draft, navigation, range.endSec, range.startSec, trimmedDuration, trimmedUri]);
 
-  if (!sourceUri || sourceDuration <= 0) {
+  if (!sourceUri) {
     return (
       <View style={[styles.screen, styles.center]}>
         <ActivityIndicator color="#fff" />
@@ -260,29 +359,28 @@ export function VideoTrimScreen() {
           </View>
 
           <View style={styles.timelineWrap}>
-            <VideoTimeline uri={sourceUri} durationSec={sourceDuration} />
+            {sourceDuration > 0 ? (
+              <VideoTimeline uri={sourceUri} durationSec={sourceDuration} />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.center]}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            )}
             <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-              <TrimHandles
-                durationSec={sourceDuration}
-                range={range}
-                playheadSec={playhead}
-                onChange={setRange}
-                onSeek={(sec) => {
-                  try {
-                    player.currentTime = sec;
-                    setPlayhead(sec);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-                accentColor={colors.primary}
-              />
+              {sourceDuration > 0 ? (
+                <TrimHandles
+                  durationSec={sourceDuration}
+                  range={range}
+                  playheadSec={playhead}
+                  onChange={setRange}
+                  onSeek={handleSeek}
+                  accentColor={colors.primary}
+                />
+              ) : null}
             </View>
           </View>
 
-          <Text style={styles.ruleHint}>
-            Min 3s · Max {VIDEO_MAX_DURATION_SEC}s
-          </Text>
+          <Text style={styles.ruleHint}>Min 3s · Max {VIDEO_MAX_DURATION_SEC}s</Text>
         </View>
       ) : trimmedUri ? (
         <CoverSelector
@@ -335,7 +433,7 @@ export function VideoTrimScreen() {
           }
           onPress={() => {
             if (step === "trim") void runTrim();
-            else void confirmAll();
+            else confirmAll();
           }}
         >
           {busy ? (

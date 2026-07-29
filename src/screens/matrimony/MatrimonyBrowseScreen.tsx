@@ -168,13 +168,13 @@ export function MatrimonyBrowseScreen() {
     [viewerDistrict, onOpenCandidate]
   );
   const browseContentStyle = useMemo(
-    () => ({ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }),
-    []
+    () => ({ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }),
+    [insets.bottom]
   );
 
   return (
     <MatrimonyBrowseGate>
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MatrimonyScreenHeader
         title="Browse profiles"
         onBack={() => navigation.goBack()}

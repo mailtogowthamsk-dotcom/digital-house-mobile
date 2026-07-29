@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { LegalAcceptance, LegalAcceptanceStatus } from "./legal.api";
 
 export type RegisterPayload = {
   fullName: string;
@@ -14,6 +15,8 @@ export type RegisterPayload = {
   profilePhoto?: string | null;
   govtIdType?: string | null;
   govtIdFile?: string | null;
+  /** Optional — required by API when those docs are published. */
+  legalAcceptances?: LegalAcceptance[];
 };
 
 export async function register(payload: RegisterPayload) {
@@ -101,6 +104,8 @@ export type MeUser = {
   pendingProfilePhoto?: string | null;
   community?: string | null;
   kulam?: string | null;
+  /** Present when GET /auth/me includes legal acceptance status. */
+  legal?: LegalAcceptanceStatus | null;
 };
 
 export type GoogleAuthResponse = {
@@ -129,6 +134,7 @@ export type CompleteGoogleProfilePayload = {
   location?: string | null;
   mobile?: string | null;
   profilePhoto?: string | null;
+  legalAcceptances?: LegalAcceptance[];
 };
 
 export async function completeGoogleProfile(payload: CompleteGoogleProfilePayload) {
@@ -154,9 +160,16 @@ export async function getLinkedAccounts(): Promise<LinkedAccountsResponse> {
 }
 
 export async function getMe(): Promise<MeUser> {
-  const { data } = await api.get<{ ok: boolean; user: MeUser }>("/auth/me");
+  const { data } = await api.get<{
+    ok: boolean;
+    user: MeUser;
+    legal?: LegalAcceptanceStatus;
+  }>("/auth/me");
   if (!data.ok || !data.user) throw new Error("Failed to load profile");
-  return data.user;
+  return {
+    ...data.user,
+    legal: data.legal ?? data.user.legal ?? null
+  };
 }
 
 export type SubmitRegistrationCorrectionPayload = {

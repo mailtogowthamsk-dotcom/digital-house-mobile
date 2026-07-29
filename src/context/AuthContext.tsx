@@ -21,6 +21,7 @@ import { disconnectSocket, getSocket } from "../realtime/socket";
 import { startDeliveryRealtime, stopDeliveryRealtime, resetDeliveryRealtime } from "../realtime/deliveryRealtime";
 import { ensurePresenceRealtime, resetPresenceRealtime, refreshPresenceSnapshot } from "../realtime/presenceRealtime";
 import { resetChatRealtime } from "../realtime/chatRealtime";
+import { resetNotificationsRealtime } from "../realtime/notificationsRealtime";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
 import {
   authStatusForRegistrationUser,
@@ -33,6 +34,7 @@ function hardResetRealtime() {
   resetChatRealtime();
   resetDeliveryRealtime();
   resetPresenceRealtime();
+  resetNotificationsRealtime();
   disconnectSocket();
 }
 
@@ -68,7 +70,8 @@ function normalizeAuthUser(user: MeUser): MeUser {
       user.needsUsernameSetup ?? (user.status === "APPROVED" && !user.username),
     registrationRequestedFields: Array.isArray(user.registrationRequestedFields)
       ? user.registrationRequestedFields
-      : []
+      : [],
+    legal: user.legal ?? null
   };
 }
 

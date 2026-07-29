@@ -19,6 +19,7 @@ import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSu
 import { MediaPreview } from "../../components/media/MediaPreview";
 import { UploadProgress } from "../../components/media/UploadProgress";
 import { appAlert } from "../../utils/appAlert";
+import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
 import { JOB_EMPLOYMENT_TYPES } from "../../constants/jobs";
 import {
@@ -663,11 +664,12 @@ export function CreatePostScreen() {
   );
 
   const pickMedia = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Allow access to photos and videos to upload media.");
-      return;
-    }
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Add photo or video",
+      rationaleMessage:
+        "Digital House needs access to your gallery so you can attach photos and videos to your post."
+    });
+    if (!permission.ok) return;
     const isMp = postType === "MARKETPLACE";
     const remaining = isMp
       ? MARKETPLACE_MAX_PHOTOS - (galleryUrls.length + pendingGallery.length)

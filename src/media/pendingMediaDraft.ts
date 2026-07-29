@@ -15,12 +15,11 @@ export type PendingMediaAsset = {
   height: number | null;
   durationSec: number | null;
   /**
-   * Future: video trim window (seconds). Not applied in V1.
-   * Architecture keeps these optional so trim UI can plug in later.
+   * Trim window in seconds. Applied by VideoTrimScreen before upload.
    */
   trimStartSec?: number;
   trimEndSec?: number;
-  /** Future: selected cover frame ms for videos. */
+  /** Selected cover frame (ms into the trimmed clip). */
   coverFrameMs?: number;
   /**
    * Temp trimmed file to delete after successful upload (or discard).

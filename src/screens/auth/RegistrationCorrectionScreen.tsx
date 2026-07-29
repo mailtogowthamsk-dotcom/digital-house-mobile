@@ -21,6 +21,7 @@ import { submitRegistrationCorrection } from "../../api/auth.api";
 import { uploadOptimizedImage } from "../../utils/mediaUpload";
 import { appAlert } from "../../utils/appAlert";
 import { getAuthErrorMessage, getErrorStatus } from "../../api/client";
+import { ensureMediaLibraryRead } from "../../permissions";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
@@ -145,6 +146,12 @@ export function RegistrationCorrectionScreen() {
   );
 
   const pickPhoto = useCallback(async () => {
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Add a profile photo",
+      rationaleMessage:
+        "Digital House needs access to your photos so you can upload the required profile picture."
+    });
+    if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,

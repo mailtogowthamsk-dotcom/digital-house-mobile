@@ -23,6 +23,8 @@ import { ChatMessageBubble } from "./ChatMessageBubble";
 import { ChatDateSeparator } from "./ChatDateSeparator";
 import { ChatScrollFab } from "./ChatScrollFab";
 
+const MAINTAIN_VISIBLE_POSITION = { minIndexForVisible: 1 };
+
 export type ChatMessageListHandle = {
   scrollToBottom: (animated?: boolean) => void;
   shouldAutoScroll: () => boolean;
@@ -169,6 +171,10 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
         initialNumToRender={20}
         maxToRenderPerBatch={14}
         windowSize={9}
+        // Older messages merged in above the viewport must not shift what the
+        // user is currently reading. Index 0 can be a date separator, so anchor
+        // from the first row below it.
+        maintainVisibleContentPosition={MAINTAIN_VISIBLE_POSITION}
       />
       <ChatScrollFab
         visible={showScrollFab}

@@ -22,6 +22,24 @@ function statusMeta(status: MatrimonyHubStatus): {
         description: "Your matrimony profile is live. Use the Matrimony section to view or update details.",
         cta: "Open Matrimony"
       };
+    case "PAUSED":
+      return {
+        label: "Paused",
+        chipBg: "#FEF3C7",
+        chipText: "#92400E",
+        description:
+          "Your profile is hidden from Browse. Matches and chats stay available. Resume anytime from Matrimony.",
+        cta: "Manage in Matrimony"
+      };
+    case "CLOSED":
+      return {
+        label: "Closed",
+        chipBg: "#FEE2E2",
+        chipText: "#7F1D1D",
+        description:
+          "Your profile is closed and hidden from discovery. Matches and chats stay available. Reactivate from Matrimony.",
+        cta: "Manage in Matrimony"
+      };
     case "PENDING":
       return {
         label: "Under review",
@@ -169,7 +187,11 @@ export function MatrimonyEditProfileCard({ hub, loading, onOpen }: Props) {
             <Text style={s.note}>Admin: {adminNote}</Text>
           ) : null}
 
-          {hub && status !== "APPROVED" && hub.completion_percentage > 0 ? (
+          {hub &&
+          status !== "APPROVED" &&
+          status !== "PAUSED" &&
+          status !== "CLOSED" &&
+          hub.completion_percentage > 0 ? (
             <>
               <View style={s.progressBg}>
                 <View style={[s.progressFill, { width: `${Math.min(100, hub.completion_percentage)}%` }]} />

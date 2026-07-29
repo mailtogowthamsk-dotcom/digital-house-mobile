@@ -10,6 +10,11 @@ export type ChatRealtimeHandlers = {
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
+  /**
+   * Socket came back after a drop. Nothing is replayed server-side, so the
+   * screen must reconcile anything sent while it was offline.
+   */
+  onReconnect?: () => void;
 };
 
 /** Global fan-out for inbox / any-message listeners (not tied to a conversation). */
@@ -23,6 +28,8 @@ const globalMessageHandlers = new Map<symbol, GlobalMessageHandler>();
 let socketRef: Socket | null = null;
 let wired = false;
 let wirePromise: Promise<void> | null = null;
+/** Set on drop so the next connect is recognised as a reconnect, not a first connect. */
+let sawDisconnect = false;
 
 let onMessageEvent: ((raw: unknown) => void) | null = null;
 let onDeliveredEvent: ((p: unknown) => void) | null = null;
@@ -130,12 +137,17 @@ async function wireSocket(sock: Socket): Promise<void> {
   onDisconnectEvent = () => {
     if (__DEV__) console.log("[chat] socket disconnected");
     wired = false;
+    sawDisconnect = true;
   };
 
   onConnectEvent = () => {
     if (__DEV__) console.log("[chat] socket reconnected");
     wired = true;
     socketRef = sock;
+    // Only after a real drop: a first connect has nothing to reconcile.
+    if (!sawDisconnect) return;
+    sawDisconnect = false;
+    forMatchingSubs((sub) => sub.onReconnect?.());
   };
 
   sock.on("message:new", onMessageEvent);
@@ -155,7 +167,7 @@ async function ensureWired(): Promise<void> {
   if (!wirePromise) {
     wirePromise = (async () => {
       try {
-        const sock = await getSocket({ skipRewire: true });
+        const sock = await getSocket({ waitForConnection: false });
         await wireSocket(sock);
       } catch (e) {
         if (__DEV__) console.warn("[chat] ensureWired failed", e);
@@ -216,6 +228,7 @@ export function unwireChatRealtime(): void {
 export function resetChatRealtime(): void {
   subscriptions.clear();
   globalMessageHandlers.clear();
+  sawDisconnect = false;
   unwireChatRealtime();
 }
 

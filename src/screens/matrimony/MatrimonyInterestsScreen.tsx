@@ -111,8 +111,8 @@ export function MatrimonyInterestsScreen() {
   };
 
   return (
-    <MatrimonyBrowseGate>
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <MatrimonyBrowseGate mode="relationships">
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
         <MatrimonyScreenHeader
           title="Interests"
           onBack={() => navigation.goBack()}
@@ -138,7 +138,7 @@ export function MatrimonyInterestsScreen() {
           <FlatList
             data={items}
             keyExtractor={(i) => `interest-${i.id}`}
-            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={{ fontSize: 40, marginBottom: 12 }}>💌</Text>

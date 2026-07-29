@@ -30,6 +30,7 @@ import { Dropdown } from "../../components/ui/Dropdown";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { BrideGroomPhotosSection } from "../../components/matrimony/BrideGroomPhotosSection";
 import { appAlert } from "../../utils/appAlert";
+import { ensureMediaLibraryRead } from "../../permissions";
 import {
   LOOKING_FOR_OPTIONS,
   MARITAL_STATUS_OPTIONS,
@@ -215,11 +216,12 @@ export function MatrimonySetupScreen() {
   const ownKulamId = kulams.find((k) => k.name === userKulam)?.id;
 
   const pickAndUploadMatrimonyPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Allow photo access to upload bride/groom photos.");
-      return;
-    }
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Upload matrimony photo",
+      rationaleMessage:
+        "Digital House needs access to your photos so you can upload a bride or groom photo for your matrimony profile."
+    });
+    if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,

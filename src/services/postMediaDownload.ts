@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import { Platform } from "react-native";
 import { getImageUrl } from "../api/client";
+import { ensureMediaLibraryWrite } from "../permissions";
 
 export type DownloadMediaInput = {
   url: string;
@@ -12,14 +13,6 @@ export type DownloadMediaInput = {
 export type DownloadMediaResult =
   | { ok: true; message: string }
   | { ok: false; message: string; permissionDenied?: boolean };
-
-async function ensureGalleryPermission(): Promise<boolean> {
-  // writeOnly: save-to-gallery without full photo-library access (iOS).
-  const current = await MediaLibrary.getPermissionsAsync(true);
-  if (current.granted) return true;
-  const requested = await MediaLibrary.requestPermissionsAsync(true);
-  return requested.granted;
-}
 
 function extensionFor(mediaType: "image" | "video", url: string): string {
   const match = url.split("?")[0].match(/\.(jpe?g|png|gif|webp|heic|mp4|mov)$/i);
@@ -57,11 +50,17 @@ export async function downloadPostMedia(input: DownloadMediaInput): Promise<Down
     return { ok: false, message: "Storage is unavailable on this device." };
   }
 
-  const permitted = await ensureGalleryPermission();
-  if (!permitted) {
+  const permission = await ensureMediaLibraryWrite({ showDeniedUi: false });
+  if (!permission.ok) {
+    if (permission.cancelled) {
+      return { ok: false, message: "Save cancelled." };
+    }
     return {
       ok: false,
-      message: "Gallery permission is required to save media.",
+      message:
+        permission.outcome === "blocked" || permission.outcome === "restricted"
+          ? "Gallery access is blocked. Open Settings to allow Digital House to save photos."
+          : "Gallery permission is required to save media.",
       permissionDenied: true
     };
   }

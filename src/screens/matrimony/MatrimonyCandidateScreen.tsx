@@ -535,6 +535,20 @@ export function MatrimonyCandidateScreen() {
             {profile.age != null ? ` · ${profile.age} yrs` : ""}
           </Text>
           {subline ? <Text style={styles.heroSub}>{subline}</Text> : null}
+          {profile.presence ? (
+            <Text
+              style={[
+                styles.heroSub,
+                {
+                  color: profile.presence.online ? "#86EFAC" : "rgba(255,255,255,0.75)",
+                  fontWeight: profile.presence.online ? "700" : "500",
+                  marginTop: 2
+                }
+              ]}
+            >
+              {profile.presence.online ? "Online" : profile.presence.label}
+            </Text>
+          ) : null}
           <View style={styles.heroBadges}>
             {profile.verified ? (
               <View style={styles.verifiedPill}>

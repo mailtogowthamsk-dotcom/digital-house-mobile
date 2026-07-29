@@ -8,7 +8,20 @@ export type MatrimonyHubStatus =
   | "CHANGES_REQUESTED"
   | "RESUBMITTED"
   | "APPROVED"
-  | "REJECTED";
+  | "REJECTED"
+  | "PAUSED"
+  | "CLOSED";
+
+export type MatrimonyLifecycle = "ACTIVE" | "PAUSED" | "CLOSED";
+
+export type LastSeenVisibility = "EVERYONE" | "MATCHES_ONLY" | "NOBODY";
+
+export type MatrimonyPresence = {
+  online: boolean;
+  lastSeenAt: string | null;
+  hidden: boolean;
+  label: string;
+};
 
 export type MatrimonyChangeRequest = {
   comment: string;
@@ -65,9 +78,15 @@ export type MatrimonyProfileData = {
 
 export type MatrimonyHub = {
   status: MatrimonyHubStatus;
+  lifecycle: MatrimonyLifecycle | null;
   completion_percentage: number;
   can_browse: boolean;
   can_submit: boolean;
+  /** Optional until API deploy — treat missing as false in UI. */
+  can_pause?: boolean;
+  can_resume?: boolean;
+  can_close?: boolean;
+  can_reactivate?: boolean;
   missing_fields: string[];
   approved: MatrimonyProfileData | null;
   draft: MatrimonyProfileData | null;
@@ -263,6 +282,7 @@ export type CandidateDetail = DiscoverCard & {
   matchTags?: string[];
   profileOpened?: boolean;
   contactPaymentStatus?: "NONE" | "PENDING" | "PAID";
+  presence?: MatrimonyPresence;
 };
 
 export type MatrimonyCandidateResult =
@@ -377,7 +397,33 @@ export async function getMatrimonyChatAccess(otherUserId: number): Promise<{
 
 export async function withdrawMatrimonyProfile(): Promise<MatrimonyHub> {
   const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/withdraw", {});
-  if (!data?.ok) throw new Error((data as any)?.message ?? "Withdraw failed");
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Close failed");
+  return data;
+}
+
+export async function pauseMatrimonyProfile(): Promise<MatrimonyHub> {
+  const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/pause", {});
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Pause failed");
+  return data;
+}
+
+export async function resumeMatrimonyProfile(): Promise<MatrimonyHub> {
+  const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/resume", {});
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Resume failed");
+  return data;
+}
+
+export async function closeMatrimonyProfile(reason?: string): Promise<MatrimonyHub> {
+  const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/close", {
+    reason: reason ?? undefined
+  });
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Close failed");
+  return data;
+}
+
+export async function reactivateMatrimonyProfile(): Promise<MatrimonyHub> {
+  const { data } = await api.post<{ ok: boolean } & MatrimonyHub>("/matrimony/reactivate", {});
+  if (!data?.ok) throw new Error((data as any)?.message ?? "Reactivate failed");
   return data;
 }
 

@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -26,59 +25,7 @@ import {
   isVideoFileCached
 } from "../../utils/feedVideoFileCache";
 import { stickySignedMediaUrl } from "../../utils/stickySignedUrlCache";
-/** Feed-branded spinner — dark green / white / dark red (matches feed backdrop). */
-function FeedVideoLoader({ size = 44 }: { size?: number }) {
-  const spin = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 850,
-        easing: Easing.linear,
-        useNativeDriver: true
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spin]);
-
-  const rotate = spin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"]
-  });
-
-  const ring = size;
-  const pad = Math.max(4, Math.round(size * 0.14));
-
-  return (
-    <View
-      style={{
-        width: size + pad * 2,
-        height: size + pad * 2,
-        borderRadius: (size + pad * 2) / 2,
-        backgroundColor: "rgba(15,23,42,0.35)",
-        alignItems: "center",
-        justifyContent: "center"
-      }}
-      accessibilityLabel="Loading video"
-    >
-      <Animated.View
-        style={{
-          width: ring,
-          height: ring,
-          borderRadius: ring / 2,
-          borderWidth: 3.5,
-          borderTopColor: "#166534",
-          borderRightColor: "#FFFFFF",
-          borderBottomColor: "#991B1B",
-          borderLeftColor: "#FFFFFF",
-          transform: [{ rotate }]
-        }}
-      />
-    </View>
-  );
-}
+import { FeedMediaLoader } from "./FeedMediaLoader";
 
 type FeedVideoPlayerProps = {
   uri: string;
@@ -202,7 +149,7 @@ function VideoPosterShell({
 }
 
 /**
- * Native player — only mounted when active or preloading.
+ * Native player — mounted for active OR retained (previous) clip.
  * Mute follows the feed-wide audio preference (not per-video state).
  */
 function ActiveFeedVideoPlayer({
@@ -225,12 +172,21 @@ function ActiveFeedVideoPlayer({
   const [ready, setReady] = useState(alreadyWarmed);
   const [loading, setLoading] = useState(!alreadyWarmed);
   const [playing, setPlaying] = useState(false);
+  const [errored, setErrored] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [showPoster, setShowPoster] = useState(!alreadyWarmed || isPreload || isRetain);
+  /**
+   * The poster covers the surface from mount until the decoder paints, cached or
+   * not — a `VideoView` renders black before its first frame, which is the blink
+   * seen on scroll-back. It cross-fades out exactly once per mount and never
+   * re-appears while mounted, so active↔retain never flashes the thumbnail.
+   */
+  const [posterMounted, setPosterMounted] = useState(true);
+  const hasPaintedFrameRef = useRef(false);
   const userPausedRef = useRef(false);
   const aliveRef = useRef(true);
   const lastTapTime = useRef(0);
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const posterOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     aliveRef.current = true;
@@ -247,7 +203,6 @@ function ActiveFeedVideoPlayer({
     p.muted = getFeedAudioMuted();
     p.audioMixingMode = getFeedAudioMuted() ? "auto" : "doNotMix";
     try {
-      // Prefer uninterrupted playback over aggressive prefetch (avoids stall after ~2s on slow links).
       p.bufferOptions = {
         preferredForwardBufferDuration: 8,
         waitsToMinimizeStalling: true,
@@ -259,13 +214,48 @@ function ActiveFeedVideoPlayer({
     }
   });
 
-  const shouldAutoplay = isActive && playbackAllowed && !isPreload && !isRetain;
   const shouldPlay = playbackAllowed && ((isActive && !isPreload && !isRetain) || fullscreen);
+  const shouldPlayRef = useRef(shouldPlay);
+  shouldPlayRef.current = shouldPlay;
+
+  /**
+   * On a cold open the active clip mounts before its source is loaded, so the
+   * mount-time `play()` is dropped by the native player and nothing retries it.
+   * Re-assert playback whenever the player reports it can actually start.
+   */
+  const ensurePlaying = useCallback(() => {
+    if (!aliveRef.current || !shouldPlayRef.current || userPausedRef.current) return;
+    try {
+      if (player.playing) return;
+      pauseOtherFeedVideos(player);
+      player.play();
+    } catch {
+      /* released */
+    }
+  }, [player]);
+
+  // Loader only for cold network first paint — never on cached / painted / retain.
   const showLoader =
+    !hasPaintedFrameRef.current &&
     (loading || !ready) &&
     !alreadyWarmed &&
-    !isRetain &&
     !(uri.startsWith("file:") || uri.startsWith("/"));
+
+  const hidePosterSmoothly = useCallback(() => {
+    setReady(true);
+    setLoading(false);
+    if (hasPaintedFrameRef.current) return;
+    hasPaintedFrameRef.current = true;
+    markVideoUriWarmed(uri);
+    Animated.timing(posterOpacity, {
+      toValue: 0,
+      duration: 160,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true
+    }).start(({ finished }) => {
+      if (finished) setPosterMounted(false);
+    });
+  }, [posterOpacity, uri]);
 
   useEffect(() => {
     try {
@@ -277,53 +267,55 @@ function ActiveFeedVideoPlayer({
     }
   }, [muted, player]);
 
-  // Do not reset ready/loading when only active↔preload↔retain flags change.
+  // Reset visual gates only when the URI identity changes — not on active↔retain.
+  // Warmth suppresses the loader, never the poster: the poster is what hides the
+  // black surface until the decoder paints.
   useEffect(() => {
     const warmed =
       isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
+    hasPaintedFrameRef.current = false;
     setReady(warmed);
     setLoading(!warmed);
-    setShowPoster(!warmed || isPreload || isRetain);
-  }, [uri]);
-
-  useEffect(() => {
-    if (isPreload || isRetain) {
-      setShowPoster(true);
-    }
-  }, [isPreload, isRetain]);
+    setErrored(false);
+    setPosterMounted(true);
+    posterOpacity.setValue(1);
+  }, [uri, posterOpacity]);
 
   useEffect(() => {
     const statusSub = player.addListener("statusChange", (payload) => {
       const status = payload?.status;
       if (status === "readyToPlay") {
-        setReady(true);
-        setLoading(false);
-        markVideoUriWarmed(uri);
+        hidePosterSmoothly();
+        ensurePlaying();
       } else if (status === "loading") {
-        if (!isVideoUriWarmed(uri)) setLoading(true);
+        if (!hasPaintedFrameRef.current && !isVideoUriWarmed(uri)) setLoading(true);
       } else if (status === "error") {
         setLoading(false);
+        setErrored(true);
       }
     });
-    // Keep global preference aligned if native fullscreen controls change mute.
     const mutedSub = player.addListener("mutedChange", ({ muted: next }) => {
       setMuted(next);
     });
     const playingSub = player.addListener("playingChange", ({ isPlaying }) => {
       setPlaying(isPlaying);
-      if (isPlaying) {
-        setShowPoster(false);
-        setLoading(false);
-        setReady(true);
-        markVideoUriWarmed(uri);
-      }
+      if (isPlaying) hidePosterSmoothly();
     });
+    // The source can already be ready before these listeners attach.
+    try {
+      if (player.status === "readyToPlay") {
+        hidePosterSmoothly();
+        ensurePlaying();
+      }
+    } catch {
+      /* released */
+    }
     return () => {
       statusSub.remove();
       mutedSub.remove();
       playingSub.remove();
     };
-  }, [player, setMuted, uri]);
+  }, [player, setMuted, uri, hidePosterSmoothly, ensurePlaying]);
 
   useEffect(() => {
     return registerFeedVideoPlayer(player, () => {
@@ -341,23 +333,19 @@ function ActiveFeedVideoPlayer({
 
   useEffect(() => {
     if (!aliveRef.current) return;
+    if (shouldPlay) {
+      // Do not force poster off here before a frame — hidePosterSmoothly handles it.
+      // If the source is not loaded yet this is a no-op; `statusChange` re-asserts it.
+      ensurePlaying();
+      return;
+    }
     try {
-      if (shouldPlay && !userPausedRef.current) {
-        pauseOtherFeedVideos(player);
-        player.play();
-        if (shouldAutoplay) setShowPoster(false);
-      } else if (!shouldPlay) {
-        // Leaving active viewport — pause, but keep userPaused so resume stays intentional.
-        player.pause();
-        if ((isPreload || isRetain) && !isActive) setShowPoster(true);
-      } else {
-        // shouldPlay but user paused
-        player.pause();
-      }
+      // Scroll away / retain: pause only. Keep last decoded frame visible (no poster).
+      player.pause();
     } catch {
       /* released */
     }
-  }, [shouldPlay, shouldAutoplay, player, isPreload, isRetain, isActive]);
+  }, [shouldPlay, player, ensurePlaying]);
 
   useEffect(() => {
     return () => {
@@ -381,11 +369,11 @@ function ActiveFeedVideoPlayer({
         userPausedRef.current = false;
         pauseOtherFeedVideos(player);
         player.play();
-        setShowPoster(false);
+        hidePosterSmoothly();
         setPlaying(true);
       }
     } catch (_) {}
-  }, [player, playbackAllowed, isPreload, isRetain, isActive, fullscreen]);
+  }, [player, playbackAllowed, isPreload, isRetain, isActive, fullscreen, hidePosterSmoothly]);
 
   useEffect(() => {
     if (!onTogglePlayRef) return;
@@ -406,7 +394,6 @@ function ActiveFeedVideoPlayer({
 
   const handleSurfacePress = useCallback(() => {
     const now = Date.now();
-    // Double-tap → like; single-tap → play / pause
     if (onDoubleTapLike && now - lastTapTime.current < 280) {
       if (singleTapTimer.current) {
         clearTimeout(singleTapTimer.current);
@@ -436,13 +423,13 @@ function ActiveFeedVideoPlayer({
       if (isActive && playbackAllowed && !userPausedRef.current) {
         pauseOtherFeedVideos(player);
         player.play();
-        setShowPoster(false);
+        hidePosterSmoothly();
         setPlaying(true);
       }
     } catch {
       /* ignore */
     }
-  }, [isActive, playbackAllowed, player]);
+  }, [isActive, playbackAllowed, player, hidePosterSmoothly]);
 
   const s = useMemo(
     () =>
@@ -524,7 +511,7 @@ function ActiveFeedVideoPlayer({
     [height, screenWidth, screenHeight]
   );
 
-  // Preload-only: warm disk cache / buffers, no VideoView (saves compositor work).
+  // Preload-only path should not reach here — parent keeps poster shell.
   if (isPreload && !isActive) {
     return (
       <VideoPosterShell
@@ -537,13 +524,14 @@ function ActiveFeedVideoPlayer({
     );
   }
 
-  const showPausedGlyph = !showLoader && !playing && ready && isActive && !isRetain;
+  const posterVisible = posterMounted && Boolean(thumbnailUrl);
+  // Never show the paused affordance while the poster still covers the surface —
+  // a warm remount is `ready` before it is `playing`, which flashed the glyph.
+  // A failed source keeps the poster, so it still needs the retry affordance.
+  const showPausedGlyph =
+    !showLoader && (!posterVisible || errored) && !playing && ready && isActive && !isRetain;
   const showFsPausedGlyph = !showLoader && !playing && ready;
 
-  /**
-   * Only one VideoView may attach to the player at a time.
-   * In fullscreen we unmount the inline view and mount the modal view (avoids Android stuck exit).
-   */
   return (
     <>
       <View style={[s.wrap, style]}>
@@ -558,21 +546,23 @@ function ActiveFeedVideoPlayer({
         ) : (
           <View style={s.video} />
         )}
-        {showPoster && thumbnailUrl && !fullscreen ? (
-          <Image
-            source={{ uri: thumbnailUrl }}
-            style={s.poster}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
-          />
+        {posterVisible && !fullscreen ? (
+          <Animated.View style={[s.poster, { opacity: posterOpacity }]} pointerEvents="none">
+            <Image
+              source={{ uri: thumbnailUrl }}
+              style={s.poster}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={thumbnailUrl?.split("?")[0]}
+            />
+          </Animated.View>
         ) : null}
         {showLoader && !fullscreen ? (
           <View
             style={[s.center, { backgroundColor: "rgba(15,23,42,0.28)" }]}
             pointerEvents="none"
           >
-            <FeedVideoLoader />
+            <FeedMediaLoader accessibilityLabel="Loading video" />
           </View>
         ) : !fullscreen ? (
           <Pressable
@@ -674,9 +664,11 @@ function ActiveFeedVideoPlayer({
 
 /**
  * Feed video with Instagram-like lifecycle:
- * - Poster only until active / preload / retain.
- * - expo-video `useCaching` — disk LRU; scroll-back should not re-download.
- * - Mute is feed-global (see feedAudioState) — not per video.
+ * - Active: autoplay decoder
+ * - Retain (previous): same player paused — no remount flicker on scroll-back
+ * - Preload (next): poster only — no third decoder
+ * - expo-video `useCaching` — disk LRU; scroll-back should not re-download
+ * - Mute is feed-global (see feedAudioState)
  */
 const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPlayerProps>(
   function FeedVideoPlayerInner(
@@ -694,7 +686,6 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
     ref
   ) {
     const { colors } = useTheme();
-    const isScreenFocused = useIsFocused();
     const togglePlayRef = useRef<(() => void) | null>(null);
     // Pick source once per remote URI. Never remount mid-play (no remote→file swap).
     const [bootUri, setBootUri] = useState(
@@ -704,10 +695,6 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
     useEffect(() => {
       setBootUri(peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri);
     }, [uri]);
-
-    // Never pin-download on the scroll path (retain/active). That stalled V1 / hung V2 /
-    // and freezes the UI when crawling back up the feed. expo-video useCaching covers reuse.
-    // Idle disk pin can be done elsewhere if needed — not while FlatList is recycling.
 
     useEffect(() => {
       if (!ref) return;
@@ -728,11 +715,13 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       };
     }, [ref, onRequestPlay]);
 
-    // Only the active viewport clip mounts a native player.
-    // Preload + retain stay poster-only so reverse scroll cannot spawn N decoders.
-    const shouldMountPlayer = isActive && isScreenFocused && !isPreload;
+    // Active + previous (retain) keep one native player each (max 2).
+    // Screen focus only gates playback (see usePlaybackAllowed), never mounting —
+    // unmounting on blur destroyed the decoder and re-created it on return.
+    // Never pin-download here — that froze reverse scroll; useCaching covers bytes.
+    const shouldMountPlayer = (isActive || isRetain) && !isPreload;
 
-    if ((isPreload || isRetain) && !isActive && isScreenFocused) {
+    if (isPreload && !isActive && !isRetain) {
       return (
         <VideoPosterShell
           thumbnailUrl={thumbnailUrl}
@@ -765,7 +754,7 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
         height={height}
         isActive={isActive}
         isPreload={false}
-        isRetain={false}
+        isRetain={isRetain && !isActive}
         style={style}
         colors={colors}
         onTogglePlayRef={togglePlayRef}

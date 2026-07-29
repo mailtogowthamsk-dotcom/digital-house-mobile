@@ -357,6 +357,18 @@ export async function uploadVideo(
     onStage?.("done");
     onProgress?.(1);
 
+    await optimized.cleanup?.();
+    // Success only — keep temp on failure so Create Post can retry the same trim.
+    if (options.tempFileUri) {
+      if (__DEV__) {
+        console.log("[Upload] cleaning trimmed temp", {
+          tempFileUri: options.tempFileUri,
+          uploadUri: localUri
+        });
+      }
+      await cleanupTempVideoUri(options.tempFileUri);
+    }
+
     return {
       publicUrl: finalized.publicUrl,
       mediaFileId,
@@ -372,11 +384,7 @@ export async function uploadVideo(
     if (thumbnailUrl) {
       void deleteMediaUrls([thumbnailUrl]).catch(() => undefined);
     }
-    throw e;
-  } finally {
     await optimized.cleanup?.();
-    if (options.tempFileUri) {
-      await cleanupTempVideoUri(options.tempFileUri);
-    }
+    throw e;
   }
 }

@@ -12,6 +12,7 @@ let wired = false;
 let wirePromise: Promise<void> | null = null;
 let onNew: ((raw: unknown) => void) | null = null;
 let onConnect: (() => void) | null = null;
+let onDisconnect: (() => void) | null = null;
 
 const pendingDelivered = new Set<number>();
 
@@ -28,6 +29,7 @@ function ackDelivered(sock: Socket, messageId: number) {
 function wire(sock: Socket) {
   if (onNew) sock.off("message:new", onNew);
   if (onConnect) sock.off("connect", onConnect);
+  if (onDisconnect) sock.off("disconnect", onDisconnect);
 
   onNew = (raw: unknown) => {
     if (!raw || typeof raw !== "object" || meId == null) return;
@@ -44,11 +46,13 @@ function wire(sock: Socket) {
     socketRef = sock;
   };
 
+  onDisconnect = () => {
+    wired = false;
+  };
+
   sock.on("message:new", onNew);
   sock.on("connect", onConnect);
-  sock.on("disconnect", () => {
-    wired = false;
-  });
+  sock.on("disconnect", onDisconnect);
   socketRef = sock;
   wired = true;
 }
@@ -59,7 +63,7 @@ async function ensureWired() {
   if (!wirePromise) {
     wirePromise = (async () => {
       try {
-        const sock = await getSocket({ skipRewire: true });
+        const sock = await getSocket({ waitForConnection: false });
         wire(sock);
       } finally {
         wirePromise = null;
@@ -85,7 +89,8 @@ export async function ackUndeliveredMessages(
   myUserId: number
 ): Promise<void> {
   try {
-    const sock = await getSocket({ skipRewire: true });
+    const sock = await getSocket({ waitForConnection: false });
+    if (!sock.connected) return;
     for (const m of messages) {
       if (Number(m.recipientId) === myUserId && !m.deliveredAt && m.id > 0) {
         ackDelivered(sock, m.id);
@@ -101,9 +106,11 @@ export function unwireDeliveryRealtime(): void {
   if (socketRef) {
     if (onNew) socketRef.off("message:new", onNew);
     if (onConnect) socketRef.off("connect", onConnect);
+    if (onDisconnect) socketRef.off("disconnect", onDisconnect);
   }
   onNew = null;
   onConnect = null;
+  onDisconnect = null;
   socketRef = null;
   wired = false;
   wirePromise = null;

@@ -22,6 +22,7 @@ import type { CropRatioId, ImageCropRect } from "../../media/cropTypes";
 import { applyImageCrop } from "../../utils/imageCrop";
 import { VIDEO_PICKER_MAX_DURATION_SEC } from "../../config/media.config";
 import { appAlert } from "../../utils/appAlert";
+import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
 import { needsRequiredTrim } from "../../services/videoProcessing.service";
 
@@ -98,6 +99,19 @@ export function MediaPreviewScreen() {
     };
   }, [navigation]);
 
+  const handleDurationResolved = useCallback((durationSec: number) => {
+    setAsset((prev) => {
+      if (!prev || prev.kind !== "video") return prev;
+      if (prev.durationSec != null && prev.durationSec > 0) return prev;
+      const next = { ...prev, durationSec };
+      pendingMediaDraft.updateAsset(next);
+      if (needsRequiredTrim(durationSec)) {
+        requestAnimationFrame(() => navigation.navigate("VideoTrim"));
+      }
+      return next;
+    });
+  }, [navigation]);
+
   const onCropChange = useCallback((rect: ImageCropRect, ratioId: CropRatioId) => {
     cropRectRef.current = rect;
     ratioIdRef.current = ratioId;
@@ -114,11 +128,12 @@ export function MediaPreviewScreen() {
   }, [navigation]);
 
   const pickReplacement = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      appAlert("Permission needed", "Allow access to photos and videos.");
-      return;
-    }
+    const permission = await ensureMediaLibraryRead({
+      rationaleTitle: "Replace media",
+      rationaleMessage:
+        "Digital House needs access to your gallery so you can choose a different photo or video."
+    });
+    if (!permission.ok) return;
     const allowVideo = route.params?.allowVideo !== false;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: allowVideo ? ["images", "videos"] : ["images"],
@@ -251,6 +266,7 @@ export function MediaPreviewScreen() {
             textColor="#F8FAFC"
             mutedColor="#94A3B8"
             surfaceColor="rgba(255,255,255,0.08)"
+            onDurationResolved={handleDurationResolved}
           />
         ) : (
           <View style={styles.center}>

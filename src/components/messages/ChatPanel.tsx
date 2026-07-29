@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef } from "react";
+import React, { memo, useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ChatHeader } from "./ChatHeader";
@@ -80,13 +80,18 @@ function ChatPanelComponent({
   const internalRef = useRef<ChatMessageListHandle>(null);
   const listRef = externalListRef ?? internalRef;
 
-  const bubbleColors = {
-    primary: colors.primary,
-    text: colors.text,
-    surfaceElevated: colors.surfaceElevated,
-    textMuted: colors.textMuted,
-    white: colors.white
-  };
+  // A new object each render would invalidate renderItem and re-render every
+  // bubble on each keystroke, defeating memo() on ChatMessageBubble.
+  const bubbleColors = useMemo(
+    () => ({
+      primary: colors.primary,
+      text: colors.text,
+      surfaceElevated: colors.surfaceElevated,
+      textMuted: colors.textMuted,
+      white: colors.white
+    }),
+    [colors.primary, colors.text, colors.surfaceElevated, colors.textMuted, colors.white]
+  );
 
   useEffect(() => {
     if (!keyboardVisible || loading || error) return;
