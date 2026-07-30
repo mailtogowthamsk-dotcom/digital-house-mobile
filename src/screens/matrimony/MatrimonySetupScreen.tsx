@@ -288,7 +288,12 @@ export function MatrimonySetupScreen() {
       setHoroscopeUploading(true);
       let publicUrl: string;
       if (mime.startsWith("image/") && isAllowedImageType(mime)) {
-        ({ publicUrl } = await uploadOptimizedImage(asset.uri, "matrimony"));
+        ({ publicUrl } = await uploadOptimizedImage(
+          asset.uri,
+          "matrimony",
+          undefined,
+          "horoscope"
+        ));
       } else if (mime === "application/pdf") {
         const fileName = asset.name?.trim() || `horoscope_${Date.now()}.pdf`;
         const { uploadUrl, publicUrl: url } = await getHoroscopeUploadUrl({

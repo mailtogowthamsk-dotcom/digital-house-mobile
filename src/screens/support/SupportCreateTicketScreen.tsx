@@ -77,7 +77,7 @@ export function SupportCreateTicketScreen() {
     setScreenshotUri(asset.uri);
     setUploading(true);
     try {
-      const uploaded = await uploadOptimizedImage(asset.uri, "posts");
+      const uploaded = await uploadOptimizedImage(asset.uri, "posts", undefined, "support");
       setScreenshotUrl(uploaded.publicUrl || uploaded.url);
     } catch (e: unknown) {
       setScreenshotUri(null);

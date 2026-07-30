@@ -204,7 +204,8 @@ export async function uploadToR2(
 export async function uploadOptimizedImage(
   localUri: string,
   module: MediaModule,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  privatePurpose?: "horoscope" | "identity" | "support" | "chat"
 ): Promise<UploadImageResult> {
   onProgress?.(0.05);
   const pickerSize = await getLocalFileSize(localUri);
@@ -221,7 +222,7 @@ export async function uploadOptimizedImage(
     fileType: optimized.mime,
     fileSize: optimized.size,
     module,
-    purpose: "image"
+    purpose: privatePurpose ?? "image"
   });
 
   await uploadToR2(uploadUrl, optimized.uri, optimized.mime, (p) => {
