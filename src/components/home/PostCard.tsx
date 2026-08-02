@@ -11,6 +11,7 @@ import { PostHeader } from "./PostHeader";
 import { PostCaption } from "./PostCaption";
 import { PostActions } from "./PostActions";
 import { CommentPreview } from "./CommentPreview";
+import { JobFeedBlock } from "./JobFeedBlock";
 import { useTheme } from "../../theme/ThemeContext";
 import { feedCardShadow } from "../../theme/feedStyles";
 
@@ -46,6 +47,17 @@ export type PostCardData = {
   isVerified?: boolean;
   audience?: string | null;
   firstLikerName?: string | null;
+  /** JOB feed enrichment (never includes phone). */
+  jobCompany?: string | null;
+  jobLocation?: string | null;
+  jobEmploymentType?: string | null;
+  jobWorkMode?: string | null;
+  jobExperience?: string | null;
+  jobSkills?: string[] | null;
+  jobSalaryMin?: number | null;
+  jobSalaryMax?: number | null;
+  jobStatus?: string | null;
+  jobInterestedByMe?: boolean;
 };
 
 const DOUBLE_TAP_DELAY_MS = 280;
@@ -77,6 +89,8 @@ type PostCardProps = {
   onSharePress?: () => void;
   onMenuPress?: () => void;
   onActivateMedia?: (postId: string) => void;
+  /** JOB: open PostDetail for this job id. */
+  onViewJob?: () => void;
 };
 
 function PostCardInner({
@@ -91,7 +105,8 @@ function PostCardInner({
   onCommentPress,
   onSavePress,
   onSharePress,
-  onMenuPress
+  onMenuPress,
+  onViewJob
 }: PostCardProps) {
   const { colors, mode } = useTheme();
   const lastTapTime = useRef(0);
@@ -104,6 +119,7 @@ function PostCardInner({
   const glowOpacity = useRef(new Animated.Value(0.6)).current;
 
   const video = isVideoPost(post);
+  const isJob = (post.postType || "").toLowerCase() === "job";
   const isMediaActive = isMediaActiveProp ?? Boolean(post.isMediaActive);
   const isMediaPreload = isMediaPreloadProp ?? Boolean(post.isMediaPreload);
   const isMediaRetain = isMediaRetainProp ?? Boolean(post.isMediaRetain);
@@ -306,7 +322,7 @@ function PostCardInner({
       authorUsername={post.authorUsername}
       userAvatarUri={post.userAvatarUri}
       timeAgo={post.timeAgo}
-      communityTag={post.postType}
+      communityTag={isJob ? undefined : post.postType}
       isVerified={Boolean(post.isVerified)}
       isTrending={Boolean(post.isTrending)}
       onAuthorPress={onAuthorPress}
@@ -314,6 +330,27 @@ function PostCardInner({
       variant={video ? "overlay" : "default"}
     />
   );
+
+  const jobBlock = isJob ? (
+    <JobFeedBlock
+      job={{
+        title: post.title,
+        description: post.description,
+        jobCompany: post.jobCompany,
+        jobLocation: post.jobLocation,
+        jobEmploymentType: post.jobEmploymentType,
+        jobWorkMode: post.jobWorkMode,
+        jobExperience: post.jobExperience,
+        jobSkills: post.jobSkills,
+        jobSalaryMin: post.jobSalaryMin,
+        jobSalaryMax: post.jobSalaryMax,
+        jobStatus: post.jobStatus,
+        jobInterestedByMe: post.jobInterestedByMe,
+        timeAgo: post.timeAgo
+      }}
+      onViewJob={onViewJob}
+    />
+  ) : null;
 
   return (
     <View style={[s.card, video && s.cardVideo]}>
@@ -378,6 +415,24 @@ function PostCardInner({
       )}
 
       <View style={video ? s.videoFooter : undefined}>
+        {isJob ? (
+          jobBlock
+        ) : (
+          <>
+            <PostCaption title={post.title} description={post.description} variant="title" />
+            <PostCaption title={post.title} description={post.description} variant="caption" maxLines={3} />
+          </>
+        )}
+
+        <CommentPreview
+          likeCount={post.likeCount}
+          commentCount={post.commentCount}
+          firstLikerName={post.firstLikerName}
+          onLikeCountPress={onLikeCountPress}
+          onViewComments={onCommentPress}
+          compact
+        />
+
         <PostActions
           likedByMe={post.likedByMe}
           savedByMe={post.savedByMe}
@@ -388,18 +443,6 @@ function PostCardInner({
           onCommentPress={onCommentPress}
           onSharePress={onSharePress}
           onSavePress={onSavePress}
-        />
-
-        <PostCaption title={post.title} description={post.description} variant="title" />
-        <PostCaption title={post.title} description={post.description} variant="caption" maxLines={3} />
-
-        <CommentPreview
-          likeCount={post.likeCount}
-          commentCount={post.commentCount}
-          firstLikerName={post.firstLikerName}
-          onLikeCountPress={onLikeCountPress}
-          onViewComments={onCommentPress}
-          compact
         />
       </View>
     </View>
@@ -421,6 +464,7 @@ export const PostCard = memo(PostCardInner, (prev, next) => {
     prev.onCommentPress === next.onCommentPress &&
     prev.onSavePress === next.onSavePress &&
     prev.onSharePress === next.onSharePress &&
-    prev.onMenuPress === next.onMenuPress
+    prev.onMenuPress === next.onMenuPress &&
+    prev.onViewJob === next.onViewJob
   );
 });

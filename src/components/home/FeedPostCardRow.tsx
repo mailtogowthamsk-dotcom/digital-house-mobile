@@ -19,6 +19,7 @@ export type FeedPostCardActions = {
   onSavePress: (item: PostCardData) => void;
   onSharePress: (item: PostCardData) => void;
   onActivateMedia?: (postId: string) => void;
+  onViewJob?: (item: PostCardData) => void;
 };
 
 type Props = {
@@ -72,6 +73,10 @@ function FeedPostCardRowInner({
     actionsRef.current.onSharePress(post);
   }, [actionsRef, post]);
 
+  const onViewJob = useCallback(() => {
+    actionsRef.current.onViewJob?.(post);
+  }, [actionsRef, post]);
+
   const onActivateMedia = useCallback(
     (postId: string) => {
       actionsRef.current.onActivateMedia?.(postId);
@@ -93,6 +98,9 @@ function FeedPostCardRowInner({
       onCommentPress={onCommentPress}
       onSavePress={onSavePress}
       onSharePress={onSharePress}
+      onViewJob={
+        (post.postType || "").toLowerCase() === "job" ? onViewJob : undefined
+      }
       onActivateMedia={onActivateMedia}
     />
   );

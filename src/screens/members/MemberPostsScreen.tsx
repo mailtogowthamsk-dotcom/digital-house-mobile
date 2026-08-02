@@ -146,10 +146,14 @@ export function MemberPostsScreen() {
         postId: Number(item.id),
         title: item.title,
         authorName: item.userName,
+        authorUserId: item.authorUserId,
         mediaUrl: item.imageUri,
         mediaType: item.mediaType,
         thumbnailUrl: item.thumbnailUrl
       });
+    },
+    onViewJob: (item) => {
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
     }
   };
 

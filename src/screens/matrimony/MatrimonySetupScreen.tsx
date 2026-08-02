@@ -351,7 +351,7 @@ export function MatrimonySetupScreen() {
       await persistDraft();
       setStep(1);
     } catch (e) {
-      appAlert("Save failed", e instanceof Error ? e.message : "Could not save");
+      appAlert("Save failed", getAuthErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -745,7 +745,22 @@ export function MatrimonySetupScreen() {
               disabled={saving}
               loading={saving}
             />
-            <PrimaryButton title="Save draft" onPress={async () => { setSaving(true); try { await persistDraft(); appAlert("Saved", "Draft saved."); } finally { setSaving(false); } }} variant="outline" style={{ marginTop: 8 }} />
+            <PrimaryButton
+              title="Save draft"
+              onPress={async () => {
+                setSaving(true);
+                try {
+                  await persistDraft();
+                  appAlert("Saved", "Draft saved.");
+                } catch (e) {
+                  appAlert("Save failed", getAuthErrorMessage(e));
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              variant="outline"
+              style={{ marginTop: 8 }}
+            />
           </>
         )}
       </ScrollView>

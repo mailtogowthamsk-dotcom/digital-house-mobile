@@ -7,11 +7,25 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Linking
+  Linking,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getPost, likePost, savePost, unsavePost, reportPost, updatePost, expressJobInterest, listJobInterests } from "../../api/posts.api";
+import {
+  getPost,
+  likePost,
+  savePost,
+  unsavePost,
+  reportPost,
+  updatePost,
+  deletePost,
+  expressJobInterest,
+  listJobInterests
+} from "../../api/posts.api";
 import type { PostDetailResponse, PostLiker } from "../../api/posts.api";
 import { getErrorStatus } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -31,7 +45,14 @@ import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
 import { appAlert } from "../../utils/appAlert";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
-import { formatEmploymentType, formatJobSalary } from "../../constants/jobs";
+import {
+  formatEmploymentType,
+  formatJobExperience,
+  formatJobSalary,
+  formatWorkMode,
+  isValidIndianMobile,
+  normalizeIndianMobile
+} from "../../constants/jobs";
 import {
   formatMarketplaceCategory,
   formatMarketplaceCondition,
@@ -70,6 +91,10 @@ export function PostDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [updatingJob, setUpdatingJob] = useState(false);
   const [interestBusy, setInterestBusy] = useState(false);
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [applyMobile, setApplyMobile] = useState("");
+  const [applyMessage, setApplyMessage] = useState("");
+  const [applyMobileError, setApplyMobileError] = useState<string | null>(null);
   const [helpBusy, setHelpBusy] = useState(false);
   const [helpHelpers, setHelpHelpers] = useState<
     {
@@ -205,6 +230,7 @@ export function PostDetailScreen() {
       postId,
       title: post.title,
       authorName: post.author?.name ?? "Member",
+      authorUserId: post.author?.id ?? null,
       mediaUrl: post.media_url,
       mediaType: post.media_type,
       thumbnailUrl: post.thumbnail_url
@@ -358,6 +384,57 @@ export function PostDetailScreen() {
     );
   }, [navigation, post]);
 
+  const submitJobApplication = useCallback(
+    async (contactMobile: string, message?: string) => {
+      if (postId == null || !post) return;
+      setInterestBusy(true);
+      try {
+        const res = await expressJobInterest(postId, {
+          contact_mobile: contactMobile,
+          message: message?.trim() || null
+        });
+        setPost((p) =>
+          p
+            ? {
+                ...p,
+                job_interested_by_me: true,
+                job_can_message_poster: res.canMessage,
+                job_interest_count: (p.job_interest_count ?? 0) + 1
+              }
+            : null
+        );
+        setApplyModalOpen(false);
+        setApplyMessage("");
+        setApplyMobileError(null);
+        if (res.canMessage) {
+          appAlert("Applied", "You can message the poster — you are already connected.", [
+            { text: "OK", style: "cancel" },
+            {
+              text: "Message",
+              onPress: () =>
+                navigation.navigate("Chat", {
+                  otherUserId: post.user_id,
+                  name: post.author.name,
+                  profileImage: post.author.profile_image
+                })
+            }
+          ]);
+        } else {
+          appAlert("Applied", "The poster was notified. Connect with them to start a chat.");
+        }
+      } catch (e) {
+        appAlert(
+          "Error",
+          (e as any)?.response?.data?.message ??
+            (e instanceof Error ? e.message : "Could not apply.")
+        );
+      } finally {
+        setInterestBusy(false);
+      }
+    },
+    [navigation, post, postId]
+  );
+
   const handleExpressInterest = useCallback(() => {
     if (postId == null || !post || post.post_type !== "JOB" || interestBusy) return;
     if (post.job_interested_by_me) {
@@ -369,68 +446,66 @@ export function PostDetailScreen() {
         });
       } else {
         appAlert(
-          "Interest sent",
+          "Already applied",
           post.job_status === "CLOSED"
             ? "This listing is closed. Connect with the poster to message them."
-            : "You already expressed interest. Connect with the poster to message them."
+            : "You already applied. Connect with the poster to message them."
         );
       }
       return;
     }
     if (post.job_status === "CLOSED") {
-      appAlert("Closed", "This job is no longer accepting interest.");
+      appAlert("Closed", "This job is no longer accepting applications.");
       return;
     }
-    appAlert("Express interest", "Notify the poster that you are interested in this role?", [
+    setApplyMobileError(null);
+    setApplyModalOpen(true);
+  }, [interestBusy, navigation, post, postId]);
+
+  const handleConfirmApply = useCallback(() => {
+    const normalized = normalizeIndianMobile(applyMobile);
+    if (!isValidIndianMobile(normalized)) {
+      setApplyMobileError("Enter a valid 10-digit mobile number");
+      return;
+    }
+    setApplyMobileError(null);
+    void submitJobApplication(normalized, applyMessage);
+  }, [applyMessage, applyMobile, submitJobApplication]);
+
+  const handleCallEmployer = useCallback(() => {
+    const phone = post?.job_contact_phone?.replace(/\D/g, "") ?? "";
+    if (!phone) {
+      appAlert("Unavailable", "Employer phone number is not available.");
+      return;
+    }
+    void Linking.openURL(`tel:${phone}`);
+  }, [post?.job_contact_phone]);
+
+  const handleDeleteJob = useCallback(() => {
+    if (postId == null || !post || post.post_type !== "JOB" || updatingJob) return;
+    appAlert("Delete this job?", "This permanently removes the listing.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "I'm interested",
+        text: "Delete",
+        style: "destructive",
         onPress: async () => {
-          setInterestBusy(true);
+          setUpdatingJob(true);
           try {
-            const res = await expressJobInterest(postId);
-            setPost((p) =>
-              p
-                ? {
-                    ...p,
-                    job_interested_by_me: true,
-                    job_can_message_poster: res.canMessage,
-                    job_interest_count: (p.job_interest_count ?? 0) + 1
-                  }
-                : null
-            );
-            if (res.canMessage) {
-              appAlert("Interest sent", "You can message the poster — you are already connected.", [
-                { text: "OK", style: "cancel" },
-                {
-                  text: "Message",
-                  onPress: () =>
-                    navigation.navigate("Chat", {
-                      otherUserId: post.user_id,
-                      name: post.author.name,
-                      profileImage: post.author.profile_image
-                    })
-                }
-              ]);
-            } else {
-              appAlert(
-                "Interest sent",
-                "The poster was notified. Connect with them to start a chat."
-              );
-            }
+            await deletePost(postId);
+            appAlert("Deleted", "Job listing removed.");
+            navigation.goBack();
           } catch (e) {
             appAlert(
               "Error",
-              (e as any)?.response?.data?.message ??
-                (e instanceof Error ? e.message : "Could not send interest.")
+              (e as any)?.response?.data?.message ?? "Could not delete job."
             );
           } finally {
-            setInterestBusy(false);
+            setUpdatingJob(false);
           }
         }
       }
     ]);
-  }, [interestBusy, navigation, post, postId]);
+  }, [navigation, post, postId, updatingJob]);
 
   const handleOfferHelp = useCallback(() => {
     if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
@@ -816,27 +891,97 @@ export function PostDetailScreen() {
         <View style={s.body}>
           <Text style={s.title}>{post.title}</Text>
           {post.post_type === "JOB" ? (
-            <View style={{ gap: 6, marginBottom: spacing.md }}>
+            <View style={{ gap: 10, marginBottom: spacing.md }}>
               {post.job_company ? (
-                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textSecondary }}>
-                  {post.job_company}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: colors.surfaceElevated ?? colors.border,
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: colors.primary }}>
+                      {(post.job_company || "?")
+                        .trim()
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((w) => w[0]?.toUpperCase() ?? "")
+                        .join("") || "JB"}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                      {post.job_company}
+                    </Text>
+                    {post.job_category ? (
+                      <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                        {post.job_category}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
               ) : null}
+
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 {post.job_location ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                     <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-                    <Text style={{ fontSize: 12, color: colors.textMuted }}>{post.job_location}</Text>
+                    <Text style={{ fontSize: 13, color: colors.textMuted }}>{post.job_location}</Text>
                   </View>
                 ) : null}
-                {formatEmploymentType(post.job_employment_type) ? (
-                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                    {formatEmploymentType(post.job_employment_type)}
+                {formatJobSalary(post.job_salary_min, post.job_salary_max) ? (
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>
+                    {formatJobSalary(post.job_salary_min, post.job_salary_max)}
                   </Text>
                 ) : null}
-                {formatJobSalary(post.job_salary_min, post.job_salary_max) ? (
+              </View>
+
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {formatEmploymentType(post.job_employment_type) ? (
+                  <View style={s.typePill}>
+                    <Text style={s.typePillText}>
+                      {formatEmploymentType(post.job_employment_type)}
+                    </Text>
+                  </View>
+                ) : null}
+                {formatWorkMode(post.job_work_mode) ? (
+                  <View style={s.typePill}>
+                    <Text style={s.typePillText}>{formatWorkMode(post.job_work_mode)}</Text>
+                  </View>
+                ) : null}
+                {formatJobExperience(post.job_experience) ? (
+                  <View style={s.typePill}>
+                    <Text style={s.typePillText}>{formatJobExperience(post.job_experience)}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {(post.job_skills?.length ?? 0) > 0 ? (
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
+                    Skills
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {post.job_skills!.map((sk) => (
+                      <View key={sk} style={s.typePill}>
+                        <Text style={s.typePillText}>{sk}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  Posted {timeAgo(post.created_at)}
+                </Text>
+                {post.job_application_deadline ? (
                   <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                    {formatJobSalary(post.job_salary_min, post.job_salary_max)}
+                    Apply by {new Date(post.job_application_deadline).toLocaleDateString()}
                   </Text>
                 ) : null}
               </View>
@@ -937,7 +1082,16 @@ export function PostDetailScreen() {
               ) : null}
             </View>
           ) : null}
-          {post.description ? <Text style={s.description}>{post.description}</Text> : null}
+          {post.description ? (
+            <View style={{ gap: 6 }}>
+              {post.post_type === "JOB" ? (
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>
+                  Job Description
+                </Text>
+              ) : null}
+              <Text style={s.description}>{post.description}</Text>
+            </View>
+          ) : null}
           {post.post_type === "HELP_REQUEST" &&
           (post.help_gallery?.length ?? 0) > 1 ? (
             <View style={{ marginTop: spacing.md }}>
@@ -947,12 +1101,28 @@ export function PostDetailScreen() {
         </View>
 
         {isOwnJob ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
+          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
+            <PrimaryButton
+              title="Edit job"
+              onPress={() =>
+                navigation.navigate("CreatePost", {
+                  initialPostType: "JOB",
+                  editPostId: postId
+                })
+              }
+              variant="secondary"
+            />
             <PrimaryButton
               title={jobOpen ? "Close job listing" : "Reopen job listing"}
               onPress={handleToggleJobStatus}
               loading={updatingJob}
               variant={jobOpen ? "secondary" : "primary"}
+            />
+            <PrimaryButton
+              title="Delete job"
+              onPress={handleDeleteJob}
+              loading={updatingJob}
+              variant="secondary"
             />
           </View>
         ) : null}
@@ -1101,34 +1271,77 @@ export function PostDetailScreen() {
           </View>
         ) : null}
 
-        {post.post_type === "JOB" && !isOwnJob && (jobOpen || post.job_interested_by_me) ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
-            <PrimaryButton
-              title={
-                post.job_interested_by_me
-                  ? post.job_can_message_poster
-                    ? "Message poster"
-                    : jobOpen
-                      ? "Interest sent"
-                      : "Interest sent (closed)"
-                  : "I'm interested"
-              }
-              onPress={handleExpressInterest}
-              loading={interestBusy}
-              variant={post.job_interested_by_me ? "secondary" : "primary"}
-            />
-            {(post.job_interest_count ?? 0) > 0 ? (
-              <Text
-                style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  color: colors.textMuted,
-                  textAlign: "center"
-                }}
+        {post.post_type === "JOB" && !isOwnJob ? (
+          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
+            {post.job_contact_phone ? (
+              <Pressable
+                onPress={handleCallEmployer}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 12,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.surfaceElevated ?? colors.border,
+                  opacity: pressed ? 0.88 : 1
+                })}
+                accessibilityRole="button"
+                accessibilityLabel={`Call employer ${post.job_contact_phone}`}
               >
-                {post.job_interest_count} member
-                {post.job_interest_count === 1 ? "" : "s"} interested
-              </Text>
+                <Ionicons name="call" size={18} color={colors.primary} />
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.primary }}>
+                  Call
+                </Text>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>
+                  {post.job_contact_phone}
+                </Text>
+              </Pressable>
+            ) : null}
+            {jobOpen || post.job_interested_by_me ? (
+              <>
+                {post.job_interested_by_me ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      paddingVertical: 12
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#15803D" />
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#15803D" }}>
+                      Applied
+                    </Text>
+                  </View>
+                ) : null}
+                <PrimaryButton
+                  title={
+                    post.job_interested_by_me
+                      ? post.job_can_message_poster
+                        ? "Message poster"
+                        : "Already applied"
+                      : "Apply"
+                  }
+                  onPress={handleExpressInterest}
+                  loading={interestBusy}
+                  variant={post.job_interested_by_me ? "secondary" : "primary"}
+                />
+                {(post.job_interest_count ?? 0) > 0 ? (
+                  <Text
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: colors.textMuted,
+                      textAlign: "center"
+                    }}
+                  >
+                    {post.job_interest_count} member
+                    {post.job_interest_count === 1 ? "" : "s"} interested
+                  </Text>
+                ) : null}
+              </>
             ) : null}
           </View>
         ) : null}
@@ -1354,6 +1567,103 @@ export function PostDetailScreen() {
         onClose={() => setShareOpen(null)}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
+
+      <Modal
+        visible={applyModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !interestBusy && setApplyModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => !interestBusy && setApplyModalOpen(false)}
+          />
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radius.lg,
+              borderTopRightRadius: radius.lg,
+              padding: spacing.lg,
+              gap: spacing.md,
+              paddingBottom: spacing.xl
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>Apply for job</Text>
+            <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+              Share a mobile number so the employer can reach you. Required.
+            </Text>
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: 6 }}>
+                Mobile number *
+              </Text>
+              <TextInput
+                value={applyMobile}
+                onChangeText={(t) => {
+                  setApplyMobile(t);
+                  if (applyMobileError) setApplyMobileError(null);
+                }}
+                placeholder="10-digit mobile"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+                maxLength={14}
+                editable={!interestBusy}
+                style={{
+                  borderWidth: 1,
+                  borderColor: applyMobileError ? colors.error : colors.border,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: 12,
+                  fontSize: 16,
+                  color: colors.text,
+                  backgroundColor: colors.surfaceElevated
+                }}
+              />
+              {applyMobileError ? (
+                <Text style={{ marginTop: 6, fontSize: 12, color: colors.error }}>
+                  {applyMobileError}
+                </Text>
+              ) : null}
+            </View>
+            <View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: 6 }}>
+                Note (optional)
+              </Text>
+              <TextInput
+                value={applyMessage}
+                onChangeText={setApplyMessage}
+                placeholder="Brief note to the employer"
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={3}
+                editable={!interestBusy}
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: colors.text,
+                  minHeight: 80,
+                  textAlignVertical: "top",
+                  backgroundColor: colors.surfaceElevated
+                }}
+              />
+            </View>
+            <PrimaryButton title="Submit application" onPress={handleConfirmApply} loading={interestBusy} />
+            <PrimaryButton
+              title="Cancel"
+              onPress={() => setApplyModalOpen(false)}
+              variant="secondary"
+              disabled={interestBusy}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }

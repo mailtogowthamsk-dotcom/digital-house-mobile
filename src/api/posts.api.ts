@@ -24,10 +24,18 @@ export type PostDetailResponse = {
   meetup_at: string | null;
   job_status: string | null;
   job_company?: string | null;
+  job_category?: string | null;
   job_location?: string | null;
   job_employment_type?: string | null;
+  job_work_mode?: string | null;
+  job_experience?: string | null;
+  job_skills?: string[];
   job_salary_min?: number | null;
   job_salary_max?: number | null;
+  job_vacancies?: number | null;
+  job_application_deadline?: string | null;
+  /** Recruitment contact for this listing (detail only). Never personal account mobile by default. */
+  job_contact_phone?: string | null;
   job_interested_by_me?: boolean;
   job_interest_count?: number;
   job_can_message_poster?: boolean;
@@ -108,9 +116,14 @@ export type CreatePostPayload = {
   job_status?: string | null;
   job_company?: string | null;
   job_location?: string | null;
+  job_contact_phone?: string | null;
   job_employment_type?: string | null;
+  job_work_mode?: string | null;
+  job_experience?: string | null;
+  job_skills?: string[];
   job_salary_min?: number | null;
   job_salary_max?: number | null;
+  job_application_deadline?: string | null;
   marketplace_status?: string | null;
   marketplace_intent?: string | null;
   marketplace_category?: string | null;
@@ -146,9 +159,14 @@ export type UpdatePostPayload = {
   job_status?: string | null;
   job_company?: string | null;
   job_location?: string | null;
+  job_contact_phone?: string | null;
   job_employment_type?: string | null;
+  job_work_mode?: string | null;
+  job_experience?: string | null;
+  job_skills?: string[];
   job_salary_min?: number | null;
   job_salary_max?: number | null;
+  job_application_deadline?: string | null;
   marketplace_status?: string | null;
   marketplace_intent?: string | null;
   marketplace_category?: string | null;
@@ -303,14 +321,18 @@ export async function reportPost(postId: number, reason: string): Promise<{ id: 
 
 export async function expressJobInterest(
   postId: number,
-  message?: string | null
+  opts?: { message?: string | null; contact_mobile?: string | null; resume_url?: string | null }
 ): Promise<{ interested: boolean; canMessage: boolean; interestId: number }> {
   const { data } = await api.post<{
     ok: boolean;
     interested: boolean;
     canMessage: boolean;
     interestId: number;
-  }>(`/posts/${postId}/job-interest`, { message: message ?? null });
+  }>(`/posts/${postId}/job-interest`, {
+    message: opts?.message ?? null,
+    contact_mobile: opts?.contact_mobile ?? undefined,
+    resume_url: opts?.resume_url ?? null
+  });
   if (!data.ok) throw new Error("Failed to express interest");
   return {
     interested: data.interested,

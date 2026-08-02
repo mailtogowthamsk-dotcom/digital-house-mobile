@@ -109,6 +109,8 @@ export type MatrimonyHub = {
   };
   account_profile_photo?: string | null;
   matrimony_candidate_photo?: string | null;
+  /** Bride/groom name from matrimony profile (not account owner for family profiles). */
+  matrimony_candidate_name?: string | null;
   profile_for_self?: boolean;
   message?: string;
   subscription?: MatrimonySubscriptionSummary;
@@ -176,10 +178,21 @@ export type MatrimonyFormOptions = {
   profile_for?: { value: string; label: string }[];
 };
 
+/** Coalesce parallel hub loads (Home + BrowseGate + guard often fire together). */
+let matrimonyHubInflight: Promise<MatrimonyHub> | null = null;
+
 export async function getMatrimonyHub(): Promise<MatrimonyHub> {
-  const { data } = await api.get<{ ok: boolean } & MatrimonyHub>("/matrimony/me");
-  if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to load matrimony");
-  return data;
+  if (matrimonyHubInflight) return matrimonyHubInflight;
+  matrimonyHubInflight = (async () => {
+    try {
+      const { data } = await api.get<{ ok: boolean } & MatrimonyHub>("/matrimony/me");
+      if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to load matrimony");
+      return data;
+    } finally {
+      matrimonyHubInflight = null;
+    }
+  })();
+  return matrimonyHubInflight;
 }
 
 export async function getMatrimonyFormOptions(): Promise<MatrimonyFormOptions> {

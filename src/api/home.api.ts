@@ -60,10 +60,15 @@ export type FeedItem = {
   isTrending?: boolean;
   jobStatus?: string | null;
   jobCompany?: string | null;
+  jobCategory?: string | null;
   jobLocation?: string | null;
   jobEmploymentType?: string | null;
+  jobWorkMode?: string | null;
+  jobExperience?: string | null;
+  jobSkills?: string[] | null;
   jobSalaryMin?: number | null;
   jobSalaryMax?: number | null;
+  jobInterestedByMe?: boolean;
   marketplaceStatus?: string | null;
   marketplaceIntent?: string | null;
   marketplaceCategory?: string | null;

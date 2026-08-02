@@ -14,3 +14,4 @@ export { BottomTabBar, type TabId, FLOATING_TAB_BAR_HEIGHT } from "./BottomTabBa
 export { HighlightSection } from "./HighlightSection";
 export { SkeletonCard, WelcomeCardSkeleton, SkeletonLine } from "./SkeletonCard";
 export { FeedPostSkeleton } from "./FeedPostSkeleton";
+export { JobFeedBlock } from "./JobFeedBlock";

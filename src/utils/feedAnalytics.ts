@@ -13,13 +13,12 @@ function scheduleFlush(): void {
 
 async function flush(): Promise<void> {
   if (queue.length === 0) return;
-  const batch = queue.splice(0, 5);
-  for (const ev of batch) {
-    try {
-      await api.post("/posts/events", ev);
-    } catch {
-      // non-blocking analytics
-    }
+  const batch = queue.splice(0, 25);
+  try {
+    // One auth + one insert burst instead of N round-trips.
+    await api.post("/posts/events", { events: batch });
+  } catch {
+    // non-blocking analytics
   }
   if (queue.length > 0) scheduleFlush();
 }

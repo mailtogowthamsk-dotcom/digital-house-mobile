@@ -14,6 +14,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getFeed, type FeedItem } from "../../api/home.api";
+import { deletePost } from "../../api/posts.api";
 import { getErrorStatus } from "../../api/client";
 import { mergeById } from "../../utils/mergeById";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -21,6 +22,7 @@ import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSu
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
+import { appAlert } from "../../utils/appAlert";
 import {
   JOB_EMPLOYMENT_TYPES,
   formatEmploymentType,
@@ -397,6 +399,26 @@ export function JobsHomeScreen() {
         },
         meta: { flex: 1, fontSize: 12, color: colors.textMuted },
         viewHint: { fontSize: 12, fontWeight: "700", color: colors.primary },
+        ownerActions: {
+          marginTop: spacing.sm,
+          paddingTop: spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          flexDirection: "row",
+          gap: 8
+        },
+        ownerBtn: {
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          paddingVertical: 10,
+          borderRadius: radius.md,
+          backgroundColor: colors.surfaceElevated
+        },
+        ownerBtnPressed: { opacity: 0.85 },
+        ownerBtnText: { fontSize: 13, fontWeight: "700" },
         empty: { alignItems: "center", paddingTop: 56, paddingHorizontal: spacing.xl },
         emptyIcon: {
           width: 72,
@@ -436,75 +458,128 @@ export function JobsHomeScreen() {
       const initials = companyInitials(item.jobCompany, item.author.name);
 
       return (
-        <Pressable
-          style={({ pressed }) => [s.card, pressed && s.cardPressed]}
-          onPress={() => navigation.navigate("PostDetail", { postId: item.postId })}
-        >
-          <View style={s.cardTop}>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>{initials}</Text>
-            </View>
-            <View style={s.cardMain}>
-              <View style={s.titleRow}>
-                <Text style={s.title} numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <View style={[s.badge, !open && s.badgeClosed]}>
-                  <Text style={[s.badgeText, !open && s.badgeTextClosed]}>
-                    {open ? "Open" : "Closed"}
+        <View style={s.card}>
+          <Pressable
+            style={({ pressed }) => [pressed && s.cardPressed]}
+            onPress={() => navigation.navigate("PostDetail", { postId: item.postId })}
+            accessibilityRole="button"
+            accessibilityLabel={`Open job ${item.title}`}
+          >
+            <View style={s.cardTop}>
+              <View style={s.avatar}>
+                <Text style={s.avatarText}>{initials}</Text>
+              </View>
+              <View style={s.cardMain}>
+                <View style={s.titleRow}>
+                  <Text style={s.title} numberOfLines={2}>
+                    {item.title}
                   </Text>
+                  <View style={[s.badge, !open && s.badgeClosed]}>
+                    <Text style={[s.badgeText, !open && s.badgeTextClosed]}>
+                      {open ? "Open" : "Closed"}
+                    </Text>
+                  </View>
                 </View>
+                {item.jobCompany ? (
+                  <Text style={s.company} numberOfLines={1}>
+                    {item.jobCompany}
+                  </Text>
+                ) : (
+                  <Text style={s.company} numberOfLines={1}>
+                    {mode === "mine" ? "Your posting" : `Posted by ${item.author.name}`}
+                  </Text>
+                )}
               </View>
-              {item.jobCompany ? (
-                <Text style={s.company} numberOfLines={1}>
-                  {item.jobCompany}
-                </Text>
-              ) : (
-                <Text style={s.company} numberOfLines={1}>
-                  {mode === "mine" ? "Your posting" : `Posted by ${item.author.name}`}
-                </Text>
-              )}
             </View>
-          </View>
 
-          <View style={s.metaLine}>
-            {item.jobLocation ? (
-              <View style={s.metaPill}>
-                <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
-                <Text style={s.metaPillText}>{item.jobLocation}</Text>
-              </View>
-            ) : null}
-            {employment ? (
-              <View style={s.metaPill}>
-                <Ionicons name="briefcase-outline" size={13} color={colors.textSecondary} />
-                <Text style={s.metaPillText}>{employment}</Text>
-              </View>
-            ) : null}
-            {salary ? (
-              <View style={s.metaPill}>
-                <Ionicons name="cash-outline" size={13} color={colors.textSecondary} />
-                <Text style={s.metaPillText}>{salary}</Text>
-              </View>
-            ) : null}
-          </View>
+            <View style={s.metaLine}>
+              {item.jobLocation ? (
+                <View style={s.metaPill}>
+                  <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
+                  <Text style={s.metaPillText}>{item.jobLocation}</Text>
+                </View>
+              ) : null}
+              {employment ? (
+                <View style={s.metaPill}>
+                  <Ionicons name="briefcase-outline" size={13} color={colors.textSecondary} />
+                  <Text style={s.metaPillText}>{employment}</Text>
+                </View>
+              ) : null}
+              {salary ? (
+                <View style={s.metaPill}>
+                  <Ionicons name="cash-outline" size={13} color={colors.textSecondary} />
+                  <Text style={s.metaPillText}>{salary}</Text>
+                </View>
+              ) : null}
+            </View>
 
-          {item.description ? (
-            <Text style={s.desc} numberOfLines={2}>
-              {item.description}
-            </Text>
+            {item.description ? (
+              <Text style={s.desc} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+
+            <View style={s.footerMeta}>
+              <Text style={s.meta} numberOfLines={1}>
+                {mode === "mine"
+                  ? timeAgo(item.createdAt)
+                  : `${item.author.name} · ${timeAgo(item.createdAt)}`}
+                {item.counts.comments > 0 ? ` · ${item.counts.comments} comments` : ""}
+              </Text>
+              <Text style={s.viewHint}>{mode === "mine" ? "Manage" : "View"}</Text>
+            </View>
+          </Pressable>
+
+          {mode === "mine" ? (
+            <View style={s.ownerActions}>
+              <Pressable
+                style={({ pressed }) => [s.ownerBtn, pressed && s.ownerBtnPressed]}
+                onPress={() =>
+                  navigation.navigate("CreatePost", {
+                    initialPostType: "JOB",
+                    editPostId: item.postId
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Edit job"
+              >
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
+                <Text style={[s.ownerBtnText, { color: colors.primary }]}>Edit</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [s.ownerBtn, pressed && s.ownerBtnPressed]}
+                onPress={() => {
+                  appAlert("Delete this job?", "This permanently removes the listing.", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await deletePost(item.postId);
+                          setItems((prev) => prev.filter((p) => p.postId !== item.postId));
+                        } catch (err) {
+                          appAlert(
+                            "Error",
+                            (err as any)?.response?.data?.message ?? "Could not delete job."
+                          );
+                        }
+                      }
+                    }
+                  ]);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Delete job"
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
+                <Text style={[s.ownerBtnText, { color: colors.error }]}>Delete</Text>
+              </Pressable>
+            </View>
           ) : null}
-
-          <View style={s.footerMeta}>
-            <Text style={s.meta} numberOfLines={1}>
-              {mode === "mine" ? timeAgo(item.createdAt) : `${item.author.name} · ${timeAgo(item.createdAt)}`}
-              {item.counts.comments > 0 ? ` · ${item.counts.comments} comments` : ""}
-            </Text>
-            <Text style={s.viewHint}>{mode === "mine" ? "Manage" : "View"}</Text>
-          </View>
-        </Pressable>
+        </View>
       );
     },
-    [colors.textSecondary, mode, navigation, s]
+    [colors.error, colors.primary, colors.surfaceElevated, colors.textSecondary, mode, navigation, s]
   );
 
   return (

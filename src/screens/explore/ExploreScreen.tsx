@@ -198,10 +198,15 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         postId: Number(item.id),
         title: item.title,
         authorName: item.userName,
+        authorUserId: item.authorUserId,
         mediaUrl: item.imageUri,
         mediaType: item.mediaType,
         thumbnailUrl: item.thumbnailUrl
       });
+    },
+    onViewJob: (item) => {
+      trackFeedAction("post_open", Number(item.id), { source: "explore_job_card" });
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
     }
   };
 

@@ -16,8 +16,7 @@ type Props = {
 function MatrimonyMatchCardInner({ item, chips, onPress }: Props) {
   const { colors } = useTheme();
   const lockedPhoto = item.photoBlurred || item.photoPlaceholder;
-  const uri =
-    !lockedPhoto && item.photoUrl ? getImageUrl(item.photoUrl) ?? item.photoUrl : null;
+  const uri = item.photoUrl ? getImageUrl(item.photoUrl) ?? item.photoUrl : null;
   const meta = [item.district, item.occupation].filter(Boolean).join(" · ");
   const footer =
     item.interestSent ? "Interest sent" : item.interestReceived ? "Interest received" : null;
@@ -30,13 +29,17 @@ function MatrimonyMatchCardInner({ item, chips, onPress }: Props) {
       <View style={styles.top}>
         <View style={styles.photoWrap}>
           {uri ? (
-            <Image
-              source={{ uri }}
-              style={styles.photo}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              recyclingKey={uri}
-            />
+            <>
+              <Image
+                source={{ uri }}
+                style={styles.photo}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={uri}
+                blurRadius={lockedPhoto ? 18 : 0}
+              />
+              {lockedPhoto ? <View style={styles.photoLockOverlay} pointerEvents="none" /> : null}
+            </>
           ) : (
             <View style={[styles.photo, styles.photoPh, { backgroundColor: colors.border }]}>
               <Text style={{ fontSize: 28 }}>👤</Text>
@@ -103,7 +106,10 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", padding: spacing.md, gap: spacing.sm },
   photoWrap: { width: 72, height: 88, borderRadius: radius.md, overflow: "hidden" },
   photo: { width: 72, height: 88, borderRadius: radius.md },
-  androidBlur: { backgroundColor: "rgba(255,255,255,0.65)" },
+  photoLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.28)"
+  },
   photoPh: { alignItems: "center", justifyContent: "center" },
   body: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },

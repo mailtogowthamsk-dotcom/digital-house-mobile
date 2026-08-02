@@ -21,7 +21,8 @@ import { UploadProgress } from "../../components/media/UploadProgress";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
-import { JOB_EMPLOYMENT_TYPES } from "../../constants/jobs";
+import { JOB_EMPLOYMENT_TYPES, isValidIndianMobile, normalizeIndianMobile } from "../../constants/jobs";
+import { useAuth } from "../../context/AuthContext";
 import {
   MARKETPLACE_CATEGORIES,
   MARKETPLACE_CONDITIONS,
@@ -130,6 +131,13 @@ export function CreatePostScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, "CreatePost">>();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const registeredMobile = useMemo(() => {
+    const raw = user?.mobile?.trim() ?? "";
+    if (!raw) return null;
+    const normalized = normalizeIndianMobile(raw);
+    return isValidIndianMobile(normalized) ? normalized : null;
+  }, [user?.mobile]);
   const initialTypeParam = route.params?.initialPostType;
   const editPostId = route.params?.editPostId;
   const isEditing = editPostId != null && editPostId > 0;
@@ -150,6 +158,9 @@ export function CreatePostScreen() {
   const [jobEmploymentType, setJobEmploymentType] = useState<string>("FULL_TIME");
   const [jobSalaryMin, setJobSalaryMin] = useState("");
   const [jobSalaryMax, setJobSalaryMax] = useState("");
+  /** registered = use account mobile; custom = recruitment number field */
+  const [jobContactSource, setJobContactSource] = useState<"registered" | "custom">("registered");
+  const [jobContactPhone, setJobContactPhone] = useState("");
   const [showEmploymentPicker, setShowEmploymentPicker] = useState(false);
   const [mpIntent, setMpIntent] = useState<string>("SALE");
   const [mpCategory, setMpCategory] = useState<string>("OTHERS");
@@ -316,15 +327,46 @@ export function CreatePostScreen() {
       try {
         const post = await getPost(editPostId);
         if (cancelled) return;
-        if (post.post_type !== "MARKETPLACE") {
-          setError("Only marketplace listings can be edited here");
+        if (post.post_type !== "MARKETPLACE" && post.post_type !== "JOB") {
+          setError("Only marketplace and job listings can be edited here");
           setLoadingEdit(false);
           return;
         }
-        setPostType("MARKETPLACE");
+        setPostType(post.post_type === "JOB" ? "JOB" : "MARKETPLACE");
         setTitle(post.title ?? "");
         setDescription(post.description ?? "");
         setVisibility(post.visibility === "CONNECTIONS" ? "CONNECTIONS" : "PUBLIC");
+        if (post.post_type === "JOB") {
+          setJobCompany(post.job_company ?? "");
+          setJobLocation(post.job_location ?? "");
+          setJobEmploymentType(post.job_employment_type ?? "FULL_TIME");
+          setJobSalaryMin(
+            post.job_salary_min != null ? String(post.job_salary_min) : ""
+          );
+          setJobSalaryMax(
+            post.job_salary_max != null ? String(post.job_salary_max) : ""
+          );
+          const contact = post.job_contact_phone?.trim()
+            ? normalizeIndianMobile(post.job_contact_phone)
+            : "";
+          if (contact && registeredMobile && contact === registeredMobile) {
+            setJobContactSource("registered");
+            setJobContactPhone("");
+          } else if (contact) {
+            setJobContactSource("custom");
+            setJobContactPhone(contact);
+          } else if (registeredMobile) {
+            setJobContactSource("registered");
+            setJobContactPhone("");
+          } else {
+            setJobContactSource("custom");
+            setJobContactPhone("");
+          }
+          setMediaUrl(post.media_url ?? "");
+          setMediaPreviewUri(post.media_url ?? null);
+          setLoadingEdit(false);
+          return;
+        }
         const gallery =
           post.marketplace_gallery && post.marketplace_gallery.length > 0
             ? post.marketplace_gallery
@@ -355,7 +397,14 @@ export function CreatePostScreen() {
     return () => {
       cancelled = true;
     };
-  }, [editPostId, isEditing]);
+  }, [editPostId, isEditing, registeredMobile]);
+
+  useEffect(() => {
+    if (isEditing) return;
+    if (!registeredMobile && jobContactSource === "registered") {
+      setJobContactSource("custom");
+    }
+  }, [isEditing, jobContactSource, registeredMobile]);
 
   const handleSubmit = useCallback(async () => {
     if (submittingRef.current || uploading) return;
@@ -368,9 +417,7 @@ export function CreatePostScreen() {
     const submitType =
       isTypeLocked && initialTypeParam
         ? resolveInitialPostType(initialTypeParam)
-        : isEditing
-          ? "MARKETPLACE"
-          : postType;
+        : postType;
     if (
       !isEditing &&
       !isTypeLocked &&
@@ -381,6 +428,7 @@ export function CreatePostScreen() {
     }
     const minSalary = jobSalaryMin.trim() ? Math.floor(Number(jobSalaryMin.trim())) : null;
     const maxSalary = jobSalaryMax.trim() ? Math.floor(Number(jobSalaryMax.trim())) : null;
+    let jobContactNormalized: string | null = null;
     if (submitType === "JOB") {
       if (minSalary != null && (!Number.isFinite(minSalary) || minSalary < 0)) {
         setError("Enter a valid minimum salary");
@@ -399,6 +447,17 @@ export function CreatePostScreen() {
       }
       if (minSalary != null && maxSalary != null && maxSalary < minSalary) {
         setError("Max salary must be greater than or equal to min salary");
+        return;
+      }
+      const contactRaw =
+        jobContactSource === "registered" ? registeredMobile ?? "" : jobContactPhone;
+      jobContactNormalized = normalizeIndianMobile(contactRaw);
+      if (!isValidIndianMobile(jobContactNormalized)) {
+        setError(
+          jobContactSource === "registered" && !registeredMobile
+            ? "No registered mobile on your account. Enter a recruitment number."
+            : "Enter a valid 10-digit contact number"
+        );
         return;
       }
     }
@@ -570,7 +629,17 @@ export function CreatePostScreen() {
           visibility,
           hashtags: mergedHashtags,
           ...mediaPayload,
-          ...marketplacePayload
+          ...(submitType === "MARKETPLACE" ? marketplacePayload : {}),
+          ...(submitType === "JOB"
+            ? {
+                job_company: jobCompany.trim() || null,
+                job_location: jobLocation.trim() || null,
+                job_employment_type: jobEmploymentType || null,
+                job_salary_min: minSalary,
+                job_salary_max: maxSalary,
+                job_contact_phone: jobContactNormalized
+              }
+            : {})
         });
         mediaCommittedRef.current = true;
         sessionUploadedUrlsRef.current.clear();
@@ -590,7 +659,8 @@ export function CreatePostScreen() {
                 job_location: jobLocation.trim() || null,
                 job_employment_type: jobEmploymentType || null,
                 job_salary_min: minSalary,
-                job_salary_max: maxSalary
+                job_salary_max: maxSalary,
+                job_contact_phone: jobContactNormalized
               }
             : {}),
           ...(submitType === "MARKETPLACE" ? marketplacePayload : {})
@@ -639,6 +709,9 @@ export function CreatePostScreen() {
     jobEmploymentType,
     jobSalaryMin,
     jobSalaryMax,
+    jobContactSource,
+    jobContactPhone,
+    registeredMobile,
     mpIntent,
     mpCategory,
     mpCondition,
@@ -987,6 +1060,62 @@ export function CreatePostScreen() {
                 editable={!saving}
               />
             </View>
+
+            <Text style={s.label}>Contact number *</Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 17 }}>
+              Shown on the job detail page for applicants to call. Keep personal and recruitment numbers separate if you prefer.
+            </Text>
+            {registeredMobile ? (
+              <Pressable
+                style={[
+                  s.picker,
+                  { marginBottom: spacing.sm },
+                  jobContactSource === "registered" && s.pickerOptionActive
+                ]}
+                onPress={() => setJobContactSource("registered")}
+                disabled={saving}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={s.pickerText}>Use my registered mobile</Text>
+                  <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                    {registeredMobile}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={jobContactSource === "registered" ? "radio-button-on" : "radio-button-off"}
+                  size={20}
+                  color={jobContactSource === "registered" ? colors.primary : colors.textMuted}
+                />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[
+                s.picker,
+                { marginBottom: spacing.sm },
+                jobContactSource === "custom" && s.pickerOptionActive
+              ]}
+              onPress={() => setJobContactSource("custom")}
+              disabled={saving}
+            >
+              <Text style={[s.pickerText, { flex: 1 }]}>Use a different recruitment number</Text>
+              <Ionicons
+                name={jobContactSource === "custom" ? "radio-button-on" : "radio-button-off"}
+                size={20}
+                color={jobContactSource === "custom" ? colors.primary : colors.textMuted}
+              />
+            </Pressable>
+            {jobContactSource === "custom" ? (
+              <TextInput
+                style={s.input}
+                placeholder="10-digit recruitment mobile"
+                placeholderTextColor={colors.textMuted}
+                value={jobContactPhone}
+                onChangeText={setJobContactPhone}
+                keyboardType="phone-pad"
+                maxLength={14}
+                editable={!saving}
+              />
+            ) : null}
           </>
         ) : null}
 

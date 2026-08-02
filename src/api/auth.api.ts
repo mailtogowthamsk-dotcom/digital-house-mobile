@@ -117,11 +117,30 @@ export type GoogleAuthResponse = {
 };
 
 export async function googleAuth(idToken: string): Promise<GoogleAuthResponse> {
-  const { data } = await api.post("/auth/google", { idToken });
-  if (!data?.accessToken || !data?.user) {
-    throw new Error((data as any)?.message ?? "Google sign-in failed");
+  const { data } = await api.post<{
+    ok?: boolean;
+    message?: string;
+    accessToken?: string;
+    user?: MeUser;
+    isNewUser?: boolean;
+    linkedExistingAccount?: boolean;
+    needsProfileCompletion?: boolean;
+  }>("/auth/google", { idToken });
+  if (data?.ok === false) {
+    throw new Error(data.message || "Google sign-in failed");
   }
-  return data as GoogleAuthResponse;
+  if (!data?.accessToken || !data?.user) {
+    throw new Error(
+      "Google sign-in got an incomplete server response. Confirm the preview API URL points to /digitalhouse/backend/api and Google client IDs match the server."
+    );
+  }
+  return {
+    accessToken: data.accessToken,
+    user: data.user,
+    isNewUser: Boolean(data.isNewUser),
+    linkedExistingAccount: Boolean(data.linkedExistingAccount),
+    needsProfileCompletion: Boolean(data.needsProfileCompletion)
+  };
 }
 
 export type CompleteGoogleProfilePayload = {

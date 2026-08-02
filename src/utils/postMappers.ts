@@ -141,6 +141,16 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
     engagementScore: item.engagementScore,
     isRepost: item.isRepost ?? false,
     originalAuthorName: item.originalAuthor?.name ?? null,
-    originalPostId: item.originalPostId ?? null
+    originalPostId: item.originalPostId ?? null,
+    jobCompany: item.jobCompany ?? null,
+    jobLocation: item.jobLocation ?? null,
+    jobEmploymentType: item.jobEmploymentType ?? null,
+    jobWorkMode: item.jobWorkMode ?? null,
+    jobExperience: item.jobExperience ?? null,
+    jobSkills: item.jobSkills ?? null,
+    jobSalaryMin: item.jobSalaryMin ?? null,
+    jobSalaryMax: item.jobSalaryMax ?? null,
+    jobStatus: item.jobStatus ?? null,
+    jobInterestedByMe: item.jobInterestedByMe ?? false
   };
 }

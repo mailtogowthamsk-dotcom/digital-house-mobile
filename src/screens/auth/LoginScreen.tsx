@@ -107,10 +107,14 @@ function LoginScreenInner({ navigation }: any) {
       const result = await googleAuth(idToken);
       await signIn(result.accessToken, result.user);
     } catch (e: unknown) {
-      const err = e as { response?: { status?: number; data?: { message?: string } } };
+      const err = e as { response?: { status?: number; data?: { message?: string } }; message?: string };
       const status = err.response?.status;
       if (status === 403) {
         setMsg(err.response?.data?.message ?? "Unable to sign in with this account.");
+        return;
+      }
+      if (status === 401 && err.response?.data?.message) {
+        setMsg(err.response.data.message);
         return;
       }
       setMsg(getAuthErrorMessage(e));

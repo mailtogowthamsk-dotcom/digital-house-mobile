@@ -607,6 +607,11 @@ export function MatrimonyHomeScreen() {
   const completion = Math.max(0, Math.min(100, hub.completion_percentage));
   const heroPhoto =
     hub.matrimony_candidate_photo ?? hub.account_profile_photo ?? hub.user_context.profile_image;
+  const heroName =
+    hub.matrimony_candidate_name?.trim() ||
+    hub.draft?.candidateName?.trim() ||
+    hub.approved?.candidateName?.trim() ||
+    hub.user_context.full_name;
   const heroMeta = [hub.user_context.kulam, hub.user_context.city ?? hub.user_context.district]
     .filter(Boolean)
     .join(" · ");
@@ -647,10 +652,10 @@ export function MatrimonyHomeScreen() {
 
         <View style={s.statusCard}>
           <View style={s.statusTop}>
-            <AvatarImage uri={heroPhoto} name={hub.user_context.full_name} size={56} />
+            <AvatarImage uri={heroPhoto} name={heroName} size={56} />
             <View style={s.statusIdentity}>
               <Text style={s.statusTitle} numberOfLines={1}>
-                {hub.user_context.full_name}
+                {heroName}
               </Text>
               {heroMeta ? (
                 <Text style={s.statusMeta} numberOfLines={1}>

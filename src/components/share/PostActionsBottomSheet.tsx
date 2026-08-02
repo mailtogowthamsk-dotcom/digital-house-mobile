@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { AvatarImage } from "../ui/AvatarImage";
-import { getImageUrl } from "../../api/client";
+import { getImageUrl, getAuthErrorMessage } from "../../api/client";
 import { useShareTargets, type ShareTarget } from "../../hooks/useShareTargets";
 import { sharePostToConnections, repostPost } from "../../api/postShare.api";
 import { downloadPostMedia } from "../../services/postMediaDownload";
@@ -24,11 +24,13 @@ import { appAlert } from "../../utils/appAlert";
 import { openAppSettings } from "../../permissions";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
+import { useAuth } from "../../context/AuthContext";
 
 export type PostSharePayload = {
   postId: number;
   title: string;
   authorName: string;
+  authorUserId?: number | null;
   mediaUrl?: string | null;
   mediaType?: "image" | "video" | "none" | string | null;
   thumbnailUrl?: string | null;
@@ -92,6 +94,7 @@ function PostActionsBottomSheetInner({
   onNavigateFindMembers
 }: Props) {
   const { colors, mode } = useTheme();
+  const { user: authUser } = useAuth();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { keyboardOpen, keyboardHeight } = useModalKeyboardPad();
@@ -103,6 +106,11 @@ function PostActionsBottomSheetInner({
   const [reposting, setReposting] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const isOwnPost =
+    authUser?.id != null &&
+    post?.authorUserId != null &&
+    Number(post.authorUserId) === Number(authUser.id);
 
   const { targets, loading, error, reload } = useShareTargets(visible && panel === "connections");
 
@@ -221,6 +229,10 @@ function PostActionsBottomSheetInner({
 
   const handleRepost = useCallback(async () => {
     if (!post) return;
+    if (isOwnPost) {
+      setActionError("You can't repost your own post.");
+      return;
+    }
     setReposting(true);
     setActionError(null);
     try {
@@ -228,13 +240,11 @@ function PostActionsBottomSheetInner({
       onReposted?.();
       closeThenAlert("Reposted", "This post is now on your profile timeline.");
     } catch (e) {
-      setActionError(
-        e instanceof Error ? e.message : "Could not repost. Please try again."
-      );
+      setActionError(getAuthErrorMessage(e) || "Could not repost. Please try again.");
     } finally {
       setReposting(false);
     }
-  }, [post, onReposted, closeThenAlert]);
+  }, [post, isOwnPost, onReposted, closeThenAlert]);
 
   const handleDownload = useCallback(async () => {
     if (!post?.mediaUrl) {
@@ -402,10 +412,14 @@ function PostActionsBottomSheetInner({
               />
               <ActionRow
                 icon="repeat-outline"
-                label="Repost"
-                subtitle="Share on your profile with attribution"
+                label={isOwnPost ? "Repost unavailable" : "Repost"}
+                subtitle={
+                  isOwnPost
+                    ? "You can't repost your own post"
+                    : "Share on your profile with attribution"
+                }
                 onPress={() => void handleRepost()}
-                disabled={reposting}
+                disabled={reposting || isOwnPost}
               />
               <ActionRow
                 icon="download-outline"

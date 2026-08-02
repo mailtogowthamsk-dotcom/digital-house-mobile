@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 20,
     paddingTop: 4,
-    paddingBottom: 16,
+    paddingBottom: 4,
     gap: 3
   },
   comments: {

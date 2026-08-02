@@ -1,7 +1,6 @@
 /**
- * Action bar under hero media.
+ * Action bar at the bottom of every feed card.
  * Order: Like · Comment ····· Save · Share
- * Handlers unchanged.
  */
 
 import React, { memo, useCallback, useRef } from "react";
@@ -171,8 +170,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingTop: 4,
-    paddingBottom: 2,
+    paddingTop: 2,
+    paddingBottom: 10,
     minHeight: 48
   },
   group: {

@@ -184,6 +184,10 @@ export function getErrorStatus(err: unknown): number | undefined {
 export function getAuthErrorMessage(err: unknown): string {
   if (!err || typeof err !== "object") return "Something went wrong. Please try again.";
   const ax = err as AxiosError;
+  // Local throws (e.g. googleAuth incomplete response) — surface the real message.
+  if (!ax.isAxiosError && !ax.response && err instanceof Error && err.message.trim()) {
+    return err.message;
+  }
   const msg = (ax.response?.data as { message?: string })?.message;
   if (msg && typeof msg === "string") return msg;
   const status = ax.response?.status;
@@ -193,12 +197,15 @@ export function getAuthErrorMessage(err: unknown): string {
   if (status === 403) {
     return msg || "Your account cannot access this feature yet.";
   }
-  if (status === 400) return "Invalid request. Please check your details.";
+  if (status === 400) return msg || "Invalid request. Please check your details.";
   if (status === 409) {
     return msg || "This mobile number/email is already registered.";
   }
   if (status === 500) return "Server error. Please try again in a moment.";
-  if (status === 503) return "Server is starting up. Please try again in a few seconds.";
+  if (status === 502 || status === 504) {
+    return "Server gateway error. Check that /digitalhouse/backend/api is reachable.";
+  }
+  if (status === 503) return msg || "Server is starting up. Please try again in a few seconds.";
   if (status === 404) {
     return `API not found (404). Check server proxy and URL: ${getApiBaseUrl()}`;
   }
@@ -218,6 +225,7 @@ export function getAuthErrorMessage(err: unknown): string {
     }
     return `Cannot reach server. Check internet and API URL${hint}.`;
   }
+  if (err instanceof Error && err.message.trim()) return err.message;
   return "Request failed. Please try again.";
 }
 
