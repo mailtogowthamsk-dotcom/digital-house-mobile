@@ -65,6 +65,7 @@ export function PrimaryButton({
         isOutline && s.btnOutline,
         isSecondary && s.btnSecondary,
         (pressed || loading) && s.btnPressed,
+        disabled && !loading && { opacity: 0.45 },
         style
       ]}
     >

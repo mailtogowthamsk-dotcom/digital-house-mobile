@@ -718,13 +718,11 @@ export function MessagesHubScreen() {
             <ChatPanel
               title={selectedUser.fullName}
               subtitle={
-                typing.peerTyping
-                  ? "Typing…"
-                  : selectedUser.online
-                    ? "Online"
-                    : formatLastSeen(getCachedLastSeenAt(selectedUser.id))
-                      ? `Last seen ${formatLastSeen(getCachedLastSeenAt(selectedUser.id))}`
-                      : "Offline"
+                selectedUser.online
+                  ? "Online"
+                  : formatLastSeen(getCachedLastSeenAt(selectedUser.id))
+                    ? `Last seen ${formatLastSeen(getCachedLastSeenAt(selectedUser.id))}`
+                    : "Offline"
               }
               messages={messages}
               meId={meId}
@@ -742,6 +740,7 @@ export function MessagesHubScreen() {
               composerPaddingBottom={layout.composerPaddingBottom}
               chatKeyboardInset={layout.chatKeyboardInset}
               keyboardVisible={layout.keyboardVisible}
+              peerTyping={typing.peerTyping}
               otherAvatarUri={getImageUrl(selectedUser.profileImage)}
               headerAvatarUri={getImageUrl(selectedUser.profileImage)}
               colors={panelColors}

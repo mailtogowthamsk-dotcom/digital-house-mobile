@@ -112,7 +112,8 @@ export function PendingApprovalScreen({ navigation }: any) {
           <Text style={s.title}>Registration Submitted</Text>
           <Text style={s.subtitle}>
             Your registration is currently under admin review. Please wait until verification is
-            completed. We'll notify you once your account is approved.
+            completed. We'll notify you once your account is approved. After approval, sign in
+            again with OTP or Google to open the app.
             {!user
               ? " Sign in with OTP or Google anytime to refresh your status."
               : ""}

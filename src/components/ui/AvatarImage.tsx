@@ -72,7 +72,7 @@ function AvatarImageInner({
           style={[{ width: size, height: size, borderRadius }, style]}
           contentFit="cover"
           cachePolicy="memory-disk"
-          recyclingKey={resolvedUri!}
+          recyclingKey={resolvedUri!.split("?")[0]}
           transition={0}
           onError={onError}
         />

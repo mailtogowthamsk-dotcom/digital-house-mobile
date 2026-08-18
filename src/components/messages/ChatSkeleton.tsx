@@ -43,8 +43,8 @@ export const ChatMessagesSkeleton = memo(function ChatMessagesSkeleton() {
   const s = useMemo(
     () =>
       StyleSheet.create({
-        wrap: { flex: 1, padding: 16, gap: 12, justifyContent: "flex-end" },
-        row: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
+        wrap: { flex: 1, padding: 16, gap: 6, justifyContent: "flex-end" },
+        row: { flexDirection: "row", gap: 6, alignItems: "flex-end" },
         rowMe: { justifyContent: "flex-end" }
       }),
     []
@@ -58,8 +58,8 @@ export const ChatMessagesSkeleton = memo(function ChatMessagesSkeleton() {
         const mine = i % 2 === 1;
         return (
           <View key={i} style={[s.row, mine && s.rowMe]}>
-            {!mine ? <SkeletonCard width={32} height={32} style={{ borderRadius: 16 }} /> : null}
-            <SkeletonCard width={w} height={mine ? 44 : 40} style={{ borderRadius: 16 }} />
+            {!mine ? <SkeletonCard width={26} height={26} style={{ borderRadius: 13 }} /> : null}
+            <SkeletonCard width={w} height={mine ? 32 : 30} style={{ borderRadius: 14 }} />
           </View>
         );
       })}

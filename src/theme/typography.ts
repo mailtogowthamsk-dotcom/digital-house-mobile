@@ -28,15 +28,15 @@ export const typography = {
     letterSpacing: -0.25
   },
   feedTitle: {
-    fontSize: 17,
-    fontWeight: "600" as const,
-    lineHeight: 24,
+    fontSize: 15,
+    fontWeight: "700" as const,
+    lineHeight: 20,
     letterSpacing: -0.2
   },
   feedCaption: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "400" as const,
-    lineHeight: 22,
+    lineHeight: 18,
     letterSpacing: -0.05
   },
   feedMeta: {

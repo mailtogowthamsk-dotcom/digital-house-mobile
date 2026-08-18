@@ -1,7 +1,7 @@
 import { api } from "./client";
 
 /** Allowed modules for R2 folder structure */
-export type MediaModule = "profile" | "posts" | "jobs" | "marketplace" | "matrimony" | "help";
+export type MediaModule = "profile" | "posts" | "jobs" | "marketplace" | "matrimony" | "help" | "advertisements";
 
 export type UploadUrlRequest = {
   fileName: string;

@@ -107,6 +107,21 @@ export function validateVideoDuration(seconds: number): void {
   }
 }
 
+/** Map worker/API video errors to copy the user can act on. */
+export function friendlyVideoUploadMessage(err: unknown): string {
+  const raw =
+    err instanceof Error && err.message.trim()
+      ? err.message.trim()
+      : "Could not upload media";
+  if (/bitrate is too high|VIDEO_BITRATE_HIGH|too high quality to store/i.test(raw)) {
+    return "This camera video is too high quality to store as-is. The server will compress it automatically — if this keeps happening, choose a shorter 1080p clip. Compression also runs on the device in a development/EAS build (not Expo Go).";
+  }
+  if (/resolution is too high|VIDEO_RESOLUTION_HIGH/i.test(raw)) {
+    return "This video’s resolution is too high. Choose a clip at 4K or lower — it will be stored at 720p.";
+  }
+  return raw.replace(/^Error:\s*/i, "");
+}
+
 export function getMimeFromUri(uri: string, fallback = "image/jpeg"): string {
   const lower = uri.split("?")[0].toLowerCase();
   if (lower.endsWith(".png")) return "image/png";
@@ -386,6 +401,6 @@ export async function uploadVideo(
       void deleteMediaUrls([thumbnailUrl]).catch(() => undefined);
     }
     await optimized.cleanup?.();
-    throw e;
+    throw new Error(friendlyVideoUploadMessage(e));
   }
 }

@@ -14,6 +14,7 @@ import { deleteMediaUrls } from "../../api/media.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldMultiline } from "../../theme/textField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSuggestInput";
 import { MediaPreview } from "../../components/media/MediaPreview";
@@ -1468,17 +1469,16 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
           marginTop: spacing.sm
         },
         input: {
-          ...typography.body,
+          ...textField,
           color: colors.text,
           backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: radius.md,
-          paddingVertical: spacing.sm,
           paddingHorizontal: spacing.md,
           marginBottom: spacing.sm
         },
-        textArea: { minHeight: 100, textAlignVertical: "top" },
+        textArea: { minHeight: 100, ...textFieldMultiline },
         hashtagHint: { ...typography.caption, marginBottom: spacing.sm, lineHeight: 18 },
         hashtagChipWrap: {
           flexDirection: "row",

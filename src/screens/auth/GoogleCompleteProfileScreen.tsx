@@ -52,7 +52,6 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [district, setDistrict] = useState("");
   const [kulam, setKulam] = useState("");
-  const [community, setCommunity] = useState("");
   const [mobile, setMobile] = useState("");
   const [locationOptions, setLocationOptions] = useState(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState(KULAM_OPTIONS);
@@ -69,7 +68,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
           setLocationOptions(locations.map((l) => ({ label: l.name, value: l.name })));
         }
         if (kulams.length > 0) {
-          setKulamOptions(kulams.map((k) => ({ label: k.name, value: k.name })));
+          setKulamOptions(kulams.map((k) => ({ label: k.displayName || k.name, value: k.name })));
         }
       } catch {
         /* fallback options */
@@ -152,7 +151,6 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         dob: formatDate(dob),
         district,
         kulam,
-        community: community.trim() || null,
         location: district,
         mobile: mobile.trim() || null,
         ...(legalAcceptances.length ? { legalAcceptances } : {})
@@ -196,7 +194,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               onChangeText={setUsername}
               autoCapitalize="none"
               autoCorrect={false}
-              variant="light"
+              variant="onWhite"
             />
             <Dropdown
               label="Gender"
@@ -236,17 +234,11 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               required
             />
             <Input
-              placeholder="Community details (optional)"
-              value={community}
-              onChangeText={setCommunity}
-              variant="light"
-            />
-            <Input
               placeholder="Mobile (optional)"
               value={mobile}
               onChangeText={setMobile}
               keyboardType="phone-pad"
-              variant="light"
+              variant="onWhite"
             />
 
             <Text style={styles.legalHeading}>Legal agreements</Text>

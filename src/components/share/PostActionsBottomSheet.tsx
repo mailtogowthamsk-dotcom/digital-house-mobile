@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact, textFieldMultiline } from "../../theme/textField";
 import { AvatarImage } from "../ui/AvatarImage";
 import { getImageUrl, getAuthErrorMessage } from "../../api/client";
 import { useShareTargets, type ShareTarget } from "../../hooks/useShareTargets";
@@ -615,14 +616,13 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === "ios" ? spacing.sm : 4,
     marginBottom: spacing.sm
   },
-  searchInput: { flex: 1, fontSize: 15, paddingVertical: spacing.xs },
+  searchInput: { flex: 1, ...textFieldCompact },
   noteInput: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: 15,
-    minHeight: 44,
+    ...textFieldMultiline,
+    minHeight: 52,
     maxHeight: 88,
     marginBottom: spacing.sm
   },

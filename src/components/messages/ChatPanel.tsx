@@ -26,6 +26,7 @@ type Props = {
   composerPaddingBottom: number;
   chatKeyboardInset?: number;
   keyboardVisible?: boolean;
+  peerTyping?: boolean;
   otherAvatarUri?: string | null;
   headerAvatarUri?: string | null;
   colors: {
@@ -68,6 +69,7 @@ function ChatPanelComponent({
   composerPaddingBottom,
   chatKeyboardInset = 0,
   keyboardVisible = false,
+  peerTyping = false,
   otherAvatarUri,
   headerAvatarUri,
   colors,
@@ -150,6 +152,7 @@ function ChatPanelComponent({
       otherAvatarUri={otherAvatarUri}
       colors={bubbleColors}
       keyboardVisible={keyboardVisible}
+      peerTyping={peerTyping}
       onSharedPostPress={onSharedPostPress}
     />
   );

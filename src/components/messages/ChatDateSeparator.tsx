@@ -20,16 +20,16 @@ function ChatDateSeparatorComponent({ label, textColor, pillColor }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: "center",
-    marginVertical: 12
+    marginVertical: 8
   },
   pill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10
   },
   text: {
-    fontSize: 12,
-    fontWeight: "700"
+    fontSize: 11,
+    fontWeight: "600"
   }
 });
 

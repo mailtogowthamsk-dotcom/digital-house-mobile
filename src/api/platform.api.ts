@@ -109,5 +109,6 @@ export const MENU_FEATURE_MAP: Record<string, string> = {
   "prominent-people": "prominent_people",
   community: "community_feed",
   "search-members": "members",
-  posts: "community_feed"
+  posts: "community_feed",
+  advertisements: "advertisements"
 };

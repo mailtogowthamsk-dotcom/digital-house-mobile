@@ -44,6 +44,9 @@ import { LegalDocumentScreen } from "./src/screens/legal/LegalDocumentScreen";
 import { MessagesHubScreen } from "./src/screens/messages/MessagesHubScreen";
 import { ChatScreen } from "./src/screens/messages/ChatScreen";
 import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen";
+import { AdvertisementsHomeScreen } from "./src/screens/advertisement/AdvertisementsHomeScreen";
+import { AdvertisementCreateScreen } from "./src/screens/advertisement/AdvertisementCreateScreen";
+import { AdvertisementDetailScreen } from "./src/screens/advertisement/AdvertisementDetailScreen";
 import { JobsHomeScreen } from "./src/screens/jobs/JobsHomeScreen";
 import { MarketplaceHomeScreen } from "./src/screens/marketplace/MarketplaceHomeScreen";
 import { HelpingHandsHomeScreen } from "./src/screens/helpingHands/HelpingHandsHomeScreen";
@@ -194,6 +197,9 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="MatrimonyHome" component={MatrimonyHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AdvertisementsHome" component={AdvertisementsHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AdvertisementCreate" component={AdvertisementCreateScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AdvertisementDetail" component={AdvertisementDetailScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
         <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyCandidate" component={MatrimonyCandidateScreen} options={{ headerShown: false }} />

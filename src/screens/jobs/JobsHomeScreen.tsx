@@ -21,6 +21,7 @@ import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSuggestInput";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 import { timeAgo } from "../../utils/timeAgo";
 import { appAlert } from "../../utils/appAlert";
 import {
@@ -258,8 +259,7 @@ export function JobsHomeScreen() {
         },
         searchInput: {
           flex: 1,
-          paddingVertical: 12,
-          fontSize: 14,
+          ...textFieldCompact,
           color: colors.text
         },
         segment: {

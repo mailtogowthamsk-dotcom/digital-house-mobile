@@ -6,6 +6,7 @@
 
 import React, { memo, useCallback, type MutableRefObject } from "react";
 import { PostCard, type PostCardData } from "./PostCard";
+import { useFeedMediaFlags } from "../../media/feedMediaFocus";
 
 export type FeedPostCardActions = {
   onAuthorPress: (item: PostCardData) => void;
@@ -24,19 +25,24 @@ export type FeedPostCardActions = {
 
 type Props = {
   post: PostCardData;
-  isMediaActive: boolean;
-  isMediaPreload: boolean;
+  /** Optional override — omit to read the shared feed media-focus store. */
+  isMediaActive?: boolean;
+  isMediaPreload?: boolean;
   isMediaRetain?: boolean;
   actionsRef: MutableRefObject<FeedPostCardActions>;
 };
 
 function FeedPostCardRowInner({
   post,
-  isMediaActive,
-  isMediaPreload,
-  isMediaRetain = false,
+  isMediaActive: isMediaActiveProp,
+  isMediaPreload: isMediaPreloadProp,
+  isMediaRetain: isMediaRetainProp,
   actionsRef
 }: Props) {
+  const fromStore = useFeedMediaFlags(post.id);
+  const isMediaActive = isMediaActiveProp ?? fromStore.isMediaActive;
+  const isMediaPreload = isMediaPreloadProp ?? fromStore.isMediaPreload;
+  const isMediaRetain = isMediaRetainProp ?? fromStore.isMediaRetain;
   const onAuthorPress = useCallback(() => {
     actionsRef.current.onAuthorPress(post);
   }, [actionsRef, post]);
@@ -111,7 +117,7 @@ function propsEqual(prev: Props, next: Props): boolean {
     prev.post === next.post &&
     prev.isMediaActive === next.isMediaActive &&
     prev.isMediaPreload === next.isMediaPreload &&
-    Boolean(prev.isMediaRetain) === Boolean(next.isMediaRetain) &&
+    prev.isMediaRetain === next.isMediaRetain &&
     prev.actionsRef === next.actionsRef
   );
 }

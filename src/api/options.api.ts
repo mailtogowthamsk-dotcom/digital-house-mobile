@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-export type OptionItem = { id: number; name: string };
+export type OptionItem = { id: number; name: string; displayName?: string };
 
 export type MasterDataItem = {
   id: number;
@@ -10,6 +10,7 @@ export type MasterDataItem = {
   parent_id: number | null;
   sort_order: number;
   is_active: boolean;
+  metadata?: { ta?: string } | null;
 };
 
 const memoryCache = new Map<string, { at: number; value: unknown }>();
@@ -99,8 +100,17 @@ export async function getMasterBundle(
   return bundle;
 }
 
+export function kulamDropdownLabel(item: { label: string; metadata?: { ta?: string } | null }): string {
+  const ta = item.metadata?.ta?.trim();
+  if (ta && ta.toLowerCase() !== item.label.toLowerCase()) return `${ta} (${item.label})`;
+  return item.label;
+}
+
 export function masterItemsToDropdown(
   items: MasterDataItem[]
 ): { label: string; value: string }[] {
-  return items.map((i) => ({ label: i.label, value: i.label }));
+  return items.map((i) => ({
+    label: i.type_code === "KULAM" ? kulamDropdownLabel(i) : i.label,
+    value: i.label
+  }));
 }

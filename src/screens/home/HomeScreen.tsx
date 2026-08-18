@@ -8,7 +8,8 @@ import {
   Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Animated
+  Animated,
+  Platform
 } from "react-native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
@@ -43,10 +44,18 @@ import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
+import {
+  clearFeedMediaFocus,
+  getFeedMediaFocus,
+  setFeedMediaFocus
+} from "../../media/feedMediaFocus";
+import { setFeedAdSlotVisible } from "../../media/feedAdSlotVisibility";
+import { FEED_FLATLIST_PERF } from "../../utils/listPerf";
 import { useFeedInteractions } from "../../hooks/useFeedInteractions";
 import { useFeedRealtime } from "../../hooks/useFeedRealtime";
 import { useNavigateToPostAuthor } from "../../hooks/useNavigateToPostAuthor";
 import { PlatformBannerStrip, PlatformAnnouncementCard, PlatformHomeAd } from "../../components/platform/PlatformGateOverlay";
+import { PaidFeedAd } from "../../components/advertisement/PaidFeedAd";
 import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
@@ -90,8 +99,9 @@ export function HomeScreen() {
     route.params?.tab === "explore" ? "explore" : "home"
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
-  const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
+  const [adRefreshKey, setAdRefreshKey] = useState(0);
+  const [commentPost, setCommentPost] = useState<{ id: string; title: string } | null>(null);
+  const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
   const commentPostIdRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<PostCardData>>(null);
@@ -101,39 +111,48 @@ export function HomeScreen() {
   const headerHiddenRef = useRef(false);
   const retrySummaryRef = useRef(retrySummary);
   retrySummaryRef.current = retrySummary;
-  const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
-  const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
-  const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const feedItemsRef = useRef<PostCardData[]>([]);
-  const activeMediaPostIdRef = useRef<string | null>(null);
-  activeMediaPostIdRef.current = activeMediaPostId;
   const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 55,
-    minimumViewTime: 160
+    itemVisiblePercentThreshold: 40,
+    minimumViewTime: 120
   }).current;
-  const queueActiveMediaId = useRef((id: string | null) => {
-    if (!id || activeMediaPostIdRef.current === id) return;
+  const queueMediaWindow = useRef((activeId: string | null) => {
+    if (!activeId) return;
+    const items = feedItemsRef.current;
+    const idx = items.findIndex((p) => p.id === activeId);
+    const next = {
+      activeId,
+      preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
+      retainId: idx > 0 ? items[idx - 1]!.id : null
+    };
+    const current = getFeedMediaFocus();
+    if (
+      current.activeId === next.activeId &&
+      current.preloadId === next.preloadId &&
+      current.retainId === next.retainId
+    ) {
+      return;
+    }
     if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
     // First assignment is applied synchronously: startup layout churn (header
     // growth, highlights loading) emits repeated viewability updates that keep
     // rescheduling the timer, which starves the very first activation.
-    if (!activeMediaPostIdRef.current) {
+    if (!current.activeId) {
       activeMediaSwitchTimer.current = null;
-      activeMediaPostIdRef.current = id;
-      setActiveMediaPostId(id);
+      setFeedMediaFocus(next);
       return;
     }
     // Hysteresis — slow reverse scroll used to thrash active↔retain and freeze the UI.
     activeMediaSwitchTimer.current = setTimeout(() => {
       activeMediaSwitchTimer.current = null;
-      setActiveMediaPostId((prev) => (prev === id ? prev : id));
+      setFeedMediaFocus(next);
     }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
-      queueActiveMediaId(activeId);
+      queueMediaWindow(activeId);
     }
   ).current;
 
@@ -162,31 +181,19 @@ export function HomeScreen() {
 
   feedItemsRef.current = feedItems;
 
-  // Keep previous / next relative to current for instant scroll-back + preload.
   useEffect(() => {
     if (!feedItems.length) {
-      setActiveMediaPostId(null);
-      setPreloadMediaPostId(null);
-      setRetainMediaPostId(null);
+      clearFeedMediaFocus();
       return;
     }
-    setActiveMediaPostId((prev) =>
-      prev && feedItems.some((p) => p.id === prev) ? prev : feedItems[0]!.id
-    );
+    const current = getFeedMediaFocus();
+    if (current.activeId && feedItems.some((p) => p.id === current.activeId)) return;
+    setFeedMediaFocus({
+      activeId: feedItems[0]!.id,
+      preloadId: feedItems[1]?.id ?? null,
+      retainId: null
+    });
   }, [feedItems]);
-
-  useEffect(() => {
-    if (!feedItems.length || !activeMediaPostId) {
-      setPreloadMediaPostId(null);
-      setRetainMediaPostId(null);
-      return;
-    }
-    const idx = feedItems.findIndex((p) => p.id === activeMediaPostId);
-    setPreloadMediaPostId(
-      idx >= 0 && idx + 1 < feedItems.length ? feedItems[idx + 1]!.id : null
-    );
-    setRetainMediaPostId(idx > 0 ? feedItems[idx - 1]!.id : null);
-  }, [feedItems, activeMediaPostId]);
 
   const welcomeUser = useMemo(
     () =>
@@ -255,6 +262,8 @@ export function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setAdRefreshKey((k) => k + 1);
+    setFeedAdSlotVisible(true);
     await refetchAll();
     setRefreshing(false);
   }, [refetchAll]);
@@ -265,6 +274,7 @@ export function HomeScreen() {
       return;
     }
     if (tab === "home" && activeTab === "home") {
+      setFeedAdSlotVisible(true);
       void onRefresh();
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
       return;
@@ -272,8 +282,7 @@ export function HomeScreen() {
     if (tab === "home" || tab === "explore") {
       if (tab !== activeTab) {
         // Switching feed panes: drop active players so the other pane starts clean.
-        setActiveMediaPostId(null);
-        setPreloadMediaPostId(null);
+        clearFeedMediaFocus();
         pauseAllFeedVideos();
       }
       setActiveTab(tab);
@@ -304,10 +313,11 @@ export function HomeScreen() {
       const y = e.nativeEvent.contentOffset.y;
       const dy = y - lastScrollY.current;
       lastScrollY.current = y;
+      setFeedAdSlotVisible(y < 240);
       if (y <= 12) {
         // The first card sits under the list header at offset 0, so it never reaches the
         // viewability threshold. Viewability alone would leave the old (off-screen) post active.
-        queueActiveMediaId(feedItemsRef.current[0]?.id ?? null);
+        queueMediaWindow(feedItemsRef.current[0]?.id ?? null);
         if (headerHiddenRef.current) {
           headerHiddenRef.current = false;
           Animated.timing(headerHideProgress, {
@@ -334,7 +344,7 @@ export function HomeScreen() {
         }).start();
       }
     },
-    [headerHideProgress, queueActiveMediaId]
+    [headerHideProgress, queueMediaWindow]
   );
 
   const realtimeHandlers = useMemo(
@@ -381,19 +391,23 @@ export function HomeScreen() {
         clearTimeout(activeMediaSwitchTimer.current);
         activeMediaSwitchTimer.current = null;
       }
-      activeMediaPostIdRef.current = postId;
-      setActiveMediaPostId(postId);
-      setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
+      const items = feedItemsRef.current;
+      const idx = items.findIndex((p) => p.id === postId);
+      setFeedMediaFocus({
+        activeId: postId,
+        preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
+        retainId: idx > 0 ? items[idx - 1]!.id : null
+      });
     },
     onDoubleTap: (item) => addLike(item.id, item),
     onLikePress: (item) => toggleLike(item.id, item),
     onLikeCountPress: (item) => {
       trackFeedAction("likes_sheet_open", Number(item.id));
-      setLikesPost(item);
+      setLikesPostId(item.id);
     },
     onCommentPress: (item) => {
       trackFeedAction("comment_sheet_open", Number(item.id));
-      setCommentPost(item);
+      setCommentPost({ id: item.id, title: item.title });
     },
     onSavePress: (item) => toggleSave(item.id, item),
     onSharePress: (item) => {
@@ -415,16 +429,8 @@ export function HomeScreen() {
   };
 
   const renderFeedItem = useCallback(
-    ({ item }: { item: PostCardData }) => (
-      <FeedPostCardRow
-        post={item}
-        isMediaActive={item.id === activeMediaPostId}
-        isMediaPreload={item.id === preloadMediaPostId}
-        isMediaRetain={item.id === retainMediaPostId}
-        actionsRef={feedActionsRef}
-      />
-    ),
-    [activeMediaPostId, preloadMediaPostId, retainMediaPostId]
+    ({ item }: { item: PostCardData }) => <FeedPostCardRow post={item} actionsRef={feedActionsRef} />,
+    []
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -442,7 +448,7 @@ export function HomeScreen() {
 
   const handleLikerPress = useCallback(
     (liker: PostLiker) => {
-      setLikesPost(null);
+      setLikesPostId(null);
       if (liker.isCurrentUser) {
         navigation.navigate("Profile");
         return;
@@ -465,7 +471,7 @@ export function HomeScreen() {
         return;
       }
       const match = feedItems.find((p) => Number(p.id) === item.postId);
-      if (match) setCommentPost(match);
+      if (match) setCommentPost({ id: match.id, title: match.title });
     },
     [feedItems]
   );
@@ -550,7 +556,7 @@ export function HomeScreen() {
     [mode]
   );
 
-  const ListHeaderComponent = useCallback(
+  const listHeader = useMemo(
     () => (
       <>
         {showSummaryError ? (
@@ -584,6 +590,10 @@ export function HomeScreen() {
             />
           </View>
         ) : null}
+
+        <View collapsable={false}>
+          <PaidFeedAd placement="home" refreshKey={adRefreshKey} />
+        </View>
       </>
     ),
     [
@@ -597,6 +607,7 @@ export function HomeScreen() {
       retrySummary,
       retryHighlights,
       onHighlightPress,
+      adRefreshKey,
       s
     ]
   );
@@ -689,21 +700,22 @@ export function HomeScreen() {
           data={feedItems}
           renderItem={renderFeedItem}
           keyExtractor={keyExtractor}
-          ListHeaderComponent={hasScrollHeader ? ListHeaderComponent : null}
+          ListHeaderComponent={listHeader}
+          keyboardShouldPersistTaps="handled"
+          overScrollMode={Platform.OS === "android" ? "never" : undefined}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
           onEndReached={loadMoreFeed}
           onEndReachedThreshold={0.35}
           onScroll={onFeedScroll}
-          scrollEventThrottle={16}
+          scrollEventThrottle={FEED_FLATLIST_PERF.scrollEventThrottle}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          extraData={activeMediaPostId}
-          removeClippedSubviews={false}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={3}
+          removeClippedSubviews={FEED_FLATLIST_PERF.removeClippedSubviews}
+          maxToRenderPerBatch={FEED_FLATLIST_PERF.maxToRenderPerBatch}
+          windowSize={FEED_FLATLIST_PERF.windowSize}
+          updateCellsBatchingPeriod={FEED_FLATLIST_PERF.updateCellsBatchingPeriod}
+          initialNumToRender={FEED_FLATLIST_PERF.initialNumToRender}
           contentContainerStyle={feedContentStyle}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -728,10 +740,10 @@ export function HomeScreen() {
       ) : null}
 
       <LikesBottomSheet
-        visible={likesPost != null}
-        target={likesPost ? { type: "post", id: Number(likesPost.id) } : null}
+        visible={likesPostId != null}
+        target={likesPostId ? { type: "post", id: Number(likesPostId) } : null}
         title="Likes"
-        onClose={() => setLikesPost(null)}
+        onClose={() => setLikesPostId(null)}
         onUserPress={handleLikerPress}
       />
 

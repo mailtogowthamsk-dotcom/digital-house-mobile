@@ -3,7 +3,7 @@
  * Title: bold, hide when empty. Caption: See more + hashtags.
  */
 
-import React, { memo, useMemo, useState, useCallback } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { Text, Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
@@ -16,6 +16,7 @@ type Props = {
   maxLines?: number;
   /** title | caption | full (both) */
   variant?: "title" | "caption" | "full";
+  compact?: boolean;
 };
 
 function renderTokens(
@@ -42,8 +43,9 @@ function renderTokens(
 function PostCaptionInner({
   title,
   description,
-  maxLines = 3,
-  variant = "full"
+  maxLines = 2,
+  variant = "full",
+  compact = false
 }: Props) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -53,26 +55,17 @@ function PostCaptionInner({
   const descText = description?.trim() ?? "";
   const same = Boolean(titleText && descText && titleText === descText);
 
-  const showTitle =
-    (variant === "title" || variant === "full") && Boolean(titleText);
-  const showCaption =
-    variant === "caption"
-      ? Boolean(descText && !same) || Boolean(!titleText && descText)
-      : variant === "full"
-        ? Boolean(descText && !same)
-        : false;
-
-  /** When caption-only and title===desc, title variant already showed it — skip. */
+  const showTitle = (variant === "title" || variant === "full") && Boolean(titleText);
   const captionText =
-    variant === "caption"
-      ? same
+    variant === "title"
+      ? ""
+      : same
         ? ""
-        : descText || (!titleText ? "" : "")
-      : showCaption
-        ? descText
-        : "";
-
-  const measureText = variant === "caption" ? captionText : captionText;
+        : descText && (variant === "caption" || variant === "full")
+          ? descText
+          : !titleText
+            ? descText
+            : "";
 
   const onMeasureLayout = useCallback(
     (e: { nativeEvent: { lines: Array<unknown> } }) => {
@@ -81,52 +74,39 @@ function PostCaptionInner({
     [maxLines]
   );
 
-  if (variant === "title" && !showTitle) return null;
-  if (variant === "caption" && !captionText) return null;
-  if (variant === "full" && !titleText && !captionText) return null;
+  if (!showTitle && !captionText) return null;
+
+  const titleStyle = compact ? styles.titleCompact : styles.title;
 
   return (
-    <View
-      style={[
-        styles.wrap,
-        variant === "title" && styles.titleWrap,
-        variant === "caption" && styles.captionWrap
-      ]}
-    >
-      {variant !== "title" && captionText && !expanded ? (
+    <View style={[styles.wrap, compact ? styles.wrapCompact : styles.wrapDefault]}>
+      {captionText && !expanded ? (
         <Text
-          style={[typography.feedCaption, styles.measure, { color: colors.text }]}
+          style={[typography.feedCaption, styles.measure, compact ? styles.measureCompact : styles.measureDefault]}
           onTextLayout={onMeasureLayout}
         >
-          {measureText}
+          {captionText}
         </Text>
       ) : null}
 
       {showTitle ? (
-        <Text
-          style={[styles.title, { color: colors.text }]}
-          numberOfLines={variant === "title" ? 3 : expanded ? undefined : 2}
-        >
-          {renderTokens(titleText, colors, styles.title)}
+        <Text style={[titleStyle, { color: colors.text }]} numberOfLines={2}>
+          {renderTokens(titleText, colors, titleStyle)}
         </Text>
       ) : null}
 
       {captionText ? (
         <Text
-          style={[typography.feedCaption, { color: colors.textSecondary }]}
+          style={[typography.feedCaption, styles.caption, { color: colors.textSecondary }]}
           numberOfLines={expanded ? undefined : maxLines}
         >
-          {renderTokens(
-            captionText,
-            { ...colors, text: colors.textSecondary },
-            typography.feedCaption
-          )}
+          {renderTokens(captionText, { ...colors, text: colors.textSecondary }, styles.caption)}
         </Text>
       ) : null}
 
-      {needsMore && !expanded && variant !== "title" && captionText ? (
-        <Pressable onPress={() => setExpanded(true)} hitSlop={8} style={styles.moreBtn}>
-          <Text style={[typography.feedCount, { color: colors.primary }]}>See more</Text>
+      {needsMore && !expanded && captionText ? (
+        <Pressable onPress={() => setExpanded(true)} hitSlop={6} style={styles.moreBtn}>
+          <Text style={[typography.feedCount, styles.more, { color: colors.primary }]}>See more</Text>
         </Pressable>
       ) : null}
     </View>
@@ -137,33 +117,50 @@ export const PostCaption = memo(PostCaptionInner);
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 20,
-    gap: 2
+    gap: 3
   },
-  titleWrap: {
-    paddingTop: 4,
-    paddingBottom: 2
+  wrapDefault: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 4
   },
-  captionWrap: {
+  wrapCompact: {
+    paddingHorizontal: 14,
     paddingTop: 2,
     paddingBottom: 2
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 24,
-    letterSpacing: -0.3
+    lineHeight: 20,
+    letterSpacing: -0.25
+  },
+  titleCompact: {
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 19,
+    letterSpacing: -0.2
+  },
+  caption: {
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.05
   },
   measure: {
     position: "absolute",
     opacity: 0,
-    left: 20,
-    right: 20,
     zIndex: -1
   },
+  measureDefault: { left: 16, right: 16 },
+  measureCompact: { left: 14, right: 14 },
   moreBtn: {
     alignSelf: "flex-start",
-    marginTop: 2,
-    paddingVertical: 2
+    marginTop: 0,
+    paddingVertical: 0
+  },
+  more: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: "600"
   }
 });

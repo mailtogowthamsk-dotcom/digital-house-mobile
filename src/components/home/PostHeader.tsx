@@ -21,8 +21,8 @@ type Props = {
   isTrending?: boolean;
   onAuthorPress?: () => void;
   onMenuPress?: () => void;
-  /** Overlay sits on top of video with light text. */
-  variant?: "default" | "overlay";
+  /** Overlay sits on top of video with light text. Compact is for image posts. */
+  variant?: "default" | "overlay" | "compact";
 };
 
 function privacyIcon(audience?: string): keyof typeof Ionicons.glyphMap {
@@ -47,6 +47,7 @@ function PostHeaderInner({
 }: Props) {
   const { colors, mode } = useTheme();
   const overlay = variant === "overlay";
+  const compact = variant === "compact";
 
   const s = useMemo(
     () =>
@@ -54,10 +55,10 @@ function PostHeaderInner({
         row: {
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: overlay ? 14 : 20,
-          paddingTop: overlay ? 14 : 18,
-          paddingBottom: overlay ? 12 : 14,
-          gap: 12
+          paddingHorizontal: overlay || compact ? 14 : 20,
+          paddingTop: overlay ? 14 : compact ? 10 : 18,
+          paddingBottom: overlay ? 12 : compact ? 8 : 14,
+          gap: overlay || compact ? 10 : 12
         },
         avatarOuter: {
           borderRadius: 999,
@@ -175,7 +176,7 @@ function PostHeaderInner({
           color: overlay ? "#FFFFFF" : colors.accent
         }
       }),
-    [colors, mode, overlay]
+    [colors, mode, overlay, compact]
   );
 
   const iconColor = overlay ? "#FFFFFF" : colors.textSecondary;
@@ -194,7 +195,7 @@ function PostHeaderInner({
           <AvatarImage
             uri={userAvatarUri}
             name={userName}
-            size={overlay ? 40 : 48}
+            size={overlay || compact ? 40 : 48}
             placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
             textColor={colors.primary}
           />
@@ -216,7 +217,7 @@ function PostHeaderInner({
               <Ionicons name="checkmark-circle" size={16} color={verifiedColor} />
             ) : null}
           </View>
-          {authorUsername && !overlay ? (
+          {authorUsername && !overlay && !compact ? (
             <Text style={s.handle} numberOfLines={1}>
               @{authorUsername}
             </Text>

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
-import { View, StyleSheet, useWindowDimensions } from "react-native";
+import { View, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import { getImageUrl } from "../../api/client";
@@ -18,7 +18,6 @@ import { FeedMediaLoader } from "../media/FeedMediaLoader";
 import {
   DEFAULT_FEED_ASPECT_RATIO,
   getCachedAspectRatio,
-  prefetchAspectRatio,
   setCachedAspectRatio,
   stableMediaCacheKey,
   aspectRatioChangedMeaningfully
@@ -28,7 +27,7 @@ import type { PostMediaKind } from "../../config/media.config";
 /** Video frame: tall portrait, slightly under 9:16. */
 const VIDEO_PORTRAIT_RATIO = 1.5;
 const CARD_H_MARGIN = 8;
-const MEDIA_H_INSET = 6;
+const MEDIA_H_INSET = 0;
 
 /** Session-warmed image URIs — skip loader on scroll-back / remount. */
 const warmedImageUris = new Set<string>();
@@ -112,7 +111,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
     ref
   ) {
     const { colors } = useTheme();
-    const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+    const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
     const raw = mediaUrl?.trim();
     const kind = resolveKind(raw, mediaType);
     const candidates = useMemo(
@@ -161,9 +160,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
         setImageLoading(false);
         return;
       }
-      setImageLoading(true);
       let cancelled = false;
-      // expo-image disk cache is keyed by source URI (unless cacheKey is set).
       Image.getCachePathAsync(imageUri)
         .then((path) => {
           if (cancelled || !path) return;
@@ -181,27 +178,14 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
         setAspectRatio(null);
         return;
       }
-      // Don't hit the network for dimensions until this card is current/next.
-      if (feedMode && !isActive && !isPreload && !isRetain) {
-        const cached = getCachedAspectRatio(imageUri);
-        if (cached != null) setAspectRatio(cached);
-        return;
-      }
       const cached = getCachedAspectRatio(imageUri);
       if (cached != null) {
         setAspectRatio(cached);
+        return;
       }
-      let cancelled = false;
-      prefetchAspectRatio(imageUri).then((ratio) => {
-        if (cancelled) return;
-        setAspectRatio((prev) =>
-          aspectRatioChangedMeaningfully(prev, ratio) ? ratio : prev
-        );
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [imageUri, feedMode, isActive, isPreload, isRetain]);
+      // Dimensions come from onLoad for mounted images. Avoid a second getSize
+      // fetch that races the decode and then resizes the card.
+    }, [imageUri]);
 
     const imageHeight = useMemo(() => {
       const ratio = aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO;
@@ -309,33 +293,28 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
 
     const naturalH = contentWidth * (aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO);
     const contentFit = naturalH > maxImageHeight ? "contain" : "cover";
-    // Feed images: current + next (+ retained previous for layout consistency).
-    const shouldLoadRemote = !feedMode || isActive || isPreload || isRetain;
-    const showImageLoader = shouldLoadRemote && imageLoading;
+    // Always keep the Image mounted while the row is mounted. Gating on
+    // active/preload/retain unmounted photos as soon as they left the 3-slot
+    // video window — scroll-back then flashed a loader even from disk cache.
+    const showImageLoader = imageLoading && !isImageUriWarmed(imageUri);
 
     return (
       <View style={[s.wrapOuter, style]}>
         <View style={[s.wrap, { height: imageHeight }]}>
-          {shouldLoadRemote ? (
-            <Image
-              source={{ uri: imageUri }}
-              style={{
-                width: contentWidth,
-                height: imageHeight,
-                alignSelf: "center"
-              }}
-              contentFit={contentFit}
-              cachePolicy="memory-disk"
-              recyclingKey={imageWarmKey(imageUri)}
-              transition={0}
-              onLoadStart={() => {
-                if (!isImageUriWarmed(imageUri)) setImageLoading(true);
-              }}
-              onLoad={onImageLoad}
-              onError={onImageError}
-              priority="high"
-            />
-          ) : null}
+          <Image
+            source={{ uri: imageUri }}
+            style={{
+              width: contentWidth,
+              height: imageHeight,
+              alignSelf: "center"
+            }}
+            contentFit={contentFit}
+            cachePolicy="memory-disk"
+            recyclingKey={imageWarmKey(imageUri)}
+            transition={0}
+            onLoad={onImageLoad}
+            onError={onImageError}
+          />
           {showImageLoader ? (
             <View style={s.loaderCenter} pointerEvents="none">
               <FeedMediaLoader accessibilityLabel="Loading image" />
@@ -347,4 +326,25 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
   }
 );
 
-export const PostMedia = memo(PostMediaInner);
+export const PostMedia = memo(PostMediaInner, (prev, next) => {
+  if (
+    prev.mediaUrl !== next.mediaUrl ||
+    prev.mediaType !== next.mediaType ||
+    prev.thumbnailUrl !== next.thumbnailUrl ||
+    prev.feedMode !== next.feedMode ||
+    prev.cornerRadius !== next.cornerRadius ||
+    prev.height !== next.height ||
+    prev.onRequestPlay !== next.onRequestPlay ||
+    prev.onDoubleTapLike !== next.onDoubleTapLike ||
+    prev.mediaUrlFallbacks !== next.mediaUrlFallbacks
+  ) {
+    return false;
+  }
+  const kind = resolveKind(prev.mediaUrl, prev.mediaType);
+  if (kind !== "video") return true;
+  return (
+    prev.isActive === next.isActive &&
+    prev.isPreload === next.isPreload &&
+    prev.isRetain === next.isRetain
+  );
+});

@@ -30,6 +30,7 @@ import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 
 const ACCENT = "#1D4ED8";
 const ACCENT_SOFT = "#DBEAFE";
@@ -218,8 +219,7 @@ export function ProminentPeopleHomeScreen() {
         },
         searchInput: {
           flex: 1,
-          paddingVertical: 12,
-          fontSize: 14,
+          ...textFieldCompact,
           color: colors.text
         },
         chipScroll: { paddingVertical: 2 },

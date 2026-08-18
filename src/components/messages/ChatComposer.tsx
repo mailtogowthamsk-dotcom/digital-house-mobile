@@ -8,6 +8,7 @@ import {
   Platform
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { textFieldCompactPad } from "../../theme/textField";
 
 const MIN_INPUT_HEIGHT = 44;
 const MAX_INPUT_HEIGHT = 120;
@@ -119,10 +120,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 12 : 10,
-    paddingBottom: Platform.OS === "ios" ? 12 : 10,
+    ...textFieldCompactPad,
     fontSize: 16,
-    ...(Platform.OS === "android" ? { includeFontPadding: false, textAlignVertical: "top" } : {})
+    ...(Platform.OS === "android" ? { textAlignVertical: "top" } : {})
   },
   sendBtn: {
     width: SEND_SIZE,

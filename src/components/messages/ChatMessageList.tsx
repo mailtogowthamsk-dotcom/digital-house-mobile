@@ -22,8 +22,22 @@ import { buildChatListRows, type ChatListRow } from "../../utils/messageDateGrou
 import { ChatMessageBubble } from "./ChatMessageBubble";
 import { ChatDateSeparator } from "./ChatDateSeparator";
 import { ChatScrollFab } from "./ChatScrollFab";
+import { ChatTypingIndicator } from "./ChatTypingIndicator";
 
 const MAINTAIN_VISIBLE_POSITION = { minIndexForVisible: 1 };
+const GROUP_WINDOW_MS = 3 * 60 * 1000;
+
+function sameSenderCluster(a: MessageItem | null, b: MessageItem | null): boolean {
+  if (!a || !b || a.senderId !== b.senderId) return false;
+  const ta = new Date(a.createdAt).getTime();
+  const tb = new Date(b.createdAt).getTime();
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return Math.abs(tb - ta) < GROUP_WINDOW_MS;
+}
+
+function messageFromRow(row: ChatListRow | undefined): MessageItem | null {
+  return row?.kind === "message" ? row.message : null;
+}
 
 export type ChatMessageListHandle = {
   scrollToBottom: (animated?: boolean) => void;
@@ -45,6 +59,7 @@ type Props = {
     white: string;
   };
   keyboardVisible?: boolean;
+  peerTyping?: boolean;
   onAutoScrollChange?: (enabled: boolean) => void;
   onSharedPostPress?: (postId: number) => void;
 };
@@ -59,6 +74,7 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     otherAvatarUri,
     colors,
     keyboardVisible = false,
+    peerTyping = false,
     onAutoScrollChange,
     onSharedPostPress
   },
@@ -116,8 +132,14 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     }
   }, [keyboardVisible, scrollToBottom]);
 
+  useEffect(() => {
+    if (peerTyping && autoScrollRef.current) {
+      scrollToBottom(true);
+    }
+  }, [peerTyping, scrollToBottom]);
+
   const renderItem: ListRenderItem<ChatListRow> = useCallback(
-    ({ item }) => {
+    ({ item, index }) => {
       if (item.kind === "date") {
         return (
           <ChatDateSeparator
@@ -128,22 +150,40 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
         );
       }
       const msg = item.message;
+      const mine = meId != null && msg.senderId === meId;
+      const prev = messageFromRow(rows[index - 1]);
+      const next = messageFromRow(rows[index + 1]);
+      const groupedTop = sameSenderCluster(prev, msg);
+      const groupedBottom = sameSenderCluster(msg, next);
       return (
         <ChatMessageBubble
           item={msg}
-          mine={meId != null && msg.senderId === meId}
+          mine={mine}
           maxWidth={bubbleMaxWidth}
           fontSize={fontSize}
           colors={colors}
           otherAvatarUri={otherAvatarUri}
+          showAvatar={!mine && !groupedBottom}
+          groupedTop={groupedTop}
+          groupedBottom={groupedBottom}
           onSharedPostPress={onSharedPostPress}
         />
       );
     },
-    [meId, bubbleMaxWidth, fontSize, colors, otherAvatarUri, onSharedPostPress]
+    [meId, bubbleMaxWidth, fontSize, colors, otherAvatarUri, onSharedPostPress, rows]
   );
 
   const keyExtractor = useCallback((item: ChatListRow) => item.id, []);
+
+  const typingFooter = (
+    <ChatTypingIndicator
+      visible={peerTyping}
+      avatarUri={otherAvatarUri}
+      bubbleColor={colors.surfaceElevated}
+      placeholderColor={colors.surfaceElevated}
+      mutedColor={colors.textMuted}
+    />
+  );
 
   return (
     <View style={styles.wrap}>
@@ -154,13 +194,14 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
           styles.content,
           {
             paddingHorizontal: horizontalPadding,
-            paddingTop: 12
+            paddingTop: 8
           },
           rows.length === 0 && styles.contentEmpty
         ]}
         data={rows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ListFooterComponent={typingFooter}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onContentSizeChange={handleContentSizeChange}
@@ -197,7 +238,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingBottom: 12
+    paddingBottom: 8
   },
   contentEmpty: {
     flex: 1,

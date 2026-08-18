@@ -15,15 +15,24 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
     () =>
       StyleSheet.create({
         section: {
-          marginTop: spacing.sm,
+          marginTop: spacing.md,
           marginBottom: spacing.xxl
+        },
+        label: {
+          ...typography.caption,
+          color: colors.textMuted,
+          fontWeight: "700",
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          marginBottom: spacing.sm,
+          marginLeft: 2
         },
         logoutBtn: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
           gap: spacing.sm,
-          paddingVertical: 14,
+          paddingVertical: 13,
           paddingHorizontal: spacing.lg,
           borderRadius: radius.lg,
           backgroundColor: colors.surface,
@@ -42,6 +51,7 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
 
   return (
     <View style={s.section}>
+      <Text style={s.label}>Account</Text>
       <Pressable
         style={({ pressed }) => [s.logoutBtn, pressed && s.pressed]}
         onPress={onLogoutPress}

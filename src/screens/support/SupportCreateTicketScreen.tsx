@@ -14,6 +14,7 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldMultiline } from "../../theme/textField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
@@ -211,11 +212,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 15,
+    ...textField,
     marginBottom: 8
   },
-  area: { minHeight: 120 },
+  area: { minHeight: 120, ...textFieldMultiline },
   attach: {
     flexDirection: "row",
     alignItems: "center",

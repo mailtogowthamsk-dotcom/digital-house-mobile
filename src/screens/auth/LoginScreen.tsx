@@ -316,7 +316,7 @@ function LoginScreenBody({
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
-              variant="light"
+              variant="onWhite"
               editable={!loading}
               leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
             />

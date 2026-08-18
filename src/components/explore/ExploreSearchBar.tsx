@@ -3,6 +3,7 @@ import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 
 type Props = {
   value: string;
@@ -59,13 +60,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     minHeight: 48
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    minHeight: 36,
-    paddingVertical: 0
+    ...textFieldCompact
   }
 });

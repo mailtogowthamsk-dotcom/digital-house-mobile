@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getMasterItems, type MasterDataItem } from "../../api/options.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 
 type SuggestItem = {
   id: string;
@@ -195,8 +196,7 @@ export function MasterDataSuggestInput({
         },
         input: {
           flex: 1,
-          paddingVertical: 12,
-          fontSize: 14,
+          ...textFieldCompact,
           color: colors.text
         },
         list: {

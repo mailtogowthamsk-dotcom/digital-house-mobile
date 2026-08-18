@@ -14,6 +14,7 @@ import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoiding
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldMultiline } from "../../theme/textField";
 import {
   getMySupportTicket,
   listMySupportTickets,
@@ -245,9 +246,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
     minHeight: 90,
-    padding: 12,
+    ...textFieldMultiline,
+    paddingHorizontal: 12,
     marginTop: spacing.md,
-    marginBottom: 10,
-    textAlignVertical: "top"
+    marginBottom: 10
   }
 });

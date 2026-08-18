@@ -7,7 +7,7 @@ import {
   Easing,
   Modal,
   StatusBar,
-  useWindowDimensions
+  Dimensions
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -124,6 +124,7 @@ function VideoPosterShell({
           contentFit="cover"
           cachePolicy="memory-disk"
           recyclingKey={thumbnailUrl ? thumbnailUrl.split("?")[0] : undefined}
+          transition={0}
         />
       ) : null}
       {onPressPlay ? (
@@ -167,13 +168,20 @@ function ActiveFeedVideoPlayer({
   const playbackAllowed = usePlaybackAllowed();
   const { muted, toggleMute, setMuted } = useFeedAudioControls();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [windowSize, setWindowSize] = useState(() => Dimensions.get("window"));
+  const { width: screenWidth, height: screenHeight } = windowSize;
   const alreadyWarmed = isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
   const [ready, setReady] = useState(alreadyWarmed);
   const [loading, setLoading] = useState(!alreadyWarmed);
   const [playing, setPlaying] = useState(false);
   const [errored, setErrored] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (!fullscreen) return;
+    setWindowSize(Dimensions.get("window"));
+    const sub = Dimensions.addEventListener("change", ({ window: next }) => setWindowSize(next));
+    return () => sub.remove();
+  }, [fullscreen]);
   /**
    * The poster covers the surface from mount until the decoder paints, cached or
    * not — a `VideoView` renders black before its first frame, which is the blink
@@ -184,6 +192,7 @@ function ActiveFeedVideoPlayer({
   const hasPaintedFrameRef = useRef(false);
   const userPausedRef = useRef(false);
   const aliveRef = useRef(true);
+  const stallRetryRef = useRef(0);
   const lastTapTime = useRef(0);
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const posterOpacity = useRef(new Animated.Value(1)).current;
@@ -204,9 +213,9 @@ function ActiveFeedVideoPlayer({
     p.audioMixingMode = getFeedAudioMuted() ? "auto" : "doNotMix";
     try {
       p.bufferOptions = {
-        preferredForwardBufferDuration: 8,
-        waitsToMinimizeStalling: true,
-        minBufferForPlayback: 0.8,
+        preferredForwardBufferDuration: 6,
+        waitsToMinimizeStalling: false,
+        minBufferForPlayback: 0.25,
         prioritizeTimeOverSizeThreshold: true
       };
     } catch {
@@ -274,6 +283,7 @@ function ActiveFeedVideoPlayer({
     const warmed =
       isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
     hasPaintedFrameRef.current = false;
+    stallRetryRef.current = 0;
     setReady(warmed);
     setLoading(!warmed);
     setErrored(false);
@@ -290,7 +300,20 @@ function ActiveFeedVideoPlayer({
       } else if (status === "loading") {
         if (!hasPaintedFrameRef.current && !isVideoUriWarmed(uri)) setLoading(true);
       } else if (status === "error") {
+        if (stallRetryRef.current < 1) {
+          stallRetryRef.current += 1;
+          void player.replaceAsync(buildFeedVideoSource(uri, { useCaching: false })).then(() => {
+            ensurePlaying();
+          }).catch(() => {
+            if (!aliveRef.current) return;
+            setLoading(false);
+            setReady(true);
+            setErrored(true);
+          });
+          return;
+        }
         setLoading(false);
+        setReady(true);
         setErrored(true);
       }
     });
@@ -347,6 +370,41 @@ function ActiveFeedVideoPlayer({
     }
   }, [shouldPlay, player, ensurePlaying]);
 
+  // Some sources never leave "loading" (corrupt cache, stalled Range).
+  // After 8s without a frame, retry once without caching; after 16s drop the spinner.
+  useEffect(() => {
+    if (!shouldPlay) return;
+    let cancelled = false;
+    const giveUp = () => {
+      if (cancelled || hasPaintedFrameRef.current) return;
+      setLoading(false);
+      setReady(true);
+      setErrored(true);
+    };
+    const retryUncached = () => {
+      if (cancelled || hasPaintedFrameRef.current || userPausedRef.current) return;
+      if (stallRetryRef.current >= 1) {
+        giveUp();
+        return;
+      }
+      stallRetryRef.current += 1;
+      setLoading(true);
+      void player
+        .replaceAsync(buildFeedVideoSource(uri, { useCaching: false }))
+        .then(() => {
+          if (!cancelled) ensurePlaying();
+        })
+        .catch(giveUp);
+    };
+    const tRetry = setTimeout(retryUncached, 8000);
+    const tFail = setTimeout(giveUp, 16000);
+    return () => {
+      cancelled = true;
+      clearTimeout(tRetry);
+      clearTimeout(tFail);
+    };
+  }, [shouldPlay, player, uri, ensurePlaying]);
+
   useEffect(() => {
     return () => {
       try {
@@ -365,15 +423,43 @@ function ActiveFeedVideoPlayer({
         userPausedRef.current = true;
         player.pause();
         setPlaying(false);
-      } else {
-        userPausedRef.current = false;
-        pauseOtherFeedVideos(player);
-        player.play();
-        hidePosterSmoothly();
-        setPlaying(true);
+        return;
       }
+      userPausedRef.current = false;
+      if (errored) {
+        setErrored(false);
+        setLoading(true);
+        stallRetryRef.current = 0;
+        void player
+          .replaceAsync(buildFeedVideoSource(uri, { useCaching: false }))
+          .then(() => {
+            pauseOtherFeedVideos(player);
+            ensurePlaying();
+          })
+          .catch(() => {
+            setLoading(false);
+            setReady(true);
+            setErrored(true);
+          });
+        return;
+      }
+      pauseOtherFeedVideos(player);
+      player.play();
+      hidePosterSmoothly();
+      setPlaying(true);
     } catch (_) {}
-  }, [player, playbackAllowed, isPreload, isRetain, isActive, fullscreen, hidePosterSmoothly]);
+  }, [
+    player,
+    playbackAllowed,
+    isPreload,
+    isRetain,
+    isActive,
+    fullscreen,
+    hidePosterSmoothly,
+    errored,
+    uri,
+    ensurePlaying
+  ]);
 
   useEffect(() => {
     if (!onTogglePlayRef) return;
@@ -546,14 +632,15 @@ function ActiveFeedVideoPlayer({
         ) : (
           <View style={s.video} />
         )}
-        {posterVisible && !fullscreen ? (
+        {posterVisible && !fullscreen && thumbnailUrl ? (
           <Animated.View style={[s.poster, { opacity: posterOpacity }]} pointerEvents="none">
             <Image
               source={{ uri: thumbnailUrl }}
               style={s.poster}
               contentFit="cover"
               cachePolicy="memory-disk"
-              recyclingKey={thumbnailUrl?.split("?")[0]}
+              recyclingKey={thumbnailUrl.split("?")[0]}
+              transition={0}
             />
           </Animated.View>
         ) : null}
@@ -716,32 +803,30 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
     }, [ref, onRequestPlay]);
 
     // Active + previous (retain) keep one native player each (max 2).
-    // Screen focus only gates playback (see usePlaybackAllowed), never mounting —
-    // unmounting on blur destroyed the decoder and re-created it on return.
-    // Never pin-download here — that froze reverse scroll; useCaching covers bytes.
+    // Brief viewability flicker used to unmount the decoder and restart the clip.
+    // Hold the player a short beat after active/retain drops so reverse-scroll
+    // resumes the same instance instead of remounting.
     const shouldMountPlayer = (isActive || isRetain) && !isPreload;
+    const [holdPlayer, setHoldPlayer] = useState(shouldMountPlayer);
 
-    if (isPreload && !isActive && !isRetain) {
+    useEffect(() => {
+      if (shouldMountPlayer) {
+        setHoldPlayer(true);
+        return;
+      }
+      const timer = setTimeout(() => setHoldPlayer(false), 480);
+      return () => clearTimeout(timer);
+    }, [shouldMountPlayer]);
+
+    if (!shouldMountPlayer && !holdPlayer) {
       return (
         <VideoPosterShell
           thumbnailUrl={thumbnailUrl}
           height={height}
           style={style}
           colors={colors}
-          showPlayIcon={false}
-        />
-      );
-    }
-
-    if (!shouldMountPlayer) {
-      return (
-        <VideoPosterShell
-          thumbnailUrl={thumbnailUrl}
-          height={height}
-          style={style}
-          colors={colors}
-          showPlayIcon
-          onPressPlay={onRequestPlay}
+          showPlayIcon={!isPreload}
+          onPressPlay={isPreload ? undefined : onRequestPlay}
         />
       );
     }
@@ -754,7 +839,7 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
         height={height}
         isActive={isActive}
         isPreload={false}
-        isRetain={isRetain && !isActive}
+        isRetain={!isActive}
         style={style}
         colors={colors}
         onTogglePlayRef={togglePlayRef}

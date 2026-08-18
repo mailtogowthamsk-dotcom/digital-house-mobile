@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
+import { textField } from "../../theme/textField";
 import { useAuth } from "../../context/AuthContext";
 import { submitRegistrationCorrection } from "../../api/auth.api";
 import { uploadOptimizedImage } from "../../utils/mediaUpload";
@@ -104,8 +105,7 @@ export function RegistrationCorrectionScreen() {
           borderColor: colors.border,
           borderRadius: 12,
           paddingHorizontal: 14,
-          paddingVertical: 12,
-          fontSize: 16,
+          ...textField,
           color: colors.text,
           marginBottom: spacing.lg
         },

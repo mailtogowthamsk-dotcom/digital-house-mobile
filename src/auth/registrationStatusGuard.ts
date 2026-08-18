@@ -30,6 +30,26 @@ function isWaiting(status: string): boolean {
   return status === "PENDING" || status === "PENDING_REVIEW";
 }
 
+export function isWaitingAuthStatus(status: string): boolean {
+  return status === "pending" || status === "changes_requested";
+}
+
+/**
+ * A waiting/correction session must not jump to Home when admin approves.
+ * The member signs in again with OTP or Google.
+ */
+export function shouldReauthAfterApproval(
+  previous: RegistrationUserLike | null,
+  previousAuthStatus: string,
+  next: RegistrationUserLike | null,
+  signedOut: boolean
+): boolean {
+  if (signedOut || !next || next.status !== "APPROVED") return false;
+  if (isWaitingAuthStatus(previousAuthStatus)) return true;
+  if (!previous) return false;
+  return isWaiting(previous.status) || previous.status === "CHANGES_REQUESTED";
+}
+
 /** Single post-auth router used by AuthContext for OTP + Google. */
 export function routeForRegistrationUser(
   user: RegistrationUserLike | null,

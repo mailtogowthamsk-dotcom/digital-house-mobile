@@ -80,6 +80,14 @@ const EXPLORE: MenuItem[] = [
     tintBg: "#DBEAFE"
   },
   {
+    id: "advertisements",
+    label: "Advertise",
+    subtitle: "Promote your business",
+    icon: "megaphone-outline",
+    tint: "#C2410C",
+    tintBg: "#FFF7ED"
+  },
+  {
     id: "community",
     label: "Updates",
     subtitle: "Announcements",
@@ -360,6 +368,7 @@ export function MenuScreen() {
     else if (actionId === "helping-hand") navigation.navigate("HelpingHandsHome");
     else if (actionId === "prominent-people") navigation.navigate("ProminentPeopleHome");
     else if (actionId === "matrimony") navigation.navigate("MatrimonyHome");
+    else if (actionId === "advertisements") navigation.navigate("AdvertisementsHome");
     else if (actionId === "help-support") navigation.navigate("HelpSupport");
   };
 

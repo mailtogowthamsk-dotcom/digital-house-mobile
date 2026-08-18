@@ -31,6 +31,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { checkoutMatrimonyContactReveal } from "../../services/matrimonyCheckout";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldMultiline } from "../../theme/textField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MatrimonyProfileSection } from "../../components/matrimony/MatrimonyProfileSection";
 import { MatrimonyChipRow } from "../../components/matrimony/MatrimonyChip";
@@ -903,11 +904,10 @@ const styles = StyleSheet.create({
   introInput: {
     borderWidth: 1,
     borderRadius: radius.md,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    ...textFieldMultiline,
     marginBottom: spacing.sm,
-    minHeight: 56,
-    fontSize: 14,
-    textAlignVertical: "top"
+    minHeight: 72
   },
   matchBanner: {
     backgroundColor: "#DCFCE7",

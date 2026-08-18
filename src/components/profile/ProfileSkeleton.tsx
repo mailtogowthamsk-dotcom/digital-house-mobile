@@ -43,10 +43,17 @@ export function ProfileSkeleton() {
           paddingTop: spacing.xxl
         },
         box: { backgroundColor: colors.border, borderRadius: radius.sm },
-        header: { alignItems: "center", marginBottom: spacing.xl },
-        avatar: { borderRadius: 48, marginBottom: spacing.md },
+        avatar: { borderRadius: 46, marginBottom: spacing.md },
         line: { marginBottom: spacing.sm },
-        editBtn: { borderRadius: radius.lg, marginTop: spacing.md },
+        editBtn: { borderRadius: radius.md, marginTop: spacing.md },
+        hero: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.xl,
+          padding: spacing.lg,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          marginBottom: spacing.lg
+        },
         section: { marginBottom: spacing.md },
         card: {
           backgroundColor: colors.surface,
@@ -63,10 +70,15 @@ export function ProfileSkeleton() {
 
   return (
     <View style={s.container}>
-      <View style={s.header}>
-        <SkeletonBox width={96} height={96} style={s.avatar} boxStyle={s.box} />
-        <SkeletonBox width="50%" height={22} style={s.line} boxStyle={s.box} />
-        <SkeletonBox width="30%" height={14} style={s.line} boxStyle={s.box} />
+      <View style={s.hero}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+          <SkeletonBox width={84} height={84} style={s.avatar} boxStyle={s.box} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBox width="70%" height={20} style={s.line} boxStyle={s.box} />
+            <SkeletonBox width="40%" height={14} style={s.line} boxStyle={s.box} />
+            <SkeletonBox width="55%" height={12} boxStyle={s.box} />
+          </View>
+        </View>
         <SkeletonBox width="100%" height={44} style={s.editBtn} boxStyle={s.box} />
       </View>
       <View style={s.section}>

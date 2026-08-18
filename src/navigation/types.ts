@@ -74,4 +74,7 @@ export type RootStackParamList = {
   SupportCreateTicket: { type?: "BUG" | "FEATURE" | "QUESTION" | "CONTACT" | "GENERAL" } | undefined;
   SupportMyTickets: undefined;
   SupportTicketDetail: { ticketId: number };
+  AdvertisementsHome: undefined;
+  AdvertisementCreate: { id?: number } | undefined;
+  AdvertisementDetail: { id: number };
 };

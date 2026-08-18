@@ -48,7 +48,7 @@ function CommentPreviewInner({
   if (!likedLine && commentCount <= 0) return null;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
       {likedLine ? (
         <Pressable
           onPress={onLikeCountPress}
@@ -73,10 +73,16 @@ export const CommentPreview = memo(CommentPreviewInner);
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 2,
+    gap: 2
+  },
+  wrapCompact: {
+    paddingHorizontal: 14,
+    paddingTop: 2,
     paddingBottom: 4,
-    gap: 3
+    gap: 1
   },
   comments: {
     marginTop: 1

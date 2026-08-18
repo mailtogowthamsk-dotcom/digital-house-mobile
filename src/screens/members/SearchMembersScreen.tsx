@@ -12,6 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 import { searchUsers, type DirectoryUser } from "../../api/users.api";
 import { listThreads } from "../../api/messages.api";
 import {
@@ -300,7 +301,7 @@ export function SearchMembersScreen() {
           paddingHorizontal: spacing.md,
           paddingVertical: spacing.sm
         },
-        searchInput: { flex: 1, fontSize: 15, color: colors.text, minHeight: 36 },
+        searchInput: { flex: 1, ...textFieldCompact, color: colors.text },
         empty: { padding: spacing.xl, alignItems: "center" },
         emptyText: { color: colors.textSecondary, textAlign: "center", lineHeight: 20 }
       }),

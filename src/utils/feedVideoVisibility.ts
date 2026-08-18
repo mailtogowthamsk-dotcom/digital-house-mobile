@@ -30,7 +30,8 @@ export function pickActiveAndPreloadPostIds(
     .filter((v) => v.isViewable)
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 
-  const activeId = visible[0]?.item.id ?? null;
+  const visibleVideo = visible.find((v) => isFeedVideoItem(v.item));
+  const activeId = visibleVideo?.item.id ?? visible[0]?.item.id ?? null;
   let preloadId: string | null = null;
   let retainId: string | null = null;
 

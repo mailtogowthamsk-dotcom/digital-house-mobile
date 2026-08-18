@@ -8,7 +8,6 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
-  Platform,
   Keyboard,
   useWindowDimensions
 } from "react-native";
@@ -26,6 +25,7 @@ import { hapticComment } from "../../utils/feedHaptics";
 import { trackFeedAction } from "../../utils/feedAnalytics";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textFieldCompact } from "../../theme/textField";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { ModalKeyboardAvoiding } from "../ui/ModalKeyboardAvoiding";
 
@@ -468,15 +468,13 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
         inputRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
         input: {
           flex: 1,
-          minHeight: 44,
+          minHeight: 48,
           maxHeight: 120,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: 22,
           paddingHorizontal: spacing.lg,
-          paddingTop: Platform.OS === "ios" ? 12 : 10,
-          paddingBottom: Platform.OS === "ios" ? 12 : 10,
-          fontSize: 15,
+          ...textFieldCompact,
           color: colors.text,
           backgroundColor: colors.surface
         },

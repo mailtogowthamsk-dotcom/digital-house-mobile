@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Platform,
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from "react-native";
@@ -31,6 +32,8 @@ import { emitPostUpdated } from "../../utils/postSync";
 import { promptReportPost } from "../../utils/promptReportPost";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
+import { getFeedMediaFocus, setFeedMediaFocus } from "../../media/feedMediaFocus";
+import { FEED_FLATLIST_PERF } from "../../utils/listPerf";
 import type { PostLiker } from "../../api/posts.api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -53,43 +56,51 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(explore.updatePost);
   const navigateToPostAuthor = useNavigateToPostAuthor();
 
-  const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
-  const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
+  const [commentPost, setCommentPost] = useState<{ id: string; title: string } | null>(null);
+  const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
-  const [activeMediaPostId, setActiveMediaPostId] = useState<string | null>(null);
-  const [preloadMediaPostId, setPreloadMediaPostId] = useState<string | null>(null);
-  const [retainMediaPostId, setRetainMediaPostId] = useState<string | null>(null);
   const resultsRef = useRef<PostCardData[]>([]);
   const commentPostIdRef = useRef<string | null>(null);
   const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeMediaPostIdRef = useRef<string | null>(null);
-  activeMediaPostIdRef.current = activeMediaPostId;
   commentPostIdRef.current = commentPost?.id ?? null;
   resultsRef.current = explore.results;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 55,
+    itemVisiblePercentThreshold: 40,
     minimumViewTime: 160
   }).current;
-  const queueActiveMediaId = useRef((id: string | null) => {
-    if (!id || activeMediaPostIdRef.current === id) return;
+  const queueMediaWindow = useRef((id: string | null) => {
+    if (!id) return;
+    const items = resultsRef.current;
+    const idx = items.findIndex((p) => p.id === id);
+    const next = {
+      activeId: id,
+      preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
+      retainId: idx > 0 ? items[idx - 1]!.id : null
+    };
+    const current = getFeedMediaFocus();
+    if (
+      current.activeId === next.activeId &&
+      current.preloadId === next.preloadId &&
+      current.retainId === next.retainId
+    ) {
+      return;
+    }
     if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
-    // First assignment is applied synchronously — see HomeScreen.
-    if (!activeMediaPostIdRef.current) {
+    if (!current.activeId) {
       activeMediaSwitchTimer.current = null;
-      activeMediaPostIdRef.current = id;
-      setActiveMediaPostId(id);
+      setFeedMediaFocus(next);
       return;
     }
     activeMediaSwitchTimer.current = setTimeout(() => {
       activeMediaSwitchTimer.current = null;
-      setActiveMediaPostId((prev) => (prev === id ? prev : id));
+      setFeedMediaFocus(next);
     }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, resultsRef.current);
-      queueActiveMediaId(activeId);
+      queueMediaWindow(activeId);
     }
   ).current;
 
@@ -98,10 +109,10 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const onExploreScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (e.nativeEvent.contentOffset.y <= 12) {
-        queueActiveMediaId(resultsRef.current[0]?.id ?? null);
+        queueMediaWindow(resultsRef.current[0]?.id ?? null);
       }
     },
-    [queueActiveMediaId]
+    [queueMediaWindow]
   );
 
   useEffect(
@@ -113,28 +124,15 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
 
   useEffect(() => {
     const items = explore.results;
-    if (!items.length) {
-      setActiveMediaPostId(null);
-      setPreloadMediaPostId(null);
-      setRetainMediaPostId(null);
-      return;
-    }
-    setActiveMediaPostId((prev) =>
-      prev && items.some((p) => p.id === prev) ? prev : items[0]!.id
-    );
+    if (!items.length) return;
+    const current = getFeedMediaFocus();
+    if (current.activeId && items.some((p) => p.id === current.activeId)) return;
+    setFeedMediaFocus({
+      activeId: items[0]!.id,
+      preloadId: items[1]?.id ?? null,
+      retainId: null
+    });
   }, [explore.results]);
-
-  useEffect(() => {
-    const items = explore.results;
-    if (!items.length || !activeMediaPostId) {
-      setPreloadMediaPostId(null);
-      setRetainMediaPostId(null);
-      return;
-    }
-    const idx = items.findIndex((p) => p.id === activeMediaPostId);
-    setPreloadMediaPostId(idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null);
-    setRetainMediaPostId(idx > 0 ? items[idx - 1]!.id : null);
-  }, [explore.results, activeMediaPostId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -177,19 +175,23 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         clearTimeout(activeMediaSwitchTimer.current);
         activeMediaSwitchTimer.current = null;
       }
-      activeMediaPostIdRef.current = postId;
-      setActiveMediaPostId(postId);
-      setPreloadMediaPostId((prev) => (prev === postId ? null : prev));
+      const items = resultsRef.current;
+      const idx = items.findIndex((p) => p.id === postId);
+      setFeedMediaFocus({
+        activeId: postId,
+        preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
+        retainId: idx > 0 ? items[idx - 1]!.id : null
+      });
     },
     onDoubleTap: (item) => addLike(item.id, item),
     onLikePress: (item) => toggleLike(item.id, item),
     onLikeCountPress: (item) => {
       trackFeedAction("likes_sheet_open", Number(item.id), { source: "explore" });
-      setLikesPost(item);
+      setLikesPostId(item.id);
     },
     onCommentPress: (item) => {
       trackFeedAction("comment_sheet_open", Number(item.id), { source: "explore" });
-      setCommentPost(item);
+      setCommentPost({ id: item.id, title: item.title });
     },
     onSavePress: (item) => toggleSave(item.id, item),
     onSharePress: (item) => {
@@ -211,16 +213,8 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   };
 
   const renderItem = useCallback(
-    ({ item }: { item: PostCardData }) => (
-      <FeedPostCardRow
-        post={item}
-        isMediaActive={item.id === activeMediaPostId}
-        isMediaPreload={item.id === preloadMediaPostId}
-        isMediaRetain={item.id === retainMediaPostId}
-        actionsRef={feedActionsRef}
-      />
-    ),
-    [activeMediaPostId, preloadMediaPostId, retainMediaPostId]
+    ({ item }: { item: PostCardData }) => <FeedPostCardRow post={item} actionsRef={feedActionsRef} />,
+    []
   );
 
   const handleCommentCountChange = useCallback(
@@ -236,7 +230,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
 
   const handleLikerPress = useCallback(
     (liker: PostLiker) => {
-      setLikesPost(null);
+      setLikesPostId(null);
       if (liker.isCurrentUser) {
         navigation.navigate("Profile");
         return;
@@ -350,18 +344,18 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         onEndReached={explore.loadMore}
         onEndReachedThreshold={0.35}
         onScroll={onExploreScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={FEED_FLATLIST_PERF.scrollEventThrottle}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        extraData={activeMediaPostId}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        overScrollMode={Platform.OS === "android" ? "never" : undefined}
         contentContainerStyle={listContentStyle}
-        removeClippedSubviews={false}
-        maxToRenderPerBatch={3}
-        windowSize={5}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={3}
+        removeClippedSubviews={FEED_FLATLIST_PERF.removeClippedSubviews}
+        maxToRenderPerBatch={FEED_FLATLIST_PERF.maxToRenderPerBatch}
+        windowSize={FEED_FLATLIST_PERF.windowSize}
+        updateCellsBatchingPeriod={FEED_FLATLIST_PERF.updateCellsBatchingPeriod}
+        initialNumToRender={FEED_FLATLIST_PERF.initialNumToRender}
       />
 
       {commentPost ? (
@@ -375,10 +369,10 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
       ) : null}
 
       <LikesBottomSheet
-        visible={likesPost != null}
-        target={likesPost ? { type: "post", id: Number(likesPost.id) } : null}
+        visible={likesPostId != null}
+        target={likesPostId ? { type: "post", id: Number(likesPostId) } : null}
         title="Likes"
-        onClose={() => setLikesPost(null)}
+        onClose={() => setLikesPostId(null)}
         onUserPress={handleLikerPress}
       />
 

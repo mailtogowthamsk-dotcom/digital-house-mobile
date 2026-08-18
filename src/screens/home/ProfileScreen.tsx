@@ -147,7 +147,13 @@ export function ProfileScreen() {
           profile_image={profile.profile_image}
           verified={profile.verified}
           member_since={profile.member_since}
+          location={[profile.personal_info?.city, profile.personal_info?.district].filter(Boolean).join(", ") || null}
           completion_percentage={profile.completion_percentage}
+          stats={{
+            posts: profile.stats?.total_posts ?? 0,
+            jobs: profile.stats?.jobs_posted ?? 0,
+            marketplace: profile.stats?.marketplace_items ?? 0
+          }}
           onEditPress={onEditPress}
         />
         <ProfileContentLinks

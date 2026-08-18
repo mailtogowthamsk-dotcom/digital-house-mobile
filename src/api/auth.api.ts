@@ -10,7 +10,6 @@ export type RegisterPayload = {
   mobile?: string | null;
   occupation?: string | null;
   location: string;
-  community?: string | null;
   kulam: string;
   profilePhoto?: string | null;
   govtIdType?: string | null;
@@ -149,7 +148,6 @@ export type CompleteGoogleProfilePayload = {
   dob: string;
   district: string;
   kulam: string;
-  community?: string | null;
   location?: string | null;
   mobile?: string | null;
   profilePhoto?: string | null;

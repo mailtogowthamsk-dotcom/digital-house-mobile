@@ -25,10 +25,13 @@ import { resetNotificationsRealtime } from "../realtime/notificationsRealtime";
 import { beginWelcomeSession, clearWelcomeSession } from "../session/welcomeSession";
 import {
   authStatusForRegistrationUser,
+  isWaitingAuthStatus,
   routeForRegistrationUser,
+  shouldReauthAfterApproval,
   type RegistrationAuthStatus,
   type RegistrationRootRoute
 } from "../auth/registrationStatusGuard";
+import { markApprovalReauthRequired } from "../auth/approvalReauth";
 
 function hardResetRealtime() {
   resetChatRealtime();
@@ -118,6 +121,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const applySession = useCallback((nextUser: MeUser | null, signedOut: boolean) => {
     const normalized = nextUser ? normalizeAuthUser(nextUser) : null;
+    if (
+      shouldReauthAfterApproval(
+        userRef.current,
+        statusRef.current,
+        normalized,
+        signedOut
+      )
+    ) {
+      markApprovalReauthRequired(true);
+      hardResetRealtime();
+      clearWelcomeSession();
+      void clearToken();
+      void clearUserSnapshot();
+      setUser(null);
+      setStatus("signedOut");
+      statusRef.current = "signedOut";
+      userRef.current = null;
+      stopDeliveryRealtime();
+      setSessionEpoch((n) => n + 1);
+      return;
+    }
     const nextStatus = statusForUser(normalized, signedOut);
     setUser(normalized);
     setStatus(nextStatus);
@@ -163,6 +187,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw firstErr;
         }
       }
+      const snapshot = await getUserSnapshot();
+      if (shouldReauthAfterApproval(snapshot, statusRef.current, me, false)) {
+        markApprovalReauthRequired(true);
+        hardResetRealtime();
+        clearWelcomeSession();
+        await clearToken();
+        await clearUserSnapshot();
+        applySession(null, true);
+        bumpSessionEpoch();
+        return;
+      }
       await setUserSnapshot(me);
       applySession(me, false);
     } catch (err) {
@@ -173,8 +208,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           err && typeof err === "object" && "response" in err
             ? ((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "")
             : "";
+        const snapshot = await getUserSnapshot();
+        const waiting =
+          isWaitingAuthStatus(statusRef.current) ||
+          snapshot?.status === "PENDING" ||
+          snapshot?.status === "PENDING_REVIEW" ||
+          snapshot?.status === "CHANGES_REQUESTED";
+        if (waiting && msg === "Invalid or expired token") {
+          markApprovalReauthRequired(true);
+          hardResetRealtime();
+          clearWelcomeSession();
+          await clearToken();
+          await clearUserSnapshot();
+          applySession(null, true);
+          bumpSessionEpoch();
+          return;
+        }
         if (msg === "Unauthorized") {
-          const snapshot = await getUserSnapshot();
           const token = await getTokenReliable();
           if (token && snapshot) {
             applySession(snapshot, false);
@@ -182,7 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         // Never wipe a session that was just established in-memory by signIn.
-        if (isSignedInStatus(statusRef.current) && userRef.current) {
+        if (!waiting && isSignedInStatus(statusRef.current) && userRef.current) {
           applySession(userRef.current, false);
           return;
         }
@@ -219,7 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       restoringRef.current = false;
       bootstrapDone.current = true;
     }
-  }, [applySession]);
+  }, [applySession, bumpSessionEpoch]);
 
   useEffect(() => {
     restoreSession();

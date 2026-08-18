@@ -651,9 +651,6 @@ export function ChatScreen() {
     );
   }
 
-  const laneLabels =
-    chatAccess?.chatLanes?.map((lane) => (lane === "matrimony" ? "Matrimony" : "Community")) ?? [];
-
   const chatLockBanner = (
     <>
       {threadArchived ? (
@@ -680,27 +677,16 @@ export function ChatScreen() {
             ) : null}
           </View>
         </View>
-      ) : laneLabels.length > 0 && !threadArchived ? (
-        <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
-          <Ionicons name="chatbubbles-outline" size={16} color={colors.primary} />
-          <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
-            {laneLabels.length > 1
-              ? `Community and matrimony chat — separate permissions.`
-              : `${laneLabels[0]} chat`}
-          </Text>
-        </View>
       ) : null}
     </>
   );
 
   const lastSeenLabel = formatLastSeen(otherLastSeen);
-  const presenceSubtitle = typing.peerTyping
-    ? "Typing…"
-    : otherOnline
-      ? "Online"
-      : lastSeenLabel
-        ? `Last seen ${lastSeenLabel}`
-        : " ";
+  const presenceSubtitle = otherOnline
+    ? "Online"
+    : lastSeenLabel
+      ? `Last seen ${lastSeenLabel}`
+      : " ";
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
@@ -721,12 +707,13 @@ export function ChatScreen() {
         composerPaddingBottom={layout.composerPaddingBottom}
         chatKeyboardInset={layout.chatKeyboardInset}
         keyboardVisible={layout.keyboardVisible}
+        peerTyping={typing.peerTyping}
         otherAvatarUri={otherAvatarUri}
         headerAvatarUri={otherAvatarUri}
         colors={panelColors}
         headerLeft={backButton}
         headerRight={optionsButton}
-        headerBanner={chatLockBanner}
+        headerBanner={threadArchived || chatLockMessage ? chatLockBanner : undefined}
         onSharedPostPress={handleSharedPostPress}
       />
     </View>

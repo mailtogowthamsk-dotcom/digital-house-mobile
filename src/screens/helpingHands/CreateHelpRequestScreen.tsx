@@ -22,6 +22,7 @@ import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScree
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldMultiline } from "../../theme/textField";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
 import {
@@ -94,11 +95,10 @@ export function CreateHelpRequestScreen() {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
           paddingHorizontal: 14,
-          paddingVertical: 12,
-          fontSize: 15,
+          ...textField,
           color: colors.text
         },
-        area: { minHeight: 120, textAlignVertical: "top" },
+        area: { minHeight: 120, ...textFieldMultiline },
         chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
         chip: {
           paddingHorizontal: 14,

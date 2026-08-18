@@ -22,6 +22,7 @@ import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSuggestInput";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldCompact } from "../../theme/textField";
 import { timeAgo } from "../../utils/timeAgo";
 import {
   MARKETPLACE_CATEGORIES,
@@ -352,8 +353,7 @@ export function MarketplaceHomeScreen() {
         },
         searchInput: {
           flex: 1,
-          paddingVertical: 12,
-          fontSize: 14,
+          ...textFieldCompact,
           color: colors.text
         },
         priceRow: { flexDirection: "row", gap: spacing.sm },
@@ -362,10 +362,9 @@ export function MarketplaceHomeScreen() {
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md,
           paddingHorizontal: spacing.md,
-          paddingVertical: 11,
+          ...textField,
           borderWidth: 1,
           borderColor: colors.border,
-          fontSize: 14,
           color: colors.text
         },
         filterToggle: {

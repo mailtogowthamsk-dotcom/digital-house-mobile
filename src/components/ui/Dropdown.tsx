@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,16 @@ import {
   Modal,
   FlatList,
   TouchableOpacity,
-  ViewStyle
+  TextInput,
+  ViewStyle,
+  useWindowDimensions
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
+import { TEXT_FIELD_MIN_HEIGHT, textFieldCompact } from "../../theme/textField";
+import { ModalKeyboardAvoiding } from "./ModalKeyboardAvoiding";
+import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 
 const ICON_COLOR = "#6B7280";
 
@@ -36,9 +42,31 @@ export function Dropdown({
   required
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
 
   const isLight = variant === "light";
   const display = value ? options.find((o) => o.value === value)?.label ?? value : placeholder;
+  const searchable = options.length > 8;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+    );
+  }, [options, query]);
+
+  const sheetHeight = keyboardOpen
+    ? Math.max(windowHeight - keyboardHeight - Math.max(insets.top, 12) - 8, 280)
+    : Math.min(Math.round(windowHeight * 0.72), 640);
+  const sheetBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, 16);
+
+  const close = () => {
+    setOpen(false);
+    setQuery("");
+  };
 
   return (
     <View style={[s.wrap, containerStyle]}>
@@ -58,38 +86,78 @@ export function Dropdown({
         <Ionicons name="chevron-down" size={20} color={ICON_COLOR} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade">
-        <Pressable style={s.modalOverlay} onPress={() => setOpen(false)}>
-          <View style={s.modalContent}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{placeholder}</Text>
-              <Pressable onPress={() => setOpen(false)} hitSlop={12}>
-                <Ionicons name="close" size={24} color="#111827" />
-              </Pressable>
-            </View>
-            <FlatList
-              data={options}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[s.option, value === item.value && s.optionSelected]}
-                  onPress={() => {
-                    onSelect(item.value);
-                    setOpen(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[s.optionText, value === item.value && s.optionTextSelected]}>
-                    {item.label}
-                  </Text>
-                  {value === item.value ? (
-                    <Ionicons name="checkmark" size={22} color="#2563EB" />
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={close}
+        statusBarTranslucent
+      >
+        <View style={s.overlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Dismiss" />
+          <ModalKeyboardAvoiding>
+            <Pressable
+              style={[s.sheet, { height: sheetHeight, paddingBottom: sheetBottomPad }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={s.modalHeader}>
+                <Text style={s.modalTitle}>{placeholder}</Text>
+                <Pressable onPress={close} hitSlop={12} accessibilityLabel="Close">
+                  <Ionicons name="close" size={24} color="#111827" />
+                </Pressable>
+              </View>
+              {searchable ? (
+                <View style={s.searchRow}>
+                  <Ionicons name="search" size={18} color={ICON_COLOR} />
+                  <TextInput
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder="Search Tamil or English"
+                    placeholderTextColor="#9CA3AF"
+                    style={s.searchInput}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  {query ? (
+                    <Pressable onPress={() => setQuery("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={ICON_COLOR} />
+                    </Pressable>
                   ) : null}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </Pressable>
+                </View>
+              ) : null}
+              <FlatList
+                style={s.list}
+                data={filtered}
+                keyExtractor={(item, index) => `${item.value}-${index}`}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                ListEmptyComponent={
+                  <Text style={s.empty}>No matches. Try Tamil or English name.</Text>
+                }
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[s.option, value === item.value && s.optionSelected]}
+                    onPress={() => {
+                      onSelect(item.value);
+                      close();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[s.optionText, value === item.value && s.optionTextSelected]}
+                      numberOfLines={2}
+                    >
+                      {item.label}
+                    </Text>
+                    {value === item.value ? (
+                      <Ionicons name="checkmark" size={22} color="#2563EB" />
+                    ) : null}
+                  </TouchableOpacity>
+                )}
+              />
+            </Pressable>
+          </ModalKeyboardAvoiding>
+        </View>
       </Modal>
     </View>
   );
@@ -107,24 +175,25 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 16,
-    minHeight: 52,
+    minHeight: TEXT_FIELD_MIN_HEIGHT,
     paddingHorizontal: 16
   },
   inputRowLight: {},
   inputText: { fontSize: 16, color: "#111827", flex: 1 },
   placeholder: { color: "#9CA3AF" },
-  modalOverlay: {
+  overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "flex-end"
   },
-  modalContent: {
+  sheet: {
+    width: "100%",
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "70%",
-    paddingBottom: 24
+    overflow: "hidden"
   },
+  list: { flex: 1 },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -138,10 +207,32 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 20
   },
   optionSelected: { backgroundColor: "rgba(37,99,235,0.08)" },
-  optionText: { fontSize: 16, color: "#111827" },
-  optionTextSelected: { fontWeight: "600", color: "#2563EB" }
+  optionText: { fontSize: 16, color: "#111827", flex: 1, paddingRight: 12 },
+  optionTextSelected: { fontWeight: "600", color: "#2563EB" },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    minHeight: TEXT_FIELD_MIN_HEIGHT,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB"
+  },
+  searchInput: { flex: 1, ...textFieldCompact, color: "#111827" },
+  empty: {
+    textAlign: "center",
+    color: "#6B7280",
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    fontSize: 14
+  }
 });

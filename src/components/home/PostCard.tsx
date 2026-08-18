@@ -106,6 +106,7 @@ function PostCardInner({
   onSavePress,
   onSharePress,
   onMenuPress,
+  onActivateMedia,
   onViewJob
 }: PostCardProps) {
   const { colors, mode } = useTheme();
@@ -120,6 +121,7 @@ function PostCardInner({
 
   const video = isVideoPost(post);
   const isJob = (post.postType || "").toLowerCase() === "job";
+  const hasImage = Boolean(post.imageUri) && !video;
   const isMediaActive = isMediaActiveProp ?? Boolean(post.isMediaActive);
   const isMediaPreload = isMediaPreloadProp ?? Boolean(post.isMediaPreload);
   const isMediaRetain = isMediaRetainProp ?? Boolean(post.isMediaRetain);
@@ -184,7 +186,9 @@ function PostCardInner({
     triggerDoubleTapLike();
   }, [onDoubleTap, post.likedByMe, triggerDoubleTapLike]);
 
-  /** Image posts: double-tap like on media. Video: handled inside player (no single-tap play). */
+  const onRequestPlay = useCallback(() => {
+    onActivateMedia?.(post.id);
+  }, [onActivateMedia, post.id]);
   const handleImageRegionPress = useCallback(
     (ev: { nativeEvent: { locationX: number; locationY: number } }) => {
       if (video) return;
@@ -252,6 +256,9 @@ function PostCardInner({
           borderTopLeftRadius: 0,
           borderTopRightRadius: 0
         },
+        mediaFooter: {
+          paddingBottom: 6
+        },
         videoHeader: {
           position: "absolute",
           top: 0,
@@ -268,12 +275,12 @@ function PostCardInner({
           zIndex: 5
         },
         mediaPad: {
-          paddingHorizontal: 6,
-          marginTop: 2,
+          paddingHorizontal: 0,
+          marginTop: 0,
           marginBottom: 0
         },
         mediaClip: {
-          borderRadius: 14,
+          borderRadius: 0,
           overflow: "hidden",
           backgroundColor: colors.surfaceElevated
         },
@@ -327,7 +334,7 @@ function PostCardInner({
       isTrending={Boolean(post.isTrending)}
       onAuthorPress={onAuthorPress}
       onMenuPress={onMenuPress}
-      variant={video ? "overlay" : "default"}
+      variant={video ? "overlay" : hasImage ? "compact" : "default"}
     />
   );
 
@@ -376,6 +383,7 @@ function PostCardInner({
             isRetain={isMediaRetain}
             feedMode
             cornerRadius={0}
+            onRequestPlay={onRequestPlay}
             onDoubleTapLike={onDoubleTap && !post.likedByMe ? onMediaDoubleTapLike : undefined}
           />
           <LinearGradient
@@ -406,7 +414,7 @@ function PostCardInner({
                   isPreload={isMediaPreload}
                   isRetain={isMediaRetain}
                   feedMode
-                  cornerRadius={14}
+                  cornerRadius={0}
                 />
               </View>
             </View>
@@ -414,36 +422,90 @@ function PostCardInner({
         </Pressable>
       )}
 
-      <View style={video ? s.videoFooter : undefined}>
+      <View style={[video ? s.videoFooter : undefined, (hasImage || video) && s.mediaFooter]}>
         {isJob ? (
-          jobBlock
+          <>
+            {jobBlock}
+            <CommentPreview
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              firstLikerName={post.firstLikerName}
+              onLikeCountPress={onLikeCountPress}
+              onViewComments={onCommentPress}
+              compact
+            />
+            <PostActions
+              compact={hasImage || video}
+              likedByMe={post.likedByMe}
+              savedByMe={post.savedByMe}
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              onLikePress={onLikePress}
+              onLikeCountPress={onLikeCountPress}
+              onCommentPress={onCommentPress}
+              onSharePress={onSharePress}
+              onSavePress={onSavePress}
+            />
+          </>
+        ) : hasImage || video ? (
+          <>
+            <PostActions
+              compact
+              likedByMe={post.likedByMe}
+              savedByMe={post.savedByMe}
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              onLikePress={onLikePress}
+              onLikeCountPress={onLikeCountPress}
+              onCommentPress={onCommentPress}
+              onSharePress={onSharePress}
+              onSavePress={onSavePress}
+            />
+            <PostCaption
+              title={post.title}
+              description={post.description}
+              variant="full"
+              maxLines={2}
+              compact
+            />
+            <CommentPreview
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              firstLikerName={post.firstLikerName}
+              onLikeCountPress={onLikeCountPress}
+              onViewComments={onCommentPress}
+              compact
+            />
+          </>
         ) : (
           <>
-            <PostCaption title={post.title} description={post.description} variant="title" />
-            <PostCaption title={post.title} description={post.description} variant="caption" maxLines={3} />
+            <PostCaption
+              title={post.title}
+              description={post.description}
+              variant="full"
+              maxLines={3}
+            />
+            <CommentPreview
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              firstLikerName={post.firstLikerName}
+              onLikeCountPress={onLikeCountPress}
+              onViewComments={onCommentPress}
+              compact
+            />
+            <PostActions
+              likedByMe={post.likedByMe}
+              savedByMe={post.savedByMe}
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              onLikePress={onLikePress}
+              onLikeCountPress={onLikeCountPress}
+              onCommentPress={onCommentPress}
+              onSharePress={onSharePress}
+              onSavePress={onSavePress}
+            />
           </>
         )}
-
-        <CommentPreview
-          likeCount={post.likeCount}
-          commentCount={post.commentCount}
-          firstLikerName={post.firstLikerName}
-          onLikeCountPress={onLikeCountPress}
-          onViewComments={onCommentPress}
-          compact
-        />
-
-        <PostActions
-          likedByMe={post.likedByMe}
-          savedByMe={post.savedByMe}
-          likeCount={post.likeCount}
-          commentCount={post.commentCount}
-          onLikePress={onLikePress}
-          onLikeCountPress={onLikeCountPress}
-          onCommentPress={onCommentPress}
-          onSharePress={onSharePress}
-          onSavePress={onSavePress}
-        />
       </View>
     </View>
   );
@@ -452,19 +514,24 @@ function PostCardInner({
 export const PostCard = memo(PostCardInner, (prev, next) => {
   const a = prev.post;
   const b = next.post;
+  if (
+    a !== b ||
+    prev.onAuthorPress !== next.onAuthorPress ||
+    prev.onDoubleTap !== next.onDoubleTap ||
+    prev.onLikePress !== next.onLikePress ||
+    prev.onLikeCountPress !== next.onLikeCountPress ||
+    prev.onCommentPress !== next.onCommentPress ||
+    prev.onSavePress !== next.onSavePress ||
+    prev.onSharePress !== next.onSharePress ||
+    prev.onMenuPress !== next.onMenuPress ||
+    prev.onViewJob !== next.onViewJob
+  ) {
+    return false;
+  }
+  if (!isVideoPost(a)) return true;
   return (
-    a === b &&
     prev.isMediaActive === next.isMediaActive &&
     prev.isMediaPreload === next.isMediaPreload &&
-    prev.isMediaRetain === next.isMediaRetain &&
-    prev.onAuthorPress === next.onAuthorPress &&
-    prev.onDoubleTap === next.onDoubleTap &&
-    prev.onLikePress === next.onLikePress &&
-    prev.onLikeCountPress === next.onLikeCountPress &&
-    prev.onCommentPress === next.onCommentPress &&
-    prev.onSavePress === next.onSavePress &&
-    prev.onSharePress === next.onSharePress &&
-    prev.onMenuPress === next.onMenuPress &&
-    prev.onViewJob === next.onViewJob
+    prev.isMediaRetain === next.isMediaRetain
   );
 });

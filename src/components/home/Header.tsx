@@ -23,7 +23,8 @@ export type HeaderActionId =
   | "search-members"
   | "connections"
   | "settings"
-  | "help-support";
+  | "help-support"
+  | "advertisements";
 
 type HeaderProps = {
   /** Community label from DB — shown only when present. */

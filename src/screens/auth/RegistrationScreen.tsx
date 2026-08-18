@@ -68,7 +68,6 @@ export function RegistrationScreen({ navigation }: any) {
   const [mobile, setMobile] = useState("");
   const [occupation, setOccupation] = useState("");
   const [location, setLocation] = useState("");
-  const [community, setCommunity] = useState("");
   const [kulam, setKulam] = useState("");
   const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -92,7 +91,7 @@ export function RegistrationScreen({ navigation }: any) {
             setLocationOptions(locations.map((l) => ({ label: l.name, value: l.name })));
           }
           if (kulams.length > 0) {
-            setKulamOptions(kulams.map((k) => ({ label: k.name, value: k.name })));
+            setKulamOptions(kulams.map((k) => ({ label: k.displayName || k.name, value: k.name })));
           }
           if (occupations.length > 0) {
             setOccupationOptions(masterItemsToDropdown(occupations));
@@ -271,7 +270,6 @@ export function RegistrationScreen({ navigation }: any) {
         mobile: mobile.trim(),
         occupation: occupation.trim() || null,
         location: location.trim(),
-        community: community.trim() || null,
         kulam: kulam.trim(),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
       };
@@ -381,14 +379,14 @@ export function RegistrationScreen({ navigation }: any) {
                   placeholder="Full name *"
                   value={fullName}
                   onChangeText={setFullName}
-                  variant="light"
+                  variant="onWhite"
                   leftIcon={<Ionicons name="person-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
                 <Input
                   placeholder="@username *"
                   value={username}
                   onChangeText={setUsername}
-                  variant="light"
+                  variant="onWhite"
                   autoCapitalize="none"
                   autoCorrect={false}
                   leftIcon={<Ionicons name="at-outline" size={ICON_SIZE} color={ICON_COLOR} />}
@@ -433,7 +431,7 @@ export function RegistrationScreen({ navigation }: any) {
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  variant="light"
+                  variant="onWhite"
                   leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
                 <Input
@@ -441,7 +439,7 @@ export function RegistrationScreen({ navigation }: any) {
                   value={mobile}
                   onChangeText={setMobile}
                   keyboardType="phone-pad"
-                  variant="light"
+                  variant="onWhite"
                   leftIcon={<Ionicons name="call-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
               </>
@@ -461,7 +459,7 @@ export function RegistrationScreen({ navigation }: any) {
                     placeholder="Occupation (optional)"
                     value={occupation}
                     onChangeText={setOccupation}
-                    variant="light"
+                    variant="onWhite"
                   />
                 )}
                 <Dropdown
@@ -471,12 +469,6 @@ export function RegistrationScreen({ navigation }: any) {
                   onSelect={setLocation}
                   variant="light"
                   required
-                />
-                <Input
-                  placeholder="Community (optional)"
-                  value={community}
-                  onChangeText={setCommunity}
-                  variant="light"
                 />
                 <Dropdown
                   placeholder="Select kulam *"

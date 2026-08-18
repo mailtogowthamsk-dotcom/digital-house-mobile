@@ -23,27 +23,28 @@ export function FeedPostSkeleton() {
           overflow: "hidden",
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.04)",
-          paddingBottom: 12,
+          paddingBottom: 8,
           ...feedCardShadow(mode)
         },
         row: {
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 20,
-          paddingTop: 18,
-          marginBottom: 14,
-          gap: 12
+          paddingHorizontal: 14,
+          paddingTop: 10,
+          marginBottom: 8,
+          gap: 10
         },
         media: {
-          marginHorizontal: 6,
-          borderRadius: 14,
+          marginHorizontal: 0,
+          borderRadius: 0,
           overflow: "hidden"
         },
         actionBar: {
           flexDirection: "row",
-          paddingHorizontal: 12,
-          paddingTop: 6,
-          gap: 12
+          paddingHorizontal: 10,
+          paddingTop: 8,
+          paddingBottom: 4,
+          gap: 10
         }
       }),
     [colors, mode]
@@ -52,7 +53,7 @@ export function FeedPostSkeleton() {
   return (
     <View style={s.card}>
       <View style={s.row}>
-        <Shimmer width={52} height={52} borderRadius={26} />
+        <Shimmer width={40} height={40} borderRadius={20} />
         <View style={{ flex: 1, gap: 8 }}>
           <Shimmer width="46%" height={15} borderRadius={6} />
           <Shimmer width="34%" height={11} borderRadius={6} />

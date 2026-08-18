@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldCompact } from "../../theme/textField";
 import { PrimaryButton } from "../ui/PrimaryButton";
 import { getLocations, type OptionItem } from "../../api/options.api";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
@@ -426,19 +427,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: radius.md,
     paddingHorizontal: 12,
-    paddingVertical: Platform.OS === "ios" ? 10 : 6
+    minHeight: 48
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    paddingVertical: 4
+    ...textFieldCompact
   },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15
+    ...textField
   },
   chipHint: { fontSize: 12, marginTop: spacing.sm, marginBottom: 6 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

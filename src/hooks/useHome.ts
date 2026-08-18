@@ -34,7 +34,7 @@ export type HomeState = {
 import { formatPostType } from "../utils/postMappers";
 import { preferFeedImageUrl, preferThumbUrl, feedImageFallbackUrls } from "../utils/mediaVariantUrls";
 
-const FEED_PAGE_SIZE = 3;
+const FEED_PAGE_SIZE = 6;
 
 function mediaPathKey(uri?: string | null): string {
   if (!uri) return "";
@@ -131,6 +131,9 @@ export function useHome() {
   const summaryRef = useRef(summary);
   summaryRef.current = summary;
 
+  const feedItemsRef = useRef(feedItems);
+  feedItemsRef.current = feedItems;
+
   const fetchSummary = useCallback(async (opts?: { background?: boolean }) => {
     const cached = summaryRef.current;
     const background = opts?.background === true && cached != null;
@@ -159,7 +162,9 @@ export function useHome() {
     if (append) setFeedLoadingMore(true);
     else {
       setFeedError(null);
-      setFeedLoading(true);
+      // Keep existing cards on screen during refresh — a loading flag with
+      // empty-state UI made pull-to-refresh flash a blank feed.
+      if (feedItemsRef.current.length === 0) setFeedLoading(true);
     }
     try {
       const data: FeedResponse = await getFeed({
@@ -183,7 +188,6 @@ export function useHome() {
         setFeedItems((prev) => mergeFeedCardsPreservingMedia(prev, mapped));
       }
       const mediaUris = mapped
-        .slice(0, 2)
         .map((p) => getImageUrl(p.imageUri))
         .filter((u): u is string => !!u);
       if (mediaUris.length) prefetchAspectRatios(mediaUris);

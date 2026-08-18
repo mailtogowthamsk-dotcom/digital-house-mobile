@@ -25,52 +25,41 @@ export function ProfileContentLinks({
           fontSize: 12,
           fontWeight: "700",
           color: colors.textMuted,
-          letterSpacing: 0.5,
+          letterSpacing: 0.6,
           textTransform: "uppercase",
           marginBottom: spacing.sm,
           marginLeft: 2
         },
-        card: {
+        row: { flexDirection: "row", gap: spacing.sm },
+        tile: {
+          flex: 1,
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          overflow: "hidden"
-        },
-        row: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.md,
-          paddingVertical: 14,
+          paddingVertical: spacing.md,
           paddingHorizontal: spacing.md
         },
-        rowBorder: {
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border
-        },
-        rowPressed: { backgroundColor: colors.surfaceElevated },
+        tilePressed: { backgroundColor: colors.surfaceElevated },
         icon: {
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 36,
+          height: 36,
+          borderRadius: 11,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          marginBottom: spacing.sm
         },
-        body: { flex: 1, minWidth: 0 },
-        title: { fontSize: 15, fontWeight: "700", color: colors.text },
-        sub: { marginTop: 2, fontSize: 12, color: colors.textSecondary, lineHeight: 16 }
+        title: { fontSize: 15, fontWeight: "800", color: colors.text },
+        sub: { marginTop: 3, fontSize: 12, color: colors.textSecondary, lineHeight: 16 }
       }),
     [colors]
   );
 
-  const links = [
+  const tiles = [
     {
       key: "posts",
       title: "My posts",
-      sub:
-        totalPosts > 0
-          ? `${totalPosts} ${totalPosts === 1 ? "post" : "posts"} shared`
-          : "Posts you’ve shared with the community",
+      sub: totalPosts > 0 ? `${totalPosts} shared` : "Your community posts",
       icon: "grid-outline" as const,
       tint: "#2563EB",
       tintBg: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
@@ -78,8 +67,8 @@ export function ProfileContentLinks({
     },
     {
       key: "activity",
-      title: "My activity",
-      sub: "Bookmarks and posts you’ve liked",
+      title: "Activity",
+      sub: "Saved & liked",
       icon: "heart-outline" as const,
       tint: "#DB2777",
       tintBg: mode === "dark" ? colors.surfaceElevated : "#FDF2F8",
@@ -90,27 +79,20 @@ export function ProfileContentLinks({
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle}>Your content</Text>
-      <View style={s.card}>
-        {links.map((link, idx) => (
+      <View style={s.row}>
+        {tiles.map((tile) => (
           <Pressable
-            key={link.key}
-            style={({ pressed }) => [
-              s.row,
-              idx < links.length - 1 && s.rowBorder,
-              pressed && s.rowPressed
-            ]}
-            onPress={link.onPress}
+            key={tile.key}
+            style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
+            onPress={tile.onPress}
           >
-            <View style={[s.icon, { backgroundColor: link.tintBg }]}>
-              <Ionicons name={link.icon} size={20} color={link.tint} />
+            <View style={[s.icon, { backgroundColor: tile.tintBg }]}>
+              <Ionicons name={tile.icon} size={18} color={tile.tint} />
             </View>
-            <View style={s.body}>
-              <Text style={s.title}>{link.title}</Text>
-              <Text style={s.sub} numberOfLines={1}>
-                {link.sub}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            <Text style={s.title}>{tile.title}</Text>
+            <Text style={s.sub} numberOfLines={1}>
+              {tile.sub}
+            </Text>
           </Pressable>
         ))}
       </View>

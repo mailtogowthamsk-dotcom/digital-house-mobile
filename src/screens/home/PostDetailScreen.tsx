@@ -42,6 +42,7 @@ import { hapticLike, hapticSave } from "../../utils/feedHaptics";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
+import { textField, textFieldMultiline } from "../../theme/textField";
 import { messages } from "../../theme/messages";
 import { appAlert } from "../../utils/appAlert";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -1616,8 +1617,7 @@ export function PostDetailScreen() {
                   borderColor: applyMobileError ? colors.error : colors.border,
                   borderRadius: radius.md,
                   paddingHorizontal: spacing.md,
-                  paddingVertical: 12,
-                  fontSize: 16,
+                  ...textField,
                   color: colors.text,
                   backgroundColor: colors.surfaceElevated
                 }}
@@ -1645,11 +1645,9 @@ export function PostDetailScreen() {
                   borderColor: colors.border,
                   borderRadius: radius.md,
                   paddingHorizontal: spacing.md,
-                  paddingVertical: 12,
-                  fontSize: 15,
+                  ...textFieldMultiline,
                   color: colors.text,
                   minHeight: 80,
-                  textAlignVertical: "top",
                   backgroundColor: colors.surfaceElevated
                 }}
               />

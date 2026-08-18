@@ -7,20 +7,20 @@
 import type { VideoSource } from "expo-video";
 import { stableMediaCacheKey } from "./imageDimensions";
 
-export function buildFeedVideoSource(uri: string): VideoSource {
+export function buildFeedVideoSource(
+  uri: string,
+  opts?: { useCaching?: boolean }
+): VideoSource {
   const trimmed = uri.trim();
   const isLocal = trimmed.startsWith("file://") || trimmed.startsWith("/");
-  const isMp4 = /\.(mp4|m4v)(\?|$)/i.test(trimmed);
   if (isLocal) {
-    return {
-      uri: trimmed,
-      ...(isMp4 ? { contentType: "progressive" as const } : {})
-    };
+    return { uri: trimmed };
   }
+  // Do not force contentType "progressive" — HEVC/fMP4/MOV then stall in "loading"
+  // forever on some devices. Let expo-video auto-detect.
   return {
     uri: trimmed,
-    useCaching: true,
-    ...(isMp4 ? { contentType: "progressive" as const } : {})
+    useCaching: opts?.useCaching !== false
   };
 }
 

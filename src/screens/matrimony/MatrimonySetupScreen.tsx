@@ -106,7 +106,7 @@ function ChipMultiSelect({
               }}
             >
               <Text style={{ fontSize: 12, fontWeight: "600", color: active ? colors.primary : colors.text }}>
-                {item.name}
+                {item.displayName || item.name}
               </Text>
             </Pressable>
           );

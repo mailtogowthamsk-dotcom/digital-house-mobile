@@ -60,7 +60,9 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
   return (
     <View style={styles.infoRow}>
       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+      <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -389,13 +391,15 @@ export function MemberProfileScreen() {
         ) : null}
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <AvatarImage
-            uri={getImageUrl(profile.profileImage)}
-            name={profile.fullName}
-            size={92}
-            placeholderColor={colors.surfaceElevated}
-            textColor={colors.textMuted}
-          />
+          <View style={[styles.avatarRing, { borderColor: colors.primary + "40" }]}>
+            <AvatarImage
+              uri={getImageUrl(profile.profileImage)}
+              name={profile.fullName}
+              size={88}
+              placeholderColor={colors.surfaceElevated}
+              textColor={colors.textMuted}
+            />
+          </View>
           <Text style={[styles.name, { color: colors.text }]}>{profile.fullName}</Text>
           {profile.username ? (
             <Text style={[styles.username, { color: colors.primary }]}>
@@ -403,10 +407,13 @@ export function MemberProfileScreen() {
             </Text>
           ) : null}
           {location ? (
-            <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
+              <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+            </View>
           ) : null}
           {statusLabel ? (
-            <View style={[styles.statusBadge, { backgroundColor: colors.surfaceElevated }]}>
+            <View style={[styles.statusBadge, { backgroundColor: colors.primary + "14" }]}>
               <Text style={[styles.statusText, { color: colors.primary }]}>{statusLabel}</Text>
             </View>
           ) : null}
@@ -426,6 +433,27 @@ export function MemberProfileScreen() {
                 This member has not set a @username yet. Connection and messaging are unavailable
                 until they complete profile setup.
               </Text>
+            </View>
+          ) : null}
+
+          {!profile.isSelf && !profile.needsUsernameSetup ? (
+            <View style={styles.heroActions}>
+              {profile.relationshipStatus === "connected" && profile.connectedSince ? (
+                <Text style={[styles.connectSub, { color: colors.textSecondary }]}>
+                  Connected since{" "}
+                  {new Date(profile.connectedSince).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric"
+                  })}
+                </Text>
+              ) : profile.relationshipStatus !== "rejected" &&
+                profile.relationshipStatus !== "none" ? (
+                <Text style={[styles.connectSub, { color: colors.textSecondary }]}>
+                  Messaging opens after the connection is accepted.
+                </Text>
+              ) : null}
+              {renderConnectionActions(profile.relationshipStatus)}
             </View>
           ) : null}
         </View>
@@ -512,41 +540,13 @@ export function MemberProfileScreen() {
                         { color: profile.availableForHelp ? "#22C55E" : colors.textMuted }
                       ]}
                     >
-                      {profile.availableForHelp ? "🟢 Available" : "⚪ Not Available"}
+                      {profile.availableForHelp ? "Available to help" : "Not available right now"}
                     </Text>
                   </View>
                 ) : null}
               </View>
             ) : null}
           </>
-        ) : null}
-
-        {!profile.isSelf && !profile.needsUsernameSetup ? (
-          <View
-            style={[
-              styles.card,
-              styles.communityCard,
-              { backgroundColor: colors.surface, borderColor: colors.border }
-            ]}
-          >
-            <Ionicons name="people-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.connectTitle, { color: colors.text }]}>Connection</Text>
-            {profile.relationshipStatus === "connected" && profile.connectedSince ? (
-              <Text style={[styles.connectSub, { color: colors.textSecondary }]}>
-                Connected since{" "}
-                {new Date(profile.connectedSince).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric"
-                })}
-              </Text>
-            ) : (
-              <Text style={[styles.connectSub, { color: colors.textSecondary }]}>
-                Messaging opens only after connection is accepted.
-              </Text>
-            )}
-            {renderConnectionActions(profile.relationshipStatus)}
-          </View>
         ) : null}
 
         {showPrivateGate ? (
@@ -817,24 +817,36 @@ const styles = StyleSheet.create({
   headerBlock: { padding: spacing.lg, paddingBottom: spacing.sm },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
   card: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     alignItems: "center"
   },
   communityCard: { alignItems: "stretch" },
-  name: { marginTop: spacing.md, fontSize: 22, fontWeight: "800", textAlign: "center" },
-  username: { marginTop: 4, fontSize: 16, fontWeight: "700" },
-  location: { marginTop: 6, fontSize: 14 },
+  avatarRing: {
+    padding: 3,
+    borderRadius: 50,
+    borderWidth: 2
+  },
+  name: { marginTop: spacing.md, fontSize: 22, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
+  username: { marginTop: 4, fontSize: 15, fontWeight: "700" },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8
+  },
+  location: { fontSize: 14 },
   statusBadge: {
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.full,
     alignSelf: "center"
   },
   statusText: { fontSize: 12, fontWeight: "700" },
+  heroActions: { width: "100%", marginTop: spacing.sm },
   banner: {
     marginTop: spacing.md,
     flexDirection: "row",
@@ -845,16 +857,26 @@ const styles = StyleSheet.create({
   },
   bannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: "800",
     marginBottom: spacing.md,
-    letterSpacing: -0.2
+    letterSpacing: 0.4,
+    textTransform: "uppercase"
   },
-  infoRow: { width: "100%", marginBottom: spacing.md },
-  infoLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
-  infoValue: { fontSize: 15, marginTop: 4, fontWeight: "600" },
+  infoRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(148,163,184,0.25)"
+  },
+  infoLabel: { fontSize: 13, fontWeight: "600", paddingTop: 1, minWidth: 96 },
+  infoValue: { fontSize: 15, fontWeight: "700", flex: 1, textAlign: "right" },
   connectTitle: { marginTop: spacing.sm, fontSize: 16, fontWeight: "800", textAlign: "center" },
-  connectSub: { marginTop: spacing.sm, fontSize: 13, lineHeight: 19, textAlign: "center" },
+  connectSub: { marginTop: spacing.sm, fontSize: 13, lineHeight: 19, textAlign: "center", marginBottom: 2 },
   primaryBtn: {
     marginTop: spacing.md,
     flexDirection: "row",

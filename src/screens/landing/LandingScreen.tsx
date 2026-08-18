@@ -17,6 +17,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getLandingContent } from "../../api/landing.api";
 import { spacing, radius } from "../../theme/spacing";
+import { appAlert } from "../../utils/appAlert";
+import { consumeApprovalReauthMessage } from "../../auth/approvalReauth";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const STATUS_BAR = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 44;
@@ -129,6 +131,13 @@ export function LandingScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [logoError, setLogoError] = useState(false);
   const anim = useLandingEntrance();
+
+  useEffect(() => {
+    const message = consumeApprovalReauthMessage();
+    if (message) {
+      appAlert("Account approved", message);
+    }
+  }, []);
 
   useEffect(() => {
     getLandingContent()

@@ -22,6 +22,7 @@ type Props = {
   onCommentPress?: () => void;
   onSharePress?: () => void;
   onSavePress?: () => void;
+  compact?: boolean;
 };
 
 function formatCount(n: number): string {
@@ -47,7 +48,8 @@ function PostActionsInner({
   onLikeCountPress,
   onCommentPress,
   onSharePress,
-  onSavePress
+  onSavePress,
+  compact = false
 }: Props) {
   const { colors, mode } = useTheme();
   const likeScale = useRef(new Animated.Value(1)).current;
@@ -71,12 +73,13 @@ function PostActionsInner({
 
   const pressedBg = mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)";
   const idle = colors.text;
+  const iconSize = compact ? 22 : ICON_SIZE;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, compact && styles.rowCompact]}>
       <View style={styles.group}>
         <Pressable
-          style={({ pressed }) => [styles.btn, pressed && { backgroundColor: pressedBg }]}
+          style={({ pressed }) => [styles.btn, compact && styles.btnCompact, pressed && { backgroundColor: pressedBg }]}
           onPress={handleLike}
           hitSlop={8}
           accessibilityRole="button"
@@ -85,7 +88,7 @@ function PostActionsInner({
           <Animated.View style={{ transform: [{ scale: likeScale }] }}>
             <Ionicons
               name={likedByMe ? "heart" : "heart-outline"}
-              size={ICON_SIZE}
+              size={iconSize}
               color={likedByMe ? HEART_COLOR : idle}
             />
           </Animated.View>
@@ -112,6 +115,7 @@ function PostActionsInner({
         <Pressable
           style={({ pressed }) => [
             styles.btn,
+            compact && styles.btnCompact,
             styles.commentBtn,
             pressed && { backgroundColor: pressedBg }
           ]}
@@ -120,7 +124,7 @@ function PostActionsInner({
           accessibilityRole="button"
           accessibilityLabel="Comment"
         >
-          <Ionicons name="chatbubble-outline" size={ICON_SIZE - 1} color={idle} />
+          <Ionicons name="chatbubble-outline" size={iconSize - 1} color={idle} />
           {commentCount > 0 ? (
             <Text style={[typography.feedCount, { color: colors.text, marginLeft: 6 }]}>
               {formatCount(commentCount)}
@@ -131,7 +135,7 @@ function PostActionsInner({
 
       <View style={styles.group}>
         <Pressable
-          style={({ pressed }) => [styles.btn, pressed && { backgroundColor: pressedBg }]}
+          style={({ pressed }) => [styles.btn, compact && styles.btnCompact, pressed && { backgroundColor: pressedBg }]}
           onPress={handleSave}
           hitSlop={8}
           accessibilityRole="button"
@@ -140,21 +144,21 @@ function PostActionsInner({
           <Animated.View style={{ transform: [{ scale: saveScale }] }}>
             <Ionicons
               name={savedByMe ? "bookmark" : "bookmark-outline"}
-              size={ICON_SIZE - 1}
+              size={iconSize - 1}
               color={savedByMe ? colors.primary : idle}
             />
           </Animated.View>
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.btn, pressed && { backgroundColor: pressedBg }]}
+          style={({ pressed }) => [styles.btn, compact && styles.btnCompact, pressed && { backgroundColor: pressedBg }]}
           onPress={handleShare}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Share"
         >
           <Animated.View style={{ transform: [{ scale: shareScale }] }}>
-            <Ionicons name="paper-plane-outline" size={ICON_SIZE - 1} color={idle} />
+            <Ionicons name="paper-plane-outline" size={iconSize - 1} color={idle} />
           </Animated.View>
         </Pressable>
       </View>
@@ -174,6 +178,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     minHeight: 48
   },
+  rowCompact: {
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 2,
+    minHeight: 40
+  },
   group: {
     flexDirection: "row",
     alignItems: "center",
@@ -186,6 +196,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6
+  },
+  btnCompact: {
+    minWidth: 38,
+    height: 38,
+    borderRadius: 19
   },
   commentBtn: {
     flexDirection: "row",
