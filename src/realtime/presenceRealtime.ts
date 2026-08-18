@@ -10,7 +10,12 @@ import { getSocket, getSocketInstance } from "./socket";
 import { registerRealtimeRewire, registerRealtimeTeardown } from "./teardown";
 
 type PresenceHandlers = {
-  onUpdate?: (userId: number, online: boolean, lastSeenAt?: string | null) => void;
+  onUpdate?: (
+    userId: number,
+    online: boolean,
+    lastSeenAt?: string | null,
+    hidden?: boolean
+  ) => void;
   /** Full online set after connect / reconnect / request. */
   onSnapshot?: (onlineUserIds: number[]) => void;
 };
@@ -29,21 +34,36 @@ let onDisconnectEvent: (() => void) | null = null;
 
 /** Last known online set (for late subscribers). */
 let lastOnlineIds: Set<number> = new Set();
-/** userId → ISO last-seen (only for offline users). */
+/** userId → ISO last-seen (only for offline users the viewer may see). */
 let lastSeenByUser: Map<number, string> = new Map();
+/** Peers whose last-seen / online is hidden from this viewer. */
+let hiddenUserIds: Set<number> = new Set();
 
 /** Peer ids each mounted screen displays; the union drives `presence:subscribe`. */
 const watchSets = new Map<symbol, number[]>();
 /** Last watch set acknowledged by the server, so we do not resend identical sets. */
 let sentWatchKey: string | null = null;
 
-function applySnapshot(ids: number[], lastSeen?: Record<string, string>) {
+function applySnapshot(
+  ids: number[],
+  lastSeen?: Record<string, string>,
+  hidden?: number[]
+) {
   lastOnlineIds = new Set(ids.filter((n) => Number.isFinite(n) && n > 0));
+  lastSeenByUser = new Map();
+  hiddenUserIds = new Set();
   if (lastSeen && typeof lastSeen === "object") {
-    lastSeenByUser = new Map();
     for (const [k, v] of Object.entries(lastSeen)) {
       const uid = Number(k);
       if (uid > 0 && typeof v === "string") lastSeenByUser.set(uid, v);
+    }
+  }
+  for (const raw of hidden ?? []) {
+    const uid = Number(raw);
+    if (uid > 0) {
+      hiddenUserIds.add(uid);
+      lastOnlineIds.delete(uid);
+      lastSeenByUser.delete(uid);
     }
   }
   for (const uid of lastOnlineIds) {
@@ -62,13 +82,22 @@ function applySnapshot(ids: number[], lastSeen?: Record<string, string>) {
 function applyScopedSnapshot(
   queried: number[],
   onlineIds: number[],
-  lastSeen?: Record<string, string>
+  lastSeen?: Record<string, string>,
+  hidden?: number[]
 ) {
   const online = new Set(onlineIds.filter((n) => Number.isFinite(n) && n > 0));
+  const hiddenSet = new Set((hidden ?? []).map(Number).filter((n) => n > 0));
 
   for (const raw of queried) {
     const uid = Number(raw);
     if (!Number.isFinite(uid) || uid <= 0) continue;
+    if (hiddenSet.has(uid)) {
+      hiddenUserIds.add(uid);
+      lastOnlineIds.delete(uid);
+      lastSeenByUser.delete(uid);
+      continue;
+    }
+    hiddenUserIds.delete(uid);
     if (online.has(uid)) {
       lastOnlineIds.add(uid);
       lastSeenByUser.delete(uid);
@@ -80,7 +109,7 @@ function applyScopedSnapshot(
   if (lastSeen && typeof lastSeen === "object") {
     for (const [k, v] of Object.entries(lastSeen)) {
       const uid = Number(k);
-      if (uid > 0 && typeof v === "string" && !lastOnlineIds.has(uid)) {
+      if (uid > 0 && typeof v === "string" && !lastOnlineIds.has(uid) && !hiddenUserIds.has(uid)) {
         lastSeenByUser.set(uid, v);
       }
     }
@@ -133,7 +162,22 @@ export function watchPresence(id: symbol, userIds: number[] | null): void {
   pushWatchSet();
 }
 
-function applyUpdate(userId: number, online: boolean, lastSeenAt?: string | null) {
+function applyUpdate(
+  userId: number,
+  online: boolean,
+  lastSeenAt?: string | null,
+  hidden?: boolean
+) {
+  if (hidden) {
+    lastOnlineIds.delete(userId);
+    lastSeenByUser.delete(userId);
+    hiddenUserIds.add(userId);
+    for (const h of handlers) {
+      h.onUpdate?.(userId, false, null, true);
+    }
+    return;
+  }
+  hiddenUserIds.delete(userId);
   if (online) {
     lastOnlineIds.add(userId);
     lastSeenByUser.delete(userId);
@@ -142,7 +186,7 @@ function applyUpdate(userId: number, online: boolean, lastSeenAt?: string | null
     if (lastSeenAt) lastSeenByUser.set(userId, lastSeenAt);
   }
   for (const h of handlers) {
-    h.onUpdate?.(userId, online, lastSeenAt ?? null);
+    h.onUpdate?.(userId, online, lastSeenAt ?? null, false);
   }
 }
 
@@ -159,13 +203,18 @@ function wireSocket(sock: Socket): void {
   if (onDisconnectEvent) sock.off("disconnect", onDisconnectEvent);
 
   onUpdateEvent = (raw: unknown) => {
-    const payload = raw as { userId?: number; online?: boolean; lastSeenAt?: string | null };
+    const payload = raw as {
+      userId?: number;
+      online?: boolean;
+      lastSeenAt?: string | null;
+      hidden?: boolean;
+    };
     const uid = Number(payload?.userId);
     if (!uid) return;
     if (__DEV__) {
-      console.log("[presence]", payload?.online ? "online" : "offline", uid);
+      console.log("[presence]", payload?.hidden ? "hidden" : payload?.online ? "online" : "offline", uid);
     }
-    applyUpdate(uid, !!payload?.online, payload?.lastSeenAt ?? null);
+    applyUpdate(uid, !!payload?.online, payload?.lastSeenAt ?? null, !!payload?.hidden);
   };
 
   onSnapshotEvent = (raw: unknown) => {
@@ -174,16 +223,22 @@ function wireSocket(sock: Socket): void {
       userIds?: number[];
       onlineUserIds?: number[];
       lastSeen?: Record<string, string>;
+      hiddenUserIds?: number[];
     };
     const ids = Array.isArray(payload?.onlineUserIds) ? payload.onlineUserIds.map(Number) : [];
     if (__DEV__) {
       console.log("[presence] snapshot", ids.length, payload?.scoped ? "(scoped)" : "");
     }
     if (payload?.scoped && Array.isArray(payload.userIds)) {
-      applyScopedSnapshot(payload.userIds.map(Number), ids, payload.lastSeen);
+      applyScopedSnapshot(
+        payload.userIds.map(Number),
+        ids,
+        payload.lastSeen,
+        payload.hiddenUserIds
+      );
       return;
     }
-    applySnapshot(ids, payload?.lastSeen);
+    applySnapshot(ids, payload.lastSeen, payload.hiddenUserIds);
   };
 
   onConnectEvent = () => {
@@ -263,7 +318,9 @@ export function refreshPresenceSnapshot(): void {
 }
 
 export function isUserOnlineCached(userId: number): boolean {
-  return lastOnlineIds.has(Number(userId));
+  const id = Number(userId);
+  if (hiddenUserIds.has(id)) return false;
+  return lastOnlineIds.has(id);
 }
 
 export function getCachedOnlineUserIds(): number[] {
@@ -271,8 +328,12 @@ export function getCachedOnlineUserIds(): number[] {
 }
 
 export function getCachedLastSeenAt(userId: number): string | null {
-  if (isUserOnlineCached(userId)) return null;
+  if (isPresenceHidden(userId) || isUserOnlineCached(userId)) return null;
   return lastSeenByUser.get(Number(userId)) ?? null;
+}
+
+export function isPresenceHidden(userId: number): boolean {
+  return hiddenUserIds.has(Number(userId));
 }
 
 export function hasPresenceSynced(): boolean {
@@ -343,6 +404,7 @@ export function resetPresenceRealtime(): void {
   watchSets.clear();
   lastOnlineIds = new Set();
   lastSeenByUser = new Map();
+  hiddenUserIds = new Set();
   unwirePresenceRealtime();
 }
 

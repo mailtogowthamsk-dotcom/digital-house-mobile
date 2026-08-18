@@ -43,7 +43,10 @@ import { useHome } from "../../hooks/useHome";
 import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
-import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
+import {
+  buildMediaWindow,
+  pickActiveAndPreloadPostIds
+} from "../../utils/feedVideoVisibility";
 import {
   clearFeedMediaFocus,
   getFeedMediaFocus,
@@ -119,13 +122,7 @@ export function HomeScreen() {
   }).current;
   const queueMediaWindow = useRef((activeId: string | null) => {
     if (!activeId) return;
-    const items = feedItemsRef.current;
-    const idx = items.findIndex((p) => p.id === activeId);
-    const next = {
-      activeId,
-      preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
-      retainId: idx > 0 ? items[idx - 1]!.id : null
-    };
+    const next = buildMediaWindow(activeId, feedItemsRef.current);
     const current = getFeedMediaFocus();
     if (
       current.activeId === next.activeId &&
@@ -391,13 +388,7 @@ export function HomeScreen() {
         clearTimeout(activeMediaSwitchTimer.current);
         activeMediaSwitchTimer.current = null;
       }
-      const items = feedItemsRef.current;
-      const idx = items.findIndex((p) => p.id === postId);
-      setFeedMediaFocus({
-        activeId: postId,
-        preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
-        retainId: idx > 0 ? items[idx - 1]!.id : null
-      });
+      setFeedMediaFocus(buildMediaWindow(postId, feedItemsRef.current));
     },
     onDoubleTap: (item) => addLike(item.id, item),
     onLikePress: (item) => toggleLike(item.id, item),

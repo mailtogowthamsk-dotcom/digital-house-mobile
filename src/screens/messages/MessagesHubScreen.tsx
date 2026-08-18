@@ -22,6 +22,7 @@ import {
   subscribePresence,
   watchPresence,
   isUserOnlineCached,
+  isPresenceHidden,
   hasPresenceSynced,
   refreshPresenceSnapshot,
   formatLastSeen,
@@ -163,14 +164,17 @@ export function MessagesHubScreen() {
                 ...t,
                 otherUser: {
                   ...t.otherUser,
-                  online: isUserOnlineCached(t.otherUser.id)
+                  online:
+                    !isPresenceHidden(t.otherUser.id) && isUserOnlineCached(t.otherUser.id)
                 }
               }))
             : data.map((t) => ({
                 ...t,
                 otherUser: {
                   ...t.otherUser,
-                  online: t.otherUser.online || isUserOnlineCached(t.otherUser.id)
+                  online:
+                    !isPresenceHidden(t.otherUser.id) &&
+                    (t.otherUser.online || isUserOnlineCached(t.otherUser.id))
                 }
               }));
         setThreads(merged);
@@ -180,8 +184,9 @@ export function MessagesHubScreen() {
             ? {
                 ...prev,
                 online: hasPresenceSynced()
-                  ? isUserOnlineCached(prev.id)
-                  : !!prev.online || isUserOnlineCached(prev.id)
+                  ? !isPresenceHidden(prev.id) && isUserOnlineCached(prev.id)
+                  : !isPresenceHidden(prev.id) &&
+                    (!!prev.online || isUserOnlineCached(prev.id))
               }
             : prev
         );
@@ -718,11 +723,13 @@ export function MessagesHubScreen() {
             <ChatPanel
               title={selectedUser.fullName}
               subtitle={
-                selectedUser.online
-                  ? "Online"
-                  : formatLastSeen(getCachedLastSeenAt(selectedUser.id))
-                    ? `Last seen ${formatLastSeen(getCachedLastSeenAt(selectedUser.id))}`
-                    : "Offline"
+                isPresenceHidden(selectedUser.id)
+                  ? "Last seen hidden"
+                  : selectedUser.online
+                    ? "Online"
+                    : formatLastSeen(getCachedLastSeenAt(selectedUser.id))
+                      ? `Last seen ${formatLastSeen(getCachedLastSeenAt(selectedUser.id))}`
+                      : "Offline"
               }
               messages={messages}
               meId={meId}

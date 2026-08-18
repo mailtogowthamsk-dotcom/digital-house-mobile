@@ -36,7 +36,7 @@ import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import { PostActionsBottomSheet, type PostSharePayload } from "../../components/share/PostActionsBottomSheet";
 import { timeAgo } from "../../utils/timeAgo";
-import { formatPostType } from "../../utils/postMappers";
+import { PostTypeIconBadge } from "../../components/home/PostTypeIconBadge";
 import { emitPostUpdated } from "../../utils/postSync";
 import { hapticLike, hapticSave } from "../../utils/feedHaptics";
 import { useTheme } from "../../theme/ThemeContext";
@@ -813,7 +813,6 @@ export function PostDetailScreen() {
 
   if (!post) return null;
 
-  const typeLabel = formatPostType(post.post_type);
   const saved = post.saved_by_me ?? false;
   const isOwnJob =
     post.post_type === "JOB" && user?.id != null && post.user_id === user.id;
@@ -868,10 +867,7 @@ export function PostDetailScreen() {
             </Text>
             <View style={s.metaRow}>
               <Text style={s.meta}>{timeAgo(post.created_at)}</Text>
-              <Text style={s.meta}>·</Text>
-              <View style={s.typePill}>
-                <Text style={s.typePillText}>{typeLabel}</Text>
-              </View>
+              <PostTypeIconBadge postType={post.post_type} />
               {post.post_type === "JOB" ? (
                 <>
                   <Text style={s.meta}>·</Text>

@@ -400,10 +400,6 @@ const styles = StyleSheet.create({
 export const ThreadListPanel = memo(ThreadListPanelComponent);
 
 /** Shared thread row avatar + text */
-function laneLabel(lane: ChatLane): string {
-  return lane === "matrimony" ? "Matrimony" : "Community";
-}
-
 export function ThreadRow({
   name,
   preview,
@@ -455,6 +451,22 @@ export function ThreadRow({
           <Text style={[rowStyles.name, { color: colors.text }]} numberOfLines={1}>
             {name}
           </Text>
+          {chatLanes?.includes("community") ? (
+            <View
+              style={[rowStyles.laneIcon, { backgroundColor: colors.primary + "18" }]}
+              accessibilityLabel="Community chat"
+            >
+              <Ionicons name="people" size={12} color={colors.primary} />
+            </View>
+          ) : null}
+          {chatLanes?.includes("matrimony") ? (
+            <View
+              style={[rowStyles.laneIcon, { backgroundColor: "rgba(225,29,72,0.14)" }]}
+              accessibilityLabel="Matrimony chat"
+            >
+              <Ionicons name="heart" size={12} color="#E11D48" />
+            </View>
+          ) : null}
           {archived ? (
             <Ionicons name="archive-outline" size={14} color={colors.textMuted} />
           ) : null}
@@ -465,31 +477,6 @@ export function ThreadRow({
             <Text style={[rowStyles.time, { color: colors.textMuted }]}>{time}</Text>
           ) : null}
         </View>
-        {chatLanes && chatLanes.length > 0 ? (
-          <View style={rowStyles.laneRow}>
-            {chatLanes.map((lane) => (
-              <View
-                key={lane}
-                style={[
-                  rowStyles.laneBadge,
-                  {
-                    backgroundColor:
-                      lane === "matrimony" ? colors.surfaceElevated : colors.primary + "18"
-                  }
-                ]}
-              >
-                <Text
-                  style={[
-                    rowStyles.laneText,
-                    { color: lane === "matrimony" ? colors.textSecondary : colors.primary }
-                  ]}
-                >
-                  {laneLabel(lane)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
         <View style={rowStyles.previewRow}>
           <Text style={[rowStyles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
             {preview}
@@ -551,20 +538,13 @@ const rowStyles = StyleSheet.create({
     fontSize: 12,
     flexShrink: 0
   },
-  laneRow: {
-    marginTop: 4,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6
-  },
-  laneBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10
-  },
-  laneText: {
-    fontSize: 11,
-    fontWeight: "700"
+  laneIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
   },
   previewRow: {
     marginTop: 4,

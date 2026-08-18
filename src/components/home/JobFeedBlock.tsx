@@ -78,13 +78,6 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
           gap: 6
         },
         badgeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
-        jobBadge: {
-          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.25)" : "#DBEAFE",
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: radius.full
-        },
-        jobBadgeText: { fontSize: 10, fontWeight: "800", color: "#1D4ED8", letterSpacing: 0.4 },
         applied: {
           flexDirection: "row",
           alignItems: "center",
@@ -144,18 +137,17 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
 
   return (
     <View style={s.wrap}>
-      <View style={s.badgeRow}>
-        <View style={s.jobBadge}>
-          <Text style={s.jobBadgeText}>JOB</Text>
+      {closed || job.jobInterestedByMe ? (
+        <View style={s.badgeRow}>
+          {closed ? <Chip label="Closed" tone="amber" /> : null}
+          {job.jobInterestedByMe ? (
+            <View style={s.applied}>
+              <Ionicons name="checkmark-circle" size={12} color="#15803D" />
+              <Text style={s.appliedText}>Applied</Text>
+            </View>
+          ) : null}
         </View>
-        {closed ? <Chip label="Closed" tone="amber" /> : null}
-        {job.jobInterestedByMe ? (
-          <View style={s.applied}>
-            <Ionicons name="checkmark-circle" size={12} color="#15803D" />
-            <Text style={s.appliedText}>Applied</Text>
-          </View>
-        ) : null}
-      </View>
+      ) : null}
 
       <Text style={s.title} numberOfLines={2}>
         {job.title}

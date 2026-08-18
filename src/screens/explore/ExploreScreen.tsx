@@ -31,7 +31,10 @@ import { trackFeedAction } from "../../utils/feedAnalytics";
 import { emitPostUpdated } from "../../utils/postSync";
 import { promptReportPost } from "../../utils/promptReportPost";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
-import { pickActiveAndPreloadPostIds } from "../../utils/feedVideoVisibility";
+import {
+  buildMediaWindow,
+  pickActiveAndPreloadPostIds
+} from "../../utils/feedVideoVisibility";
 import { getFeedMediaFocus, setFeedMediaFocus } from "../../media/feedMediaFocus";
 import { FEED_FLATLIST_PERF } from "../../utils/listPerf";
 import type { PostLiker } from "../../api/posts.api";
@@ -71,13 +74,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   }).current;
   const queueMediaWindow = useRef((id: string | null) => {
     if (!id) return;
-    const items = resultsRef.current;
-    const idx = items.findIndex((p) => p.id === id);
-    const next = {
-      activeId: id,
-      preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
-      retainId: idx > 0 ? items[idx - 1]!.id : null
-    };
+    const next = buildMediaWindow(id, resultsRef.current);
     const current = getFeedMediaFocus();
     if (
       current.activeId === next.activeId &&
@@ -108,11 +105,14 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   // viewability threshold. Viewability alone would leave the old (off-screen) post active.
   const onExploreScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (e.nativeEvent.contentOffset.y > 24) {
+        explore.noteUserScrolled();
+      }
       if (e.nativeEvent.contentOffset.y <= 12) {
         queueMediaWindow(resultsRef.current[0]?.id ?? null);
       }
     },
-    [queueMediaWindow]
+    [explore.noteUserScrolled, queueMediaWindow]
   );
 
   useEffect(
@@ -142,7 +142,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     }, [])
   );
 
-  const showResults = explore.debouncedQuery.length > 0;
+  const showResults = explore.canSearch;
 
   const handleAuthorPress = useCallback(
     (item: PostCardData) => {
@@ -175,13 +175,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         clearTimeout(activeMediaSwitchTimer.current);
         activeMediaSwitchTimer.current = null;
       }
-      const items = resultsRef.current;
-      const idx = items.findIndex((p) => p.id === postId);
-      setFeedMediaFocus({
-        activeId: postId,
-        preloadId: idx >= 0 && idx + 1 < items.length ? items[idx + 1]!.id : null,
-        retainId: idx > 0 ? items[idx - 1]!.id : null
-      });
+      setFeedMediaFocus(buildMediaWindow(postId, resultsRef.current));
     },
     onDoubleTap: (item) => addLike(item.id, item),
     onLikePress: (item) => toggleLike(item.id, item),
@@ -280,7 +274,18 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
   const ListHeader = useMemo(
     () => (
       <View style={styles.headerBlock}>
-        <ExploreSearchBar value={explore.query} onChangeText={explore.setQuery} autoFocus={false} />
+        <ExploreSearchBar
+          value={explore.query}
+          onChangeText={explore.setQuery}
+          placeholder="Type at least 3 letters to search"
+          autoFocus={false}
+        />
+        {explore.waitingForMinChars ? (
+          <Text style={[styles.resultMeta, { color: colors.textSecondary }]}>
+            Type {explore.minCharsRemaining} more letter
+            {explore.minCharsRemaining === 1 ? "" : "s"} to search.
+          </Text>
+        ) : null}
         {showResults && !explore.loading && explore.total > 0 ? (
           <Text style={[styles.resultMeta, { color: colors.textSecondary }]}>
             {explore.total} result{explore.total === 1 ? "" : "s"}
@@ -304,6 +309,8 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
       colors.textSecondary,
       explore.query,
       explore.setQuery,
+      explore.waitingForMinChars,
+      explore.minCharsRemaining,
       explore.loading,
       explore.total,
       explore.recent,

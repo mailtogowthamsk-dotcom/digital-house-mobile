@@ -6,6 +6,7 @@ import React, { memo, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AvatarImage } from "../ui/AvatarImage";
+import { PostTypeIconBadge } from "./PostTypeIconBadge";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { feedAvatarRing } from "../../theme/feedStyles";
@@ -101,28 +102,6 @@ function PostHeaderInner({
           fontSize: 12,
           fontWeight: "500",
           color: overlay ? "rgba(255,255,255,0.8)" : colors.textMuted
-        },
-        chip: {
-          paddingHorizontal: 9,
-          paddingVertical: 3,
-          borderRadius: 999,
-          backgroundColor: overlay
-            ? "rgba(255,255,255,0.22)"
-            : mode === "dark"
-              ? "rgba(37,99,235,0.18)"
-              : "rgba(37,99,235,0.08)",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: overlay
-            ? "rgba(255,255,255,0.35)"
-            : mode === "dark"
-              ? "rgba(37,99,235,0.28)"
-              : "rgba(37,99,235,0.14)"
-        },
-        chipText: {
-          fontSize: 11,
-          fontWeight: "600",
-          color: overlay ? "#FFFFFF" : colors.primary,
-          letterSpacing: 0.1
         },
         privacyChip: {
           flexDirection: "row",
@@ -226,13 +205,7 @@ function PostHeaderInner({
 
         <View style={s.metaRow}>
           <Text style={s.time}>{timeAgo}</Text>
-          {communityTag ? (
-            <View style={s.chip}>
-              <Text style={s.chipText} numberOfLines={1}>
-                {communityTag}
-              </Text>
-            </View>
-          ) : null}
+          <PostTypeIconBadge postType={communityTag} overlay={overlay} />
           {audience ? (
             <View style={s.privacyChip}>
               <Ionicons name={privacyIcon(audience)} size={11} color={iconColor} />

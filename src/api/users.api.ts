@@ -179,11 +179,17 @@ export async function updateConnectionRequests(allowConnectionRequests: boolean)
 
 export type LastSeenVisibility = "EVERYONE" | "MATCHES_ONLY" | "NOBODY";
 
+function parseLastSeenVisibility(raw: unknown): LastSeenVisibility {
+  const v = String(raw ?? "").toUpperCase();
+  if (v === "EVERYONE" || v === "MATCHES_ONLY" || v === "NOBODY") return v;
+  return "MATCHES_ONLY";
+}
+
 export async function getLastSeenVisibility(): Promise<LastSeenVisibility> {
   const res = await api.get<{ ok: true; visibility: LastSeenVisibility }>(
     "/users/me/last-seen-visibility"
   );
-  return res.data.visibility;
+  return parseLastSeenVisibility(res.data.visibility);
 }
 
 export async function updateLastSeenVisibility(
@@ -193,7 +199,7 @@ export async function updateLastSeenVisibility(
     "/users/me/last-seen-visibility",
     { visibility }
   );
-  return res.data.visibility;
+  return parseLastSeenVisibility(res.data.visibility);
 }
 
 export type BlockedMember = {

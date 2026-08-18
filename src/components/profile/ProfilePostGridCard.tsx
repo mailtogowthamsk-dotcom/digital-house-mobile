@@ -5,6 +5,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
+import { postTypeVisual } from "../../utils/postTypeBadge";
+import { PostTypeIconBadge } from "../home/PostTypeIconBadge";
 import type { ProfilePostItem } from "../../api/profile.api";
 
 type ProfilePostGridCardProps = {
@@ -13,18 +15,9 @@ type ProfilePostGridCardProps = {
   onMenuPress: () => void;
 };
 
-function typeTint(postType: string): string {
-  const t = (postType || "").toUpperCase();
-  if (t.includes("JOB")) return "#0D9488";
-  if (t.includes("MARKET")) return "#EA580C";
-  if (t.includes("MATRIMONY")) return "#E11D48";
-  if (t.includes("HELP")) return "#7C3AED";
-  return "#2563EB";
-}
-
 function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePostGridCardProps) {
   const { colors, mode } = useTheme();
-  const tint = typeTint(post.postType);
+  const tint = postTypeVisual(post.postType).color;
 
   const s = useMemo(
     () =>
@@ -49,13 +42,8 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
         typePill: {
           position: "absolute",
           top: 8,
-          left: 8,
-          paddingHorizontal: 8,
-          paddingVertical: 3,
-          borderRadius: radius.full,
-          backgroundColor: "rgba(15,23,42,0.72)"
+          left: 8
         },
-        typePillText: { fontSize: 10, fontWeight: "800", color: "#fff" },
         menuFab: {
           position: "absolute",
           top: 6,
@@ -124,7 +112,7 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
           </View>
         )}
         <View style={s.typePill}>
-          <Text style={s.typePillText}>{post.postType}</Text>
+          <PostTypeIconBadge postType={post.postType} onDark size={24} />
         </View>
         <Pressable style={s.menuFab} onPress={onMenuPress} hitSlop={8}>
           <Ionicons name="ellipsis-horizontal" size={14} color="#fff" />

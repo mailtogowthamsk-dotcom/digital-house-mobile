@@ -33,6 +33,14 @@ type ThreadMeta = {
   online?: boolean;
 };
 
+const MIN_SEARCH_CHARS = 3;
+
+function searchNeedle(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("@")) return trimmed.slice(1).trim();
+  return trimmed;
+}
+
 export function SearchMembersScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, "SearchMembers">>();
@@ -78,8 +86,9 @@ export function SearchMembersScreen() {
   }, [fromMessages, status]);
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (!trimmed) {
+    const needle = searchNeedle(query);
+    if (needle.length < MIN_SEARCH_CHARS) {
+      searchGenRef.current += 1;
       setResults([]);
       setError(null);
       setLoading(false);
@@ -97,7 +106,7 @@ export function SearchMembersScreen() {
     setLoading(true);
     setError(null);
     const timer = setTimeout(() => {
-      searchUsers(trimmed)
+      searchUsers(query.trim())
         .then((users) => {
           if (gen !== searchGenRef.current) return;
           setResults(users);
@@ -308,9 +317,13 @@ export function SearchMembersScreen() {
     [colors]
   );
 
+  const typed = searchNeedle(query);
+  const waitingForMinChars = typed.length > 0 && typed.length < MIN_SEARCH_CHARS;
   const emptyHint = fromMessages
-    ? "Search by name or @username to open chat or connect."
-    : "Search approved members by name or @username.";
+    ? "Type at least 3 letters to search by name or @username."
+    : "Type at least 3 letters to find members by name or @username.";
+  const remaining = MIN_SEARCH_CHARS - typed.length;
+  const minCharsHint = `Type ${remaining} more letter${remaining === 1 ? "" : "s"} to search.`;
 
   return (
     <View style={s.container}>
@@ -339,14 +352,16 @@ export function SearchMembersScreen() {
         <View style={s.empty}>
           <Text style={s.emptyText}>{error}</Text>
         </View>
-      ) : !query.trim() ? (
+      ) : !query.trim() || waitingForMinChars ? (
         <View style={s.empty}>
           <Ionicons
             name={fromMessages ? "chatbubbles-outline" : "people-outline"}
             size={42}
             color={colors.textSecondary}
           />
-          <Text style={[s.emptyText, { marginTop: spacing.md }]}>{emptyHint}</Text>
+          <Text style={[s.emptyText, { marginTop: spacing.md }]}>
+            {waitingForMinChars ? minCharsHint : emptyHint}
+          </Text>
         </View>
       ) : results.length === 0 ? (
         <View style={s.empty}>

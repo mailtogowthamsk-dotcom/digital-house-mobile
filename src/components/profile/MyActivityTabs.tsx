@@ -6,6 +6,7 @@ import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
 import type { ProfileActivityItem } from "../../api/profile.api";
 import { timeAgo } from "../../utils/timeAgo";
+import { postTypeVisual } from "../../utils/postTypeBadge";
 
 export type ActivityTab = "my" | "saved" | "liked";
 
@@ -28,25 +29,6 @@ const TABS: {
   { id: "saved", label: "Saved", icon: "bookmark-outline" },
   { id: "liked", label: "Liked", icon: "heart-outline" }
 ];
-
-function postTypeIcon(postType: string): keyof typeof Ionicons.glyphMap {
-  const t = (postType || "").toUpperCase();
-  if (t.includes("JOB")) return "briefcase-outline";
-  if (t.includes("MARKET")) return "cart-outline";
-  if (t.includes("MATRIMONY") || t.includes("MATCH")) return "heart-outline";
-  if (t.includes("HELP")) return "hand-left-outline";
-  if (t.includes("MEET")) return "people-outline";
-  return "document-text-outline";
-}
-
-function postTypeColor(postType: string): string {
-  const t = (postType || "").toUpperCase();
-  if (t.includes("JOB")) return "#0D9488";
-  if (t.includes("MARKET")) return "#EA580C";
-  if (t.includes("MATRIMONY") || t.includes("MATCH")) return "#E11D48";
-  if (t.includes("HELP")) return "#7C3AED";
-  return "#2563EB";
-}
 
 export function MyActivityTabs({
   activeTab,
@@ -255,7 +237,8 @@ export function MyActivityTabs({
             </View>
           ) : (
             items.map((item, index) => {
-              const tint = postTypeColor(item.postType);
+              const visual = postTypeVisual(item.postType);
+              const tint = visual.color;
               const closed = item.status === "Closed";
               return (
                 <Pressable
@@ -273,7 +256,7 @@ export function MyActivityTabs({
                       { backgroundColor: mode === "dark" ? colors.surfaceElevated : tint + "18" }
                     ]}
                   >
-                    <Ionicons name={postTypeIcon(item.postType)} size={20} color={tint} />
+                    <Ionicons name={visual.icon} size={20} color={tint} />
                   </View>
                   <View style={s.itemBody}>
                     <Text style={s.itemTitle} numberOfLines={2}>
@@ -281,7 +264,7 @@ export function MyActivityTabs({
                     </Text>
                     <View style={s.itemMeta}>
                       <View style={s.metaPill}>
-                        <Text style={s.metaPillText}>{item.postType}</Text>
+                        <Text style={s.metaPillText}>{visual.label}</Text>
                       </View>
                       <View style={s.metaPill}>
                         <Text style={s.metaPillText}>{timeAgo(item.createdAt)}</Text>

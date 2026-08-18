@@ -31,6 +31,7 @@ import {
   subscribePresence,
   watchPresence,
   isUserOnlineCached,
+  isPresenceHidden,
   hasPresenceSynced,
   formatLastSeen,
   getCachedLastSeenAt
@@ -72,11 +73,12 @@ export function ChatScreen() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [otherOnline, setOtherOnline] = useState(
-    () => !!route.params.online || isUserOnlineCached(otherUserId)
+    () => !isPresenceHidden(otherUserId) && (!!route.params.online || isUserOnlineCached(otherUserId))
   );
   const [otherLastSeen, setOtherLastSeen] = useState<string | null>(() =>
     getCachedLastSeenAt(otherUserId)
   );
+  const [otherHidden, setOtherHidden] = useState(() => isPresenceHidden(otherUserId));
 
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
@@ -171,19 +173,36 @@ export function ChatScreen() {
   const presenceWatchId = useRef(Symbol("chat-presence"));
 
   useEffect(() => {
-    setOtherOnline(!!route.params.online || isUserOnlineCached(otherUserId));
+    setOtherHidden(isPresenceHidden(otherUserId));
+    setOtherOnline(
+      !isPresenceHidden(otherUserId) &&
+        (!!route.params.online || isUserOnlineCached(otherUserId))
+    );
     setOtherLastSeen(getCachedLastSeenAt(otherUserId));
     // Join this peer's presence watch room so transitions reach us regardless
     // of whether we share a community with them.
     watchPresence(presenceWatchId.current, [otherUserId]);
     const unsubscribe = subscribePresence({
-      onUpdate: (uid, online, lastSeenAt) => {
+      onUpdate: (uid, online, lastSeenAt, hidden) => {
         if (uid !== otherUserId) return;
+        setOtherHidden(!!hidden);
+        if (hidden) {
+          setOtherOnline(false);
+          setOtherLastSeen(null);
+          return;
+        }
         setOtherOnline(online);
         if (!online) setOtherLastSeen(lastSeenAt ?? getCachedLastSeenAt(otherUserId));
         else setOtherLastSeen(null);
       },
       onSnapshot: (ids) => {
+        if (isPresenceHidden(otherUserId)) {
+          setOtherHidden(true);
+          setOtherOnline(false);
+          setOtherLastSeen(null);
+          return;
+        }
+        setOtherHidden(false);
         const online = ids.includes(otherUserId);
         setOtherOnline(online);
         if (!online) setOtherLastSeen(getCachedLastSeenAt(otherUserId));
@@ -230,10 +249,17 @@ export function ChatScreen() {
         setThreadMuted(!!hit?.muted);
         setThreadArchived(!!hit?.archived);
         if (hasPresenceSynced()) {
-          setOtherOnline(isUserOnlineCached(otherUserId));
+          setOtherHidden(isPresenceHidden(otherUserId));
+          setOtherOnline(
+            !isPresenceHidden(otherUserId) && isUserOnlineCached(otherUserId)
+          );
           setOtherLastSeen(getCachedLastSeenAt(otherUserId));
         } else if (hit?.otherUser.online != null) {
-          setOtherOnline(!!hit.otherUser.online || isUserOnlineCached(otherUserId));
+          setOtherHidden(isPresenceHidden(otherUserId));
+          setOtherOnline(
+            !isPresenceHidden(otherUserId) &&
+              (!!hit.otherUser.online || isUserOnlineCached(otherUserId))
+          );
         }
         if (!access.canViewHistory) {
           setLoadError(access.message ?? "You cannot view this conversation.");
@@ -682,11 +708,13 @@ export function ChatScreen() {
   );
 
   const lastSeenLabel = formatLastSeen(otherLastSeen);
-  const presenceSubtitle = otherOnline
-    ? "Online"
-    : lastSeenLabel
-      ? `Last seen ${lastSeenLabel}`
-      : " ";
+  const presenceSubtitle = otherHidden
+    ? "Last seen hidden"
+    : otherOnline
+      ? "Online"
+      : lastSeenLabel
+        ? `Last seen ${lastSeenLabel}`
+        : " ";
 
   return (
     <View style={[styles.fill, { backgroundColor: colors.background }]}>

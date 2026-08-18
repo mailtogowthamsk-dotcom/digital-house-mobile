@@ -329,7 +329,7 @@ function PostCardInner({
       authorUsername={post.authorUsername}
       userAvatarUri={post.userAvatarUri}
       timeAgo={post.timeAgo}
-      communityTag={isJob ? undefined : post.postType}
+      communityTag={post.postType}
       isVerified={Boolean(post.isVerified)}
       isTrending={Boolean(post.isTrending)}
       onAuthorPress={onAuthorPress}

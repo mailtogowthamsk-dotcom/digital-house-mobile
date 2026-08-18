@@ -7,7 +7,8 @@ import {
   Easing,
   Modal,
   StatusBar,
-  Dimensions
+  Dimensions,
+  Platform
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -171,10 +172,12 @@ function ActiveFeedVideoPlayer({
   const [windowSize, setWindowSize] = useState(() => Dimensions.get("window"));
   const { width: screenWidth, height: screenHeight } = windowSize;
   const alreadyWarmed = isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
+  const scrollBackMountRef = useRef(alreadyWarmed);
   const [ready, setReady] = useState(alreadyWarmed);
   const [loading, setLoading] = useState(!alreadyWarmed);
   const [playing, setPlaying] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     if (!fullscreen) return;
@@ -243,16 +246,18 @@ function ActiveFeedVideoPlayer({
     }
   }, [player]);
 
-  // Loader only for cold network first paint — never on cached / painted / retain.
+  // Loader for cold first paint, and for iOS remount recovery. Warm scroll-back
+  // still skips it until a stall retry actually starts.
   const showLoader =
     !hasPaintedFrameRef.current &&
-    (loading || !ready) &&
-    !alreadyWarmed &&
+    (loading || !ready || recovering) &&
+    (!alreadyWarmed || recovering) &&
     !(uri.startsWith("file:") || uri.startsWith("/"));
 
   const hidePosterSmoothly = useCallback(() => {
     setReady(true);
     setLoading(false);
+    setRecovering(false);
     if (hasPaintedFrameRef.current) return;
     hasPaintedFrameRef.current = true;
     markVideoUriWarmed(uri);
@@ -287,6 +292,7 @@ function ActiveFeedVideoPlayer({
     setReady(warmed);
     setLoading(!warmed);
     setErrored(false);
+    setRecovering(false);
     setPosterMounted(true);
     posterOpacity.setValue(1);
   }, [uri, posterOpacity]);
@@ -370,8 +376,8 @@ function ActiveFeedVideoPlayer({
     }
   }, [shouldPlay, player, ensurePlaying]);
 
-  // Some sources never leave "loading" (corrupt cache, stalled Range).
-  // After 8s without a frame, retry once without caching; after 16s drop the spinner.
+  // Some sources never leave "loading" (corrupt cache, stalled Range, iOS
+  // HEVC remount). Retry quickly — 8s felt like a dead clip on scroll-back.
   useEffect(() => {
     if (!shouldPlay) return;
     let cancelled = false;
@@ -380,15 +386,18 @@ function ActiveFeedVideoPlayer({
       setLoading(false);
       setReady(true);
       setErrored(true);
+      setRecovering(false);
     };
     const retryUncached = () => {
       if (cancelled || hasPaintedFrameRef.current || userPausedRef.current) return;
-      if (stallRetryRef.current >= 1) {
+      if (stallRetryRef.current >= 2) {
         giveUp();
         return;
       }
       stallRetryRef.current += 1;
+      setRecovering(true);
       setLoading(true);
+      setErrored(false);
       void player
         .replaceAsync(buildFeedVideoSource(uri, { useCaching: false }))
         .then(() => {
@@ -396,8 +405,11 @@ function ActiveFeedVideoPlayer({
         })
         .catch(giveUp);
     };
-    const tRetry = setTimeout(retryUncached, 8000);
-    const tFail = setTimeout(giveUp, 16000);
+    const retryMs =
+      scrollBackMountRef.current && Platform.OS === "ios" ? 650 : Platform.OS === "ios" ? 2500 : 4000;
+    const failMs = Platform.OS === "ios" ? 8000 : 16000;
+    const tRetry = setTimeout(retryUncached, retryMs);
+    const tFail = setTimeout(giveUp, failMs);
     return () => {
       cancelled = true;
       clearTimeout(tRetry);
@@ -426,8 +438,16 @@ function ActiveFeedVideoPlayer({
         return;
       }
       userPausedRef.current = false;
-      if (errored) {
+      const status = (() => {
+        try {
+          return player.status;
+        } catch {
+          return "error";
+        }
+      })();
+      if (errored || status === "error" || status === "loading" || status === "idle") {
         setErrored(false);
+        setRecovering(true);
         setLoading(true);
         stallRetryRef.current = 0;
         void player
@@ -814,7 +834,7 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
         setHoldPlayer(true);
         return;
       }
-      const timer = setTimeout(() => setHoldPlayer(false), 480);
+      const timer = setTimeout(() => setHoldPlayer(false), 1400);
       return () => clearTimeout(timer);
     }, [shouldMountPlayer]);
 

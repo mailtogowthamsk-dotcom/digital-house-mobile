@@ -4,6 +4,7 @@ import type { FeedItem } from "./home.api";
 export type ExploreSearchResponse = {
   items: FeedItem[];
   page: number;
+  offset: number;
   limit: number;
   total: number;
   hasMore: boolean;
@@ -18,18 +19,20 @@ export type ExploreDiscoveryResponse = {
 export async function searchExplore(params: {
   q: string;
   page?: number;
+  offset?: number;
   limit?: number;
 }): Promise<ExploreSearchResponse> {
   const res = await api.get<{ ok: true } & ExploreSearchResponse>("/explore/search", {
     params: {
       q: params.q,
-      page: params.page ?? 1,
-      limit: params.limit ?? 20
+      limit: params.limit ?? 5,
+      ...(params.offset != null ? { offset: params.offset } : { page: params.page ?? 1 })
     }
   });
   return {
     items: res.data.items ?? [],
     page: res.data.page,
+    offset: res.data.offset ?? 0,
     limit: res.data.limit,
     total: res.data.total,
     hasMore: res.data.hasMore,

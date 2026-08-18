@@ -45,9 +45,21 @@ import { appAlert } from "../../utils/appAlert";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const LAST_SEEN_OPTIONS: { value: LastSeenVisibility; label: string; hint: string }[] = [
-  { value: "EVERYONE", label: "Everyone", hint: "Anyone in the community can see your last seen" },
-  { value: "MATCHES_ONLY", label: "Matches only", hint: "Only mutual matrimony matches (default)" },
-  { value: "NOBODY", label: "Nobody", hint: "Others see “Last Seen Hidden”" }
+  {
+    value: "EVERYONE",
+    label: "Everyone",
+    hint: "Anyone chatting with you can see when you were last online"
+  },
+  {
+    value: "MATCHES_ONLY",
+    label: "Matches only",
+    hint: "Only mutual matrimony matches. Other chats show “Last seen hidden”"
+  },
+  {
+    value: "NOBODY",
+    label: "Nobody",
+    hint: "Others see “Last seen hidden” — including in chat"
+  }
 ];
 
 const LEGAL_ICONS: Record<string, IconName> = {

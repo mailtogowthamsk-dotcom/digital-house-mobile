@@ -4,6 +4,7 @@
  * signed query strings cannot defeat the cache.
  */
 
+import { Platform } from "react-native";
 import type { VideoSource } from "expo-video";
 import { stableMediaCacheKey } from "./imageDimensions";
 
@@ -18,9 +19,12 @@ export function buildFeedVideoSource(
   }
   // Do not force contentType "progressive" — HEVC/fMP4/MOV then stall in "loading"
   // forever on some devices. Let expo-video auto-detect.
+  // iOS expo-video `useCaching` poisons some HEVC/MOV assets after the first
+  // play — scroll-back then sticks on the poster. Android caching is fine.
+  const useCaching = opts?.useCaching ?? Platform.OS !== "ios";
   return {
     uri: trimmed,
-    useCaching: opts?.useCaching !== false
+    useCaching
   };
 }
 

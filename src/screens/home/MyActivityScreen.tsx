@@ -15,27 +15,10 @@ import { useProfileActivity } from "../../hooks/useProfileActivity";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
+import { postTypeVisual } from "../../utils/postTypeBadge";
 import type { ProfileActivityItem } from "../../api/profile.api";
 
 type ActivityFolder = "saved" | "liked";
-
-function postTypeIcon(postType: string): keyof typeof Ionicons.glyphMap {
-  const t = (postType || "").toUpperCase();
-  if (t.includes("JOB")) return "briefcase-outline";
-  if (t.includes("MARKET")) return "cart-outline";
-  if (t.includes("MATRIMONY")) return "heart-outline";
-  if (t.includes("HELP")) return "hand-left-outline";
-  return "document-text-outline";
-}
-
-function postTypeColor(postType: string): string {
-  const t = (postType || "").toUpperCase();
-  if (t.includes("JOB")) return "#0D9488";
-  if (t.includes("MARKET")) return "#EA580C";
-  if (t.includes("MATRIMONY")) return "#E11D48";
-  if (t.includes("HELP")) return "#7C3AED";
-  return "#2563EB";
-}
 
 export function MyActivityScreen() {
   const navigation = useNavigation<any>();
@@ -200,7 +183,8 @@ export function MyActivityScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: ProfileActivityItem }) => {
-      const tint = postTypeColor(item.postType);
+      const visual = postTypeVisual(item.postType);
+      const tint = visual.color;
       const closed = item.status === "Closed";
       return (
         <Pressable
@@ -213,7 +197,7 @@ export function MyActivityScreen() {
               { backgroundColor: mode === "dark" ? colors.surfaceElevated : tint + "18" }
             ]}
           >
-            <Ionicons name={postTypeIcon(item.postType)} size={22} color={tint} />
+            <Ionicons name={visual.icon} size={22} color={tint} />
           </View>
           <View style={s.itemBody}>
             <Text style={s.itemTitle} numberOfLines={2}>
@@ -221,7 +205,7 @@ export function MyActivityScreen() {
             </Text>
             <View style={s.metaRow}>
               <View style={s.metaPill}>
-                <Text style={s.metaPillText}>{item.postType}</Text>
+                <Text style={s.metaPillText}>{visual.label}</Text>
               </View>
               <View style={s.metaPill}>
                 <Text style={s.metaPillText}>{timeAgo(item.createdAt)}</Text>
