@@ -182,7 +182,7 @@ export type LastSeenVisibility = "EVERYONE" | "MATCHES_ONLY" | "NOBODY";
 function parseLastSeenVisibility(raw: unknown): LastSeenVisibility {
   const v = String(raw ?? "").toUpperCase();
   if (v === "EVERYONE" || v === "MATCHES_ONLY" || v === "NOBODY") return v;
-  return "MATCHES_ONLY";
+  return "EVERYONE";
 }
 
 export async function getLastSeenVisibility(): Promise<LastSeenVisibility> {

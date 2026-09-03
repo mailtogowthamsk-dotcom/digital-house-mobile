@@ -94,8 +94,8 @@ export type FeedItem = {
 export type FeedQueryParams = {
   page?: number;
   limit: number;
-  cursor?: number;
-  sort?: "recent" | "popular";
+  cursor?: number | string;
+  sort?: "recent" | "popular" | "personalized";
   postType?: string;
   jobStatus?: "open" | "closed" | "all";
   q?: string;
@@ -128,8 +128,8 @@ export type FeedResponse = {
   page: number;
   limit: number;
   total: number;
-  nextCursor?: number | null;
-  sort?: "recent" | "popular";
+  nextCursor?: number | string | null;
+  sort?: "recent" | "popular" | "personalized";
 };
 
 export type HighlightItem = {

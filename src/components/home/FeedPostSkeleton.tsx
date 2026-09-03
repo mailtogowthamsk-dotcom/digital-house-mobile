@@ -7,7 +7,7 @@ import { feedCardShadow } from "../../theme/feedStyles";
 export function FeedPostSkeleton() {
   const { colors, mode } = useTheme();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const mediaW = screenWidth - 28;
+  const mediaW = screenWidth - 12;
   const mediaH = Math.round(
     Math.min(screenHeight * 0.78, Math.max(mediaW * 1.1, mediaW * 1.25))
   );
@@ -17,12 +17,12 @@ export function FeedPostSkeleton() {
       StyleSheet.create({
         card: {
           backgroundColor: mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
-          marginHorizontal: 8,
-          marginBottom: 14,
-          borderRadius: 16,
+          marginHorizontal: 6,
+          marginBottom: 10,
+          borderRadius: 18,
           overflow: "hidden",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.04)",
+          borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.05)",
           paddingBottom: 8,
           ...feedCardShadow(mode)
         },

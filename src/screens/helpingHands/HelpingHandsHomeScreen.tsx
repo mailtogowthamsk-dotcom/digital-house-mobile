@@ -60,10 +60,10 @@ export function HelpingHandsHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = React.useRef(false);
-  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [nextCursor, setNextCursor] = useState<number | string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [offeringId, setOfferingId] = useState<number | null>(null);
-  const nextCursorRef = React.useRef<number | null>(null);
+  const nextCursorRef = React.useRef<number | string | null>(null);
   const hasLoadedOnce = React.useRef(false);
   nextCursorRef.current = nextCursor;
 

@@ -8,16 +8,20 @@ type Props = {
   unreadTotal: number;
   onBack: () => void;
   onMarkAllRead: () => void;
+  onClearAll: () => void;
   onSettings: () => void;
   canMarkAll: boolean;
+  canClearAll: boolean;
 };
 
 export function NotificationActivityHeader({
   unreadTotal,
   onBack,
   onMarkAllRead,
+  onClearAll,
   onSettings,
-  canMarkAll
+  canMarkAll,
+  canClearAll
 }: Props) {
   const { colors } = useTheme();
 
@@ -67,20 +71,35 @@ export function NotificationActivityHeader({
           justifyContent: "center"
         },
         markAll: {
-          marginTop: spacing.sm,
-          alignSelf: "flex-end",
           paddingHorizontal: 12,
           paddingVertical: 6,
           borderRadius: radius.full,
-          backgroundColor: canMarkAll ? colors.surfaceElevated : "transparent"
+          backgroundColor: colors.surfaceElevated
         },
         markAllText: {
           fontSize: 13,
           fontWeight: "700",
-          color: canMarkAll ? colors.primary : colors.textMuted
+          color: colors.primary
+        },
+        clearAll: {
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: radius.full,
+          backgroundColor: "rgba(225, 29, 72, 0.1)"
+        },
+        clearAllText: {
+          fontSize: 13,
+          fontWeight: "700",
+          color: "#E11D48"
+        },
+        actionRow: {
+          marginTop: spacing.sm,
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          gap: 8
         }
       }),
-    [colors, unreadTotal, canMarkAll]
+    [colors, unreadTotal]
   );
 
   return (
@@ -115,10 +134,19 @@ export function NotificationActivityHeader({
           </Pressable>
         </View>
       </View>
-      {canMarkAll ? (
-        <Pressable style={s.markAll} onPress={onMarkAllRead}>
-          <Text style={s.markAllText}>Mark all as read</Text>
-        </Pressable>
+      {canMarkAll || canClearAll ? (
+        <View style={s.actionRow}>
+          {canMarkAll ? (
+            <Pressable style={s.markAll} onPress={onMarkAllRead} accessibilityLabel="Mark all as read">
+              <Text style={s.markAllText}>Mark all as read</Text>
+            </Pressable>
+          ) : null}
+          {canClearAll ? (
+            <Pressable style={s.clearAll} onPress={onClearAll} accessibilityLabel="Clear all notifications">
+              <Text style={s.clearAllText}>Clear all</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );

@@ -84,6 +84,7 @@ export function ChatScreen() {
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(false);
   const [threadArchived, setThreadArchived] = useState(false);
+  const [threadLeft, setThreadLeft] = useState(false);
   /** True when *I* blocked the other user (Unblock is available). */
   const [blockedByMe, setBlockedByMe] = useState(false);
   const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
@@ -224,6 +225,7 @@ export function ChatScreen() {
     setLoadError(null);
     setThreadMuted(false);
     setThreadArchived(false);
+    setThreadLeft(false);
     setBlockedByMe(false);
     setMessages([]);
     setSendError(null);
@@ -248,6 +250,7 @@ export function ChatScreen() {
         const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
         setThreadMuted(!!hit?.muted);
         setThreadArchived(!!hit?.archived);
+        setThreadLeft(!!hit?.left);
         if (hasPresenceSynced()) {
           setOtherHidden(isPresenceHidden(otherUserId));
           setOtherOnline(
@@ -514,47 +517,74 @@ export function ChatScreen() {
             }
           })()
       },
-      {
-        text: threadArchived ? "Unarchive chat" : "Archive chat",
-        onPress: () =>
-          void (async () => {
-            try {
-              const pref = await updateThreadPreference(otherUserId, {
-                archived: !threadArchived
-              });
-              setThreadArchived(pref.archived);
-              if (pref.archived) {
-                appAlert("Archived", "This chat moved to Messages → Archived. You can unarchive it anytime.");
-                navigation.goBack();
-              } else {
-                appAlert("Unarchived", "This chat is back in your Inbox.");
-              }
-            } catch (e: unknown) {
-              appAlert("Error", e instanceof Error ? e.message : "Failed to update archive");
-            }
-          })()
-      },
-      {
-        text: "Leave chat",
-        style: "destructive",
-        onPress: () =>
-          appAlert("Leave chat?", "The conversation will be hidden from your inbox.", [
-            { text: "Cancel", style: "cancel" },
+      ...(threadLeft
+        ? [
             {
-              text: "Leave",
-              style: "destructive",
+              text: "Restore chat",
               onPress: () =>
                 void (async () => {
                   try {
-                    await updateThreadPreference(otherUserId, { left: true });
-                    navigation.goBack();
+                    const pref = await updateThreadPreference(otherUserId, { left: false });
+                    setThreadLeft(!!pref.leftAt);
+                    setThreadArchived(pref.archived);
+                    appAlert("Restored", "This chat is back in your Inbox.");
                   } catch (e: unknown) {
-                    appAlert("Error", e instanceof Error ? e.message : "Failed to leave");
+                    appAlert("Error", e instanceof Error ? e.message : "Failed to restore chat");
                   }
                 })()
             }
-          ])
-      },
+          ]
+        : [
+            {
+              text: threadArchived ? "Unarchive chat" : "Archive chat",
+              onPress: () =>
+                void (async () => {
+                  try {
+                    const pref = await updateThreadPreference(otherUserId, {
+                      archived: !threadArchived
+                    });
+                    setThreadArchived(pref.archived);
+                    setThreadLeft(!!pref.leftAt);
+                    if (pref.archived) {
+                      appAlert(
+                        "Archived",
+                        "This chat moved to Messages → Archived. You can unarchive it anytime."
+                      );
+                      navigation.goBack();
+                    } else {
+                      appAlert("Unarchived", "This chat is back in your Inbox.");
+                    }
+                  } catch (e: unknown) {
+                    appAlert("Error", e instanceof Error ? e.message : "Failed to update archive");
+                  }
+                })()
+            },
+            {
+              text: "Leave chat",
+              style: "destructive" as const,
+              onPress: () =>
+                appAlert(
+                  "Leave chat?",
+                  "This chat will leave your Inbox and move to Messages → Archived. You can restore it anytime from there.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Leave",
+                      style: "destructive",
+                      onPress: () =>
+                        void (async () => {
+                          try {
+                            await updateThreadPreference(otherUserId, { left: true });
+                            navigation.goBack();
+                          } catch (e: unknown) {
+                            appAlert("Error", e instanceof Error ? e.message : "Failed to leave");
+                          }
+                        })()
+                    }
+                  ]
+                )
+            }
+          ]),
       {
         text: "Report member",
         onPress: () =>
@@ -679,11 +709,13 @@ export function ChatScreen() {
 
   const chatLockBanner = (
     <>
-      {threadArchived ? (
+      {threadLeft || threadArchived ? (
         <View style={[styles.lockBanner, { backgroundColor: colors.surfaceElevated }]}>
-          <Ionicons name="archive-outline" size={16} color={colors.textSecondary} />
+          <Ionicons name={threadLeft ? "exit-outline" : "archive-outline"} size={16} color={colors.textSecondary} />
           <Text style={[styles.lockBannerText, { color: colors.textSecondary }]}>
-            This chat is in your Archived folder. Open ⋮ → Unarchive to move it back to Inbox.
+            {threadLeft
+              ? "This chat is hidden from Inbox. Open ⋮ → Restore chat to bring it back."
+              : "This chat is in your Archived folder. Open ⋮ → Unarchive to move it back to Inbox."}
           </Text>
         </View>
       ) : null}
@@ -741,7 +773,7 @@ export function ChatScreen() {
         colors={panelColors}
         headerLeft={backButton}
         headerRight={optionsButton}
-        headerBanner={threadArchived || chatLockMessage ? chatLockBanner : undefined}
+        headerBanner={threadLeft || threadArchived || chatLockMessage ? chatLockBanner : undefined}
         onSharedPostPress={handleSharedPostPress}
       />
     </View>

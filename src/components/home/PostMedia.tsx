@@ -26,7 +26,7 @@ import type { PostMediaKind } from "../../config/media.config";
 
 /** Video frame: tall portrait, slightly under 9:16. */
 const VIDEO_PORTRAIT_RATIO = 1.5;
-const CARD_H_MARGIN = 8;
+const CARD_H_MARGIN = 6;
 const MEDIA_H_INSET = 0;
 
 /** Session-warmed image URIs — skip loader on scroll-back / remount. */

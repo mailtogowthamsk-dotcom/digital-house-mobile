@@ -62,6 +62,7 @@ import { PaidFeedAd } from "../../components/advertisement/PaidFeedAd";
 import { getErrorStatus, isSessionInvalid401 } from "../../api/client";
 import { messages } from "../../theme/messages";
 import { trackFeedAction } from "../../utils/feedAnalytics";
+import { syncFeedImpressions } from "../../utils/feedImpressionTracker";
 import { emitPostUpdated } from "../../utils/postSync";
 import { promptReportPost } from "../../utils/promptReportPost";
 import { openMessagesInbox } from "../../navigation/openMessages";
@@ -150,6 +151,10 @@ export function HomeScreen() {
     ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
       queueMediaWindow(activeId);
+      const visibleIds = viewableItems
+        .filter((v) => v.isViewable && v.item?.id)
+        .map((v) => String(v.item.id));
+      syncFeedImpressions(visibleIds);
     }
   ).current;
 

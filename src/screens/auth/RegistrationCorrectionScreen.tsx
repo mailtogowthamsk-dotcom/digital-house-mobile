@@ -33,8 +33,10 @@ export function RegistrationCorrectionScreen() {
   const fields = user?.registrationRequestedFields ?? [];
   const needMobile = fields.includes("mobile");
   const needPhoto = fields.includes("profilePhoto");
+  const needReferral = fields.includes("referralCode");
 
   const [mobile, setMobile] = useState(user?.pendingMobile || user?.mobile || "");
+  const [referralCode, setReferralCode] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.pendingProfilePhoto ?? null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(user?.pendingProfilePhoto ?? null);
   const [uploading, setUploading] = useState(false);
@@ -172,7 +174,7 @@ export function RegistrationCorrectionScreen() {
     }
   }, []);
 
-  const canSubmit = (needMobile || needPhoto) && !saving && !uploading;
+  const canSubmit = (needMobile || needPhoto || needReferral) && !saving && !uploading;
 
   const onSubmit = useCallback(async () => {
     if (user?.status && user.status !== "CHANGES_REQUESTED") {
@@ -180,7 +182,7 @@ export function RegistrationCorrectionScreen() {
       appAlert("Already submitted", "Your updates are waiting for admin review.");
       return;
     }
-    if (!needMobile && !needPhoto) {
+    if (!needMobile && !needPhoto && !needReferral) {
       appAlert("Nothing to update", "No correction fields were requested.");
       return;
     }
@@ -192,11 +194,16 @@ export function RegistrationCorrectionScreen() {
       appAlert("Photo required", "Please upload a clear profile photo.");
       return;
     }
+    if (needReferral && !referralCode.trim()) {
+      appAlert("Referral code required", "Enter a referral code from an existing Digital House member.");
+      return;
+    }
     setSaving(true);
     try {
       const updated = await submitRegistrationCorrection({
         ...(needMobile ? { mobile: mobile.trim() } : {}),
-        ...(needPhoto ? { profilePhoto: photoUrl } : {})
+        ...(needPhoto ? { profilePhoto: photoUrl } : {}),
+        ...(needReferral ? { referralCode: referralCode.trim().toUpperCase() } : {})
       });
       await applyUser(updated);
       appAlert("Submitted", "Your updates were sent for admin review.");
@@ -218,8 +225,10 @@ export function RegistrationCorrectionScreen() {
     user?.status,
     needMobile,
     needPhoto,
+    needReferral,
     mobile,
     photoUrl,
+    referralCode,
     applyUser,
     refreshSession,
     signOut
@@ -280,6 +289,21 @@ export function RegistrationCorrectionScreen() {
                     </Text>
                   )}
                 </Pressable>
+              </>
+            ) : null}
+
+            {needReferral ? (
+              <>
+                <Text style={s.label}>Referral Code</Text>
+                <TextInput
+                  style={s.input}
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  placeholder="Enter referral code"
+                  placeholderTextColor={colors.textSecondary}
+                />
               </>
             ) : null}
 

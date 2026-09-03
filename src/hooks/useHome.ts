@@ -14,6 +14,8 @@ import {
 import type { PostCardData } from "../components/home/PostCard";
 import { getImageUrl } from "../api/client";
 import { prefetchAspectRatios } from "../utils/imageDimensions";
+import { mergeById } from "../utils/mergeById";
+import { resetFeedImpressionSession } from "../utils/feedImpressionTracker";
 
 export type HomeState = {
   summary: HomeSummaryResponse | null;
@@ -25,7 +27,7 @@ export type HomeState = {
   feedLoadingMore: boolean;
   feedError: Error | null;
   feedSort: "recent" | "popular";
-  feedNextCursor: number | null;
+  feedNextCursor: number | string | null;
   highlights: HighlightsResponse | null;
   highlightsLoading: boolean;
   highlightsError: Error | null;
@@ -119,7 +121,7 @@ export function useHome() {
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [feedError, setFeedError] = useState<Error | null>(null);
   const [feedSort, setFeedSort] = useState<"recent" | "popular">("recent");
-  const [feedNextCursor, setFeedNextCursor] = useState<number | null>(null);
+  const [feedNextCursor, setFeedNextCursor] = useState<number | string | null>(null);
 
   const [highlights, setHighlights] = useState<HighlightsResponse | null>(null);
   const [highlightsLoading, setHighlightsLoading] = useState(true);
@@ -133,6 +135,15 @@ export function useHome() {
 
   const feedItemsRef = useRef(feedItems);
   feedItemsRef.current = feedItems;
+
+  const feedNextCursorRef = useRef(feedNextCursor);
+  feedNextCursorRef.current = feedNextCursor;
+
+  const feedTotalRef = useRef(feedTotal);
+  feedTotalRef.current = feedTotal;
+
+  const feedRequestIdRef = useRef(0);
+  const feedLoadingMoreRef = useRef(false);
 
   const fetchSummary = useCallback(async (opts?: { background?: boolean }) => {
     const cached = summaryRef.current;
@@ -158,30 +169,40 @@ export function useHome() {
     }
   }, []);
 
-  const fetchFeed = useCallback(async (append: boolean, cursor?: number | null) => {
-    if (append) setFeedLoadingMore(true);
-    else {
+  const fetchFeed = useCallback(async (append: boolean, cursor?: number | string | null) => {
+    if (append && feedLoadingMoreRef.current) return;
+    const requestId = ++feedRequestIdRef.current;
+    if (append) {
+      feedLoadingMoreRef.current = true;
+      setFeedLoadingMore(true);
+    } else {
+      // Block load-more until replace finishes so an older page cannot append
+      // onto a freshly refreshed list.
+      feedLoadingMoreRef.current = true;
       setFeedError(null);
       // Keep existing cards on screen during refresh — a loading flag with
       // empty-state UI made pull-to-refresh flash a blank feed.
       if (feedItemsRef.current.length === 0) setFeedLoading(true);
     }
     try {
+      const sort = feedSortRef.current;
       const data: FeedResponse = await getFeed({
         limit: FEED_PAGE_SIZE,
-        sort: feedSortRef.current,
-        ...(append && cursor ? { cursor } : { page: 1 })
+        sort,
+        ...(append && cursor != null && cursor !== ""
+          ? { cursor }
+          : append && sort === "popular"
+            ? { page: Math.floor(feedItemsRef.current.length / FEED_PAGE_SIZE) + 1 }
+            : { page: 1 })
       });
+      if (requestId !== feedRequestIdRef.current) return;
       setFeedTotal(data.total);
       setFeedNextCursor(data.nextCursor ?? null);
-      if (data.sort) setFeedSort(data.sort);
+      if (data.sort === "popular" || data.sort === "recent") setFeedSort(data.sort);
 
       const mapped = data.items.map(feedItemToPostCard);
       if (append) {
-        setFeedItems((prev) => {
-          const ids = new Set(prev.map((p) => p.id));
-          return [...prev, ...mapped.filter((p) => !ids.has(p.id))];
-        });
+        setFeedItems((prev) => mergeById(prev, mapped));
       } else {
         // Keep prior signed media URLs when object path is unchanged — new signatures
         // remount every image and make the list "shake" as heights remeasure.
@@ -192,10 +213,14 @@ export function useHome() {
         .filter((u): u is string => !!u);
       if (mediaUris.length) prefetchAspectRatios(mediaUris);
     } catch (e) {
+      if (requestId !== feedRequestIdRef.current) return;
       setFeedError(e instanceof Error ? e : new Error("Failed to load feed"));
     } finally {
-      setFeedLoading(false);
-      setFeedLoadingMore(false);
+      if (requestId === feedRequestIdRef.current) {
+        setFeedLoading(false);
+        setFeedLoadingMore(false);
+        feedLoadingMoreRef.current = false;
+      }
     }
   }, []);
 
@@ -225,6 +250,8 @@ export function useHome() {
   }, [fetchHighlights]);
 
   const refetchAll = useCallback(async () => {
+    feedRequestIdRef.current += 1;
+    resetFeedImpressionSession();
     setFeedError(null);
     setHighlightsError(null);
     const hasSummary = summaryRef.current != null;
@@ -237,36 +264,16 @@ export function useHome() {
   }, [fetchSummary, fetchFeed, fetchHighlights]);
 
   const loadMoreFeed = useCallback(() => {
-    if (feedLoadingMore || feedLoading) return;
-    if (feedItems.length >= feedTotal && !feedNextCursor) return;
-    if (feedSort === "recent" && feedNextCursor) {
-      void fetchFeed(true, feedNextCursor);
+    if (feedLoadingMoreRef.current || feedLoading) return;
+    const cursor = feedNextCursorRef.current;
+    if (cursor != null && cursor !== "") {
+      void fetchFeed(true, cursor);
       return;
     }
-    if (feedItems.length < feedTotal) {
-      const page = Math.floor(feedItems.length / FEED_PAGE_SIZE) + 1;
-      setFeedLoadingMore(true);
-      void getFeed({ page, limit: FEED_PAGE_SIZE, sort: feedSort })
-        .then((data) => {
-          setFeedTotal(data.total);
-          setFeedNextCursor(data.nextCursor ?? null);
-          const mapped = data.items.map(feedItemToPostCard);
-          setFeedItems((prev) => {
-            const ids = new Set(prev.map((p) => p.id));
-            return [...prev, ...mapped.filter((p) => !ids.has(p.id))];
-          });
-        })
-        .finally(() => setFeedLoadingMore(false));
+    if (feedItemsRef.current.length < feedTotalRef.current) {
+      void fetchFeed(true);
     }
-  }, [
-    feedLoadingMore,
-    feedLoading,
-    feedNextCursor,
-    feedSort,
-    feedItems.length,
-    feedTotal,
-    fetchFeed
-  ]);
+  }, [feedLoading, fetchFeed]);
 
   const updatePost = useCallback((postId: string, patch: Partial<PostCardData>) => {
     setFeedItems((prev) =>

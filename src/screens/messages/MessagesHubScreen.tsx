@@ -589,6 +589,7 @@ export function MessagesHubScreen() {
           chatLanes={item.chatLanes}
           muted={item.muted}
           archived={item.archived}
+          left={item.left}
           onPress={() => openThread(item)}
           colors={threadColors}
         />

@@ -177,9 +177,9 @@ function AdvertisementCardInner({ ad, placement, preview }: Omit<Props, "slotVis
     () =>
       StyleSheet.create({
         card: {
-          marginHorizontal: spacing.sm,
+          marginHorizontal: placement === "home" ? 6 : spacing.sm,
           marginBottom: spacing.lg,
-          borderRadius: radius.lg,
+          borderRadius: placement === "home" ? 18 : radius.lg,
           backgroundColor: colors.surface,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: mode === "dark" ? "rgba(234,88,12,0.32)" : "rgba(234,88,12,0.18)",
@@ -266,7 +266,7 @@ function AdvertisementCardInner({ ad, placement, preview }: Omit<Props, "slotVis
         pillSolo: { flexGrow: 1 },
         pillText: { fontSize: 13, fontWeight: "700", color: colors.text }
       }),
-    [colors, mode]
+    [colors, mode, placement]
   );
 
   const track = async (action: AdvertisementClickAction) => {

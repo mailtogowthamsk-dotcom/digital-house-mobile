@@ -14,8 +14,8 @@ export type RegisterPayload = {
   profilePhoto?: string | null;
   govtIdType?: string | null;
   govtIdFile?: string | null;
-  /** Optional — required by API when those docs are published. */
   legalAcceptances?: LegalAcceptance[];
+  referralCode?: string | null;
 };
 
 export async function register(payload: RegisterPayload) {
@@ -152,6 +152,7 @@ export type CompleteGoogleProfilePayload = {
   mobile?: string | null;
   profilePhoto?: string | null;
   legalAcceptances?: LegalAcceptance[];
+  referralCode?: string | null;
 };
 
 export async function completeGoogleProfile(payload: CompleteGoogleProfilePayload) {
@@ -192,6 +193,7 @@ export async function getMe(): Promise<MeUser> {
 export type SubmitRegistrationCorrectionPayload = {
   mobile?: string | null;
   profilePhoto?: string | null;
+  referralCode?: string | null;
 };
 
 export async function submitRegistrationCorrection(
@@ -203,4 +205,42 @@ export async function submitRegistrationCorrection(
   );
   if (!data?.ok || !data.user) throw new Error(data?.message || "Failed to submit corrections");
   return data.user;
+}
+
+export type OwnReferralStatus = {
+  status: string;
+  canSubmit: boolean;
+  adminNote: string | null;
+};
+
+export async function getOwnReferralStatus(): Promise<OwnReferralStatus> {
+  const { data } = await api.get<{ ok: boolean } & OwnReferralStatus>("/auth/referral-status");
+  if (!data?.ok) throw new Error("Failed to load referral status");
+  return { status: data.status, canSubmit: data.canSubmit, adminNote: data.adminNote ?? null };
+}
+
+export async function submitReferralCode(referralCode: string): Promise<{ status: string; message: string }> {
+  const { data } = await api.post<{ ok: boolean; status?: string; message?: string }>(
+    "/auth/referral-submit",
+    { referralCode }
+  );
+  if (!data?.ok) throw new Error(data?.message || "Invalid referral code. Please check the code and try again.");
+  return {
+    status: data.status || "PENDING_ADMIN_VERIFICATION",
+    message: data.message || "Referral submitted successfully. Your registration is pending admin verification."
+  };
+}
+
+export type OwnReferralCode = { code: string; memberDisplayId: string };
+
+export async function getOwnReferralCode(): Promise<OwnReferralCode> {
+  const { data } = await api.get<{ ok: boolean } & OwnReferralCode>("/auth/referral-code");
+  if (!data?.ok || !data.code) throw new Error("Referral code unavailable");
+  return { code: data.code, memberDisplayId: data.memberDisplayId };
+}
+
+export async function regenerateOwnReferralCode(): Promise<OwnReferralCode> {
+  const { data } = await api.post<{ ok: boolean } & OwnReferralCode>("/auth/referral-code/regenerate", {});
+  if (!data?.ok || !data.code) throw new Error("Could not regenerate referral code");
+  return { code: data.code, memberDisplayId: data.memberDisplayId };
 }

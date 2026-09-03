@@ -102,6 +102,16 @@ export async function deleteNotification(id: number) {
   return data.counts;
 }
 
+export async function deleteAllNotifications(category: NotificationCategory = "ALL") {
+  const { data } = await api.post<{ ok: boolean; counts: UnreadCounts }>(
+    "/notifications/clear-all",
+    null,
+    { params: category !== "ALL" ? { category } : {} }
+  );
+  if (!data?.ok) throw new Error("Failed to clear notifications");
+  return data.counts;
+}
+
 export async function deleteNotificationsBulk(ids: number[]) {
   const { data } = await api.post<{ ok: boolean; counts: UnreadCounts }>(
     "/notifications/bulk-delete",

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
 import {
+  deleteAllNotifications,
   deleteNotification,
   getNotifications,
   markAllNotificationsRead,
@@ -36,6 +37,7 @@ import {
   type NotificationSection
 } from "../../features/notifications/notificationPresentation";
 import { maybePromptPushAfterMeaningfulUse } from "../../permissions";
+import { appAlert } from "../../utils/appAlert";
 
 const PAGE_SIZE = 25;
 
@@ -199,6 +201,30 @@ export function NotificationCenterScreen() {
     }
   }, [setCounts, tab]);
 
+  const onClearAll = useCallback(() => {
+    if (items.length === 0 && total === 0) return;
+    const scope = tab === "ALL" ? "all notifications" : `${tab.toLowerCase()} notifications`;
+    appAlert("Clear all?", `This will delete ${scope} from your list.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear all",
+        style: "destructive",
+        onPress: () =>
+          void (async () => {
+            try {
+              const c = await deleteAllNotifications(tab);
+              setCounts(c);
+              animateListChange();
+              setItems([]);
+              setTotal(0);
+            } catch {
+              appAlert("Couldn't clear", "Please try again.");
+            }
+          })()
+      }
+    ]);
+  }, [items.length, setCounts, tab, total]);
+
   const sections = useMemo(() => groupNotificationsByDate(items), [items]);
   const summaryLines = useMemo(
     () => (tab === "ALL" ? buildActivitySummary(counts) : []),
@@ -263,8 +289,10 @@ export function NotificationCenterScreen() {
         unreadTotal={counts.total}
         onBack={() => navigation.goBack()}
         onMarkAllRead={() => void onMarkAll()}
+        onClearAll={onClearAll}
         onSettings={() => navigation.navigate("Settings")}
         canMarkAll={hasUnread}
+        canClearAll={items.length > 0 || total > 0}
       />
 
       {loading && items.length === 0 ? (

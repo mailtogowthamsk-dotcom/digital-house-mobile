@@ -69,6 +69,7 @@ export function RegistrationScreen({ navigation }: any) {
   const [occupation, setOccupation] = useState("");
   const [location, setLocation] = useState("");
   const [kulam, setKulam] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [locationOptions, setLocationOptions] = useState<{ label: string; value: string }[]>(LOCATION_OPTIONS);
@@ -271,6 +272,7 @@ export function RegistrationScreen({ navigation }: any) {
         occupation: occupation.trim() || null,
         location: location.trim(),
         kulam: kulam.trim(),
+        ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
       };
       const registered = await registerApi(payload);
@@ -479,6 +481,14 @@ export function RegistrationScreen({ navigation }: any) {
                   required
                   label="Kulam"
                 />
+                <Input
+                  placeholder="Referral Code (Optional)"
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  variant="onWhite"
+                />
               </>
             )}
             {step === 3 && (
@@ -495,6 +505,8 @@ export function RegistrationScreen({ navigation }: any) {
                 <Text style={s.reviewValue}>{location || "—"}</Text>
                 <Text style={s.reviewLabel}>Kulam</Text>
                 <Text style={s.reviewValue}>{kulam || "—"}</Text>
+                <Text style={s.reviewLabel}>Referral Code (Optional)</Text>
+                <Text style={s.reviewValue}>{referralCode.trim() || "Not provided"}</Text>
 
                 <Text style={[s.reviewLabel, { marginTop: spacing.md }]}>Legal agreements</Text>
                 <Text style={[s.reviewHint, { marginTop: spacing.sm }]}>

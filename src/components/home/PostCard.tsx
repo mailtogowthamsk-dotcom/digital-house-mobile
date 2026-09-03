@@ -224,12 +224,12 @@ function PostCardInner({
       StyleSheet.create({
         card: {
           backgroundColor: mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
-          marginHorizontal: 8,
-          marginBottom: 14,
-          borderRadius: 16,
+          marginHorizontal: 6,
+          marginBottom: 10,
+          borderRadius: 18,
           overflow: "hidden",
-          borderWidth: video ? 0 : StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.04)",
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.05)",
           ...feedCardShadow(mode)
         },
         cardVideo: {

@@ -18,6 +18,7 @@ export type Thread = {
   canSend?: boolean;
   muted?: boolean;
   archived?: boolean;
+  left?: boolean;
   lastMessage: {
     id: number;
     senderId: number;

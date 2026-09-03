@@ -83,7 +83,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
   const subtitle = isBlocked
     ? "People you blocked. Tap Unblock to allow messaging again."
     : isArchived
-      ? "Archived chats stay here until you unarchive them. Open a chat → ⋮ → Unarchive."
+      ? "Left and archived chats stay here. Open a chat → ⋮ → Restore or Unarchive to bring it back to Inbox."
       : "Archive a chat from its options menu. Find blocked people under Blocked.";
 
   const emptyTitle = isBlocked
@@ -95,7 +95,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
   const emptySubtitle = isBlocked
     ? "When you block someone from a chat, they appear here so you can unblock them anytime."
     : isArchived
-      ? "When you archive a chat, it moves here and leaves your Inbox."
+      ? "When you archive or leave a chat, it moves here so you can restore it anytime."
       : "When you match on Matrimony or connect with a member, your chats will appear here.";
 
   const listEmpty = isBlocked ? blockedMembers.length === 0 : threads.length === 0;
@@ -411,6 +411,7 @@ export function ThreadRow({
   chatLanes,
   muted,
   archived,
+  left,
   onPress,
   colors
 }: {
@@ -424,6 +425,7 @@ export function ThreadRow({
   chatLanes?: ChatLane[];
   muted?: boolean;
   archived?: boolean;
+  left?: boolean;
   onPress: () => void;
   colors: Colors;
 }) {
@@ -467,7 +469,9 @@ export function ThreadRow({
               <Ionicons name="heart" size={12} color="#E11D48" />
             </View>
           ) : null}
-          {archived ? (
+          {left ? (
+            <Ionicons name="exit-outline" size={14} color={colors.textMuted} />
+          ) : archived ? (
             <Ionicons name="archive-outline" size={14} color={colors.textMuted} />
           ) : null}
           {muted ? (

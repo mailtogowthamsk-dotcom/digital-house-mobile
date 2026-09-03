@@ -52,6 +52,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [district, setDistrict] = useState("");
   const [kulam, setKulam] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [mobile, setMobile] = useState("");
   const [locationOptions, setLocationOptions] = useState(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState(KULAM_OPTIONS);
@@ -153,6 +154,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         kulam,
         location: district,
         mobile: mobile.trim() || null,
+        ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
       });
       await refreshSession();
@@ -238,6 +240,14 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               value={mobile}
               onChangeText={setMobile}
               keyboardType="phone-pad"
+              variant="onWhite"
+            />
+            <Input
+              placeholder="Referral Code (Optional)"
+              value={referralCode}
+              onChangeText={setReferralCode}
+              autoCapitalize="characters"
+              autoCorrect={false}
               variant="onWhite"
             />
 

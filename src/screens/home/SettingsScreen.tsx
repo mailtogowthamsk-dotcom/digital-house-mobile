@@ -7,7 +7,8 @@ import {
   Pressable,
   Switch,
   Platform,
-  RefreshControl
+  RefreshControl,
+  Share
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -34,7 +35,14 @@ import {
   syncPushTokenWithBackend
 } from "../../services/pushNotifications";
 import { ensurePushNotifications } from "../../permissions";
-import { getLinkedAccounts, type LinkedAccountsResponse } from "../../api/auth.api";
+import * as Clipboard from "expo-clipboard";
+import {
+  getLinkedAccounts,
+  getOwnReferralCode,
+  regenerateOwnReferralCode,
+  type LinkedAccountsResponse,
+  type OwnReferralCode
+} from "../../api/auth.api";
 import {
   LEGAL_FALLBACK_LINKS,
   listLegalCatalog,
@@ -92,13 +100,15 @@ export function SettingsScreen() {
   const [linked, setLinked] = useState<LinkedAccountsResponse | null>(null);
   const [loadingLinked, setLoadingLinked] = useState(true);
   const [acceptingRequests, setAcceptingRequests] = useState(user?.allowConnectionRequests !== false);
-  const [lastSeenVisibility, setLastSeenVisibility] = useState<LastSeenVisibility>("MATCHES_ONLY");
+  const [lastSeenVisibility, setLastSeenVisibility] = useState<LastSeenVisibility>("EVERYONE");
   const [loadingLastSeen, setLoadingLastSeen] = useState(true);
   const [legalDocs, setLegalDocs] = useState<
     Array<Pick<LegalCatalogItem, "documentKey" | "title" | "slug"> & { version?: string }>
   >(LEGAL_FALLBACK_LINKS);
   const [loadingLegal, setLoadingLegal] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [referral, setReferral] = useState<OwnReferralCode | null>(null);
+  const [loadingReferral, setLoadingReferral] = useState(false);
 
   const loadPrefs = useCallback(async () => {
     setLoadingPrefs(true);
@@ -127,7 +137,7 @@ export function SettingsScreen() {
     try {
       setLastSeenVisibility(await getLastSeenVisibility());
     } catch {
-      setLastSeenVisibility("MATCHES_ONLY");
+      setLastSeenVisibility("EVERYONE");
     } finally {
       setLoadingLastSeen(false);
     }
@@ -145,12 +155,28 @@ export function SettingsScreen() {
     }
   }, []);
 
+  const loadReferral = useCallback(async () => {
+    if (user?.status !== "APPROVED") {
+      setReferral(null);
+      return;
+    }
+    setLoadingReferral(true);
+    try {
+      setReferral(await getOwnReferralCode());
+    } catch {
+      setReferral(null);
+    } finally {
+      setLoadingReferral(false);
+    }
+  }, [user?.status]);
+
   useEffect(() => {
     void loadPrefs();
     void loadLinked();
     void loadLastSeen();
     void loadLegal();
-  }, [loadPrefs, loadLinked, loadLastSeen, loadLegal]);
+    void loadReferral();
+  }, [loadPrefs, loadLinked, loadLastSeen, loadLegal, loadReferral]);
 
   useEffect(() => {
     setAcceptingRequests(user?.allowConnectionRequests !== false);
@@ -159,11 +185,11 @@ export function SettingsScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPrefs(), loadLinked(), loadLastSeen(), loadLegal()]);
+      await Promise.all([loadPrefs(), loadLinked(), loadLastSeen(), loadLegal(), loadReferral()]);
     } finally {
       setRefreshing(false);
     }
-  }, [loadPrefs, loadLinked, loadLastSeen, loadLegal]);
+  }, [loadPrefs, loadLinked, loadLastSeen, loadLegal, loadReferral]);
 
   const patchLastSeenVisibility = async (value: LastSeenVisibility) => {
     const prev = lastSeenVisibility;
@@ -426,6 +452,58 @@ export function SettingsScreen() {
           })}
         </Card>
       )}
+
+      {user?.status === "APPROVED" ? (
+        <>
+          <SectionHeader label="My referral code" colors={colors} />
+          {loadingReferral && !referral ? (
+            <SkeletonCard colors={colors} rows={2} />
+          ) : (
+            <Card colors={colors}>
+              <View style={[styles.row, styles.rowLast, { borderBottomColor: colors.border }]}>
+                <View style={styles.rowBody}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{referral?.code ?? "—"}</Text>
+                  <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>
+                    Share this code only with people you know. Regenerating does not change past referrals.
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={async () => {
+                  if (!referral?.code) return;
+                  await Clipboard.setStringAsync(referral.code);
+                  appAlert("Copied", "Referral code copied.");
+                }}
+                style={({ pressed }) => [styles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={[styles.rowLabel, { color: colors.primary }]}>Copy code</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  if (!referral?.code) return;
+                  await Share.share({ message: `Digital House referral code: ${referral.code}` });
+                }}
+                style={({ pressed }) => [styles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={[styles.rowLabel, { color: colors.primary }]}>Share</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    setReferral(await regenerateOwnReferralCode());
+                    appAlert("Updated", "Your new referral code is ready. Previous referrals are unchanged.");
+                  } catch {
+                    appAlert("Couldn't regenerate", "Please try again.");
+                  }
+                }}
+                style={({ pressed }) => [styles.row, styles.rowLast, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={[styles.rowLabel, { color: colors.primary }]}>Regenerate code</Text>
+              </Pressable>
+            </Card>
+          )}
+        </>
+      ) : null}
 
       <SectionHeader label="Account security" colors={colors} />
       {loadingLinked ? (
