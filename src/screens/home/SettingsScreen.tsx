@@ -76,6 +76,10 @@ const LEGAL_ICONS: Record<string, IconName> = {
   community_guidelines: "people-outline",
   refund_policy: "card-outline",
   account_deletion: "trash-outline",
+  content_policy: "document-text-outline",
+  about: "information-circle-outline",
+  cookie_policy: "cafe-outline",
+  disclaimer: "alert-circle-outline",
   safety: "shield-checkmark-outline"
 };
 

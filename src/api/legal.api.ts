@@ -98,7 +98,11 @@ export const LEGAL_FALLBACK_LINKS: Array<{
     title: "Account Deletion & Data Retention",
     slug: "account-deletion"
   },
-  { documentKey: "safety", title: "Safety & Abuse Reporting", slug: "safety" }
+  { documentKey: "safety", title: "Safety & Abuse Reporting", slug: "safety" },
+  { documentKey: "about", title: "About Us", slug: "about" },
+  { documentKey: "cookie_policy", title: "Cookie Policy", slug: "cookie-policy" },
+  { documentKey: "disclaimer", title: "Disclaimer", slug: "disclaimer" },
+  { documentKey: "content_policy", title: "Content Moderation Policy", slug: "content-policy" }
 ];
 
 export const LEGAL_REGISTRATION_KEYS = [

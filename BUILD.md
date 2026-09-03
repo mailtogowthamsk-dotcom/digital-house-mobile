@@ -38,5 +38,6 @@ The APK talks to the **backend URL** set at build time (`EXPO_PUBLIC_API_URL` in
    - Rebuild the APK after changing env so the new URL is baked in.
 
 2. **Backend SMTP (cPanel / production):** On the server the APK uses, set in backend `.env`:
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`
-   - Use a reliable SMTP (e.g. Resend, SendGrid, Mailgun, or cPanel’s mail) so OTP emails are not blocked or delayed. If mail fails, the app will now show: *"Could not send verification email. Please try again or contact support."*
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` / `MAIL_FROM`, `SMTP_FROM_NAME`
+   - Production uses Mailcow: `SMTP_HOST=mail.konguvettuvagounder.com`, port `587` + STARTTLS (`SMTP_ENCRYPTION=tls`).
+   - Use a reliable SMTP so OTP emails are not blocked or delayed. If mail fails, the app will now show: *"Could not send verification email. Please try again or contact support."*
