@@ -67,6 +67,9 @@ export function RegistrationScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [occupation, setOccupation] = useState("");
+  const [fatherName, setFatherName] = useState("");
+  const [address, setAddress] = useState("");
+  const [workStudyDetails, setWorkStudyDetails] = useState("");
   const [location, setLocation] = useState("");
   const [kulam, setKulam] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -270,6 +273,9 @@ export function RegistrationScreen({ navigation }: any) {
         dob: dob ? formatDate(dob) : null,
         mobile: mobile.trim(),
         occupation: occupation.trim() || null,
+        fatherName: fatherName.trim() || null,
+        address: address.trim() || null,
+        workStudyDetails: workStudyDetails.trim() || null,
         location: location.trim(),
         kulam: kulam.trim(),
         ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
@@ -423,6 +429,13 @@ export function RegistrationScreen({ navigation }: any) {
                     <Text style={s.dateDoneText}>Done</Text>
                   </Pressable>
                 )}
+                <Input
+                  placeholder="Father's name (optional)"
+                  value={fatherName}
+                  onChangeText={setFatherName}
+                  variant="onWhite"
+                  leftIcon={<Ionicons name="people-outline" size={ICON_SIZE} color={ICON_COLOR} />}
+                />
               </>
             )}
             {step === 1 && (
@@ -448,6 +461,16 @@ export function RegistrationScreen({ navigation }: any) {
             )}
             {step === 2 && (
               <>
+                <Input
+                  placeholder="Enter your address (optional)"
+                  value={address}
+                  onChangeText={setAddress}
+                  variant="onWhite"
+                  multiline
+                  numberOfLines={3}
+                  style={{ minHeight: 88 }}
+                  leftIcon={<Ionicons name="home-outline" size={ICON_SIZE} color={ICON_COLOR} />}
+                />
                 {occupationOptions.length > 0 ? (
                   <Dropdown
                     placeholder="Occupation (optional)"
@@ -464,6 +487,15 @@ export function RegistrationScreen({ navigation }: any) {
                     variant="onWhite"
                   />
                 )}
+                <Input
+                  placeholder="Tell us what you do or what you are studying"
+                  value={workStudyDetails}
+                  onChangeText={setWorkStudyDetails}
+                  variant="onWhite"
+                  multiline
+                  numberOfLines={4}
+                  style={{ minHeight: 100 }}
+                />
                 <Dropdown
                   placeholder="Select district *"
                   value={location}
@@ -501,6 +533,14 @@ export function RegistrationScreen({ navigation }: any) {
                 <Text style={s.reviewValue}>{email || "—"}</Text>
                 <Text style={s.reviewLabel}>Mobile</Text>
                 <Text style={s.reviewValue}>{mobile || "—"}</Text>
+                <Text style={s.reviewLabel}>Father's name</Text>
+                <Text style={s.reviewValue}>{fatherName.trim() || "—"}</Text>
+                <Text style={s.reviewLabel}>Address</Text>
+                <Text style={s.reviewValue}>{address.trim() || "—"}</Text>
+                <Text style={s.reviewLabel}>Occupation</Text>
+                <Text style={s.reviewValue}>{occupation.trim() || "—"}</Text>
+                <Text style={s.reviewLabel}>Work / Study Details</Text>
+                <Text style={s.reviewValue}>{workStudyDetails.trim() || "—"}</Text>
                 <Text style={s.reviewLabel}>Location</Text>
                 <Text style={s.reviewValue}>{location || "—"}</Text>
                 <Text style={s.reviewLabel}>Kulam</Text>
@@ -623,7 +663,7 @@ export function RegistrationScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
   background: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.2)" },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.2)" },
   keyboard: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
   backWrap: {
@@ -637,8 +677,8 @@ const s = StyleSheet.create({
   backText: { fontSize: 16, color: "#FFFFFF", marginLeft: spacing.xs },
   header: { alignItems: "center", marginBottom: spacing.xl },
   logo: {
-    width: Math.min(SCREEN_WIDTH * 0.35, 140),
-    height: 50,
+    width: Math.min(SCREEN_WIDTH * 0.3, 120),
+    height: Math.min(SCREEN_WIDTH * 0.3, 120),
     marginBottom: spacing.sm
   },
   brandRow: { flexDirection: "row", alignItems: "baseline", marginBottom: spacing.md },

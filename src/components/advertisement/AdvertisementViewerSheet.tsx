@@ -104,6 +104,7 @@ function SheetVideo({ uri, poster, fullBleed }: { uri: string; poster?: string |
           contentFit="contain"
           nativeControls={false}
           fullscreenOptions={{ enable: false }}
+          surfaceType={Platform.OS === "android" ? "textureView" : undefined}
         />
         {!playing ? (
           <View style={videoStyles.playWrap} pointerEvents="none">
@@ -131,9 +132,9 @@ const videoStyles = StyleSheet.create({
     overflow: "hidden"
   },
   video: { width: "100%", height: "100%" },
-  poster: { ...StyleSheet.absoluteFillObject, opacity: 0.35 },
+  poster: { ...StyleSheet.absoluteFill, opacity: 0.35 },
   playWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -364,7 +365,7 @@ export function AdvertisementViewerSheet({
           height: 88
         },
         heroChrome: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           paddingTop: 8,
           paddingHorizontal: spacing.md
         },

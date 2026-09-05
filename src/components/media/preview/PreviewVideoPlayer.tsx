@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -163,8 +164,9 @@ function PreviewVideoPlayerInner({
           player={player}
           contentFit="contain"
           nativeControls={false}
-          allowsFullscreen={false}
+          fullscreenOptions={{ enable: false }}
           allowsPictureInPicture={false}
+          surfaceType={Platform.OS === "android" ? "textureView" : undefined}
         />
         {!ready ? (
           <View style={styles.loading}>
@@ -244,13 +246,13 @@ const styles = StyleSheet.create({
     overflow: "hidden"
   },
   loading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.35)"
   },
   centerHit: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center"
   },

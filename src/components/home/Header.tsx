@@ -3,12 +3,14 @@
  */
 
 import React, { memo, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, Platform, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform, Animated, Image } from "react-native";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
 import { useNotificationsOptional } from "../../context/NotificationContext";
+
+const LOGO = require("../../../assets/logo_digital_house.png");
 
 export type HeaderActionId =
   | "create"
@@ -91,10 +93,10 @@ function HeaderInner({
           overflow: "hidden"
         },
         glass: {
-          ...StyleSheet.absoluteFillObject
+          ...StyleSheet.absoluteFill
         },
         tint: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor: colors.glass,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.glassBorder
@@ -123,15 +125,9 @@ function HeaderInner({
           justifyContent: "center",
           paddingHorizontal: spacing.xs
         },
-        logoMark: {
-          width: 36,
-          height: 36,
-          borderRadius: 12,
-          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.28)" : "rgba(37,99,235,0.1)",
-          alignItems: "center",
-          justifyContent: "center",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? "rgba(37,99,235,0.35)" : "rgba(37,99,235,0.18)"
+        brandLogo: {
+          width: 40,
+          height: 40
         },
         title: {
           fontSize: 19,
@@ -194,9 +190,12 @@ function HeaderInner({
       <View style={s.tint} pointerEvents="none" />
       <View style={s.bar}>
         <View style={[s.side, s.sideLeft]}>
-          <View style={s.logoMark}>
-            <Ionicons name="home" size={18} color={colors.primary} />
-          </View>
+          <Image
+            source={LOGO}
+            style={s.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="Vettuvagounder"
+          />
         </View>
 
         <View style={s.center} pointerEvents="none">

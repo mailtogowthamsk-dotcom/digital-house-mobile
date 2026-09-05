@@ -12,6 +12,7 @@ import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.ap
 import { getErrorStatus, getImageUrl } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { uploadOptimizedImage, isAllowedImageType } from "../../utils/mediaUpload";
+import { deleteRemoteMediaUrls } from "../../media/sessionUploadedMedia";
 import { MatrimonyEditProfileCard } from "../../components/matrimony/MatrimonyEditProfileCard";
 import { ensureMediaLibraryRead } from "../../permissions";
 import { useTheme } from "../../theme/ThemeContext";
@@ -62,6 +63,8 @@ const emptyCommunity = (): CommunitySectionForm => ({
 const emptyPersonal = (): PersonalSectionForm => ({
   currentLocation: null,
   occupation: null,
+  address: null,
+  workStudyDetails: null,
   instagram: null,
   facebook: null,
   linkedin: null,
@@ -81,6 +84,7 @@ const emptyMatrimony = (): MatrimonySectionForm => ({
   familyType: null,
   familyStatus: null,
   motherName: null,
+  fatherName: null,
   fatherOccupation: null,
   numberOfSiblings: null,
   partnerPreferences: null,
@@ -138,6 +142,8 @@ function mapProfileToForm(profile: ProfileMeResponse) {
     ? {
         currentLocation: (sections.personal as any).currentLocation ?? null,
         occupation: (sections.personal as any).occupation ?? null,
+        address: (sections.personal as any).address ?? null,
+        workStudyDetails: (sections.personal as any).workStudyDetails ?? null,
         instagram: (sections.personal as any).instagram ?? null,
         facebook: (sections.personal as any).facebook ?? null,
         linkedin: (sections.personal as any).linkedin ?? null,
@@ -159,6 +165,7 @@ function mapProfileToForm(profile: ProfileMeResponse) {
         familyType: (sections.matrimony as any).familyType ?? null,
         familyStatus: (sections.matrimony as any).familyStatus ?? null,
         motherName: (sections.matrimony as any).motherName ?? null,
+        fatherName: (sections.matrimony as any).fatherName ?? null,
         fatherOccupation: (sections.matrimony as any).fatherOccupation ?? null,
         numberOfSiblings: (sections.matrimony as any).numberOfSiblings ?? null,
         partnerPreferences: (sections.matrimony as any).partnerPreferences ?? null,
@@ -344,6 +351,8 @@ export function EditProfileScreen() {
           payload: {
             currentLocation: personal.currentLocation?.trim() || null,
             occupation: personal.occupation?.trim() || null,
+            address: personal.address?.trim() || null,
+            workStudyDetails: personal.workStudyDetails?.trim() || null,
             instagram: personal.instagram?.trim() || null,
             facebook: personal.facebook?.trim() || null,
             linkedin: personal.linkedin?.trim() || null,
@@ -461,9 +470,13 @@ export function EditProfileScreen() {
         return;
       }
       setProfilePhotoUploading(true);
+      const previousPhoto = profile?.profile_image ?? null;
       const { publicUrl } = await uploadOptimizedImage(uri, "profile");
       const updated = await updateProfile({ profile_image: publicUrl });
       setProfile(updated);
+      if (previousPhoto && previousPhoto !== publicUrl) {
+        deleteRemoteMediaUrls([previousPhoto]);
+      }
       if (initialFormRef.current) {
         initialFormRef.current = mapProfileToForm(updated);
       }
@@ -472,7 +485,7 @@ export function EditProfileScreen() {
     } finally {
       setProfilePhotoUploading(false);
     }
-  }, []);
+  }, [profile?.profile_image]);
 
   const dobDate = basic.date_of_birth ? new Date(basic.date_of_birth) : new Date();
   const onDobChange = (_: any, date?: Date) => {
@@ -865,6 +878,23 @@ export function EditProfileScreen() {
         </AccordionSection>
 
         <AccordionSection title="Personal Details" icon="person-circle-outline">
+          <Input
+            label="Father's Name"
+            value={personal.fatherName ?? ""}
+            onChangeText={(t) => setPersonal((p) => ({ ...p, fatherName: t || null }))}
+            placeholder="Father's name"
+            variant="light"
+          />
+          <Input
+            label="Address"
+            value={personal.address ?? ""}
+            onChangeText={(t) => setPersonal((p) => ({ ...p, address: t || null }))}
+            placeholder="Enter your address"
+            variant="light"
+            multiline
+            numberOfLines={3}
+            style={{ minHeight: 88 }}
+          />
           {occupationOptions.length > 0 ? (
             <Dropdown
               label="Occupation"
@@ -890,6 +920,16 @@ export function EditProfileScreen() {
               variant="light"
             />
           )}
+          <Input
+            label="Work / Study Details"
+            value={personal.workStudyDetails ?? ""}
+            onChangeText={(t) => setPersonal((p) => ({ ...p, workStudyDetails: t || null }))}
+            placeholder="Tell us what you do or what you are studying"
+            variant="light"
+            multiline
+            numberOfLines={4}
+            style={{ minHeight: 100 }}
+          />
           <Input
             label="Current Location (City, State) *"
             value={personal.currentLocation ?? ""}
@@ -926,13 +966,6 @@ export function EditProfileScreen() {
             value={personal.hobbies ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, hobbies: t || null }))}
             placeholder="Comma-separated or tags"
-            variant="light"
-          />
-          <Input
-            label="Father Name"
-            value={personal.fatherName ?? ""}
-            onChangeText={(t) => setPersonal((p) => ({ ...p, fatherName: t || null }))}
-            placeholder="Father's name"
             variant="light"
           />
           <Dropdown

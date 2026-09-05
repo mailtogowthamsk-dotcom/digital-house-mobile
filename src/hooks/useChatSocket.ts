@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
 import type { MessageItem } from "../api/messages.api";
 import type { Socket } from "socket.io-client";
-import { registerChatRealtime } from "../realtime/chatRealtime";
+import {
+  registerChatRealtime,
+  type MessageDeletedPayload
+} from "../realtime/chatRealtime";
 
 type ChatSocketHandlers = {
   onMessage: (message: MessageItem) => void;
   onDelivered: (payload: { messageId: number; deliveredAt: string | null }) => void;
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
+  onDeleted?: (payload: MessageDeletedPayload) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
   /** Socket recovered after a drop — reconcile anything missed while offline. */
   onReconnect?: () => void;
@@ -39,6 +43,7 @@ export function useChatSocket(
       onDelivered: (p) => handlersRef.current.onDelivered(p),
       onRead: (p) => handlersRef.current.onRead(p),
       onTyping: (t) => handlersRef.current.onTyping(t),
+      onDeleted: (p) => handlersRef.current.onDeleted?.(p),
       onIncomingFromOther: (m, sock) => handlersRef.current.onIncomingFromOther?.(m, sock),
       onReconnect: () => handlersRef.current.onReconnect?.()
     });

@@ -272,7 +272,7 @@ const s = StyleSheet.create({
     backgroundColor: "#070B14"
   },
   bgImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.42
   },
   content: {
@@ -294,10 +294,8 @@ const s = StyleSheet.create({
     width: "100%"
   },
   logo: {
-    width: Math.min(SCREEN_WIDTH * 0.72, 300),
-    height: Math.min(SCREEN_HEIGHT * 0.2, 108),
-    minWidth: 200,
-    minHeight: 72
+    width: Math.min(SCREEN_WIDTH * 0.55, 248),
+    height: Math.min(SCREEN_WIDTH * 0.55, 248)
   },
   logoFallback: {
     fontSize: 20,

@@ -52,7 +52,7 @@ function computeOtpLayout(screenWidth: number) {
 
 export function OtpVerifyScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth } = useWindowDimensions();
   const otpLayout = useMemo(() => computeOtpLayout(screenWidth), [screenWidth]);
   const { signIn } = useAuth();
   const email = route.params.email as string;
@@ -126,8 +126,8 @@ export function OtpVerifyScreen({ route, navigation }: any) {
             <Image
               source={LOGO}
               style={{
-                width: Math.min(screenWidth * 0.4, 160),
-                height: Math.min(screenHeight * 0.12, 56),
+                width: Math.min(screenWidth * 0.3, 120),
+                height: Math.min(screenWidth * 0.3, 120),
                 marginBottom: spacing.sm
               }}
               resizeMode="contain"
@@ -243,7 +243,7 @@ export function OtpVerifyScreen({ route, navigation }: any) {
 const s = StyleSheet.create({
   background: { flex: 1 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.2)"
   },
   keyboard: { flex: 1 },

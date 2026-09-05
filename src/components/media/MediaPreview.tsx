@@ -41,7 +41,7 @@ function MediaPreviewInner({
         },
         media: { width: "100%", height },
         overlayPlay: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "rgba(0,0,0,0.28)"

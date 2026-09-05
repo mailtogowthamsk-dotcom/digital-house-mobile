@@ -3,12 +3,22 @@ import type { MessageItem } from "../api/messages.api";
 import { getSocket } from "./socket";
 import { registerRealtimeRewire, registerRealtimeTeardown } from "./teardown";
 
+export type MessageDeletedPayload = {
+  messageId: number;
+  senderId: number;
+  recipientId: number;
+  deleteScope: "everyone" | "me";
+  deletedForUserId?: number;
+  deletedAt: string;
+};
+
 export type ChatRealtimeHandlers = {
   otherUserId: number;
   onMessage: (message: MessageItem) => void;
   onDelivered: (payload: { messageId: number; deliveredAt: string | null }) => void;
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
+  onDeleted?: (payload: MessageDeletedPayload) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
   /**
    * Socket came back after a drop. Nothing is replayed server-side, so the
@@ -20,10 +30,14 @@ export type ChatRealtimeHandlers = {
 /** Global fan-out for inbox / any-message listeners (not tied to a conversation). */
 export type GlobalMessageHandler = (message: MessageItem) => void;
 
+/** Inbox / hub: react to deletions for thread list last-message refresh. */
+export type GlobalDeletedHandler = (payload: MessageDeletedPayload) => void;
+
 type Subscription = ChatRealtimeHandlers;
 
 const subscriptions = new Map<symbol, Subscription>();
 const globalMessageHandlers = new Map<symbol, GlobalMessageHandler>();
+const globalDeletedHandlers = new Map<symbol, GlobalDeletedHandler>();
 
 let socketRef: Socket | null = null;
 let wired = false;
@@ -35,6 +49,7 @@ let onMessageEvent: ((raw: unknown) => void) | null = null;
 let onDeliveredEvent: ((p: unknown) => void) | null = null;
 let onReadEvent: ((p: unknown) => void) | null = null;
 let onTypingEvent: ((p: unknown) => void) | null = null;
+let onDeletedEvent: ((p: unknown) => void) | null = null;
 let onDisconnectEvent: (() => void) | null = null;
 let onConnectEvent: (() => void) | null = null;
 
@@ -57,6 +72,7 @@ function detachListeners(sock: Socket): void {
   if (onDeliveredEvent) sock.off("message:delivered", onDeliveredEvent);
   if (onReadEvent) sock.off("message:read", onReadEvent);
   if (onTypingEvent) sock.off("typing", onTypingEvent);
+  if (onDeletedEvent) sock.off("message:deleted", onDeletedEvent);
   if (onDisconnectEvent) sock.off("disconnect", onDisconnectEvent);
   if (onConnectEvent) sock.off("connect", onConnectEvent);
 }
@@ -134,6 +150,43 @@ async function wireSocket(sock: Socket): Promise<void> {
     });
   };
 
+  onDeletedEvent = (p: unknown) => {
+    if (!p || typeof p !== "object") return;
+    const raw = p as MessageDeletedPayload;
+    const messageId = Number(raw.messageId);
+    const senderId = Number(raw.senderId);
+    const recipientId = Number(raw.recipientId);
+    if (!messageId || !senderId || !recipientId) return;
+    const deleteScope = raw.deleteScope === "me" ? "me" : "everyone";
+    const normalized: MessageDeletedPayload = {
+      messageId,
+      senderId,
+      recipientId,
+      deleteScope,
+      deletedForUserId:
+        raw.deletedForUserId != null ? Number(raw.deletedForUserId) : undefined,
+      deletedAt: typeof raw.deletedAt === "string" ? raw.deletedAt : ""
+    };
+
+    if (__DEV__) {
+      console.log("[chat] deleted", normalized.messageId, normalized.deleteScope);
+    }
+
+    for (const handler of globalDeletedHandlers.values()) {
+      try {
+        handler(normalized);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    forMatchingSubs((sub) => {
+      const other = Number(sub.otherUserId);
+      if (senderId !== other && recipientId !== other) return;
+      sub.onDeleted?.(normalized);
+    });
+  };
+
   onDisconnectEvent = () => {
     if (__DEV__) console.log("[chat] socket disconnected");
     wired = false;
@@ -155,6 +208,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   sock.on("message:delivered", onDeliveredEvent);
   sock.on("message:read", onReadEvent);
   sock.on("typing", onTypingEvent);
+  sock.on("message:deleted", onDeletedEvent);
   sock.on("disconnect", onDisconnectEvent);
   sock.on("connect", onConnectEvent);
 
@@ -205,6 +259,19 @@ export function registerGlobalMessageHandler(
   }
 }
 
+/** Inbox / hub: receive message:deleted (everyone scope or this user's me-scope). */
+export function registerGlobalDeletedHandler(
+  id: symbol,
+  handler: GlobalDeletedHandler | null
+): void {
+  if (handler) {
+    globalDeletedHandlers.set(id, handler);
+    void ensureWired();
+  } else {
+    globalDeletedHandlers.delete(id);
+  }
+}
+
 /**
  * Detach socket listeners only — keep subscriptions so an open ChatScreen
  * can re-wire after token refresh / socket recreate without remounting.
@@ -217,6 +284,7 @@ export function unwireChatRealtime(): void {
   onDeliveredEvent = null;
   onReadEvent = null;
   onTypingEvent = null;
+  onDeletedEvent = null;
   onDisconnectEvent = null;
   onConnectEvent = null;
   socketRef = null;
@@ -228,13 +296,20 @@ export function unwireChatRealtime(): void {
 export function resetChatRealtime(): void {
   subscriptions.clear();
   globalMessageHandlers.clear();
+  globalDeletedHandlers.clear();
   sawDisconnect = false;
   unwireChatRealtime();
 }
 
 /** Re-attach listeners after getSocket() creates/restores a connection. */
 export function ensureChatRealtimeWired(): void {
-  if (subscriptions.size === 0 && globalMessageHandlers.size === 0) return;
+  if (
+    subscriptions.size === 0 &&
+    globalMessageHandlers.size === 0 &&
+    globalDeletedHandlers.size === 0
+  ) {
+    return;
+  }
   wired = false;
   socketRef = null;
   void ensureWired();

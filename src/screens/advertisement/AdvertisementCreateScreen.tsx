@@ -29,6 +29,10 @@ import {
   friendlyVideoUploadMessage,
   generateVideoThumbnail
 } from "../../utils/mediaUpload";
+import {
+  createSessionUploadedMedia,
+  useDeleteSessionMediaOnLeave
+} from "../../media/sessionUploadedMedia";
 import { checkoutAdvertisement } from "../../services/advertisementCheckout";
 import { RazorpayCheckoutCancelledError } from "../../services/razorpayTypes";
 import { AdvertisementCard } from "../../components/advertisement/AdvertisementCard";
@@ -129,6 +133,13 @@ export function AdvertisementCreateScreen() {
   const autoQuoteFor = useRef<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const urlFieldY = useRef(0);
+  const sessionMedia = useRef(createSessionUploadedMedia()).current;
+  const busyLeaveRef = useRef(false);
+  busyLeaveRef.current = busy || uploadLock.current;
+
+  useDeleteSessionMediaOnLeave(navigation, sessionMedia, {
+    isBusy: () => busyLeaveRef.current
+  });
 
   const scrollToY = useCallback((y: number) => {
     setTimeout(() => {
@@ -257,8 +268,11 @@ export function AdvertisementCreateScreen() {
 
   const clearUploadedMedia = useCallback(async (urls: Array<string | null>) => {
     const cleaned = urls.filter((u): u is string => Boolean(u && /^https?:/i.test(u)));
-    if (cleaned.length) await deleteMediaUrls(cleaned).catch(() => undefined);
-  }, []);
+    if (cleaned.length) {
+      sessionMedia.untrack(...cleaned);
+      await deleteMediaUrls(cleaned).catch(() => undefined);
+    }
+  }, [sessionMedia]);
 
   const resetMedia = useCallback(
     async (remoteCleanup: boolean) => {
@@ -367,6 +381,7 @@ export function AdvertisementCreateScreen() {
         setMediaFileId(uploaded.mediaFileId);
         setMediaUrl(uploaded.publicUrl);
         setThumbnailUrl(uploaded.thumbnailUrl || uploaded.publicUrl);
+        sessionMedia.track(uploaded.publicUrl, uploaded.thumbnailUrl || uploaded.publicUrl);
         setDurationSec(uploaded.durationSec);
         setFileLabel(uploaded.fileName || mapped.fileName || "Video");
         const remotePreview = uploaded.thumbnailUrl || uploaded.thumbnailUri;
@@ -389,6 +404,7 @@ export function AdvertisementCreateScreen() {
         setMediaFileId(uploaded.mediaFileId);
         setMediaUrl(uploaded.publicUrl);
         setThumbnailUrl(uploaded.variants?.thumb || uploaded.publicUrl);
+        sessionMedia.track(uploaded.publicUrl, uploaded.variants?.thumb || uploaded.publicUrl);
         setPreviewUri(uploaded.variants?.medium || uploaded.publicUrl || localPreview);
         setUploadPhase("Ready");
         setUploadProgress(1);
@@ -497,11 +513,13 @@ export function AdvertisementCreateScreen() {
     body.description = trimmedDescription || null;
     if (adId) {
       await updateAdvertisement(adId, body);
+      sessionMedia.release();
       return adId;
     }
     const created = await createAdvertisement(body);
     setAdId(created.id);
     setDraftStatus("DRAFT");
+    sessionMedia.release();
     return created.id;
   };
 

@@ -118,6 +118,21 @@ export async function sendMessage(recipientId: number, body: string, clientId?: 
   return res.data.message;
 }
 
+export type MessageDeleteScope = "everyone" | "me";
+
+export type MessageDeletion = {
+  messageId: number;
+  conversationPeerId: number;
+  deleteScope: MessageDeleteScope;
+  deletedAt: string;
+};
+
+/** Server decides delete-for-everyone vs delete-for-me from auth + ownership. */
+export async function deleteMessage(messageId: number): Promise<MessageDeletion> {
+  const res = await api.delete<{ ok: true; deletion: MessageDeletion }>(`/messages/${messageId}`);
+  return res.data.deletion;
+}
+
 export async function markRead(otherUserId: number) {
   const res = await api.post<{ ok: true; readAt: string }>(`/messages/with/${otherUserId}/read`);
   return res.data.readAt;

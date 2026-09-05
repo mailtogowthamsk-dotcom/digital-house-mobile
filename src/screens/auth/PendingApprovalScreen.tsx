@@ -40,7 +40,7 @@ export function PendingApprovalScreen({ navigation }: any) {
     () =>
       StyleSheet.create({
         background: { flex: 1 },
-        overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.2)" },
+        overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.2)" },
         content: {
           paddingHorizontal: spacing.xl,
           paddingTop: 60,
@@ -48,8 +48,8 @@ export function PendingApprovalScreen({ navigation }: any) {
           alignItems: "center"
         },
         logo: {
-          width: Math.min(SCREEN_WIDTH * 0.4, 160),
-          height: 80,
+          width: Math.min(SCREEN_WIDTH * 0.36, 148),
+          height: Math.min(SCREEN_WIDTH * 0.36, 148),
           marginBottom: spacing.xl
         },
         card: {

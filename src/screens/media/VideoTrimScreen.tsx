@@ -5,7 +5,8 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  StatusBar
+  StatusBar,
+  Platform
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -339,7 +340,8 @@ export function VideoTrimScreen() {
           player={player}
           contentFit="contain"
           nativeControls={false}
-          allowsFullscreen={false}
+          fullscreenOptions={{ enable: false }}
+          surfaceType={Platform.OS === "android" ? "textureView" : undefined}
         />
         <Pressable style={styles.centerHit} onPress={togglePlay}>
           <View style={styles.playOrb}>
@@ -482,7 +484,7 @@ const styles = StyleSheet.create({
     overflow: "hidden"
   },
   centerHit: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center"
   },

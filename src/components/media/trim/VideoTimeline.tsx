@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   frame: { flex: 1, height: "100%" },
   frameEmpty: { backgroundColor: "rgba(255,255,255,0.08)" },
   loading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center"
   }

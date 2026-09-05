@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   metaText: { fontSize: 12, fontWeight: "600" },
   webviewLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center"
   },

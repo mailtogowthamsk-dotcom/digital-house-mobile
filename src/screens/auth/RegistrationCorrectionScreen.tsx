@@ -57,11 +57,11 @@ export function RegistrationCorrectionScreen() {
     () =>
       StyleSheet.create({
         background: { flex: 1 },
-        overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.15)" },
+        overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.15)" },
         scroll: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: 48, paddingBottom: 40 },
         logo: {
-          width: Math.min(SCREEN_WIDTH * 0.36, 140),
-          height: 70,
+          width: Math.min(SCREEN_WIDTH * 0.3, 120),
+          height: Math.min(SCREEN_WIDTH * 0.3, 120),
           alignSelf: "center",
           marginBottom: spacing.lg
         },

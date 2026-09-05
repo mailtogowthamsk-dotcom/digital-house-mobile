@@ -1,11 +1,12 @@
 import React from "react";
-import { View, ActivityIndicator, StyleSheet, Image } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Image, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../theme/ThemeContext";
 
 const LOGO = require("../../../assets/logo_digital_house.png");
-const GRADIENT = ["#0B1220", "#0f172a", "#1e293b"] as const;
+const GRADIENT = ["#000000", "#0B1220", "#111827"] as const;
+const LOGO_SIZE = Math.min(Dimensions.get("window").width * 0.58, 260);
 
 /** Shown while restoring session from secure storage — prevents login/landing flash. */
 export function AuthSplash() {
@@ -24,16 +25,16 @@ export function AuthSplash() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: "#000000" },
   content: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center"
   },
   logo: {
-    width: 160,
-    height: 64,
-    marginBottom: 32
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    marginBottom: 36
   },
   spinner: {
     marginTop: 8

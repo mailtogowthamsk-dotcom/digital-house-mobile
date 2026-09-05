@@ -48,6 +48,7 @@ type Props = {
   /** Set to 0 when a parent SafeAreaView already applied the top inset (split inbox). */
   headerTopInset?: number;
   onSharedPostPress?: (postId: number) => void;
+  onDeleteMessage?: (item: MessageItem) => void;
 };
 
 function ChatPanelComponent({
@@ -77,7 +78,8 @@ function ChatPanelComponent({
   headerRight,
   headerBanner,
   headerTopInset,
-  onSharedPostPress
+  onSharedPostPress,
+  onDeleteMessage
 }: Props) {
   const internalRef = useRef<ChatMessageListHandle>(null);
   const listRef = externalListRef ?? internalRef;
@@ -154,6 +156,7 @@ function ChatPanelComponent({
       keyboardVisible={keyboardVisible}
       peerTyping={peerTyping}
       onSharedPostPress={onSharedPostPress}
+      onDeleteMessage={onDeleteMessage}
     />
   );
 

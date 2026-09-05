@@ -488,7 +488,7 @@ export function HomeScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         feedBackdrop: {
-          ...StyleSheet.absoluteFillObject
+          ...StyleSheet.absoluteFill
         },
         feedList: { flex: 1, backgroundColor: "transparent" },
         headerPad: { paddingHorizontal: PADDING },

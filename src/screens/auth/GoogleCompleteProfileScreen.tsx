@@ -19,7 +19,7 @@ import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { completeGoogleProfile } from "../../api/auth.api";
-import { getLocations, getKulams } from "../../api/options.api";
+import { getLocations, getKulams, getMasterItems, masterItemsToDropdown } from "../../api/options.api";
 import { getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { spacing } from "../../theme/spacing";
@@ -54,8 +54,13 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const [kulam, setKulam] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [mobile, setMobile] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [fatherName, setFatherName] = useState("");
+  const [address, setAddress] = useState("");
+  const [workStudyDetails, setWorkStudyDetails] = useState("");
   const [locationOptions, setLocationOptions] = useState(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState(KULAM_OPTIONS);
+  const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [legalDocs, setLegalDocs] = useState<LegalCatalogItem[]>([]);
@@ -64,12 +69,19 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   useEffect(() => {
     void (async () => {
       try {
-        const [locations, kulams] = await Promise.all([getLocations(), getKulams()]);
+        const [locations, kulams, occupations] = await Promise.all([
+          getLocations(),
+          getKulams(),
+          getMasterItems("OCCUPATION").catch(() => [])
+        ]);
         if (locations.length > 0) {
           setLocationOptions(locations.map((l) => ({ label: l.name, value: l.name })));
         }
         if (kulams.length > 0) {
           setKulamOptions(kulams.map((k) => ({ label: k.displayName || k.name, value: k.name })));
+        }
+        if (occupations.length > 0) {
+          setOccupationOptions(masterItemsToDropdown(occupations));
         }
       } catch {
         /* fallback options */
@@ -154,6 +166,10 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         kulam,
         location: district,
         mobile: mobile.trim() || null,
+        occupation: occupation.trim() || null,
+        fatherName: fatherName.trim() || null,
+        address: address.trim() || null,
+        workStudyDetails: workStudyDetails.trim() || null,
         ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
       });
@@ -220,6 +236,46 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
                 }}
               />
             ) : null}
+            <Input
+              placeholder="Father's name (optional)"
+              value={fatherName}
+              onChangeText={setFatherName}
+              variant="onWhite"
+            />
+            <Input
+              placeholder="Enter your address (optional)"
+              value={address}
+              onChangeText={setAddress}
+              variant="onWhite"
+              multiline
+              numberOfLines={3}
+              style={{ minHeight: 88 }}
+            />
+            {occupationOptions.length > 0 ? (
+              <Dropdown
+                label="Occupation"
+                value={occupation}
+                options={occupationOptions}
+                onSelect={setOccupation}
+                placeholder="Occupation (optional)"
+              />
+            ) : (
+              <Input
+                placeholder="Occupation (optional)"
+                value={occupation}
+                onChangeText={setOccupation}
+                variant="onWhite"
+              />
+            )}
+            <Input
+              placeholder="Tell us what you do or what you are studying"
+              value={workStudyDetails}
+              onChangeText={setWorkStudyDetails}
+              variant="onWhite"
+              multiline
+              numberOfLines={4}
+              style={{ minHeight: 100 }}
+            />
             <Dropdown
               label="District"
               value={district}
@@ -309,7 +365,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   header: { alignItems: "center", marginBottom: spacing.lg },
-  logo: { width: 120, height: 48, marginBottom: spacing.md },
+  logo: { width: 112, height: 112, marginBottom: spacing.md },
   title: { color: "#fff", fontSize: 22, fontWeight: "800" },
   subtitle: { color: "rgba(255,255,255,0.8)", textAlign: "center", marginTop: 8, lineHeight: 20 },
   card: {

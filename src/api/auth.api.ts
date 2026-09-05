@@ -9,6 +9,9 @@ export type RegisterPayload = {
   email: string;
   mobile?: string | null;
   occupation?: string | null;
+  fatherName?: string | null;
+  address?: string | null;
+  workStudyDetails?: string | null;
   location: string;
   kulam: string;
   profilePhoto?: string | null;
@@ -150,6 +153,10 @@ export type CompleteGoogleProfilePayload = {
   kulam: string;
   location?: string | null;
   mobile?: string | null;
+  occupation?: string | null;
+  fatherName?: string | null;
+  address?: string | null;
+  workStudyDetails?: string | null;
   profilePhoto?: string | null;
   legalAcceptances?: LegalAcceptance[];
   referralCode?: string | null;

@@ -26,6 +26,7 @@ type Props = {
   groupedTop?: boolean;
   groupedBottom?: boolean;
   onSharedPostPress?: (postId: number) => void;
+  onDelete?: (item: MessageItem) => void;
 };
 
 const RADIUS = 14;
@@ -41,7 +42,8 @@ function ChatMessageBubbleComponent({
   showAvatar = true,
   groupedTop = false,
   groupedBottom = false,
-  onSharedPostPress
+  onSharedPostPress,
+  onDelete
 }: Props) {
   const time = new Date(item.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
@@ -64,20 +66,53 @@ function ChatMessageBubbleComponent({
   const tickColor = item.readAt ? "#53BDEB" : "rgba(255,255,255,0.72)";
 
   const onLongPress = useCallback(() => {
-    if (!item.body?.trim()) return;
+    const hasText = Boolean(item.body?.trim());
+    const canDelete = typeof onDelete === "function" && item.id > 0;
+    if (!hasText && !canDelete) return;
+
     const copy = async () => {
       await Clipboard.setStringAsync(item.body);
       await hapticCopyMessage();
     };
-    if (Platform.OS === "web") {
+
+    const confirmDelete = () => {
+      appAlert(
+        "Delete message?",
+        mine
+          ? "This message will be deleted for everyone."
+          : "This message will be deleted only for you.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => onDelete?.(item)
+          }
+        ]
+      );
+    };
+
+    // Web: keep one-tap copy when Delete is unavailable.
+    if (Platform.OS === "web" && hasText && !canDelete) {
       copy().catch(() => {});
       return;
     }
-    appAlert("Message", undefined, [
-      { text: "Copy text", onPress: () => copy().catch(() => {}) },
-      { text: "Cancel", style: "cancel" }
-    ]);
-  }, [item.body]);
+
+    const buttons: {
+      text: string;
+      style?: "default" | "cancel" | "destructive";
+      onPress?: () => void;
+    }[] = [];
+    if (hasText) {
+      buttons.push({ text: "Copy text", onPress: () => copy().catch(() => {}) });
+    }
+    if (canDelete) {
+      buttons.push({ text: "Delete", style: "destructive", onPress: confirmDelete });
+    }
+    buttons.push({ text: "Cancel", style: "cancel" });
+
+    appAlert("Message", undefined, buttons);
+  }, [item, mine, onDelete]);
 
   const onOpenSharedPost = useCallback(() => {
     if (sharedPostId) onSharedPostPress?.(sharedPostId);

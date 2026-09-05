@@ -28,6 +28,8 @@ export type CommunitySectionForm = {
 export type PersonalSectionForm = {
   currentLocation: string | null;
   occupation: string | null;
+  address: string | null;
+  workStudyDetails: string | null;
   instagram: string | null;
   facebook: string | null;
   linkedin: string | null;

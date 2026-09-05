@@ -17,7 +17,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { createPost } from "../../api/posts.api";
 import { getErrorStatus } from "../../api/client";
 import { uploadOptimizedImage, isAllowedImageType, getMimeFromUri } from "../../utils/mediaUpload";
-import { deleteMediaUrls } from "../../api/media.api";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { useTheme } from "../../theme/ThemeContext";
@@ -30,6 +29,10 @@ import {
   HELP_URGENCIES,
   HELP_MAX_PHOTOS
 } from "../../constants/helpingHands";
+import {
+  createSessionUploadedMedia,
+  useDeleteSessionMediaOnLeave
+} from "../../media/sessionUploadedMedia";
 
 export function CreateHelpRequestScreen() {
   const navigation = useNavigation<any>();
@@ -47,7 +50,15 @@ export function CreateHelpRequestScreen() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sessionUploads = useRef<Set<string>>(new Set());
+  const sessionMedia = useRef(createSessionUploadedMedia()).current;
+  const committedRef = useRef(false);
+  const busyRef = useRef(false);
+  busyRef.current = uploading || saving;
+
+  useDeleteSessionMediaOnLeave(navigation, sessionMedia, {
+    isCommitted: () => committedRef.current,
+    isBusy: () => busyRef.current
+  });
 
   const s = useMemo(
     () =>
@@ -173,7 +184,7 @@ export function CreateHelpRequestScreen() {
         const { publicUrl } = await uploadOptimizedImage(asset.uri, "help");
         nextUrls.push(publicUrl);
         nextPreviews.push(asset.uri);
-        sessionUploads.current.add(publicUrl);
+        sessionMedia.track(publicUrl);
       }
       setGalleryUrls(nextUrls.slice(0, HELP_MAX_PHOTOS));
       setGalleryPreviews(nextPreviews.slice(0, HELP_MAX_PHOTOS));
@@ -189,12 +200,9 @@ export function CreateHelpRequestScreen() {
       const url = galleryUrls[index];
       setGalleryUrls((prev) => prev.filter((_, i) => i !== index));
       setGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
-      if (url && sessionUploads.current.has(url)) {
-        void deleteMediaUrls([url]).catch(() => {});
-        sessionUploads.current.delete(url);
-      }
+      if (url) sessionMedia.deleteTracked(url);
     },
-    [galleryUrls]
+    [galleryUrls, sessionMedia]
   );
 
   const canNext = useMemo(() => {
@@ -223,7 +231,8 @@ export function CreateHelpRequestScreen() {
         help_contact_phone: phone.trim(),
         help_gallery: galleryUrls.length ? galleryUrls : undefined
       });
-      sessionUploads.current.clear();
+      sessionMedia.release();
+      committedRef.current = true;
       navigation.replace("PostDetail", { postId: created.id });
     } catch (e) {
       const status = getErrorStatus(e);

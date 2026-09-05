@@ -1,7 +1,13 @@
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library";
 import { runEnsureFlow } from "./ensureFlow";
 import type { EnsurePermissionResult, PermissionOutcome } from "./types";
+
+type MediaLibraryPermissionResponse = {
+  granted: boolean;
+  status: string;
+  canAskAgain?: boolean;
+  accessPrivileges?: string;
+};
 
 function mapImagePickerResponse(
   res: ImagePicker.MediaLibraryPermissionResponse
@@ -24,9 +30,9 @@ function mapImagePickerResponse(
 }
 
 function mapMediaLibraryResponse(
-  res: MediaLibrary.PermissionResponse
+  res: MediaLibraryPermissionResponse
 ): { outcome: PermissionOutcome; canAskAgain: boolean } {
-  const privileges = (res as { accessPrivileges?: string }).accessPrivileges;
+  const privileges = res.accessPrivileges;
   if (res.granted || privileges === "limited" || privileges === "all") {
     return {
       outcome: privileges === "limited" ? "limited" : "granted",
@@ -40,6 +46,11 @@ function mapMediaLibraryResponse(
     outcome: res.canAskAgain === false ? "blocked" : "denied",
     canAskAgain: res.canAskAgain !== false
   };
+}
+
+async function loadMediaLibrary() {
+  // Lazy-load so Expo Go's media-library warning does not fire on every app start.
+  return import("expo-media-library/legacy");
 }
 
 const READ_RATIONALE = {
@@ -99,6 +110,7 @@ export async function ensureMediaLibraryRead(opts?: {
 export async function ensureMediaLibraryWrite(opts?: {
   showDeniedUi?: boolean;
 }): Promise<EnsurePermissionResult> {
+  const MediaLibrary = await loadMediaLibrary();
   return runEnsureFlow({
     getStatus: async () =>
       mapMediaLibraryResponse(await MediaLibrary.getPermissionsAsync(true)),

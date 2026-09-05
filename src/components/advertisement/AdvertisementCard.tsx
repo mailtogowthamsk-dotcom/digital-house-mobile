@@ -117,7 +117,7 @@ const AdvertisementFeedMedia = memo(
         {isVideo ? (
           <View
             style={{
-              ...StyleSheet.absoluteFillObject,
+              ...StyleSheet.absoluteFill,
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: "rgba(0,0,0,0.22)"
@@ -213,7 +213,7 @@ function AdvertisementCardInner({ ad, placement, preview }: Omit<Props, "slotVis
           backgroundColor: colors.black
         },
         playOverlay: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "rgba(0,0,0,0.22)"

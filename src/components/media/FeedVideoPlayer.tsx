@@ -27,6 +27,7 @@ import {
 } from "../../utils/feedVideoFileCache";
 import { stickySignedMediaUrl } from "../../utils/stickySignedUrlCache";
 import { FeedMediaLoader } from "./FeedMediaLoader";
+import { AndroidFeedVideo } from "./AndroidFeedVideo";
 
 type FeedVideoPlayerProps = {
   uri: string;
@@ -96,9 +97,9 @@ function VideoPosterShell({
           backgroundColor: "#0B1220",
           overflow: "hidden"
         },
-        poster: { ...StyleSheet.absoluteFillObject },
+        poster: { ...StyleSheet.absoluteFill },
         center: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           justifyContent: "center"
         },
@@ -173,6 +174,7 @@ function ActiveFeedVideoPlayer({
   const { width: screenWidth, height: screenHeight } = windowSize;
   const alreadyWarmed = isVideoUriWarmed(uri) || isVideoFileCached(uri) || uri.startsWith("file:");
   const scrollBackMountRef = useRef(alreadyWarmed);
+  const videoViewRef = useRef<VideoView | null>(null);
   const [ready, setReady] = useState(alreadyWarmed);
   const [loading, setLoading] = useState(!alreadyWarmed);
   const [playing, setPlaying] = useState(false);
@@ -214,15 +216,19 @@ function ActiveFeedVideoPlayer({
     p.volume = 1;
     p.muted = getFeedAudioMuted();
     p.audioMixingMode = getFeedAudioMuted() ? "auto" : "doNotMix";
-    try {
-      p.bufferOptions = {
-        preferredForwardBufferDuration: 6,
-        waitsToMinimizeStalling: false,
-        minBufferForPlayback: 0.25,
-        prioritizeTimeOverSizeThreshold: true
-      };
-    } catch {
-      /* older native builds */
+    // Aggressive ExoPlayer buffer knobs hang some Android/Expo Go sources in
+    // "loading". Keep defaults on Android; tune only iOS.
+    if (Platform.OS !== "android") {
+      try {
+        p.bufferOptions = {
+          preferredForwardBufferDuration: 6,
+          waitsToMinimizeStalling: false,
+          minBufferForPlayback: 0.25,
+          prioritizeTimeOverSizeThreshold: true
+        };
+      } catch {
+        /* older native builds */
+      }
     }
   });
 
@@ -519,6 +525,14 @@ function ActiveFeedVideoPlayer({
 
   const openFullscreen = useCallback(() => {
     if (!playbackAllowed) return;
+    // Android: remounting one player into a second VideoView (Modal) often
+    // yields a black surface. Use native fullscreen on the same view instead.
+    if (Platform.OS === "android") {
+      void videoViewRef.current?.enterFullscreen().catch(() => {
+        setFullscreen(true);
+      });
+      return;
+    }
     setFullscreen(true);
   }, [playbackAllowed]);
 
@@ -546,10 +560,14 @@ function ActiveFeedVideoPlayer({
           backgroundColor: "#0B1220",
           overflow: "hidden"
         },
-        video: { width: "100%", height: "100%", backgroundColor: "#0B1220" },
-        poster: { ...StyleSheet.absoluteFillObject },
+        video: {
+          width: "100%",
+          height: "100%",
+          backgroundColor: "#0B1220"
+        },
+        poster: { ...StyleSheet.absoluteFill },
         center: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           justifyContent: "center"
         },
@@ -643,11 +661,26 @@ function ActiveFeedVideoPlayer({
       <View style={[s.wrap, style]}>
         {!fullscreen ? (
           <VideoView
+            ref={videoViewRef}
             style={s.video}
             player={player}
             contentFit="cover"
             nativeControls={false}
-            fullscreenOptions={{ enable: false }}
+            fullscreenOptions={{ enable: Platform.OS === "android" }}
+            // SurfaceView + overflow/overlays often paints black in Android feeds.
+            surfaceType={Platform.OS === "android" ? "textureView" : undefined}
+            onFirstFrameRender={hidePosterSmoothly}
+            onFullscreenExit={() => {
+              if (!aliveRef.current) return;
+              try {
+                if (isActive && playbackAllowed && !userPausedRef.current) {
+                  pauseOtherFeedVideos(player);
+                  player.play();
+                }
+              } catch {
+                /* ignore */
+              }
+            }}
           />
         ) : (
           <View style={s.video} />
@@ -724,9 +757,11 @@ function ActiveFeedVideoPlayer({
               contentFit="contain"
               nativeControls={false}
               fullscreenOptions={{ enable: false }}
+              surfaceType={Platform.OS === "android" ? "textureView" : undefined}
+              onFirstFrameRender={hidePosterSmoothly}
             />
             <Pressable
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               onPress={handleSurfacePress}
               accessibilityRole="button"
               accessibilityLabel={playing ? "Pause video" : "Play video"}
@@ -774,7 +809,7 @@ function ActiveFeedVideoPlayer({
  * - Active: autoplay decoder
  * - Retain (previous): same player paused — no remount flicker on scroll-back
  * - Preload (next): poster only — no third decoder
- * - expo-video `useCaching` — disk LRU; scroll-back should not re-download
+ * - Disk cache via feedVideoFileCache (native useCaching off by default)
  * - Mute is feed-global (see feedAudioState)
  */
 const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPlayerProps>(
@@ -847,6 +882,23 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
           colors={colors}
           showPlayIcon={!isPreload}
           onPressPlay={isPreload ? undefined : onRequestPlay}
+        />
+      );
+    }
+
+    if (Platform.OS === "android") {
+      return (
+        <AndroidFeedVideo
+          key={stableBootKey(uri)}
+          uri={bootUri}
+          thumbnailUrl={thumbnailUrl}
+          height={height}
+          isActive={isActive}
+          isPreload={false}
+          isRetain={!isActive}
+          style={style}
+          onTogglePlayRef={togglePlayRef}
+          onDoubleTapLike={onDoubleTapLike}
         />
       );
     }

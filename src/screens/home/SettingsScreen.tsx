@@ -250,7 +250,7 @@ export function SettingsScreen() {
         } else if (isExpoGo()) {
           appAlert(
             "Push preference saved",
-            "Device push alerts need a development build (npx expo run:android). In-app notifications still work in Expo Go."
+            "Expo Go cannot show real device push (or our app logo on alerts). Install a Digital House APK / development build (npx expo run:android or eas build). In-app notifications still work here."
           );
         }
       }
@@ -374,7 +374,7 @@ export function SettingsScreen() {
             label="Push notifications"
             subtitle={
               isExpoGo()
-                ? "Saves your preference. Device alerts need a dev build — in-app alerts still work"
+                ? "Expo Go: no real push / Expo icon only. Use Digital House APK for alerts + our logo"
                 : !isRemotePushSupported()
                   ? "Push alerts require a physical device"
                   : "Device alerts when app is closed (FCM / Expo)"

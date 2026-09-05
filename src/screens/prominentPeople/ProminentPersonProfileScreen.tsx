@@ -128,7 +128,7 @@ export function ProminentPersonProfileScreen() {
           backgroundColor: colors.surfaceElevated
         },
         heroOverlay: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor: "rgba(15,23,42,0.25)"
         },
         identity: {

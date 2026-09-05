@@ -234,7 +234,7 @@ export function PlatformHomeAd() {
 
 const styles = StyleSheet.create({
   full: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     padding: spacing.xl,
     justifyContent: "center"

@@ -82,9 +82,9 @@ function BottomTabBarInner({
             default: {}
           })
         },
-        blurFill: { ...StyleSheet.absoluteFillObject },
+        blurFill: { ...StyleSheet.absoluteFill },
         tint: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor:
             mode === "dark" ? "rgba(20,28,43,0.82)" : "rgba(255,255,255,0.78)"
         },

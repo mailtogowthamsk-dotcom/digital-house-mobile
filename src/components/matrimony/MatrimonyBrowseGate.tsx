@@ -24,7 +24,7 @@ function blockedMessage(hub: MatrimonyHub): string {
   if (hub.status === "REJECTED") {
     return "Your matrimony application was rejected. Update your profile and submit again.";
   }
-  if ((hub.status === "APPROVED" || hub.status === "PAUSED") && hub.completion_percentage < 100) {
+  if (hub.status === "APPROVED" && hub.completion_percentage < 100) {
     return `Complete your matrimony profile (${hub.completion_percentage}% done) before browsing.`;
   }
   if (hub.completion_percentage < 100) {

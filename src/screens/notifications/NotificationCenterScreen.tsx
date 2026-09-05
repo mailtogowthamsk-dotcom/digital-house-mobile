@@ -7,8 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   LayoutAnimation,
-  Platform,
-  UIManager
+  Platform
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,13 +39,6 @@ import { maybePromptPushAfterMeaningfulUse } from "../../permissions";
 import { appAlert } from "../../utils/appAlert";
 
 const PAGE_SIZE = 25;
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 function animateListChange() {
   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

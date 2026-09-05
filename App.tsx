@@ -274,7 +274,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <AppErrorBoundary>
-        <SafeAreaProvider initialWindowMetrics={initialWindowMetrics}>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <ThemeProvider>
             <AppAlertProvider>
               <AuthProvider>

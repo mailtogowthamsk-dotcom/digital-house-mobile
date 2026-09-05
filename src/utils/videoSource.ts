@@ -1,10 +1,11 @@
 /**
- * Build expo-video sources with on-device LRU disk cache enabled.
- * Prefer playing from path-keyed file:// cache (feedVideoFileCache) so new
- * signed query strings cannot defeat the cache.
+ * Build expo-video sources for feed playback.
+ * Prefer path-keyed file:// cache (feedVideoFileCache) so new signed query
+ * strings cannot defeat the cache. Native expo-video `useCaching` stays off by
+ * default — it stalls HEVC/MOV on iOS and hangs progressive sources on Android
+ * Expo Go / SDK 57+.
  */
 
-import { Platform } from "react-native";
 import type { VideoSource } from "expo-video";
 import { stableMediaCacheKey } from "./imageDimensions";
 
@@ -19,9 +20,7 @@ export function buildFeedVideoSource(
   }
   // Do not force contentType "progressive" — HEVC/fMP4/MOV then stall in "loading"
   // forever on some devices. Let expo-video auto-detect.
-  // iOS expo-video `useCaching` poisons some HEVC/MOV assets after the first
-  // play — scroll-back then sticks on the poster. Android caching is fine.
-  const useCaching = opts?.useCaching ?? Platform.OS !== "ios";
+  const useCaching = opts?.useCaching ?? false;
   return {
     uri: trimmed,
     useCaching

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator } from "react-native";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useNavigation } from "@react-navigation/native";
@@ -31,6 +31,10 @@ import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { BrideGroomPhotosSection } from "../../components/matrimony/BrideGroomPhotosSection";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
+import {
+  createSessionUploadedMedia,
+  useDeleteSessionMediaOnLeave
+} from "../../media/sessionUploadedMedia";
 import {
   LOOKING_FOR_OPTIONS,
   MARITAL_STATUS_OPTIONS,
@@ -135,6 +139,13 @@ export function MatrimonySetupScreen() {
   const [changeRequest, setChangeRequest] = useState<MatrimonyHub["pending"]>(null);
   const [requestedFields, setRequestedFields] = useState<Set<string>>(new Set());
   const [accountProfilePhoto, setAccountProfilePhoto] = useState<string | null>(null);
+  const sessionMedia = useRef(createSessionUploadedMedia()).current;
+  const busyRef = useRef(false);
+  busyRef.current = photoUploading || horoscopeUploading || saving;
+
+  useDeleteSessionMediaOnLeave(navigation, sessionMedia, {
+    isBusy: () => busyRef.current
+  });
 
   const needsCorrection = (field: string) =>
     requestedFields.has(field) ||
@@ -237,7 +248,10 @@ export function MatrimonySetupScreen() {
     }
     try {
       setPhotoUploading(true);
+      const previous = form.candidatePhotoUrl || form.profilePhotoUrl;
       const { publicUrl } = await uploadOptimizedImage(asset.uri, "matrimony");
+      if (previous) sessionMedia.deleteTracked(previous);
+      sessionMedia.track(publicUrl);
       patch({
         candidatePhotoUrl: publicUrl,
         profilePhotoUrl: publicUrl,
@@ -256,6 +270,8 @@ export function MatrimonySetupScreen() {
       appAlert("No account photo", "Upload a profile photo in Edit Profile first, or upload a matrimony photo.");
       return;
     }
+    const previous = form.candidatePhotoUrl || form.profilePhotoUrl;
+    if (previous) sessionMedia.deleteTracked(previous);
     patch({
       useAccountProfilePhoto: true,
       candidatePhotoUrl: null,
@@ -286,6 +302,7 @@ export function MatrimonySetupScreen() {
       }
 
       setHoroscopeUploading(true);
+      const previousHoroscope = form.horoscopeDocumentUrl;
       let publicUrl: string;
       if (mime.startsWith("image/") && isAllowedImageType(mime)) {
         ({ publicUrl } = await uploadOptimizedImage(
@@ -307,6 +324,8 @@ export function MatrimonySetupScreen() {
         appAlert("Invalid format", "Horoscope must be a PDF or image (JPEG/PNG).");
         return;
       }
+      if (previousHoroscope) sessionMedia.deleteTracked(previousHoroscope);
+      sessionMedia.track(publicUrl);
       patch({ horoscopeDocumentUrl: publicUrl });
     } catch (e) {
       appAlert("Upload failed", e instanceof Error ? e.message : "Could not upload horoscope");
@@ -331,6 +350,7 @@ export function MatrimonySetupScreen() {
     // Omit nulls so step-0 save (family still empty) cannot wipe fatherName / family fields.
     const payload = buildSavePayload(true);
     const hub = await saveMatrimonyDraft(payload);
+    sessionMedia.release();
     setCompletion(hub.completion_percentage);
     if (hub.draft) {
       setForm((prev) => ({
@@ -361,6 +381,7 @@ export function MatrimonySetupScreen() {
     setSaving(true);
     try {
       const hub = await submitMatrimonyProfile(buildSavePayload(false));
+      sessionMedia.release();
       const alreadyQueued =
         hub.message?.includes("already under review") ||
         hub.message?.includes("already resubmitted");

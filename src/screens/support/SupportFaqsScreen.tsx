@@ -6,19 +6,13 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  LayoutAnimation,
-  Platform,
-  UIManager
+  LayoutAnimation
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { listSupportFaqs, type SupportFaq } from "../../api/support.api";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export function SupportFaqsScreen() {
   const { colors } = useTheme();

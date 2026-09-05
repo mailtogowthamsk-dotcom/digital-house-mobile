@@ -234,7 +234,9 @@ function PostCardInner({
         },
         cardVideo: {
           // Match video chrome so rounded corners don’t flash white gaps
-          backgroundColor: "#0B1220"
+          backgroundColor: "#0B1220",
+          borderWidth: 0,
+          borderColor: "transparent"
         },
         repost: {
           flexDirection: "row",

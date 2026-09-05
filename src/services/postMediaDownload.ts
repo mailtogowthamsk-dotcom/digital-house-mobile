@@ -1,5 +1,4 @@
 import * as FileSystem from "expo-file-system/legacy";
-import * as MediaLibrary from "expo-media-library";
 import { Platform } from "react-native";
 import { getImageUrl } from "../api/client";
 import { ensureMediaLibraryWrite } from "../permissions";
@@ -14,13 +13,24 @@ export type DownloadMediaResult =
   | { ok: true; message: string }
   | { ok: false; message: string; permissionDenied?: boolean };
 
+type MediaLibraryModule = typeof import("expo-media-library/legacy");
+type MediaAsset = Awaited<ReturnType<MediaLibraryModule["createAssetAsync"]>>;
+
 function extensionFor(mediaType: "image" | "video", url: string): string {
   const match = url.split("?")[0].match(/\.(jpe?g|png|gif|webp|heic|mp4|mov)$/i);
   if (match) return match[1].toLowerCase();
   return mediaType === "video" ? "mp4" : "jpg";
 }
 
-async function addToDigitalHouseAlbum(asset: MediaLibrary.Asset): Promise<void> {
+async function loadMediaLibrary(): Promise<MediaLibraryModule> {
+  // Lazy-load so Expo Go's media-library warning does not fire on app start.
+  return import("expo-media-library/legacy");
+}
+
+async function addToDigitalHouseAlbum(
+  MediaLibrary: MediaLibraryModule,
+  asset: MediaAsset
+): Promise<void> {
   if (Platform.OS !== "android") return;
   const albumName = "Digital House";
   try {
@@ -65,6 +75,8 @@ export async function downloadPostMedia(input: DownloadMediaInput): Promise<Down
     };
   }
 
+  const MediaLibrary = await loadMediaLibrary();
+
   const ext = extensionFor(input.mediaType, url);
   const base =
     input.fileName?.replace(/[^\w.-]+/g, "_").slice(0, 40) ||
@@ -79,7 +91,7 @@ export async function downloadPostMedia(input: DownloadMediaInput): Promise<Down
     }
 
     const asset = await MediaLibrary.createAssetAsync(download.uri);
-    await addToDigitalHouseAlbum(asset);
+    await addToDigitalHouseAlbum(MediaLibrary, asset);
 
     // Delay cleanup so the OS can finish copying into the gallery.
     setTimeout(() => {

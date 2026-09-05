@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   photoWrap: { width: 72, height: 88, borderRadius: radius.md, overflow: "hidden" },
   photo: { width: 72, height: 88, borderRadius: radius.md },
   photoLockOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(255,255,255,0.28)"
   },
   photoPh: { alignItems: "center", justifyContent: "center" },

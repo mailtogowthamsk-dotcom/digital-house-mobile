@@ -2,6 +2,22 @@
 
 This project uses **Expo EAS Build** (cloud). The `preview` profile is configured to produce an **APK** (not AAB) for easy sideloading.
 
+## Push notifications (real device)
+
+**Expo Go cannot register for remote push (SDK 53+)**, and any system alert that does appear will show the **Expo** icon — not Digital House.
+
+To get working push **with our app logo**:
+
+1. Build and install a real app binary (not Expo Go), e.g.:
+   ```bash
+   npx eas build --platform android --profile preview
+   ```
+   or locally: `npx expo run:android`
+2. Open that installed app → Settings → enable **Push notifications** → allow the OS permission.
+3. Keep the backend able to reach Expo’s push API (`EXPO_ACCESS_TOKEN` optional but recommended on the server).
+
+Android status-bar icons use `assets/notification-icon.png` (white silhouette). The home-screen / notification *app* mark comes from the native icon baked into that build.
+
 ## Steps
 
 1. **From the `mobile` folder**, ensure you're logged in to Expo:

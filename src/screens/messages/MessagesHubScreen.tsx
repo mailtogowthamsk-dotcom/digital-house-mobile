@@ -8,6 +8,7 @@ import { getImageUrl } from "../../api/client";
 import { hapticSendMessage } from "../../utils/chatHaptics";
 import { getMe } from "../../api/auth.api";
 import {
+  deleteMessage,
   getHistory,
   getMessageAccess,
   listThreads,
@@ -29,7 +30,7 @@ import {
   getCachedLastSeenAt
 } from "../../realtime/presenceRealtime";
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
-import { registerGlobalMessageHandler } from "../../realtime/chatRealtime";
+import { registerGlobalMessageHandler, registerGlobalDeletedHandler } from "../../realtime/chatRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatTyping } from "../../hooks/useChatTyping";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
@@ -83,6 +84,8 @@ export function MessagesHubScreen() {
   const [input, setInput] = useState("");
 
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
+  const forgottenMessageIdsRef = useRef<Set<number>>(new Set());
+  const deletingMessageIdsRef = useRef<Set<number>>(new Set());
   const listRef = useRef<ChatMessageListHandle>(null);
 
   const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
@@ -293,6 +296,8 @@ export function MessagesHubScreen() {
       setChatError(null);
       setSendError(null);
       setMessages([]);
+      forgottenMessageIdsRef.current.clear();
+      deletingMessageIdsRef.current.clear();
       setChatAccess(null);
 
       try {
@@ -304,7 +309,12 @@ export function MessagesHubScreen() {
         }
 
         const hist = await getHistory(other.id, HISTORY_LIMIT);
-        setMessages((prev) => mergeChatMessages(prev, hist.messages));
+        setMessages((prev) =>
+          mergeChatMessages(prev, hist.messages, {
+            forgottenIds: forgottenMessageIdsRef.current,
+            clearConfirmedIfEmpty: true
+          })
+        );
         listRef.current?.scrollToBottom(false);
         const ackAs = meId ?? (await getMe().then((m) => m.id).catch(() => null));
         if (ackAs != null) {
@@ -341,6 +351,9 @@ export function MessagesHubScreen() {
 
   const mergeSplitMessage = useCallback(
     (incoming: MessageItem) => {
+      if (incoming.id > 0 && forgottenMessageIdsRef.current.has(incoming.id)) {
+        return;
+      }
       setMessages((prev) => {
         const incomingClientId =
           typeof incoming.clientId === "string" ? incoming.clientId : null;
@@ -362,6 +375,41 @@ export function MessagesHubScreen() {
 
   const mergeSplitMessageRef = useRef(mergeSplitMessage);
   mergeSplitMessageRef.current = mergeSplitMessage;
+
+  const removeMessageLocally = useCallback((messageId: number) => {
+    forgottenMessageIdsRef.current.add(messageId);
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  }, []);
+
+  const handleDeleteMessage = useCallback(
+    async (item: MessageItem) => {
+      const messageId = Number(item.id);
+      if (!messageId || messageId < 1 || deletingMessageIdsRef.current.has(messageId)) {
+        return;
+      }
+      deletingMessageIdsRef.current.add(messageId);
+      const snapshot = item;
+      removeMessageLocally(messageId);
+      try {
+        await deleteMessage(messageId);
+        void loadThreads(folderRef.current === "inbox" ? "inbox" : undefined, {
+          soft: true
+        }).catch(() => {});
+      } catch (e) {
+        forgottenMessageIdsRef.current.delete(messageId);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === messageId)) return prev;
+          return mergeChatMessages(prev, [snapshot], {
+            forgottenIds: forgottenMessageIdsRef.current
+          });
+        });
+        appAlert("Couldn't delete", e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        deletingMessageIdsRef.current.delete(messageId);
+      }
+    },
+    [loadThreads, removeMessageLocally]
+  );
 
   useEffect(() => {
     if (meId == null) return;
@@ -417,9 +465,27 @@ export function MessagesHubScreen() {
       }
     });
 
+    const deletedHandlerId = Symbol("hub-deleted");
+    registerGlobalDeletedHandler(deletedHandlerId, (payload) => {
+      if (disposed) return;
+      const otherId =
+        Number(payload.senderId) === meId
+          ? Number(payload.recipientId)
+          : Number(payload.senderId);
+      const isOpenInSplit = layout.isSplit && selectedUser?.id === otherId;
+      if (isOpenInSplit) {
+        forgottenMessageIdsRef.current.add(payload.messageId);
+        setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
+      }
+      loadThreads(folderRef.current === "inbox" ? "inbox" : undefined, {
+        soft: true
+      }).catch(() => {});
+    });
+
     return () => {
       disposed = true;
       registerGlobalMessageHandler(handlerId, null);
+      registerGlobalDeletedHandler(deletedHandlerId, null);
       unsubPresence();
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
@@ -456,7 +522,12 @@ export function MessagesHubScreen() {
     async (otherUserId: number) => {
       try {
         const hist = await getHistory(otherUserId, HISTORY_LIMIT);
-        setMessages((prev) => mergeChatMessages(prev, hist.messages));
+        setMessages((prev) =>
+          mergeChatMessages(prev, hist.messages, {
+            forgottenIds: forgottenMessageIdsRef.current,
+            clearConfirmedIfEmpty: true
+          })
+        );
         const ackAs = meIdRef.current;
         if (ackAs != null) void ackUndeliveredMessages(hist.messages, ackAs);
       } catch {
@@ -494,6 +565,9 @@ export function MessagesHubScreen() {
         setMessages((prev) =>
           prev.map((m) => (m.recipientId === otherUserId ? { ...m, readAt } : m))
         );
+      },
+      onDeleted: ({ messageId }) => {
+        removeMessageLocally(messageId);
       },
       onTyping: applyPeerTyping,
       onIncomingFromOther: () => {
@@ -755,6 +829,7 @@ export function MessagesHubScreen() {
               headerTopInset={0}
               headerBanner={lockBanner}
               onSharedPostPress={handleSharedPostPress}
+              onDeleteMessage={handleDeleteMessage}
             />
           ) : (
             <View style={[styles.emptyChat, { backgroundColor: colors.background }]}>

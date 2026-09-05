@@ -10,6 +10,7 @@ import { hapticSendMessage } from "../../utils/chatHaptics";
 import { ChatMessagesSkeleton } from "../../components/messages/ChatSkeleton";
 import { ChatHeader } from "../../components/messages/ChatHeader";
 import {
+  deleteMessage,
   getHistory,
   getMessageAccess,
   listThreads,
@@ -81,6 +82,8 @@ export function ChatScreen() {
   const [otherHidden, setOtherHidden] = useState(() => isPresenceHidden(otherUserId));
 
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
+  const forgottenMessageIdsRef = useRef<Set<number>>(new Set());
+  const deletingMessageIdsRef = useRef<Set<number>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(false);
   const [threadArchived, setThreadArchived] = useState(false);
@@ -106,6 +109,9 @@ export function ChatScreen() {
 
   const mergeIncomingMessage = useCallback(
     (incoming: MessageItem) => {
+      if (incoming.id > 0 && forgottenMessageIdsRef.current.has(incoming.id)) {
+        return;
+      }
       setMessages((prev) => {
         const incomingClientId =
           typeof incoming.clientId === "string" ? incoming.clientId : null;
@@ -132,7 +138,12 @@ export function ChatScreen() {
     const me = await getMe();
     setMeId(me.id);
     const hist = await getHistory(otherUserId, HISTORY_LIMIT);
-    setMessages((prev) => mergeChatMessages(prev, hist.messages));
+    setMessages((prev) =>
+      mergeChatMessages(prev, hist.messages, {
+        forgottenIds: forgottenMessageIdsRef.current,
+        clearConfirmedIfEmpty: true
+      })
+    );
     void ackUndeliveredMessages(hist.messages, me.id);
   }, [otherUserId]);
 
@@ -140,12 +151,49 @@ export function ChatScreen() {
   const syncRecent = useCallback(async () => {
     try {
       const hist = await getHistory(otherUserId, HISTORY_LIMIT);
-      setMessages((prev) => mergeChatMessages(prev, hist.messages));
+      setMessages((prev) =>
+        mergeChatMessages(prev, hist.messages, {
+          forgottenIds: forgottenMessageIdsRef.current,
+          clearConfirmedIfEmpty: true
+        })
+      );
       if (meId != null) void ackUndeliveredMessages(hist.messages, meId);
     } catch {
       // offline
     }
   }, [meId, otherUserId]);
+
+  const removeMessageLocally = useCallback((messageId: number) => {
+    forgottenMessageIdsRef.current.add(messageId);
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  }, []);
+
+  const handleDeleteMessage = useCallback(
+    async (item: MessageItem) => {
+      const messageId = Number(item.id);
+      if (!messageId || messageId < 1 || deletingMessageIdsRef.current.has(messageId)) {
+        return;
+      }
+      deletingMessageIdsRef.current.add(messageId);
+      const snapshot = item;
+      removeMessageLocally(messageId);
+      try {
+        await deleteMessage(messageId);
+      } catch (e) {
+        forgottenMessageIdsRef.current.delete(messageId);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === messageId)) return prev;
+          return mergeChatMessages(prev, [snapshot], {
+            forgottenIds: forgottenMessageIdsRef.current
+          });
+        });
+        appAlert("Couldn't delete", e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        deletingMessageIdsRef.current.delete(messageId);
+      }
+    },
+    [removeMessageLocally]
+  );
 
   const refreshChatAccess = useCallback(async () => {
     const access = await getMessageAccess(otherUserId);
@@ -228,6 +276,8 @@ export function ChatScreen() {
     setThreadLeft(false);
     setBlockedByMe(false);
     setMessages([]);
+    forgottenMessageIdsRef.current.clear();
+    deletingMessageIdsRef.current.clear();
     setSendError(null);
     setInput("");
 
@@ -343,6 +393,9 @@ export function ChatScreen() {
           Number(m.recipientId) === Number(otherUserId) ? { ...m, readAt } : m
         )
       );
+    },
+    onDeleted: ({ messageId }) => {
+      removeMessageLocally(messageId);
     },
     onTyping: applyPeerTyping,
     onIncomingFromOther: (_m, _sock) => {
@@ -775,6 +828,7 @@ export function ChatScreen() {
         headerRight={optionsButton}
         headerBanner={threadLeft || threadArchived || chatLockMessage ? chatLockBanner : undefined}
         onSharedPostPress={handleSharedPostPress}
+        onDeleteMessage={handleDeleteMessage}
       />
     </View>
   );

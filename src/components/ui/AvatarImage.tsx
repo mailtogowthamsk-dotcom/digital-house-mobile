@@ -54,7 +54,7 @@ function AvatarImageInner({
     >
       <Text
         style={[
-          StyleSheet.absoluteFillObject,
+          StyleSheet.absoluteFill,
           {
             fontSize: size * 0.38,
             fontWeight: "700",

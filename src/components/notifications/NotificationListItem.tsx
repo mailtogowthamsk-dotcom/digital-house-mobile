@@ -117,7 +117,7 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
           borderLeftColor: highlight ? "#7C3AED" : colors.border
         },
         unreadWash: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           borderRadius: radius.lg,
           backgroundColor: unread ? "rgba(37, 99, 235, 0.04)" : "transparent"
         },

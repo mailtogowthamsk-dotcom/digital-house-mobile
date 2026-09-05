@@ -1,6 +1,7 @@
 {
   "expo": {
     "plugins": [
+      "expo-font",
       "expo-web-browser",
       "expo-video",
       "react-native-compressor",
@@ -8,8 +9,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/logo_digital_house.png",
-          "color": "#0B1220",
+          "icon": "./assets/notification-icon.png",
+          "color": "#000000",
           "defaultChannel": "default"
         }
       ],
@@ -17,9 +18,9 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0",
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "usesCleartextTraffic": true
           }
         }
@@ -39,12 +40,12 @@
     "scheme": "digitalhouse",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo_digital_house.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logo_digital_house.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B1220"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
@@ -59,8 +60,8 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo_digital_house.png",
-        "backgroundColor": "#0B1220"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -73,7 +74,7 @@
       "package": "com.thisisgowtham.digitalhouse"
     },
     "web": {
-      "favicon": "./assets/logo_digital_house.png"
+      "favicon": "./assets/icon.png"
     },
     "extra": {
       "eas": {

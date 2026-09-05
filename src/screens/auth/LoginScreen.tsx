@@ -368,7 +368,7 @@ function LoginScreenBody({
 const s = StyleSheet.create({
   background: { flex: 1 },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.2)"
   },
   keyboard: { flex: 1 },
@@ -389,7 +389,10 @@ const s = StyleSheet.create({
   },
   backText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
   header: { alignItems: "center", marginBottom: spacing.lg },
-  logo: { width: Math.min(88, SCREEN_WIDTH * 0.22), height: Math.min(88, SCREEN_WIDTH * 0.22) },
+  logo: {
+    width: Math.min(SCREEN_WIDTH * 0.32, 132),
+    height: Math.min(SCREEN_WIDTH * 0.32, 132)
+  },
   brandRow: { flexDirection: "row", alignItems: "baseline", marginTop: spacing.sm },
   brandDigital: { fontSize: 28, fontWeight: "800", color: "#FFFFFF" },
   brandHouse: { fontSize: 28, fontWeight: "800", color: "#F97316" },

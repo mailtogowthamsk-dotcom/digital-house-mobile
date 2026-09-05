@@ -440,7 +440,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           lineHeight: 22
         },
         refreshOverlay: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           paddingTop: spacing.sm,
           pointerEvents: "none"
@@ -500,7 +500,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
         },
         errorText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "600", color: colors.error },
         confirmOverlay: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           backgroundColor: "rgba(0,0,0,0.45)",
           alignItems: "center",
           justifyContent: "center",

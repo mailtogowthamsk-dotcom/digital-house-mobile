@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,10 @@ import { uploadOptimizedImage } from "../../utils/mediaUpload";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
+import {
+  createSessionUploadedMedia,
+  useDeleteSessionMediaOnLeave
+} from "../../media/sessionUploadedMedia";
 
 const TITLES: Record<string, string> = {
   BUG: "Report a Bug",
@@ -54,6 +58,15 @@ export function SupportCreateTicketScreen() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sessionMedia = useRef(createSessionUploadedMedia()).current;
+  const committedRef = useRef(false);
+  const busyRef = useRef(false);
+  busyRef.current = uploading || saving;
+
+  useDeleteSessionMediaOnLeave(navigation, sessionMedia, {
+    isCommitted: () => committedRef.current,
+    isBusy: () => busyRef.current
+  });
 
   const screenTitle = TITLES[type] ?? "Support";
 
@@ -75,11 +88,14 @@ export function SupportCreateTicketScreen() {
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
+    const previousUrl = screenshotUrl;
     setScreenshotUri(asset.uri);
     setUploading(true);
     try {
       const uploaded = await uploadOptimizedImage(asset.uri, "posts", undefined, "support");
-      setScreenshotUrl(uploaded.publicUrl || uploaded.url);
+      if (previousUrl) sessionMedia.deleteTracked(previousUrl);
+      sessionMedia.track(uploaded.publicUrl);
+      setScreenshotUrl(uploaded.publicUrl);
     } catch (e: unknown) {
       setScreenshotUri(null);
       appAlert("Upload failed", e instanceof Error ? e.message : "Could not upload screenshot");
@@ -116,6 +132,8 @@ export function SupportCreateTicketScreen() {
           userId: user?.id
         })
       });
+      sessionMedia.release();
+      committedRef.current = true;
       appAlert("Submitted", `Your request ${ticket.ref} was created.`);
       navigation.replace("SupportTicketDetail", { ticketId: ticket.id });
     } catch (e: unknown) {

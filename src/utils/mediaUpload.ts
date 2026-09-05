@@ -232,7 +232,7 @@ export async function uploadOptimizedImage(
   const fileName = `img_${Date.now()}.webp`;
   onProgress?.(0.15);
 
-  const { uploadUrl, mediaFileId } = await getUploadUrl({
+  const { uploadUrl, mediaFileId, publicUrl } = await getUploadUrl({
     fileName,
     fileType: optimized.mime,
     fileSize: optimized.size,
@@ -240,24 +240,30 @@ export async function uploadOptimizedImage(
     purpose: privatePurpose ?? "image"
   });
 
-  await uploadToR2(uploadUrl, optimized.uri, optimized.mime, (p) => {
-    onProgress?.(0.15 + p * 0.65);
-  });
+  try {
+    await uploadToR2(uploadUrl, optimized.uri, optimized.mime, (p) => {
+      onProgress?.(0.15 + p * 0.65);
+    });
 
-  onProgress?.(0.85);
-  const finalized = await finalizeMedia(mediaFileId);
-  onProgress?.(1);
+    onProgress?.(0.85);
+    const finalized = await finalizeMedia(mediaFileId);
+    onProgress?.(1);
 
-  return {
-    publicUrl: finalized.publicUrl,
-    mediaFileId,
-    variants: finalized.variants,
-    width: finalized.width,
-    height: finalized.height,
-    byteSize: finalized.byteSize,
-    mimeType: "image/webp",
-    mediaType: "image"
-  };
+    return {
+      publicUrl: finalized.publicUrl,
+      mediaFileId,
+      variants: finalized.variants,
+      width: finalized.width,
+      height: finalized.height,
+      byteSize: finalized.byteSize,
+      mimeType: "image/webp",
+      mediaType: "image"
+    };
+  } catch (e) {
+    // PUT/finalize failed after R2 received bytes — remove the orphan immediately.
+    void deleteMediaUrls([publicUrl]).catch(() => undefined);
+    throw e;
+  }
 }
 
 export type GenerateVideoThumbnailResult = {
@@ -354,7 +360,7 @@ export async function uploadVideo(
 
     onStage?.("uploading");
     onProgress?.(0.5);
-    const { uploadUrl, mediaFileId } = await getUploadUrl({
+    const { uploadUrl, mediaFileId, publicUrl } = await getUploadUrl({
       fileName,
       fileType: uploadMime,
       fileSize: optimized.size,
@@ -362,40 +368,47 @@ export async function uploadVideo(
       purpose: "video"
     });
 
-    await uploadToR2(uploadUrl, optimized.uri, uploadMime, (p) => {
-      onProgress?.(0.5 + p * 0.3);
-    });
+    try {
+      await uploadToR2(uploadUrl, optimized.uri, uploadMime, (p) => {
+        onProgress?.(0.5 + p * 0.3);
+      });
 
-    onStage?.("processing");
-    onProgress?.(0.85);
-    // Server: validate codecs, H.264/AAC faststart, Cache-Control, poster variants.
-    const finalized = await finalizeMedia(mediaFileId);
-    onStage?.("done");
-    onProgress?.(1);
+      onStage?.("processing");
+      onProgress?.(0.85);
+      // Server: validate codecs, H.264/AAC faststart, Cache-Control, poster variants.
+      const finalized = await finalizeMedia(mediaFileId);
+      onStage?.("done");
+      onProgress?.(1);
 
-    await optimized.cleanup?.();
-    // Success only — keep temp on failure so Create Post can retry the same trim.
-    if (options.tempFileUri) {
-      if (__DEV__) {
-        console.log("[Upload] cleaning trimmed temp", {
-          tempFileUri: options.tempFileUri,
-          uploadUri: localUri
-        });
+      await optimized.cleanup?.();
+      // Success only — keep temp on failure so Create Post can retry the same trim.
+      if (options.tempFileUri) {
+        if (__DEV__) {
+          console.log("[Upload] cleaning trimmed temp", {
+            tempFileUri: options.tempFileUri,
+            uploadUri: localUri
+          });
+        }
+        await cleanupTempVideoUri(options.tempFileUri);
       }
-      await cleanupTempVideoUri(options.tempFileUri);
-    }
 
-    return {
-      publicUrl: finalized.publicUrl,
-      mediaFileId,
-      thumbnailUri: thumb?.uri ?? null,
-      thumbnailUrl: finalized.thumbnailUrl || thumbnailUrl,
-      durationSec: Math.floor(finalized.durationSec ?? durationSec),
-      byteSize: finalized.byteSize || optimized.size,
-      mimeType: "video/mp4",
-      fileName,
-      mediaType: "video"
-    };
+      return {
+        publicUrl: finalized.publicUrl,
+        mediaFileId,
+        thumbnailUri: thumb?.uri ?? null,
+        thumbnailUrl: finalized.thumbnailUrl || thumbnailUrl,
+        durationSec: Math.floor(finalized.durationSec ?? durationSec),
+        byteSize: finalized.byteSize || optimized.size,
+        mimeType: "video/mp4",
+        fileName,
+        mediaType: "video"
+      };
+    } catch (inner) {
+      void deleteMediaUrls([publicUrl, thumbnailUrl].filter(Boolean) as string[]).catch(
+        () => undefined
+      );
+      throw inner;
+    }
   } catch (e) {
     if (thumbnailUrl) {
       void deleteMediaUrls([thumbnailUrl]).catch(() => undefined);

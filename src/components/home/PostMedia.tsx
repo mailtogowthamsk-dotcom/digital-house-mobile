@@ -206,9 +206,15 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
             backgroundColor: cornerRadius === 0 ? "#0B1220" : colors.surfaceElevated,
             borderRadius: cornerRadius
           },
+          videoWrap: {
+            width: "100%",
+            overflow: "hidden",
+            backgroundColor: "#0B1220",
+            borderRadius: 0
+          },
           webview: { flex: 1, width: "100%", backgroundColor: "transparent" },
           loaderCenter: {
-            ...StyleSheet.absoluteFillObject,
+            ...StyleSheet.absoluteFill,
             alignItems: "center",
             justifyContent: "center"
           }
@@ -273,7 +279,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
 
     if (kind === "video" && videoUri) {
       return (
-        <View style={[s.wrapOuter, s.wrap, style]}>
+        <View style={[s.wrapOuter, s.videoWrap, { height: videoHeight }, style]}>
           <FeedVideoPlayer
             ref={ref}
             uri={videoUri}
