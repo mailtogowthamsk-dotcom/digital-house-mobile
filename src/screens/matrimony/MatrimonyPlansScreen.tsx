@@ -73,7 +73,8 @@ export function MatrimonyPlansScreen() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
       >
         <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20, marginBottom: spacing.md }}>
-          Open full profiles with photos and horoscope. Contact reveal (₹500) is separate after mutual match.
+          Open full profiles with photos and horoscope. Contact reveal is separate after mutual match (listed price +
+          GST).
         </Text>
 
         {subscription ? (
@@ -118,12 +119,17 @@ export function MatrimonyPlansScreen() {
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{p.tagline}</Text>
               {p.priceInr > 0 ? (
                 <Text style={[styles.price, p.plan === "GOLD" && { color: "#D97706" }, p.plan === "PLATINUM" && { color: "#7C3AED" }]}>
-                  ₹{p.priceInr.toLocaleString("en-IN")}
+                  ₹{(p.priceInr + (p.gstAmountInr ?? 0)).toLocaleString("en-IN")}
                   <Text style={{ fontSize: 12, fontWeight: "600" }}> / {p.durationMonths} mo</Text>
                 </Text>
               ) : (
                 <Text style={[styles.price, { color: colors.text }]}>Always free</Text>
               )}
+              {p.priceInr > 0 && (p.gstPercent ?? 0) > 0 ? (
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                  ₹{p.priceInr.toLocaleString("en-IN")} + GST {p.gstPercent}%
+                </Text>
+              ) : null}
               <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 8 }}>
                 {p.opensPerMonth > 0 ? `· ${p.opensPerMonth} profile opens / month` : "· Browse cards only"}
               </Text>
@@ -133,11 +139,13 @@ export function MatrimonyPlansScreen() {
               {p.whoViewedMe ? (
                 <Text style={{ fontSize: 12, color: colors.textSecondary }}>· Who viewed me</Text>
               ) : null}
-              <Text style={{ fontSize: 12, color: "#D97706", marginTop: 6 }}>· Contact ₹500 per profile (after match)</Text>
+              <Text style={{ fontSize: 12, color: "#D97706", marginTop: 6 }}>
+                · Contact reveal: listed price + GST (after match)
+              </Text>
 
               {isPaid && !isCurrent ? (
                 <PrimaryButton
-                  title={`Subscribe — ₹${p.priceInr}`}
+                  title={`Subscribe — ₹${(p.priceInr + (p.gstAmountInr ?? 0)).toLocaleString("en-IN")}`}
                   onPress={() => onSubscribe(p.plan as "GOLD" | "PLATINUM")}
                   loading={acting}
                   style={{ marginTop: spacing.md }}

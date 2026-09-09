@@ -27,6 +27,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
+import { SearchMultiSelect } from "../../components/ui/SearchMultiSelect";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { BrideGroomPhotosSection } from "../../components/matrimony/BrideGroomPhotosSection";
 import { appAlert } from "../../utils/appAlert";
@@ -35,9 +36,10 @@ import {
   createSessionUploadedMedia,
   useDeleteSessionMediaOnLeave
 } from "../../media/sessionUploadedMedia";
+import { autoPartnerFieldsFromLookingFor } from "../../utils/matrimonyPartnerGender";
 import {
   LOOKING_FOR_OPTIONS,
-  MARITAL_STATUS_OPTIONS,
+  MATRIMONY_MARITAL_STATUS_OPTIONS,
   RASHI_OPTIONS,
   NAKSHATRAM_OPTIONS,
   DOSHAM_OPTIONS,
@@ -78,47 +80,6 @@ const emptyForm = (): MatrimonyProfileData => ({
   horoscopeDocumentUrl: null
 });
 
-function ChipMultiSelect({
-  items,
-  selected,
-  onToggle,
-  excludeIds = []
-}: {
-  items: OptionItem[];
-  selected: number[];
-  onToggle: (id: number) => void;
-  excludeIds?: number[];
-}) {
-  const { colors } = useTheme();
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-      {items
-        .filter((i) => !excludeIds.includes(i.id))
-        .map((item, index) => {
-          const active = selected.includes(item.id);
-          return (
-            <Pressable
-              key={`kulam-${item.id}-${index}`}
-              onPress={() => onToggle(item.id)}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 20,
-                backgroundColor: active ? "#EFF6FF" : colors.surfaceElevated,
-                borderWidth: 1,
-                borderColor: active ? colors.primary : colors.border
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: active ? colors.primary : colors.text }}>
-                {item.displayName || item.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-    </View>
-  );
-}
-
 export function MatrimonySetupScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -127,6 +88,7 @@ export function MatrimonySetupScreen() {
   const [form, setForm] = useState<MatrimonyProfileData>(emptyForm());
   const [userKulam, setUserKulam] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [accountGender, setAccountGender] = useState<string | null>(null);
   const [locations, setLocations] = useState<OptionItem[]>([]);
   const [kulams, setKulams] = useState<OptionItem[]>([]);
   const [formOptions, setFormOptions] = useState<Awaited<ReturnType<typeof getMatrimonyFormOptions>> | null>(null);
@@ -139,6 +101,7 @@ export function MatrimonySetupScreen() {
   const [changeRequest, setChangeRequest] = useState<MatrimonyHub["pending"]>(null);
   const [requestedFields, setRequestedFields] = useState<Set<string>>(new Set());
   const [accountProfilePhoto, setAccountProfilePhoto] = useState<string | null>(null);
+  const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
   const sessionMedia = useRef(createSessionUploadedMedia()).current;
   const busyRef = useRef(false);
   busyRef.current = photoUploading || horoscopeUploading || saving;
@@ -165,6 +128,7 @@ export function MatrimonySetupScreen() {
       setFormOptions(opts);
       setUserKulam(hub.user_context.kulam);
       setUserName(hub.user_context.full_name);
+      setAccountGender(hub.user_context.gender ?? null);
       setCompletion(hub.completion_percentage);
       setHubStatus(hub.status);
       setChangeRequest(hub.pending);
@@ -189,6 +153,20 @@ export function MatrimonySetupScreen() {
           hub.user_context.father_name ||
           null
       };
+      const autoGender = autoPartnerFieldsFromLookingFor(
+        merged.lookingFor,
+        hub.user_context.gender
+      );
+      if (autoGender.partnerGenderPreference) {
+        merged.partnerGenderPreference = autoGender.partnerGenderPreference;
+      }
+      if (autoGender.candidateGender) {
+        merged.candidateGender = autoGender.candidateGender;
+      }
+      const marital = String(merged.maritalStatus ?? "").trim().toLowerCase();
+      if (marital === "married" || marital === "married.") {
+        merged.maritalStatus = null;
+      }
       setForm(merged);
       setAccountProfilePhoto(hub.account_profile_photo ?? hub.user_context.profile_image ?? null);
       if (hub.status === "PENDING" || hub.status === "RESUBMITTED") {
@@ -214,16 +192,6 @@ export function MatrimonySetupScreen() {
 
   const patch = (partial: Partial<MatrimonyProfileData>) => setForm((f) => ({ ...f, ...partial }));
 
-  const toggleId = (field: "preferredDistrictIds" | "preferredKulamIds", id: number) => {
-    setForm((f) => {
-      const list = [...(f[field] ?? [])];
-      const idx = list.indexOf(id);
-      if (idx >= 0) list.splice(idx, 1);
-      else list.push(id);
-      return { ...f, [field]: list };
-    });
-  };
-
   const ownKulamId = kulams.find((k) => k.name === userKulam)?.id;
 
   const pickAndUploadMatrimonyPhoto = async () => {
@@ -248,6 +216,7 @@ export function MatrimonySetupScreen() {
     }
     try {
       setPhotoUploading(true);
+      setLocalPhotoPreview(asset.uri);
       const previous = form.candidatePhotoUrl || form.profilePhotoUrl;
       const { publicUrl } = await uploadOptimizedImage(asset.uri, "matrimony");
       if (previous) sessionMedia.deleteTracked(previous);
@@ -258,7 +227,12 @@ export function MatrimonySetupScreen() {
         useAccountProfilePhoto: false,
         candidatePhotoStatus: "PENDING_REVIEW"
       });
+      // Prefer remote once we have a loadable URL; keep local if remote is still a key.
+      if (/^https?:\/\//i.test(publicUrl)) {
+        setLocalPhotoPreview(null);
+      }
     } catch (e) {
+      setLocalPhotoPreview(null);
       appAlert("Upload failed", e instanceof Error ? e.message : "Could not upload photo");
     } finally {
       setPhotoUploading(false);
@@ -272,6 +246,7 @@ export function MatrimonySetupScreen() {
     }
     const previous = form.candidatePhotoUrl || form.profilePhotoUrl;
     if (previous) sessionMedia.deleteTracked(previous);
+    setLocalPhotoPreview(null);
     patch({
       useAccountProfilePhoto: true,
       candidatePhotoUrl: null,
@@ -476,9 +451,16 @@ export function MatrimonySetupScreen() {
           paddingVertical: 10,
           borderRadius: radius.md,
           alignItems: "center",
-          backgroundColor: colors.surfaceElevated
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border
         },
-        stepTabActive: { backgroundColor: "#EFF6FF" }
+        stepTabActive: {
+          backgroundColor: colors.primary,
+          borderColor: colors.primary
+        },
+        stepTabText: { fontWeight: "700", color: colors.text },
+        stepTabTextActive: { fontWeight: "700", color: "#FFFFFF" }
       }),
     [colors, insets.bottom]
   );
@@ -521,10 +503,10 @@ export function MatrimonySetupScreen() {
 
         <View style={s.stepTabs}>
           <Pressable style={[s.stepTab, step === 0 && s.stepTabActive]} onPress={() => setStep(0)}>
-            <Text style={{ fontWeight: "700", color: colors.text }}>Step 1</Text>
+            <Text style={step === 0 ? s.stepTabTextActive : s.stepTabText}>Step 1</Text>
           </Pressable>
           <Pressable style={[s.stepTab, step === 1 && s.stepTabActive]} onPress={() => setStep(1)}>
-            <Text style={{ fontWeight: "700", color: colors.text }}>Step 2</Text>
+            <Text style={step === 1 ? s.stepTabTextActive : s.stepTabText}>Step 2</Text>
           </Pressable>
         </View>
 
@@ -539,15 +521,22 @@ export function MatrimonySetupScreen() {
                 options={formOptions?.profile_for?.length ? formOptions.profile_for : LOOKING_FOR_OPTIONS}
                 onSelect={(v) => {
                   const lookingFor = (v as MatrimonyProfileData["lookingFor"]) ?? null;
+                  const auto = autoPartnerFieldsFromLookingFor(lookingFor, accountGender);
                   if (lookingFor && lookingFor !== "SELF") {
                     patch({
                       lookingFor,
                       useAccountProfilePhoto: false,
                       candidatePhotoUrl: form.candidatePhotoUrl,
-                      profilePhotoUrl: form.candidatePhotoUrl ?? form.profilePhotoUrl
+                      profilePhotoUrl: form.candidatePhotoUrl ?? form.profilePhotoUrl,
+                      candidateGender: auto.candidateGender,
+                      partnerGenderPreference: auto.partnerGenderPreference
                     });
                   } else {
-                    patch({ lookingFor });
+                    patch({
+                      lookingFor,
+                      candidateGender: auto.candidateGender,
+                      partnerGenderPreference: auto.partnerGenderPreference
+                    });
                   }
                 }}
               />
@@ -574,13 +563,15 @@ export function MatrimonySetupScreen() {
               <BrideGroomPhotosSection
                 form={form}
                 accountProfilePhoto={accountProfilePhoto}
+                localPreviewUri={localPhotoPreview}
                 needsCorrection={needsCorrection("candidatePhotoUrl")}
                 photoUploading={photoUploading}
                 onUseAccountPhoto={useAccountPhotoForMatrimony}
                 onUploadMatrimonyPhoto={pickAndUploadMatrimonyPhoto}
-                onClearUseAccount={() =>
-                  patch({ useAccountProfilePhoto: false, candidatePhotoUrl: null, profilePhotoUrl: null })
-                }
+                onClearUseAccount={() => {
+                  setLocalPhotoPreview(null);
+                  patch({ useAccountProfilePhoto: false, candidatePhotoUrl: null, profilePhotoUrl: null });
+                }}
               />
               {needsCorrection("candidatePhotoUrl") && (
                 <Text style={s.fieldNote}>
@@ -598,13 +589,34 @@ export function MatrimonySetupScreen() {
                 multiline
                 maxLength={300}
               />
-              <Dropdown
-                label="Partner gender preference *"
-                placeholder="Select"
-                value={form.partnerGenderPreference ?? ""}
-                options={formOptions.partner_gender}
-                onSelect={(v) => patch({ partnerGenderPreference: (v as "MALE" | "FEMALE") ?? null })}
-              />
+              <Text style={s.label}>Partner gender preference *</Text>
+              <View
+                style={{
+                  backgroundColor: colors.surfaceElevated,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  marginBottom: 6
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>
+                  {form.partnerGenderPreference === "FEMALE"
+                    ? "Female"
+                    : form.partnerGenderPreference === "MALE"
+                      ? "Male"
+                      : "—"}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 12, lineHeight: 16 }}>
+                {form.lookingFor
+                  ? "Auto-set to the opposite gender of the bride/groom (Male ↔ Female)."
+                  : "Select who this profile is for — partner gender is set automatically."}
+                {form.lookingFor === "SELF" && !form.partnerGenderPreference
+                  ? " Set your account gender in Edit Profile if this stays empty."
+                  : ""}
+              </Text>
               <Dropdown
                 label="Height *"
                 placeholder="Select height"
@@ -623,7 +635,7 @@ export function MatrimonySetupScreen() {
                 label="Marital status *"
                 placeholder="Select"
                 value={form.maritalStatus ?? ""}
-                options={MARITAL_STATUS_OPTIONS}
+                options={MATRIMONY_MARITAL_STATUS_OPTIONS}
                 onSelect={(v) => patch({ maritalStatus: v || null })}
               />
             </View>
@@ -670,29 +682,54 @@ export function MatrimonySetupScreen() {
 
             <View style={s.section}>
               <Text style={s.sectionTitle}>Family</Text>
-              <Input value={form.motherName ?? ""} onChangeText={(t) => patch({ motherName: t || null })} placeholder="Mother's name *" />
               <Input
+                label="Mother's name *"
+                value={form.motherName ?? ""}
+                onChangeText={(t) => patch({ motherName: t || null })}
+                placeholder="Enter mother's full name"
+              />
+              <Input
+                label="Father's name *"
                 value={form.fatherName ?? ""}
                 onChangeText={(t) => patch({ fatherName: t || null })}
-                placeholder="Father's name *"
+                placeholder="Enter father's full name"
               />
               <Input
+                label="Father's occupation *"
                 value={form.fatherOccupation ?? ""}
                 onChangeText={(t) => patch({ fatherOccupation: t || null })}
-                placeholder="Father's occupation *"
+                placeholder="e.g. Business, Farmer, Teacher"
               />
               <Input
+                label="Number of brothers *"
                 value={String(form.brothersCount ?? 0)}
-                onChangeText={(t) => patch({ brothersCount: parseInt(t, 10) || 0 })}
-                placeholder="Brothers *"
+                onChangeText={(t) => {
+                  const cleaned = t.replace(/[^\d]/g, "");
+                  patch({
+                    brothersCount: cleaned === "" ? 0 : Math.min(20, parseInt(cleaned, 10) || 0)
+                  });
+                }}
+                placeholder="0 if none"
                 keyboardType="number-pad"
               />
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -10, marginBottom: 12 }}>
+                How many brothers? Enter 0 if none.
+              </Text>
               <Input
+                label="Number of sisters *"
                 value={String(form.sistersCount ?? 0)}
-                onChangeText={(t) => patch({ sistersCount: parseInt(t, 10) || 0 })}
-                placeholder="Sisters *"
+                onChangeText={(t) => {
+                  const cleaned = t.replace(/[^\d]/g, "");
+                  patch({
+                    sistersCount: cleaned === "" ? 0 : Math.min(20, parseInt(cleaned, 10) || 0)
+                  });
+                }}
+                placeholder="0 if none"
                 keyboardType="number-pad"
               />
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -10, marginBottom: 12 }}>
+                How many sisters? Enter 0 if none.
+              </Text>
               <Dropdown
                 label="Family type *"
                 placeholder="Select"
@@ -716,20 +753,26 @@ export function MatrimonySetupScreen() {
                 placeholder="Max age *"
                 keyboardType="number-pad"
               />
-              <Text style={s.label}>Preferred districts *</Text>
-              <ChipMultiSelect
+              <SearchMultiSelect
+                label="Preferred districts"
+                placeholder="Select"
+                note="Optional — leave empty if you have no district preference."
                 items={locations}
                 selected={form.preferredDistrictIds ?? []}
-                onToggle={(id) => toggleId("preferredDistrictIds", id)}
+                onChange={(ids) => patch({ preferredDistrictIds: ids })}
               />
-              <Text style={s.label}>Preferred kulams * (own kulam excluded)</Text>
               <View style={s.info}>
-                <Text style={s.infoText}>Same kulam marriage is not permitted. Your kulam is excluded automatically.</Text>
+                <Text style={s.infoText}>
+                  Same kulam marriage is not permitted. Your kulam is excluded automatically.
+                </Text>
               </View>
-              <ChipMultiSelect
+              <SearchMultiSelect
+                label="Preferred kulams"
+                placeholder="Select"
+                note="Optional — leave empty if you have no kulam preference. Own kulam is excluded."
                 items={kulams}
                 selected={form.preferredKulamIds ?? []}
-                onToggle={(id) => toggleId("preferredKulamIds", id)}
+                onChange={(ids) => patch({ preferredKulamIds: ids })}
                 excludeIds={ownKulamId != null ? [ownKulamId] : []}
               />
             </View>

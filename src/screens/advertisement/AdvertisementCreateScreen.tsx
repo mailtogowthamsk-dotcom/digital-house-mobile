@@ -6,7 +6,8 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -142,6 +143,8 @@ export function AdvertisementCreateScreen() {
   });
 
   const scrollToY = useCallback((y: number) => {
+    // Delay past keyboard animation; do not pair with keyboardDismissMode="on-drag"
+    // or the scroll is treated as a drag and the keyboard closes immediately.
     setTimeout(() => {
       scrollRef.current?.scrollTo({ y: Math.max(0, y - 20), animated: true });
     }, 320);
@@ -700,8 +703,9 @@ export function AdvertisementCreateScreen() {
         ref={scrollRef}
         style={s.scroll}
         contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="always"
+        // "on-drag" + focus scrollTo dismissed the keyboard on the description field.
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         showsVerticalScrollIndicator={false}
       >
         <Text style={s.hint}>
@@ -1021,7 +1025,7 @@ export function AdvertisementCreateScreen() {
                   style={[s.chip, pricingId === p.id && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 >
                   <Text style={{ color: pricingId === p.id ? "#fff" : colors.text }}>
-                    {p.durationDays} days · ₹{p.priceInr.toLocaleString("en-IN")}
+                    {p.durationDays} days · ₹{p.priceInr.toLocaleString("en-IN")} + GST
                   </Text>
                 </Pressable>
               ))
@@ -1109,7 +1113,10 @@ export function AdvertisementCreateScreen() {
                 {quote ? (
                   <Text style={{ color: colors.text, marginBottom: 8 }}>
                     You pay ₹{quote.amountInr.toLocaleString("en-IN")} for {quote.durationDays} days
-                    {quote.gstPercent ? ` (includes GST ${quote.gstPercent}%)` : ""}.
+                    {quote.gstPercent
+                      ? ` (₹${(quote.amountBeforeGstPaise / 100).toLocaleString("en-IN")} + GST ${quote.gstPercent}%)`
+                      : ""}
+                    .
                   </Text>
                 ) : null}
                 <Text style={s.hint}>

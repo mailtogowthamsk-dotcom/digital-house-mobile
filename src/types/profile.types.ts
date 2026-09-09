@@ -95,6 +95,14 @@ export const MARITAL_STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: "Prefer not to say", value: "Prefer not to say" }
 ];
 
+/** Matrimony candidate status — married profiles are not listed for matchmaking. */
+export const MATRIMONY_MARITAL_STATUS_OPTIONS: { label: string; value: string }[] = [
+  { label: "Single", value: "Single" },
+  { label: "Widowed", value: "Widowed" },
+  { label: "Divorced", value: "Divorced" },
+  { label: "Prefer not to say", value: "Prefer not to say" }
+];
+
 export const LOOKING_FOR_OPTIONS: { label: string; value: string }[] = [
   { label: "Myself", value: "SELF" },
   { label: "Son", value: "SON" },

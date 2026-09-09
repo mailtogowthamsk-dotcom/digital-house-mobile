@@ -22,8 +22,37 @@ import { getLegalDocument, type LegalDocumentDto } from "../../api/legal.api";
 import { getAuthErrorMessage } from "../../api/client";
 import type { RootStackParamList } from "../../navigation/types";
 
+/** Public site where legal pages live (kvg-web). Used when resolving relative http(s) links. */
+const LEGAL_WEB_ORIGIN = (
+  process.env.EXPO_PUBLIC_LEGAL_WEB_ORIGIN?.trim() ||
+  "https://konguvettuvagounder.com"
+).replace(/\/+$/, "");
+
 function escapeCss(value: string): string {
   return value.replace(/[<>'"]/g, "");
+}
+
+/**
+ * WebView with `html` + a real https baseUrl often "navigates" to that origin.
+ * Our old base (digitalhouse.app) then opened in the in-app browser → /lander.
+ * Use about:blank so the shell never leaves the HTML document; still rewrite
+ * root-relative paths to the public legal site when the user taps a link.
+ */
+function resolveLegalNavigationUrl(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  if (
+    url === "about:blank" ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:") ||
+    url.startsWith("file:")
+  ) {
+    return null;
+  }
+  if (url.startsWith("mailto:") || url.startsWith("tel:")) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/")) return `${LEGAL_WEB_ORIGIN}${url}`;
+  return null;
 }
 
 function buildDocumentHtml(
@@ -175,13 +204,9 @@ export function LegalDocumentScreen() {
     ) {
       return true;
     }
-    if (
-      url.startsWith("http://") ||
-      url.startsWith("https://") ||
-      url.startsWith("mailto:") ||
-      url.startsWith("tel:")
-    ) {
-      void openExternalUrl(url);
+    const external = resolveLegalNavigationUrl(url);
+    if (external) {
+      void openExternalUrl(external);
       return false;
     }
     return true;
@@ -247,7 +272,7 @@ export function LegalDocumentScreen() {
       ) : null}
       <WebView
         originWhitelist={["*"]}
-        source={{ html, baseUrl: "https://digitalhouse.app" }}
+        source={{ html, baseUrl: "about:blank" }}
         style={[styles.flex, { backgroundColor: colors.background }]}
         startInLoadingState
         renderLoading={() => (

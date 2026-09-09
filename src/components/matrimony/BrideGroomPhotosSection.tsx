@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useTheme } from "../../theme/ThemeContext";
@@ -25,6 +25,8 @@ export type BrideGroomPhotoForm = {
 type Props = {
   form: BrideGroomPhotoForm;
   accountProfilePhoto: string | null;
+  /** Local file:// URI shown immediately after pick (before / while remote URL resolves). */
+  localPreviewUri?: string | null;
   needsCorrection: boolean;
   photoUploading: boolean;
   onUseAccountPhoto: () => void;
@@ -36,11 +38,34 @@ function isSelf(lookingFor: string | null | undefined): boolean {
   return String(lookingFor ?? "").toUpperCase() === "SELF";
 }
 
-function displayPhoto(form: BrideGroomPhotoForm, accountPhoto: string | null): string | null {
+function isLoadableUri(uri: string | null | undefined): boolean {
+  if (!uri?.trim()) return false;
+  const t = uri.trim();
+  return (
+    t.startsWith("http://") ||
+    t.startsWith("https://") ||
+    t.startsWith("file://") ||
+    t.startsWith("content://") ||
+    t.startsWith("ph://") ||
+    t.startsWith("assets-library://") ||
+    t.startsWith("data:")
+  );
+}
+
+function displayPhoto(
+  form: BrideGroomPhotoForm,
+  accountPhoto: string | null,
+  localPreviewUri?: string | null
+): string | null {
+  if (localPreviewUri && isLoadableUri(localPreviewUri)) return localPreviewUri;
   const candidate = form.candidatePhotoUrl ?? form.profilePhotoUrl;
-  if (candidate) return candidate;
+  if (candidate) {
+    const resolved = getImageUrl(candidate) ?? candidate;
+    if (isLoadableUri(resolved)) return resolved;
+  }
   if (isSelf(form.lookingFor) && form.useAccountProfilePhoto && accountPhoto) {
-    return accountPhoto;
+    const resolved = getImageUrl(accountPhoto) ?? accountPhoto;
+    if (isLoadableUri(resolved)) return resolved;
   }
   return null;
 }
@@ -48,6 +73,7 @@ function displayPhoto(form: BrideGroomPhotoForm, accountPhoto: string | null): s
 export function BrideGroomPhotosSection({
   form,
   accountProfilePhoto,
+  localPreviewUri = null,
   needsCorrection,
   photoUploading,
   onUseAccountPhoto,
@@ -56,10 +82,19 @@ export function BrideGroomPhotosSection({
 }: Props) {
   const { colors } = useTheme();
   const self = isSelf(form.lookingFor);
-  const preview = displayPhoto(form, accountProfilePhoto);
+  const preview = useMemo(
+    () => displayPhoto(form, accountProfilePhoto, localPreviewUri),
+    [form, accountProfilePhoto, localPreviewUri]
+  );
+  const [imageFailed, setImageFailed] = useState(false);
   const status = form.candidatePhotoStatus;
-  const rejected =
-    status === "REJECTED" || status === "REUPLOAD_REQUESTED";
+  const rejected = status === "REJECTED" || status === "REUPLOAD_REQUESTED";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [preview]);
+
+  const showPreviewBox = Boolean(preview) || photoUploading || Boolean(form.candidatePhotoUrl);
 
   return (
     <View
@@ -85,6 +120,7 @@ export function BrideGroomPhotosSection({
               <Image
                 source={{ uri: getImageUrl(accountProfilePhoto) ?? accountProfilePhoto }}
                 style={styles.thumb}
+                contentFit="cover"
               />
               <PrimaryButton
                 title={
@@ -133,18 +169,37 @@ export function BrideGroomPhotosSection({
         </>
       )}
 
-      {preview ? (
+      {showPreviewBox ? (
         <View style={styles.previewWrap}>
           <Text style={[styles.subLabel, { color: colors.text }]}>Matrimony candidate preview</Text>
-          <Pressable onPress={onUploadMatrimonyPhoto} disabled={photoUploading} style={styles.photoBox}>
-            {photoUploading ? (
+          <Pressable
+            onPress={onUploadMatrimonyPhoto}
+            disabled={photoUploading}
+            style={[styles.photoBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+          >
+            {photoUploading && !preview ? (
               <ActivityIndicator color={colors.primary} />
-            ) : (
+            ) : preview && !imageFailed ? (
               <Image
-                source={{ uri: getImageUrl(preview) ?? preview }}
+                key={preview}
+                source={{ uri: preview }}
                 style={styles.previewImg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={preview.split("?")[0]}
+                transition={120}
+                onError={() => setImageFailed(true)}
               />
+            ) : (
+              <Text style={{ fontSize: 11, color: colors.textSecondary, textAlign: "center", paddingHorizontal: 8 }}>
+                {photoUploading ? "Uploading…" : "Tap upload to add photo"}
+              </Text>
             )}
+            {photoUploading && preview ? (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
+            ) : null}
           </Pressable>
           {rejected && (
             <Text style={styles.rejectedNote}>
@@ -191,9 +246,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden"
+    overflow: "hidden",
+    borderWidth: 1
   },
   previewImg: { width: 120, height: 120 },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center"
+  },
   rejectedNote: {
     marginTop: 8,
     fontSize: 12,

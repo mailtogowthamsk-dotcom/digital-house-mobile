@@ -24,6 +24,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { usePlaybackAllowed } from "../../hooks/usePlaybackAllowed";
 import { useFeedAudioControls } from "../../hooks/useFeedAudioControls";
 import { registerFeedVideoPlayer, pauseOtherFeedVideos } from "../../media/feedVideoPlayback";
+import { setFeedAudioMuted } from "../../media/feedAudioState";
 import { markVideoUriWarmed } from "../../utils/videoUriWarmCache";
 import { FeedMediaLoader } from "./FeedMediaLoader";
 
@@ -50,6 +51,7 @@ function mediaBaseUrl(uri: string): string {
 
 function buildHtml(uri: string, muted: boolean, autoplay: boolean): string {
   const src = JSON.stringify(uri);
+  // Android WebView often rejects play() before canplay; muted autoplay is required by policy.
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -61,38 +63,62 @@ function buildHtml(uri: string, muted: boolean, autoplay: boolean): string {
 </style>
 </head>
 <body>
-<video id="v" playsinline webkit-playsinline loop preload="auto"></video>
+<video id="v" playsinline webkit-playsinline loop preload="auto"${muted ? " muted" : ""}></video>
 <script>
 (function(){
   var v=document.getElementById('v');
   var src=${src};
   var wantPlay=${autoplay ? "true" : "false"};
   var userPaused=false;
+  var playGen=0;
   function post(msg){
     try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(msg);}catch(e){}
   }
-  v.muted=${muted ? "true" : "false"};
+  function applyMuted(m){
+    v.muted=!!m;
+    if(m){try{v.setAttribute('muted','');}catch(e){}}
+    else{try{v.removeAttribute('muted');}catch(e){}}
+  }
+  applyMuted(${muted ? "true" : "false"});
   v.src=src;
   v.addEventListener('playing',function(){post('playing');});
   v.addEventListener('pause',function(){post('paused');});
   v.addEventListener('error',function(){post('error');});
-  v.addEventListener('loadeddata',function(){post('ready');});
+  v.addEventListener('loadeddata',function(){post('ready');tryPlay();});
+  v.addEventListener('canplay',function(){tryPlay();});
   function tryPlay(){
     if(!wantPlay||userPaused)return;
+    var gen=++playGen;
     var p=v.play();
-    if(p&&p.catch)p.catch(function(){post('play_blocked');});
+    if(!p||!p.catch)return;
+    p.catch(function(err){
+      if(gen!==playGen||!wantPlay||userPaused)return;
+      // Interrupted by a newer pause/load — ignore.
+      if(err&&err.name==='AbortError')return;
+      // Autoplay policy: retry muted once, then soft-fail (user can tap play).
+      if(!v.muted){
+        applyMuted(true);
+        post('force_muted');
+        var p2=v.play();
+        if(p2&&p2.catch)p2.catch(function(err2){
+          if(gen!==playGen||!wantPlay||userPaused)return;
+          if(err2&&err2.name==='AbortError')return;
+          post('play_blocked');
+        });
+        return;
+      }
+      post('play_blocked');
+    });
   }
-  window.__dhSetMuted=function(m){v.muted=!!m;};
+  window.__dhSetMuted=function(m){applyMuted(m);};
   window.__dhPlay=function(){userPaused=false;wantPlay=true;tryPlay();};
-  window.__dhPause=function(){userPaused=true;wantPlay=false;try{v.pause();}catch(e){}};
+  window.__dhPause=function(){userPaused=true;wantPlay=false;playGen++;try{v.pause();}catch(e){}};
   window.__dhSetWantPlay=function(w){
     wantPlay=!!w;
-    if(!wantPlay){try{v.pause();}catch(e){}return;}
+    if(!wantPlay){playGen++;try{v.pause();}catch(e){}return;}
     if(!userPaused)tryPlay();
   };
-  tryPlay();
-  setTimeout(tryPlay,300);
-  setTimeout(tryPlay,1000);
+  // Do not call play() immediately — wait for canplay/loadeddata (or RN inject).
 })();
 </script>
 </body>
@@ -190,6 +216,14 @@ function AndroidFeedVideoInner({
     setPlaying(false);
   }, [shouldPlay, inject, uri]);
 
+  const onWebLoadEnd = useCallback(() => {
+    inject(`window.__dhSetMuted&&window.__dhSetMuted(${muted ? "true" : "false"})`);
+    if (shouldPlay && !userPausedRef.current) {
+      inject("window.__dhSetWantPlay&&window.__dhSetWantPlay(true)");
+      inject("window.__dhPlay&&window.__dhPlay()");
+    }
+  }, [inject, muted, shouldPlay]);
+
   useEffect(() => {
     hasPaintedFrameRef.current = false;
     userPausedRef.current = false;
@@ -219,18 +253,30 @@ function AndroidFeedVideoInner({
       const msg = e.nativeEvent.data;
       if (msg === "playing") {
         setPlaying(true);
+        setErrored(false);
         hidePosterSmoothly();
       } else if (msg === "paused") {
         setPlaying(false);
       } else if (msg === "ready") {
         setReady(true);
-      } else if (msg === "error" || msg === "play_blocked") {
-        if (__DEV__) console.warn("[AndroidFeedVideo]", msg, uri.slice(0, 120));
+      } else if (msg === "force_muted") {
+        // Autoplay policy forced mute inside WebView — keep feed mute store in sync.
+        if (!muted) setFeedAudioMuted(true);
+      } else if (msg === "play_blocked") {
+        // Soft fail (autoplay / not ready). Keep poster + play button; do not hard-error.
+        if (__DEV__) {
+          console.log("[AndroidFeedVideo] play_blocked (tap to play)", uri.slice(0, 80));
+        }
+        setPlaying(false);
+        setReady(true);
+      } else if (msg === "error") {
+        if (__DEV__) console.warn("[AndroidFeedVideo] error", uri.slice(0, 120));
         setErrored(true);
         setReady(true);
+        setPlaying(false);
       }
     },
-    [hidePosterSmoothly, uri]
+    [hidePosterSmoothly, muted, uri]
   );
 
   const togglePlay = useCallback(() => {
@@ -413,6 +459,7 @@ function AndroidFeedVideoInner({
       setSupportMultipleWindows={false}
       androidLayerType="hardware"
       onMessage={onMessage}
+      onLoadEnd={onWebLoadEnd}
       pointerEvents="none"
     />
   );

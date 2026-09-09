@@ -45,6 +45,9 @@ type HeaderProps = {
 const BAR_HEIGHT = 56;
 const SIDE_WIDTH = 96;
 
+/** Android BlurView often paints near-black; that hides dark status-bar icons in light mode. */
+const USE_BLUR = Platform.OS === "ios";
+
 function HeaderInner({
   communityName,
   notificationCountFallback = 0,
@@ -90,16 +93,18 @@ function HeaderInner({
           right: 0,
           zIndex: 40,
           paddingTop: topInset,
-          overflow: "hidden"
+          overflow: "hidden",
+          // Opaque fill under status icons on Android (esp. light mode).
+          backgroundColor: USE_BLUR ? "transparent" : colors.surface
         },
         glass: {
           ...StyleSheet.absoluteFill
         },
         tint: {
           ...StyleSheet.absoluteFill,
-          backgroundColor: colors.glass,
+          backgroundColor: USE_BLUR ? colors.glass : colors.surface,
           borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.glassBorder
+          borderBottomColor: USE_BLUR ? colors.glassBorder : colors.border
         },
         bar: {
           height: BAR_HEIGHT,
@@ -182,11 +187,9 @@ function HeaderInner({
 
   return (
     <Animated.View style={[s.wrap, animStyle]} pointerEvents="box-none">
-      <BlurView
-        intensity={Platform.OS === "ios" ? 64 : 42}
-        tint={mode === "dark" ? "dark" : "light"}
-        style={s.glass}
-      />
+      {USE_BLUR ? (
+        <BlurView intensity={64} tint={mode === "dark" ? "dark" : "light"} style={s.glass} />
+      ) : null}
       <View style={s.tint} pointerEvents="none" />
       <View style={s.bar}>
         <View style={[s.side, s.sideLeft]}>

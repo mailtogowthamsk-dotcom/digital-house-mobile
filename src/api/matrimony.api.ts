@@ -168,6 +168,9 @@ export type MatrimonyPlanCatalogItem = {
   canOpenTwoStar: boolean;
   whoViewedMe: boolean;
   popular?: boolean;
+  gstPercent?: number;
+  gstAmountInr?: number;
+  priceInrBeforeGst?: number;
 };
 
 export type MatrimonyFormOptions = {

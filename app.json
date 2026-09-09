@@ -53,11 +53,18 @@
         "NSPhotoLibraryUsageDescription": "Digital House needs access to your photos so you can choose images and videos for posts.",
         "NSPhotoLibraryAddUsageDescription": "Digital House needs permission to save images and videos to your gallery.",
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["tez", "phonepe", "paytmmp"]
+        "LSApplicationQueriesSchemes": ["tez", "phonepe", "paytmmp"],
+        "UIViewControllerBasedStatusBarAppearance": true
       },
       "bundleIdentifier": "com.anonymous.digital-house"
     },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#00000000",
+      "translucent": true
+    },
     "android": {
+      "backgroundColor": "#EEF0F4",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -80,9 +87,8 @@
       "eas": {
         "projectId": "defefaa3-71d1-495c-98f8-2489497c65ed"
       },
-      "googleWebClientId": "634671733122-hrqk0ndpif1jqccvrrahdsdkhg4jugpk.apps.googleusercontent.com",
-      "googleIosClientId": "634671733122-af85dglc24jc415afv5o758sb8eqhj23.apps.googleusercontent.com",
-      "googleAndroidClientId": "634671733122-mkg5qdh9otdl42c3aet1ttlqau1tfao8.apps.googleusercontent.com"
+      "googleWebClientId": "457331615949-83vqrhtgb8o67mekio6e7f3hiphiaulc.apps.googleusercontent.com",
+      "googleAndroidClientId": "457331615949-80vm3qnh2b45c65plr6ihjbanm7oahnm.apps.googleusercontent.com"
     },
     "runtimeVersion": "1.0.0",
     "updates": {

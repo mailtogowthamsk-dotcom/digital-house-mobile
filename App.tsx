@@ -1,14 +1,14 @@
-import React, { useEffect } from "react";
-import { StyleSheet } from "react-native";
+import React, { useEffect, useMemo } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { configurePushNotifications } from "./src/services/pushNotifications";
 import { initFeedVideoDiskCache } from "./src/media/initVideoCache";
-import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { rootLinking } from "./src/navigation/linking";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
+import { ThemeSystemBars } from "./src/components/ThemeSystemBars";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import { AppAlertProvider } from "./src/context/AppAlertContext";
 import { AuthProvider, useAuth, type RootAuthRoute } from "./src/context/AuthContext";
@@ -93,18 +93,33 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
   const { mode, colors } = useTheme();
   const isDark = mode === "dark";
 
+  const screenOptions = useMemo(
+    () => ({
+      headerStyle: { backgroundColor: colors.surface },
+      headerTintColor: colors.text,
+      headerShadowVisible: true,
+      contentStyle: { backgroundColor: colors.background },
+      // Native-stack statusBar* hits RNSScreenWindowTraits. On Expo Go iOS that
+      // requires UIViewControllerBasedStatusBarAppearance=YES (Expo Go plist).
+      // iOS appearance is handled by ThemeSystemBars (expo-status-bar) instead.
+      ...(Platform.OS === "android"
+        ? {
+            statusBarStyle: (isDark ? "light" : "dark") as "light" | "dark",
+            statusBarTranslucent: true,
+            // Light canvas under status icons (Menu / stack headers). Transparent
+            // + dark icons on a black window gap made light-mode icons disappear.
+            statusBarBackgroundColor: isDark ? colors.background : colors.surface
+          }
+        : {})
+    }),
+    [colors.surface, colors.text, colors.background, isDark]
+  );
+
   return (
     <>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      <Stack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
-          headerShadowVisible: true,
-          contentStyle: { backgroundColor: colors.background }
-        }}
-      >
+      <ThemeSystemBars />
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
+
         <Stack.Screen
           name="Landing"
           component={LandingScreen}
@@ -276,16 +291,18 @@ export default function App() {
       <AppErrorBoundary>
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <ThemeProvider>
-            <AppAlertProvider>
-              <AuthProvider>
-                <PlatformProvider>
-                  <NotificationProvider>
-                    <AppNavigation />
-                    <RazorpayWebCheckoutHost />
-                  </NotificationProvider>
-                </PlatformProvider>
-              </AuthProvider>
-            </AppAlertProvider>
+            <ThemedAppShell>
+              <AppAlertProvider>
+                <AuthProvider>
+                  <PlatformProvider>
+                    <NotificationProvider>
+                      <AppNavigation />
+                      <RazorpayWebCheckoutHost />
+                    </NotificationProvider>
+                  </PlatformProvider>
+                </AuthProvider>
+              </AppAlertProvider>
+            </ThemedAppShell>
           </ThemeProvider>
         </SafeAreaProvider>
       </AppErrorBoundary>
@@ -293,6 +310,13 @@ export default function App() {
   );
 }
 
+/** Root fill color follows theme so status-bar icons always sit on a contrasting canvas. */
+function ThemedAppShell({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return <View style={[styles.shell, { backgroundColor: colors.background }]}>{children}</View>;
+}
+
 const styles = StyleSheet.create({
-  root: { flex: 1 }
+  root: { flex: 1, backgroundColor: "#EEF0F4" },
+  shell: { flex: 1 }
 });

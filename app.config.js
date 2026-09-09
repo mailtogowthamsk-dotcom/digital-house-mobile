@@ -3,9 +3,9 @@ const DEFAULT_API = "https://www.infosensetechnologies.com/digitalhouse/backend/
 
 /** Public OAuth client IDs — safe to embed; required in release APK (local .env is not used on EAS). */
 const DEFAULT_GOOGLE = {
-  web: "634671733122-hrqk0ndpif1jqccvrrahdsdkhg4jugpk.apps.googleusercontent.com",
-  ios: "634671733122-af85dglc24jc415afv5o758sb8eqhj23.apps.googleusercontent.com",
-  android: "634671733122-mkg5qdh9otdl42c3aet1ttlqau1tfao8.apps.googleusercontent.com"
+  web: "457331615949-83vqrhtgb8o67mekio6e7f3hiphiaulc.apps.googleusercontent.com",
+  ios: "",
+  android: "457331615949-80vm3qnh2b45c65plr6ihjbanm7oahnm.apps.googleusercontent.com"
 };
 
 function pickGoogleId(envVal, extraVal, fallback) {
