@@ -16,7 +16,7 @@
       "channel": "preview",
       "env": {
         "NODE_OPTIONS": "--max-old-space-size=4096",
-        "EXPO_PUBLIC_API_URL": "https://www.infosensetechnologies.com/digitalhouse/backend/api",
+        "EXPO_PUBLIC_API_URL": "https://konguvettuvagounder.com/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "457331615949-83vqrhtgb8o67mekio6e7f3hiphiaulc.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "457331615949-80vm3qnh2b45c65plr6ihjbanm7oahnm.apps.googleusercontent.com"
       },
@@ -37,7 +37,7 @@
     "production": {
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://www.infosensetechnologies.com/digitalhouse/backend/api",
+        "EXPO_PUBLIC_API_URL": "https://konguvettuvagounder.com/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "457331615949-83vqrhtgb8o67mekio6e7f3hiphiaulc.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "457331615949-80vm3qnh2b45c65plr6ihjbanm7oahnm.apps.googleusercontent.com"
       }
