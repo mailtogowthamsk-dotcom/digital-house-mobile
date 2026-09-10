@@ -2,8 +2,8 @@ import type { LinkingOptions } from "@react-navigation/native";
 
 const prefixes = [
   "digitalhouse://",
-  "https://www.infosensetechnologies.com/digitalhouse",
-  "http://www.infosensetechnologies.com/digitalhouse"
+  "https://konguvettuvagounder.com",
+  "https://www.konguvettuvagounder.com"
 ];
 
 /** Deep links: digitalhouse://post/123 — do not map "" → Home (fights auth gating). */

@@ -1,5 +1,5 @@
 /** Merges API URL into Expo extra (EAS + local .env). */
-const DEFAULT_API = "https://www.infosensetechnologies.com/digitalhouse/backend/api";
+const DEFAULT_API = "https://konguvettuvagounder.com/api";
 
 /** Public OAuth client IDs — safe to embed; required in release APK (local .env is not used on EAS). */
 const DEFAULT_GOOGLE = {

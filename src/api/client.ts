@@ -27,7 +27,7 @@ function isTransientNetworkError(err: AxiosError): boolean {
   );
 }
 
-const PRODUCTION_API = "https://www.infosensetechnologies.com/digitalhouse/backend/api";
+const PRODUCTION_API = "https://konguvettuvagounder.com/api";
 
 /**
  * Production API must use www (Apache 301 on bare domain breaks some clients).
