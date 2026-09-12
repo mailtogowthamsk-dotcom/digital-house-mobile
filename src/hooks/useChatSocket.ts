@@ -3,7 +3,8 @@ import type { MessageItem } from "../api/messages.api";
 import type { Socket } from "socket.io-client";
 import {
   registerChatRealtime,
-  type MessageDeletedPayload
+  type MessageDeletedPayload,
+  type ConversationDeletedPayload
 } from "../realtime/chatRealtime";
 
 type ChatSocketHandlers = {
@@ -12,6 +13,7 @@ type ChatSocketHandlers = {
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
   onDeleted?: (payload: MessageDeletedPayload) => void;
+  onConversationDeleted?: (payload: ConversationDeletedPayload) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
   /** Socket recovered after a drop — reconcile anything missed while offline. */
   onReconnect?: () => void;
@@ -44,6 +46,7 @@ export function useChatSocket(
       onRead: (p) => handlersRef.current.onRead(p),
       onTyping: (t) => handlersRef.current.onTyping(t),
       onDeleted: (p) => handlersRef.current.onDeleted?.(p),
+      onConversationDeleted: (p) => handlersRef.current.onConversationDeleted?.(p),
       onIncomingFromOther: (m, sock) => handlersRef.current.onIncomingFromOther?.(m, sock),
       onReconnect: () => handlersRef.current.onReconnect?.()
     });

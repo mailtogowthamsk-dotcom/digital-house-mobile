@@ -31,6 +31,7 @@ import { getImageUrl } from "../../api/client";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import { useAuth } from "../../context/AuthContext";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 
 type Params = {
   MemberPosts: {
@@ -172,9 +173,7 @@ export function MemberPostsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
             {authorName}&apos;s Posts

@@ -92,6 +92,21 @@ export async function updateThreadPreference(
   return res.data.preference;
 }
 
+export type ConversationDeletion = {
+  otherUserId: number;
+  deletedMessageCount: number;
+  deletedPreferenceCount: number;
+  deletedAt: string;
+};
+
+/** Permanently delete this chat/conversation from the database (connections unchanged). */
+export async function deleteConversation(otherUserId: number): Promise<ConversationDeletion> {
+  const res = await api.delete<{ ok: true; deletion: ConversationDeletion }>(
+    `/messages/threads/${otherUserId}`
+  );
+  return res.data.deletion;
+}
+
 const MAX_HISTORY_LIMIT = 50;
 
 export async function getHistory(

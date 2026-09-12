@@ -6,6 +6,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import {
   getMatrimonyCandidate,
   openMatrimonyProfile,
@@ -437,9 +438,7 @@ export function MatrimonyCandidateScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.topBar, { paddingTop: insets.top, borderBottomColor: colors.border }]}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.topBarBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
+          <HeaderBackButton onPress={() => navigation.goBack()} />
           <Text style={[styles.topBarTitle, { color: colors.text }]}>Profile</Text>
           <View style={styles.topBarSpacer} />
         </View>
@@ -497,9 +496,7 @@ export function MatrimonyCandidateScreen() {
       >
         <LinearGradient colors={["#1e3a5f", "#3B5BDB"]} style={[styles.hero, { paddingTop: insets.top }]}>
           <View style={styles.heroBar}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.heroIconBtn} hitSlop={8}>
-              <Ionicons name="chevron-back" size={22} color="#fff" />
-            </Pressable>
+            <HeaderBackButton onPress={() => navigation.goBack()} color="#fff" />
             <Text style={styles.heroBarTitle}>Profile</Text>
             <View style={styles.heroBarActions}>
               <Pressable

@@ -17,6 +17,7 @@ import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 
 export function MatrimonySavedScreen() {
   const navigation = useNavigation<any>();
@@ -52,9 +53,7 @@ export function MatrimonySavedScreen() {
     <MatrimonyBrowseGate>
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={[styles.title, { color: colors.text }]}>Saved profiles</Text>
         <View style={{ width: 24 }} />
       </View>

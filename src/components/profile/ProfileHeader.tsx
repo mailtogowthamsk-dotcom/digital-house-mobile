@@ -4,7 +4,9 @@ import { AvatarImage } from "../ui/AvatarImage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
+import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
+import { cardShadow } from "../../theme/shadows";
 import { formatUsername } from "../../utils/username";
 
 export type ProfileHeaderProps = {
@@ -35,10 +37,26 @@ function StatCell({
 }) {
   return (
     <View style={{ flex: 1, alignItems: "center" }}>
-      <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 }}>
+      <Text
+        style={{
+          fontFamily: fonts.semiBold,
+          fontSize: 18,
+          fontWeight: "600",
+          color: colors.text,
+          letterSpacing: -0.2
+        }}
+      >
         {value}
       </Text>
-      <Text style={{ marginTop: 2, fontSize: 11, fontWeight: "600", color: colors.textSecondary }}>
+      <Text
+        style={{
+          marginTop: 4,
+          fontFamily: fonts.regular,
+          fontSize: 12,
+          fontWeight: "400",
+          color: colors.textSecondary
+        }}
+      >
         {label}
       </Text>
     </View>
@@ -69,8 +87,9 @@ export function ProfileHeader({
           borderRadius: radius.xl,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          padding: spacing.lg,
-          overflow: "hidden"
+          padding: spacing.xl,
+          overflow: "hidden",
+          ...cardShadow(mode)
         },
         topRow: {
           flexDirection: "row",
@@ -78,10 +97,10 @@ export function ProfileHeader({
           gap: spacing.md
         },
         avatarRing: {
-          padding: 3,
+          padding: 2,
           borderRadius: 52,
-          borderWidth: 2,
-          borderColor: colors.primary + "40",
+          borderWidth: 1.5,
+          borderColor: colors.border,
           backgroundColor: colors.surface
         },
         identity: { flex: 1, minWidth: 0 },
@@ -91,17 +110,19 @@ export function ProfileHeader({
           gap: 6
         },
         name: {
-          ...typography.h1,
+          fontFamily: fonts.semiBold,
           fontSize: 22,
+          fontWeight: "600",
           lineHeight: 28,
           color: colors.text,
           flexShrink: 1
         },
         username: {
-          ...typography.bodySmall,
+          fontFamily: fonts.medium,
+          fontSize: 14,
           color: colors.primary,
-          fontWeight: "700",
-          marginTop: 2
+          fontWeight: "500",
+          marginTop: 4
         },
         metaLine: {
           flexDirection: "row",
@@ -139,54 +160,58 @@ export function ProfileHeader({
           alignItems: "center",
           justifyContent: "center",
           gap: 8,
-          paddingVertical: 11,
-          borderRadius: radius.md,
+          minHeight: 52,
+          paddingVertical: 12,
+          borderRadius: radius.button,
           backgroundColor: colors.primary
         },
         editBtnPressed: { opacity: 0.88 },
         editBtnText: {
           ...typography.buttonSmall,
           color: colors.white,
-          fontWeight: "700"
+          fontWeight: "600"
         },
         completion: {
           marginTop: spacing.md,
           padding: spacing.md,
-          borderRadius: radius.md,
-          backgroundColor: mode === "dark" ? colors.surfaceElevated : colors.primary + "10"
+          borderRadius: radius.lg,
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : colors.primary + "12"
         },
         completionTop: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 8
+          marginBottom: 10
         },
         completionLabel: {
-          ...typography.caption,
-          fontWeight: "700",
+          fontFamily: fonts.semiBold,
+          fontSize: 13,
+          fontWeight: "600",
           color: colors.text
         },
         completionPct: {
-          ...typography.caption,
-          fontWeight: "800",
+          fontFamily: fonts.semiBold,
+          fontSize: 13,
+          fontWeight: "600",
           color: colors.primary
         },
         completionBar: {
-          height: 6,
+          height: 8,
           backgroundColor: colors.border,
-          borderRadius: 3,
+          borderRadius: 4,
           overflow: "hidden"
         },
         completionFill: {
           height: "100%",
           backgroundColor: colors.primary,
-          borderRadius: 3
+          borderRadius: 4
         },
         completionHint: {
-          ...typography.caption,
+          fontFamily: fonts.regular,
+          fontSize: 12,
           color: colors.textSecondary,
-          marginTop: 8,
-          lineHeight: 16
+          marginTop: 10,
+          lineHeight: 17
         }
       }),
     [colors, mode]

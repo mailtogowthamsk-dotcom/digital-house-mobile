@@ -14,9 +14,13 @@ export const spacing = {
 export const radius = {
   sm: 8,
   md: 12,
+  /** Buttons & inputs */
   lg: 16,
   media: 16,
+  /** Cards */
   xl: 20,
-  card: 24,
+  card: 20,
+  button: 16,
+  input: 16,
   full: 9999
 };

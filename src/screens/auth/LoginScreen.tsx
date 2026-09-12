@@ -25,7 +25,11 @@ import {
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { spacing } from "../../theme/spacing";
+import { spacing, radius } from "../../theme/spacing";
+import { fonts } from "../../theme/fonts";
+import { elevatedShadow } from "../../theme/shadows";
+
+const BRAND_PRIMARY = "#16803C";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -259,22 +263,17 @@ function LoginScreenBody({
           <Pressable
             style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
             onPress={() => navigation.goBack()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-            <Text style={s.backText}>Back</Text>
+            <Ionicons name="chevron-back-outline" size={24} color="#FFFFFF" />
           </Pressable>
 
           <View style={s.header}>
             <Image source={LOGO} style={s.logo} resizeMode="contain" />
-            <View style={s.brandRow}>
-              <Text style={s.brandDigital}>Digital</Text>
-              <Text style={s.brandHouse}> House</Text>
-            </View>
-            <View style={s.taglineRow}>
-              <View style={s.line} />
-              <Text style={s.tagline}>Sign in to your account</Text>
-              <View style={s.line} />
-            </View>
+            <Text style={s.brandTitle}>Digital House</Text>
+            <Text style={s.tagline}>Sign in to your account</Text>
           </View>
 
           <View style={s.card}>
@@ -289,6 +288,8 @@ function LoginScreenBody({
               ]}
               onPress={() => void google.onGoogleSignIn()}
               disabled={google.googleLoading || loading || !google.available}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
             >
               {google.googleLoading ? (
                 <ActivityIndicator size="small" color="#111827" />
@@ -307,7 +308,8 @@ function LoginScreenBody({
               <View style={s.dividerLine} />
             </View>
 
-            <Text style={s.existingLabel}>Existing login (email OTP)</Text>
+            <Text style={s.existingLabel}>Sign in with email</Text>
+            <Text style={s.emailHelper}>Enter your email to receive a one-time password.</Text>
 
             <Input
               placeholder="Email"
@@ -330,22 +332,17 @@ function LoginScreenBody({
             </View>
 
             <Pressable
-              style={({ pressed }) => [s.btnWrap, pressed && s.btnPressed, loading && s.btnDisabled]}
+              style={({ pressed }) => [s.loginBtn, pressed && s.btnPressed, loading && s.btnDisabled]}
               onPress={onSend}
               disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="Send OTP"
             >
-              <LinearGradient
-                colors={["#2563EB", "#F97316"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={s.loginBtn}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={s.loginBtnText}>Send OTP</Text>
-                )}
-              </LinearGradient>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={s.loginBtnText}>Send OTP</Text>
+              )}
             </Pressable>
             <Text style={s.loginHint}>
               After OTP, you'll be routed by your registration status (Home, Waiting, or Corrections).
@@ -354,6 +351,7 @@ function LoginScreenBody({
             <Pressable
               style={({ pressed }) => [s.registerWrap, pressed && { opacity: 0.8 }]}
               onPress={() => navigation.navigate("Registration")}
+              accessibilityRole="button"
             >
               <Text style={s.registerText}>Don't have an account? </Text>
               <Text style={s.registerLink}>Register</Text>
@@ -374,97 +372,168 @@ const s = StyleSheet.create({
   keyboard: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     // Avoid justifyContent:"center" — with Android keyboard resize it can
     // jump the focused field and feel like the keyboard is fighting focus.
     justifyContent: "flex-start"
   },
   backWrap: {
-    flexDirection: "row",
+    width: 44,
+    height: 44,
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
     alignSelf: "flex-start",
-    marginBottom: spacing.md,
-    paddingVertical: 4
+    marginBottom: spacing.sm,
+    marginLeft: -8
   },
-  backText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
-  header: { alignItems: "center", marginBottom: spacing.lg },
+  header: { alignItems: "center", marginBottom: spacing.xl },
   logo: {
-    width: Math.min(SCREEN_WIDTH * 0.32, 132),
-    height: Math.min(SCREEN_WIDTH * 0.32, 132)
+    width: Math.min(SCREEN_WIDTH * 0.3, 120),
+    height: Math.min(SCREEN_WIDTH * 0.3, 120)
   },
-  brandRow: { flexDirection: "row", alignItems: "baseline", marginTop: spacing.sm },
-  brandDigital: { fontSize: 28, fontWeight: "800", color: "#FFFFFF" },
-  brandHouse: { fontSize: 28, fontWeight: "800", color: "#F97316" },
-  taglineRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  brandTitle: {
+    marginTop: spacing.md,
+    fontFamily: fonts.semiBold,
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: 0.2
+  },
+  tagline: {
     marginTop: spacing.sm,
-    gap: 10
+    fontFamily: fonts.regular,
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    fontWeight: "400"
   },
-  line: { height: 1, width: 28, backgroundColor: "rgba(255,255,255,0.35)" },
-  tagline: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: "500" },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: spacing.lg,
+    borderRadius: 22,
+    padding: spacing.xxl,
     maxWidth: 440,
     width: "100%",
     alignSelf: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6
+    ...elevatedShadow("light")
   },
-  cardTitle: { fontSize: 22, fontWeight: "800", color: "#111827" },
-  cardSubtitle: { marginTop: 4, marginBottom: spacing.md, fontSize: 14, color: "#6B7280" },
+  cardTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#111827"
+  },
+  cardSubtitle: {
+    marginTop: 6,
+    marginBottom: spacing.lg,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: "#6B7280",
+    lineHeight: 20
+  },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingVertical: 14
+    borderRadius: radius.button,
+    minHeight: 54
   },
-  googleBtnText: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  googleHint: { marginTop: 8, fontSize: 12, lineHeight: 17, color: "#6B7280" },
+  googleBtnText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827"
+  },
+  googleHint: {
+    marginTop: 8,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#6B7280"
+  },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: spacing.md,
-    gap: 10
+    marginVertical: spacing.lg,
+    gap: 12
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
-  dividerText: { fontSize: 12, fontWeight: "700", color: "#9CA3AF" },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "#E5E7EB" },
+  dividerText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#6B7280"
+  },
   existingLabel: {
+    fontFamily: fonts.semiBold,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4
+  },
+  emailHelper: {
+    fontFamily: fonts.regular,
     fontSize: 13,
-    fontWeight: "700",
-    color: "#374151",
-    marginBottom: spacing.sm
+    color: "#6B7280",
+    lineHeight: 18,
+    marginBottom: spacing.md
   },
   messageWrap: { minHeight: 22, marginTop: spacing.sm, marginBottom: spacing.sm },
-  messageError: { fontSize: 13, color: "#DC2626", fontWeight: "600" },
-  messageSuccess: { fontSize: 13, color: "#059669", fontWeight: "600" },
-  btnWrap: { borderRadius: 12, overflow: "hidden" },
-  btnPressed: { opacity: 0.92 },
+  messageError: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: "#DC2626",
+    fontWeight: "500"
+  },
+  messageSuccess: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: BRAND_PRIMARY,
+    fontWeight: "500"
+  },
+  btnPressed: { opacity: 0.9 },
   btnDisabled: { opacity: 0.55 },
   loginBtn: {
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 54,
+    borderRadius: radius.button,
+    backgroundColor: BRAND_PRIMARY,
     paddingVertical: 14
   },
-  loginBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  loginHint: { marginTop: spacing.sm, fontSize: 12, color: "#6B7280", textAlign: "center" },
+  loginBtnText: {
+    fontFamily: fonts.semiBold,
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600"
+  },
+  loginHint: {
+    marginTop: spacing.sm,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 17
+  },
   registerWrap: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: spacing.md,
-    flexWrap: "wrap"
+    marginTop: spacing.lg,
+    flexWrap: "wrap",
+    minHeight: 44,
+    alignItems: "center"
   },
-  registerText: { fontSize: 14, color: "#6B7280" },
-  registerLink: { fontSize: 14, fontWeight: "700", color: "#2563EB" }
+  registerText: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: "#6B7280"
+  },
+  registerLink: {
+    fontFamily: fonts.semiBold,
+    fontSize: 14,
+    fontWeight: "600",
+    color: BRAND_PRIMARY
+  }
 });

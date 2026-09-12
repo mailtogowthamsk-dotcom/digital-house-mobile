@@ -12,6 +12,12 @@ export type MessageDeletedPayload = {
   deletedAt: string;
 };
 
+export type ConversationDeletedPayload = {
+  deletedByUserId: number;
+  otherUserId: number;
+  deletedAt: string;
+};
+
 export type ChatRealtimeHandlers = {
   otherUserId: number;
   onMessage: (message: MessageItem) => void;
@@ -19,6 +25,7 @@ export type ChatRealtimeHandlers = {
   onRead: (payload: { withUserId: number; readAt: string }) => void;
   onTyping: (typing: boolean) => void;
   onDeleted?: (payload: MessageDeletedPayload) => void;
+  onConversationDeleted?: (payload: ConversationDeletedPayload) => void;
   onIncomingFromOther?: (message: MessageItem, sock: Socket) => void;
   /**
    * Socket came back after a drop. Nothing is replayed server-side, so the
@@ -33,11 +40,14 @@ export type GlobalMessageHandler = (message: MessageItem) => void;
 /** Inbox / hub: react to deletions for thread list last-message refresh. */
 export type GlobalDeletedHandler = (payload: MessageDeletedPayload) => void;
 
+export type GlobalConversationDeletedHandler = (payload: ConversationDeletedPayload) => void;
+
 type Subscription = ChatRealtimeHandlers;
 
 const subscriptions = new Map<symbol, Subscription>();
 const globalMessageHandlers = new Map<symbol, GlobalMessageHandler>();
 const globalDeletedHandlers = new Map<symbol, GlobalDeletedHandler>();
+const globalConversationDeletedHandlers = new Map<symbol, GlobalConversationDeletedHandler>();
 
 let socketRef: Socket | null = null;
 let wired = false;
@@ -50,6 +60,7 @@ let onDeliveredEvent: ((p: unknown) => void) | null = null;
 let onReadEvent: ((p: unknown) => void) | null = null;
 let onTypingEvent: ((p: unknown) => void) | null = null;
 let onDeletedEvent: ((p: unknown) => void) | null = null;
+let onConversationDeletedEvent: ((p: unknown) => void) | null = null;
 let onDisconnectEvent: (() => void) | null = null;
 let onConnectEvent: (() => void) | null = null;
 
@@ -73,6 +84,7 @@ function detachListeners(sock: Socket): void {
   if (onReadEvent) sock.off("message:read", onReadEvent);
   if (onTypingEvent) sock.off("typing", onTypingEvent);
   if (onDeletedEvent) sock.off("message:deleted", onDeletedEvent);
+  if (onConversationDeletedEvent) sock.off("conversation:deleted", onConversationDeletedEvent);
   if (onDisconnectEvent) sock.off("disconnect", onDisconnectEvent);
   if (onConnectEvent) sock.off("connect", onConnectEvent);
 }
@@ -187,6 +199,33 @@ async function wireSocket(sock: Socket): Promise<void> {
     });
   };
 
+  onConversationDeletedEvent = (p: unknown) => {
+    if (!p || typeof p !== "object") return;
+    const raw = p as Record<string, unknown>;
+    const deletedByUserId = Number(raw.deletedByUserId);
+    const otherUserId = Number(raw.otherUserId);
+    if (!deletedByUserId || !otherUserId) return;
+    const normalized: ConversationDeletedPayload = {
+      deletedByUserId,
+      otherUserId,
+      deletedAt: typeof raw.deletedAt === "string" ? raw.deletedAt : ""
+    };
+
+    for (const handler of globalConversationDeletedHandlers.values()) {
+      try {
+        handler(normalized);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    forMatchingSubs((sub) => {
+      const other = Number(sub.otherUserId);
+      if (other !== otherUserId && other !== deletedByUserId) return;
+      sub.onConversationDeleted?.(normalized);
+    });
+  };
+
   onDisconnectEvent = () => {
     if (__DEV__) console.log("[chat] socket disconnected");
     wired = false;
@@ -209,6 +248,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   sock.on("message:read", onReadEvent);
   sock.on("typing", onTypingEvent);
   sock.on("message:deleted", onDeletedEvent);
+  sock.on("conversation:deleted", onConversationDeletedEvent);
   sock.on("disconnect", onDisconnectEvent);
   sock.on("connect", onConnectEvent);
 
@@ -272,6 +312,19 @@ export function registerGlobalDeletedHandler(
   }
 }
 
+/** Inbox / hub: whole conversation permanently deleted. */
+export function registerGlobalConversationDeletedHandler(
+  id: symbol,
+  handler: GlobalConversationDeletedHandler | null
+): void {
+  if (handler) {
+    globalConversationDeletedHandlers.set(id, handler);
+    void ensureWired();
+  } else {
+    globalConversationDeletedHandlers.delete(id);
+  }
+}
+
 /**
  * Detach socket listeners only — keep subscriptions so an open ChatScreen
  * can re-wire after token refresh / socket recreate without remounting.
@@ -285,6 +338,7 @@ export function unwireChatRealtime(): void {
   onReadEvent = null;
   onTypingEvent = null;
   onDeletedEvent = null;
+  onConversationDeletedEvent = null;
   onDisconnectEvent = null;
   onConnectEvent = null;
   socketRef = null;

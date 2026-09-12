@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   Modal,
-  Pressable,
-  Platform
+  Pressable
 } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
+import { elevatedShadow } from "../../theme/shadows";
 
 export type ConfirmDialogVariant = "default" | "destructive";
 
@@ -34,7 +34,7 @@ export function ConfirmDialog({
   onCancel,
   variant = "default"
 }: ConfirmDialogProps) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const isDestructive = variant === "destructive";
 
   const s = useMemo(
@@ -49,15 +49,11 @@ export function ConfirmDialog({
         centered: { width: "100%", alignItems: "center", paddingHorizontal: spacing.xl },
         card: {
           width: "100%",
-          maxWidth: 320,
+          maxWidth: 340,
           backgroundColor: colors.surface,
-          borderRadius: radius.lg,
+          borderRadius: radius.xl,
           padding: spacing.xxl,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.12,
-          shadowRadius: 24,
-          elevation: 12
+          ...elevatedShadow(mode)
         },
         title: {
           ...typography.h3,
@@ -75,8 +71,9 @@ export function ConfirmDialog({
         actions: { flexDirection: "row", gap: spacing.md },
         btn: {
           flex: 1,
+          minHeight: 48,
           paddingVertical: spacing.md,
-          borderRadius: radius.md,
+          borderRadius: radius.button,
           alignItems: "center",
           justifyContent: "center"
         },
@@ -87,11 +84,11 @@ export function ConfirmDialog({
         },
         btnConfirm: { backgroundColor: colors.primary },
         btnDestructive: { backgroundColor: colors.error },
-        btnCancelText: { ...typography.buttonSmall, color: colors.textSecondary },
+        btnCancelText: { ...typography.buttonSmall, color: colors.text },
         btnConfirmText: { ...typography.buttonSmall, color: colors.white },
         pressed: { opacity: 0.9 }
       }),
-    [colors]
+    [colors, mode]
   );
 
   return (
@@ -111,6 +108,7 @@ export function ConfirmDialog({
               <Pressable
                 style={({ pressed }) => [s.btn, s.btnCancel, pressed && s.pressed]}
                 onPress={onCancel}
+                accessibilityRole="button"
               >
                 <Text style={s.btnCancelText}>{cancelLabel}</Text>
               </Pressable>
@@ -121,6 +119,7 @@ export function ConfirmDialog({
                   pressed && s.pressed
                 ]}
                 onPress={onConfirm}
+                accessibilityRole="button"
               >
                 <Text style={s.btnConfirmText}>{confirmLabel}</Text>
               </Pressable>

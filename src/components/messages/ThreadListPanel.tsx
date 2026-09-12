@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AvatarImage } from "../ui/AvatarImage";
+import { HeaderBackButton } from "../ui/HeaderBackButton";
 import type { ChatLane, Thread } from "../../api/messages.api";
 
 export type MessagesFolder = "inbox" | "archived" | "blocked";
@@ -83,7 +84,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
   const subtitle = isBlocked
     ? "People you blocked. Tap Unblock to allow messaging again."
     : isArchived
-      ? "Left and archived chats stay here. Open a chat → ⋮ → Restore or Unarchive to bring it back to Inbox."
+      ? "Archived chats stay here. Open a chat → ⋮ → Unarchive to bring it back to Inbox."
       : "Archive a chat from its options menu. Find blocked people under Blocked.";
 
   const emptyTitle = isBlocked
@@ -95,7 +96,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
   const emptySubtitle = isBlocked
     ? "When you block someone from a chat, they appear here so you can unblock them anytime."
     : isArchived
-      ? "When you archive or leave a chat, it moves here so you can restore it anytime."
+      ? "When you archive a chat, it moves here so you can restore it anytime."
       : "When you match on Matrimony or connect with a member, your chats will appear here.";
 
   const listEmpty = isBlocked ? blockedMembers.length === 0 : threads.length === 0;
@@ -122,22 +123,21 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     >
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.titleRow}>
-          {onBack ? (
-            <Pressable onPress={onBack} hitSlop={8} style={styles.backBtn} accessibilityLabel="Go back">
-              <Ionicons name="chevron-back" size={24} color={colors.text} />
-            </Pressable>
-          ) : null}
+          {onBack ? <HeaderBackButton onPress={onBack} /> : null}
           <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
           {onSearch ? (
             <Pressable
               onPress={onSearch}
-              hitSlop={10}
+              hitSlop={8}
               style={styles.searchBtn}
               accessibilityLabel="Search members and chats"
+              accessibilityRole="button"
             >
-              <Ionicons name="search" size={22} color={colors.text} />
+              <Ionicons name="search-outline" size={22} color={colors.text} />
             </Pressable>
-          ) : null}
+          ) : (
+            <View style={styles.searchBtn} />
+          )}
         </View>
 
         {onFolderChange ? (
@@ -153,15 +153,21 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
                 key={tab.id}
                 style={[
                   styles.segmentBtn,
-                  folder === tab.id && { backgroundColor: colors.surface }
+                  folder === tab.id && {
+                    backgroundColor: colors.surface,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: colors.border
+                  }
                 ]}
                 onPress={() => onFolderChange(tab.id)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: folder === tab.id }}
               >
                 <Text
                   style={[
                     styles.segmentText,
                     { color: colors.textSecondary },
-                    folder === tab.id && { color: colors.primary, fontWeight: "700" }
+                    folder === tab.id && { color: colors.primary, fontWeight: "600" }
                   ]}
                   numberOfLines={1}
                 >
@@ -297,9 +303,9 @@ const styles = StyleSheet.create({
     alignSelf: "stretch"
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexShrink: 0
   },
@@ -308,42 +314,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8
   },
-  backBtn: {
-    marginRight: 2,
-    paddingVertical: 4,
-    flexShrink: 0
-  },
   searchBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0
   },
   title: {
-    fontWeight: "800",
+    fontWeight: "600",
     flex: 1,
     minWidth: 0
   },
   subtitle: {
-    marginTop: 8,
-    fontSize: 12,
-    lineHeight: 17
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 18
   },
   segment: {
-    marginTop: 12,
+    marginTop: 14,
     flexDirection: "row",
-    borderRadius: 10,
-    padding: 3,
-    gap: 2
+    borderRadius: 12,
+    padding: 4,
+    gap: 4
   },
   segmentBtn: {
     flex: 1,
+    minHeight: 36,
     paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: "center"
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center"
   },
   segmentText: {
-    fontSize: 12,
-    fontWeight: "600"
+    fontSize: 13,
+    fontWeight: "500"
   },
   listWrap: {
     flex: 1,
@@ -358,22 +363,25 @@ const styles = StyleSheet.create({
   blockedRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 72
   },
   blockedTextCol: {
     flex: 1,
     minWidth: 0
   },
   blockedName: {
-    fontSize: 15,
-    fontWeight: "700"
+    fontSize: 16,
+    fontWeight: "600"
   },
   unblockBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    minHeight: 44,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    justifyContent: "center",
     flexShrink: 0
   },
   centered: {
@@ -384,7 +392,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "600",
     marginTop: 10,
     textAlign: "center"
   },
@@ -429,6 +437,8 @@ export function ThreadRow({
   onPress: () => void;
   colors: Colors;
 }) {
+  const hasUnread = unreadCount != null && unreadCount > 0;
+
   return (
     <Pressable
       onPress={onPress}
@@ -437,6 +447,7 @@ export function ThreadRow({
         { borderBottomColor: colors.border },
         selected && { backgroundColor: colors.surfaceElevated }
       ]}
+      accessibilityRole="button"
     >
       <View style={rowStyles.avatarWrap}>
         <AvatarImage
@@ -450,7 +461,14 @@ export function ThreadRow({
       </View>
       <View style={rowStyles.center}>
         <View style={rowStyles.nameRow}>
-          <Text style={[rowStyles.name, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[
+              rowStyles.name,
+              { color: colors.text },
+              hasUnread && rowStyles.nameUnread
+            ]}
+            numberOfLines={1}
+          >
             {name}
           </Text>
           {chatLanes?.includes("community") ? (
@@ -463,10 +481,10 @@ export function ThreadRow({
           ) : null}
           {chatLanes?.includes("matrimony") ? (
             <View
-              style={[rowStyles.laneIcon, { backgroundColor: "rgba(225,29,72,0.14)" }]}
+              style={[rowStyles.laneIcon, { backgroundColor: "rgba(220,38,38,0.12)" }]}
               accessibilityLabel="Matrimony chat"
             >
-              <Ionicons name="heart" size={12} color="#E11D48" />
+              <Ionicons name="heart" size={12} color="#DC2626" />
             </View>
           ) : null}
           {left ? (
@@ -482,13 +500,20 @@ export function ThreadRow({
           ) : null}
         </View>
         <View style={rowStyles.previewRow}>
-          <Text style={[rowStyles.preview, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[
+              rowStyles.preview,
+              { color: hasUnread ? colors.text : colors.textSecondary },
+              hasUnread && rowStyles.previewUnread
+            ]}
+            numberOfLines={1}
+          >
             {preview}
           </Text>
-          {unreadCount != null && unreadCount > 0 ? (
+          {hasUnread ? (
             <View style={[rowStyles.badge, { backgroundColor: colors.primary }]}>
               <Text style={[rowStyles.badgeText, { color: colors.white }]}>
-                {unreadCount > 99 ? "99+" : unreadCount}
+                {unreadCount! > 99 ? "99+" : unreadCount}
               </Text>
             </View>
           ) : null}
@@ -502,15 +527,16 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    maxWidth: "100%"
+    maxWidth: "100%",
+    minHeight: 76
   },
   avatarWrap: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     flexShrink: 0
   },
   dot: {
@@ -520,7 +546,7 @@ const rowStyles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#22C55E",
+    backgroundColor: "#16803C",
     borderWidth: 2
   },
   center: {
@@ -534,18 +560,23 @@ const rowStyles = StyleSheet.create({
     gap: 8
   },
   name: {
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "600",
     flex: 1
+  },
+  nameUnread: {
+    fontWeight: "700"
   },
   time: {
     fontSize: 12,
-    flexShrink: 0
+    flexShrink: 0,
+    alignSelf: "flex-start",
+    marginTop: 2
   },
   laneIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0
@@ -558,8 +589,12 @@ const rowStyles = StyleSheet.create({
   },
   preview: {
     flex: 1,
-    fontSize: 13,
-    minWidth: 0
+    fontSize: 14,
+    minWidth: 0,
+    lineHeight: 18
+  },
+  previewUnread: {
+    fontWeight: "600"
   },
   badge: {
     minWidth: 22,
@@ -571,7 +606,7 @@ const rowStyles = StyleSheet.create({
     flexShrink: 0
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: "800"
+    fontSize: 11,
+    fontWeight: "700"
   }
 });

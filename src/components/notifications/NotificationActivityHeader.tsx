@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { HeaderBackButton } from "../ui/HeaderBackButton";
 
 type Props = {
   unreadTotal: number;
@@ -35,14 +36,6 @@ export function NotificationActivityHeader({
           borderBottomColor: colors.border
         },
         row: { flexDirection: "row", alignItems: "center" },
-        back: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.surfaceElevated
-        },
         center: { flex: 1, marginHorizontal: spacing.md },
         title: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3, color: colors.text },
         subtitle: { marginTop: 2, fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
@@ -105,9 +98,7 @@ export function NotificationActivityHeader({
   return (
     <View style={s.wrap}>
       <View style={s.row}>
-        <Pressable style={s.back} onPress={onBack} accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={onBack} />
         <View style={s.center}>
           <Text style={s.title}>Activity</Text>
           <Text style={s.subtitle}>Your notification center</Text>

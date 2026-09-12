@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { HeaderBackButton } from "../ui/HeaderBackButton";
 
 type Props = {
   title: string;
@@ -40,19 +41,7 @@ export function MatrimonyScreenHeader({
         }
       ]}
     >
-      <Pressable
-        onPress={onBack}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        style={({ pressed }) => [
-          styles.iconBtn,
-          { backgroundColor: colors.surfaceElevated },
-          pressed && styles.pressed
-        ]}
-      >
-        <Ionicons name="chevron-back" size={22} color={colors.text} />
-      </Pressable>
+      <HeaderBackButton onPress={onBack} />
 
       <View style={styles.titleWrap}>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>

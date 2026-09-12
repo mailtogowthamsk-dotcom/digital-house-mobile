@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Platform,
   ScrollView,
   Image,
   Dimensions,
@@ -12,7 +11,7 @@ import {
   Keyboard
 } from "react-native";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DobDatePicker } from "../../components/ui/DobDatePicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { register as registerApi, setRegistrationPhoto, type RegisterPayload } from "../../api/auth.api";
@@ -289,7 +288,7 @@ export function RegistrationScreen({ navigation }: any) {
         await setToken(registered.accessToken);
         try {
           const uploaded = await uploadOptimizedImage(photoLocalUri, "profile");
-          sessionUser = await setRegistrationPhoto(uploaded.publicUrl);
+          sessionUser = await setRegistrationPhoto(uploaded.storageKey || uploaded.publicUrl);
         } catch (photoErr) {
           // Account is created — don't fail registration if optional photo upload fails.
           console.warn("[register] optional photo upload failed", photoErr);
@@ -406,29 +405,19 @@ export function RegistrationScreen({ navigation }: any) {
                   onSelect={setGender}
                   variant="light"
                 />
-                <Pressable style={s.dateRow} onPress={() => setShowDobPicker(true)}>
+                <Pressable style={s.dateRow} onPress={() => setShowDobPicker((v) => !v)}>
                   <Text style={[s.dateText, !dob && s.datePlaceholder]}>
                     {dob ? formatDate(dob) : "Select date of birth"}
                   </Text>
                   <Ionicons name="calendar-outline" size={20} color={ICON_COLOR} />
                 </Pressable>
-                {showDobPicker && (
-                  <DateTimePicker
-                    value={dob || new Date(2000, 0, 1)}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
-                    maximumDate={new Date()}
-                    onChange={(_, selected) => {
-                      if (Platform.OS === "android") setShowDobPicker(false);
-                      if (selected) setDob(selected);
-                    }}
-                  />
-                )}
-                {Platform.OS === "ios" && showDobPicker && (
-                  <Pressable style={s.dateDone} onPress={() => setShowDobPicker(false)}>
-                    <Text style={s.dateDoneText}>Done</Text>
-                  </Pressable>
-                )}
+                <DobDatePicker
+                  visible={showDobPicker}
+                  value={dob || new Date(2000, 0, 1)}
+                  onChange={setDob}
+                  onClose={() => setShowDobPicker(false)}
+                  maximumDate={new Date()}
+                />
                 <Input
                   placeholder="Father's name (optional)"
                   value={fatherName}
@@ -746,8 +735,6 @@ const s = StyleSheet.create({
   },
   dateText: { fontSize: 16, color: "#111827" },
   datePlaceholder: { color: "#9CA3AF" },
-  dateDone: { paddingVertical: spacing.sm, alignItems: "flex-end", marginBottom: spacing.lg },
-  dateDoneText: { fontSize: 16, fontWeight: "600", color: "#2563EB" },
   reviewLabel: { fontSize: 12, color: "#6B7280", marginTop: spacing.sm },
   reviewValue: { fontSize: 16, color: "#111827", marginBottom: spacing.xs },
   reviewHint: {

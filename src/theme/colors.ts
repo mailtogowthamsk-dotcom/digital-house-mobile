@@ -1,48 +1,48 @@
 /**
- * Digital House – Premium theme (clean, modern, trust-oriented).
- * Centralized for consistent UI across the app.
+ * Digital House – Vettuvagounder brand tokens (static mirror of ThemeContext light).
+ * Prefer `useTheme().colors` in components.
  */
 export const colors = {
   // Brand
-  primary: "#2563EB",
-  primaryDark: "#1D4ED8",
-  accent: "#EA580C",
+  primary: "#16803C",
+  primaryDark: "#146C34",
+  accent: "#DC2626",
 
   // Surfaces & background
-  background: "#F9FAFB",
+  background: "#F5F6F8",
   surface: "#FFFFFF",
-  surfaceElevated: "#F1F5F9",
-  border: "#E2E8F0",
+  surfaceElevated: "#F3F4F6",
+  border: "#E5E7EB",
 
   // Landing (optional)
-  landingBg: "#E0F2FE",
+  landingBg: "#0B1220",
   landingSurface: "#FFFFFF",
-  landingText: "#0C4A6E",
-  landingTextMuted: "#0369A1",
+  landingText: "#FFFFFF",
+  landingTextMuted: "rgba(255,255,255,0.72)",
 
   // Text hierarchy
-  text: "#0F172A",
-  textSecondary: "#64748B",
-  textMuted: "#94A3B8",
+  text: "#111827",
+  textSecondary: "#6B7280",
+  textMuted: "#9CA3AF",
 
-  // Status indicators (clear: pending, approved, rejected)
-  success: "#22C55E",
-  error: "#EF4444",
+  // Status indicators
+  success: "#16803C",
+  error: "#DC2626",
   warning: "#F59E0B",
   statusPending: "#F59E0B",
-  statusApproved: "#22C55E",
-  statusRejected: "#EF4444",
+  statusApproved: "#16803C",
+  statusRejected: "#DC2626",
 
-  // Sensitive / protected data (trust-oriented)
-  sensitive: "#64748B",
-  sensitiveBg: "rgba(100, 116, 139, 0.08)",
+  // Sensitive / protected data
+  sensitive: "#6B7280",
+  sensitiveBg: "rgba(107, 114, 128, 0.1)",
 
-  // Messages (friendly error/success)
-  messageSuccess: "#22C55E",
-  messageError: "#EF4444",
+  // Messages
+  messageSuccess: "#16803C",
+  messageError: "#DC2626",
 
   // Overlays
-  overlay: "rgba(0,0,0,0.5)",
+  overlay: "rgba(17, 24, 39, 0.45)",
   white: "#FFFFFF",
   black: "#000000"
 };

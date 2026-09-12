@@ -2,8 +2,9 @@ import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
-import { typography } from "../../theme/typography";
+import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
+import { cardShadow } from "../../theme/shadows";
 
 export type AccordionSectionProps = {
   title: string;
@@ -19,49 +20,57 @@ export function AccordionSection({
   children
 }: AccordionSectionProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const s = useMemo(
     () =>
       StyleSheet.create({
         wrap: {
           marginBottom: spacing.md,
           backgroundColor: colors.surface,
-          borderRadius: radius.lg,
+          borderRadius: radius.xl,
           overflow: "hidden",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border
+          borderColor: colors.border,
+          ...cardShadow(mode)
         },
         header: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
+          minHeight: 56,
           paddingVertical: 14,
-          paddingHorizontal: spacing.md
+          paddingHorizontal: spacing.lg
         },
         headerPressed: { backgroundColor: colors.surfaceElevated },
-        titleRow: { flexDirection: "row", alignItems: "center", flex: 1, gap: spacing.sm },
+        titleRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          flex: 1,
+          gap: spacing.sm
+        },
         iconWrap: {
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           borderRadius: 10,
           backgroundColor: colors.primary + "14",
           alignItems: "center",
           justifyContent: "center"
         },
         title: {
-          ...typography.bodySmall,
-          fontWeight: "700",
+          fontFamily: fonts.semiBold,
+          fontSize: 16,
+          fontWeight: "600",
           color: colors.text,
           flex: 1
         },
         content: {
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          paddingHorizontal: spacing.md,
+          paddingHorizontal: spacing.lg,
           paddingBottom: spacing.sm
         }
       }),
-    [colors]
+    [colors, mode]
   );
 
   return (
@@ -74,7 +83,7 @@ export function AccordionSection({
       >
         <View style={s.titleRow}>
           <View style={s.iconWrap}>
-            <Ionicons name={icon} size={16} color={colors.primary} />
+            <Ionicons name={icon} size={18} color={colors.primary} />
           </View>
           <Text style={s.title}>{title}</Text>
           <Ionicons

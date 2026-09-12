@@ -24,6 +24,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { appAlert } from "../../utils/appAlert";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import {
   adStatusColor,
   adStatusLabel,
@@ -167,9 +168,7 @@ export function AdvertisementDetailScreen() {
     return (
       <View style={s.root}>
         <View style={s.header}>
-          <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
+          <HeaderBackButton onPress={() => navigation.goBack()} />
           <Text style={s.title}>Advertisement</Text>
         </View>
         <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
@@ -182,9 +181,7 @@ export function AdvertisementDetailScreen() {
     return (
       <View style={s.root}>
         <View style={s.header}>
-          <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-          </Pressable>
+          <HeaderBackButton onPress={() => navigation.goBack()} />
           <Text style={s.title}>Advertisement</Text>
         </View>
         <View style={s.box}>
@@ -215,9 +212,7 @@ export function AdvertisementDetailScreen() {
   return (
     <View style={s.root}>
       <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={s.title} numberOfLines={1}>
           {ad.title}
         </Text>

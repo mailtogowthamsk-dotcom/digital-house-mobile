@@ -11,6 +11,7 @@ import { ChatMessagesSkeleton } from "../../components/messages/ChatSkeleton";
 import { ChatHeader } from "../../components/messages/ChatHeader";
 import {
   deleteMessage,
+  deleteConversation,
   getHistory,
   getMessageAccess,
   listThreads,
@@ -43,6 +44,7 @@ import { useChatTyping } from "../../hooks/useChatTyping";
 import { useAppResume } from "../../hooks/useAppResume";
 import { useChatLayout } from "../../hooks/useChatLayout";
 import { ChatPanel } from "../../components/messages/ChatPanel";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { appAlert } from "../../utils/appAlert";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
@@ -397,6 +399,12 @@ export function ChatScreen() {
     onDeleted: ({ messageId }) => {
       removeMessageLocally(messageId);
     },
+    onConversationDeleted: ({ deletedByUserId }) => {
+      // Deleter already navigates after the REST call succeeds.
+      if (Number(deletedByUserId) === Number(meId)) return;
+      appAlert("Chat deleted", "This conversation was deleted.");
+      navigation.goBack();
+    },
     onTyping: applyPeerTyping,
     onIncomingFromOther: (_m, _sock) => {
       if (!isFocusedRef.current) return;
@@ -471,6 +479,10 @@ export function ChatScreen() {
     },
     [navigation]
   );
+
+  const openPeerProfile = useCallback(() => {
+    navigation.navigate("MemberProfile", { userId: otherUserId });
+  }, [navigation, otherUserId]);
 
   const submitReport = async (reasonCode: string) => {
     try {
@@ -613,24 +625,29 @@ export function ChatScreen() {
                 })()
             },
             {
-              text: "Leave chat",
+              text: "Delete Chat",
               style: "destructive" as const,
+              icon: "trash-outline" as const,
               onPress: () =>
                 appAlert(
-                  "Leave chat?",
-                  "This chat will leave your Inbox and move to Messages → Archived. You can restore it anytime from there.",
+                  "Delete Chat?",
+                  "Are you sure you want to delete this chat? This action cannot be undone.",
                   [
                     { text: "Cancel", style: "cancel" },
                     {
-                      text: "Leave",
+                      text: "Delete",
                       style: "destructive",
                       onPress: () =>
                         void (async () => {
                           try {
-                            await updateThreadPreference(otherUserId, { left: true });
+                            await deleteConversation(otherUserId);
+                            appAlert("Deleted", "Chat deleted successfully.");
                             navigation.goBack();
                           } catch (e: unknown) {
-                            appAlert("Error", e instanceof Error ? e.message : "Failed to leave");
+                            appAlert(
+                              "Error",
+                              e instanceof Error ? e.message : "Failed to delete chat"
+                            );
                           }
                         })()
                     }
@@ -674,14 +691,10 @@ export function ChatScreen() {
     [colors]
   );
 
-  const backButton = (
-    <Pressable style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-      <Ionicons name="chevron-back" size={24} color={colors.text} />
-    </Pressable>
-  );
+  const backButton = <HeaderBackButton onPress={() => navigation.goBack()} />;
 
   const optionsButton = (
-    <Pressable style={styles.backBtn} onPress={openChatOptions} hitSlop={8}>
+    <Pressable style={styles.optionsBtn} onPress={openChatOptions} hitSlop={8}>
       <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
     </Pressable>
   );
@@ -692,6 +705,7 @@ export function ChatScreen() {
         <ChatHeader
           title={name}
           avatarUri={otherAvatarUri}
+          onAvatarPress={openPeerProfile}
           left={backButton}
           right={optionsButton}
           backgroundColor={colors.surface}
@@ -711,6 +725,7 @@ export function ChatScreen() {
         <ChatHeader
           title={name}
           avatarUri={otherAvatarUri}
+          onAvatarPress={openPeerProfile}
           left={backButton}
           right={optionsButton}
           backgroundColor={colors.surface}
@@ -827,6 +842,7 @@ export function ChatScreen() {
         headerLeft={backButton}
         headerRight={optionsButton}
         headerBanner={threadLeft || threadArchived || chatLockMessage ? chatLockBanner : undefined}
+        onAvatarPress={openPeerProfile}
         onSharedPostPress={handleSharedPostPress}
         onDeleteMessage={handleDeleteMessage}
       />
@@ -855,9 +871,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl
   },
-  backBtn: {
-    paddingRight: 8,
-    paddingVertical: 4,
-    marginRight: 4
+  optionsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center"
   }
 });

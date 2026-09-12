@@ -34,6 +34,8 @@ export type AppAlertButton = {
   text: string;
   style?: AppAlertButtonStyle;
   onPress?: () => void;
+  /** Optional Ionicons glyph for action-sheet rows. */
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
 };
 
 export type AppAlertVariant =
@@ -104,7 +106,7 @@ function inferVariant(
 
   if (hasDestructive && buttons.length >= 2) return "destructive";
   if (
-    /thank you|success|saved|done|submitted|activated|shared|sent|accepted|archived|complete|connected|marked|removed bookmark/.test(
+    /thank you|success|saved|done|submitted|activated|shared|sent|accepted|archived|complete|connected|marked|removed bookmark|deleted/.test(
       haystack
     )
   ) {
@@ -293,7 +295,13 @@ function ActionSheetAlert({
             >
               {btn.text}
             </Text>
-            {isDestructive ? (
+            {btn.icon ? (
+              <Ionicons
+                name={btn.icon}
+                size={18}
+                color={isDestructive ? colors.error : colors.textMuted}
+              />
+            ) : isDestructive ? (
               <Ionicons name="ban-outline" size={18} color={colors.error} />
             ) : (
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

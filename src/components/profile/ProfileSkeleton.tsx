@@ -39,8 +39,8 @@ export function ProfileSkeleton() {
       StyleSheet.create({
         container: {
           flex: 1,
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.xxl
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.lg
         },
         box: { backgroundColor: colors.border, borderRadius: radius.sm },
         avatar: { borderRadius: 46, marginBottom: spacing.md },

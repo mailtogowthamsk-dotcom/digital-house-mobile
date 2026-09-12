@@ -30,7 +30,7 @@ import {
   getCachedLastSeenAt
 } from "../../realtime/presenceRealtime";
 import { ackUndeliveredMessages } from "../../realtime/deliveryRealtime";
-import { registerGlobalMessageHandler, registerGlobalDeletedHandler } from "../../realtime/chatRealtime";
+import { registerGlobalMessageHandler, registerGlobalDeletedHandler, registerGlobalConversationDeletedHandler } from "../../realtime/chatRealtime";
 import { useChatSocket } from "../../hooks/useChatSocket";
 import { useChatTyping } from "../../hooks/useChatTyping";
 import { clearThreadUnread, patchThreadsFromMessage } from "../../utils/messageThreads";
@@ -482,10 +482,27 @@ export function MessagesHubScreen() {
       }).catch(() => {});
     });
 
+    const conversationDeletedHandlerId = Symbol("hub-conversation-deleted");
+    registerGlobalConversationDeletedHandler(conversationDeletedHandlerId, (payload) => {
+      if (disposed || meId == null) return;
+      const conversationPeer =
+        Number(payload.deletedByUserId) === meId
+          ? Number(payload.otherUserId)
+          : Number(payload.otherUserId) === meId
+            ? Number(payload.deletedByUserId)
+            : null;
+      if (conversationPeer == null) return;
+
+      setThreads((prev) => prev.filter((th) => th.otherUser.id !== conversationPeer));
+      setSelectedUser((prev) => (prev?.id === conversationPeer ? null : prev));
+      setMessages((prev) => (selectedUser?.id === conversationPeer ? [] : prev));
+    });
+
     return () => {
       disposed = true;
       registerGlobalMessageHandler(handlerId, null);
       registerGlobalDeletedHandler(deletedHandlerId, null);
+      registerGlobalConversationDeletedHandler(conversationDeletedHandlerId, null);
       unsubPresence();
     };
   }, [loadThreads, meId, selectedUser?.id, layout.isSplit]);
@@ -777,6 +794,11 @@ export function MessagesHubScreen() {
     [navigation]
   );
 
+  const openPeerProfile = useCallback(() => {
+    if (selectedUser?.id == null) return;
+    navigation.navigate("MemberProfile", { userId: selectedUser.id });
+  }, [navigation, selectedUser?.id]);
+
   if (!layout.isSplit) {
     return (
       <SafeAreaView
@@ -828,6 +850,7 @@ export function MessagesHubScreen() {
               colors={panelColors}
               headerTopInset={0}
               headerBanner={lockBanner}
+              onAvatarPress={openPeerProfile}
               onSharedPostPress={handleSharedPostPress}
               onDeleteMessage={handleDeleteMessage}
             />

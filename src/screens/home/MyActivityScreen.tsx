@@ -17,6 +17,7 @@ import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
 import { postTypeVisual } from "../../utils/postTypeBadge";
 import type { ProfileActivityItem } from "../../api/profile.api";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 
 type ActivityFolder = "saved" | "liked";
 
@@ -229,9 +230,7 @@ export function MyActivityScreen() {
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
-        <Pressable style={s.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>My Activity</Text>
           <Text style={s.headerSub}>

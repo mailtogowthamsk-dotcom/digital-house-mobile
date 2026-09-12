@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AvatarImage } from "../ui/AvatarImage";
 
@@ -7,6 +7,8 @@ export type ChatHeaderProps = {
   title: string;
   subtitle?: string;
   avatarUri?: string | null;
+  /** Opens the peer's profile when the header avatar is pressed. */
+  onAvatarPress?: () => void;
   left?: React.ReactNode;
   /** Renders on the right of the title row (e.g. chat options menu). */
   right?: React.ReactNode;
@@ -26,6 +28,7 @@ function ChatHeaderComponent({
   title,
   subtitle,
   avatarUri,
+  onAvatarPress,
   left,
   right,
   banner,
@@ -39,6 +42,17 @@ function ChatHeaderComponent({
 }: ChatHeaderProps) {
   const insets = useSafeAreaInsets();
   const resolvedTopInset = topInset ?? insets.top;
+
+  const avatar =
+    avatarUri !== undefined ? (
+      <AvatarImage
+        uri={avatarUri}
+        name={title}
+        size={40}
+        placeholderColor={placeholderColor}
+        textColor={textSecondary}
+      />
+    ) : null;
 
   return (
     <View
@@ -54,14 +68,19 @@ function ChatHeaderComponent({
         {banner ? <View style={styles.bannerSlot}>{banner}</View> : null}
         <View style={styles.row}>
         {left}
-        {avatarUri !== undefined ? (
-          <AvatarImage
-            uri={avatarUri}
-            name={title}
-            size={40}
-            placeholderColor={placeholderColor}
-            textColor={textSecondary}
-          />
+        {avatar ? (
+          onAvatarPress ? (
+            <Pressable
+              onPress={onAvatarPress}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${title}'s profile`}
+            >
+              {avatar}
+            </Pressable>
+          ) : (
+            avatar
+          )
         ) : null}
         <View style={styles.textCol}>
           <Text style={[styles.title, { color: textColor, fontSize: titleFontSize }]} numberOfLines={1}>

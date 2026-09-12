@@ -40,6 +40,7 @@ import { AdvertisementCard } from "../../components/advertisement/AdvertisementC
 import { MediaPreview } from "../../components/media/MediaPreview";
 import { UploadProgress } from "../../components/media/UploadProgress";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -667,7 +668,7 @@ export function AdvertisementCreateScreen() {
   return (
     <AppKeyboardAvoidingView style={s.root} keyboardVerticalOffset={insets.top}>
       <View style={s.header}>
-        <Pressable
+        <HeaderBackButton
           onPress={() => {
             if (liveEdit && (step <= 1 || step === 0)) {
               navigation.goBack();
@@ -680,10 +681,7 @@ export function AdvertisementCreateScreen() {
             if (step === 0) navigation.goBack();
             else setStep((n) => n - 1);
           }}
-          style={s.backBtn}
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        />
         <Text style={s.title}>
           {liveEdit
             ? "Edit advertisement"

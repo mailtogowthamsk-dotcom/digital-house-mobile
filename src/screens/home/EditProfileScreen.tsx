@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,  Platform, Switch, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Switch, Image } from "react-native";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DobDatePicker } from "../../components/ui/DobDatePicker";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,7 +9,7 @@ import * as ImagePicker from "expo-image-picker";
 import { getProfile, putProfileSection, updateProfile } from "../../api/profile.api";
 import { getMatrimonyHub, type MatrimonyHub } from "../../api/matrimony.api";
 import type { ProfileMeResponse, ProfileSectionName } from "../../api/profile.api";
-import { getErrorStatus, getImageUrl } from "../../api/client";
+import { getAuthErrorMessage, getErrorStatus, getImageUrl } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { uploadOptimizedImage, isAllowedImageType } from "../../utils/mediaUpload";
 import { deleteRemoteMediaUrls } from "../../media/sessionUploadedMedia";
@@ -471,26 +471,27 @@ export function EditProfileScreen() {
       }
       setProfilePhotoUploading(true);
       const previousPhoto = profile?.profile_image ?? null;
-      const { publicUrl } = await uploadOptimizedImage(uri, "profile");
-      const updated = await updateProfile({ profile_image: publicUrl });
+      const uploaded = await uploadOptimizedImage(uri, "profile");
+      // Persist object key — finalize returns long signed URLs for quarantined profile media.
+      const persistUrl = uploaded.storageKey || uploaded.publicUrl;
+      const updated = await updateProfile({ profile_image: persistUrl });
       setProfile(updated);
-      if (previousPhoto && previousPhoto !== publicUrl) {
+      if (previousPhoto && previousPhoto !== persistUrl && previousPhoto !== uploaded.publicUrl) {
         deleteRemoteMediaUrls([previousPhoto]);
       }
       if (initialFormRef.current) {
         initialFormRef.current = mapProfileToForm(updated);
       }
     } catch (e) {
-      appAlert("Upload failed", (e as Error).message ?? "Could not upload profile photo.");
+      appAlert("Upload failed", getAuthErrorMessage(e));
     } finally {
       setProfilePhotoUploading(false);
     }
   }, [profile?.profile_image]);
 
   const dobDate = basic.date_of_birth ? new Date(basic.date_of_birth) : new Date();
-  const onDobChange = (_: any, date?: Date) => {
-    setShowDobPicker(Platform.OS === "ios");
-    if (date) setBasic((b) => ({ ...b, date_of_birth: date.toISOString().split("T")[0] }));
+  const onDobValueChange = (date: Date) => {
+    setBasic((b) => ({ ...b, date_of_birth: date.toISOString().split("T")[0] }));
   };
 
   const s = useMemo(
@@ -777,22 +778,21 @@ export function EditProfileScreen() {
             placeholder="Full name"
             variant="light"
           />
-          <Pressable style={s.dateRow} onPress={() => setShowDobPicker(true)}>
+          <Pressable style={s.dateRow} onPress={() => setShowDobPicker((v) => !v)}>
             <Text style={s.dateLabel}>Date of Birth</Text>
             <Text style={[s.dateValue, !basic.date_of_birth ? s.placeholder : null]}>
               {basic.date_of_birth ?? "Select date"}
             </Text>
             <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
           </Pressable>
-          {showDobPicker && (
-            <DateTimePicker
-              value={dobDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={onDobChange}
-              maximumDate={new Date()}
-            />
-          )}
+          <DobDatePicker
+            visible={showDobPicker}
+            value={dobDate}
+            onChange={onDobValueChange}
+            onClose={() => setShowDobPicker(false)}
+            maximumDate={new Date()}
+            doneColor={colors.primary}
+          />
           <Input
             label="Email"
             value={basic.email}

@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from "re
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
+import { fonts } from "../../theme/fonts";
 import { TEXT_FIELD_MIN_HEIGHT, textFieldPad } from "../../theme/textField";
 
 type InputProps = TextInputProps & {
@@ -25,12 +26,14 @@ export function Input({
   onFocus,
   onBlur,
   multiline,
+  editable = true,
   ...props
 }: InputProps) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const isLight = variant === "light";
   const onWhite = variant === "onWhite";
+  const isDisabled = editable === false;
 
   const s = useMemo(
     () =>
@@ -47,7 +50,7 @@ export function Input({
           backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: radius.lg,
+          borderRadius: radius.input,
           minHeight: TEXT_FIELD_MIN_HEIGHT,
           overflow: "visible"
         },
@@ -56,16 +59,24 @@ export function Input({
           borderColor: colors.border
         },
         inputRowOnWhite: {
-          backgroundColor: "#F3F4F6",
+          backgroundColor: "#F9FAFB",
           borderColor: "#E5E7EB"
+        },
+        inputRowFocused: {
+          borderColor: colors.primary,
+          backgroundColor: colors.surface
         },
         inputRowLightFocused: {
           borderColor: colors.primary,
           backgroundColor: colors.surface
         },
         inputRowOnWhiteFocused: {
-          borderColor: "#2563EB",
+          borderColor: "#16803C",
           backgroundColor: "#FFFFFF"
+        },
+        inputRowDisabled: {
+          opacity: 0.65,
+          backgroundColor: onWhite ? "#F3F4F6" : colors.surfaceElevated
         },
         iconWrap: {
           paddingLeft: spacing.lg,
@@ -79,6 +90,7 @@ export function Input({
           minHeight: TEXT_FIELD_MIN_HEIGHT,
           paddingHorizontal: spacing.lg,
           ...textFieldPad,
+          fontFamily: fonts.regular,
           fontSize: 16,
           fontWeight: "400",
           color: colors.text
@@ -104,8 +116,10 @@ export function Input({
           isLight && s.inputRowLight,
           onWhite && s.inputRowOnWhite,
           error && s.inputError,
-          isLight && focused && s.inputRowLightFocused,
-          onWhite && focused && s.inputRowOnWhiteFocused
+          focused && !error && s.inputRowFocused,
+          isLight && focused && !error && s.inputRowLightFocused,
+          onWhite && focused && !error && s.inputRowOnWhiteFocused,
+          isDisabled && s.inputRowDisabled
         ]}
       >
         {leftIcon ? <View style={s.iconWrap}>{leftIcon}</View> : null}
@@ -122,6 +136,7 @@ export function Input({
           ]}
           underlineColorAndroid="transparent"
           multiline={multiline}
+          editable={editable}
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);

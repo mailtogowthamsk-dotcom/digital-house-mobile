@@ -2,7 +2,9 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
+import { cardShadow } from "../../theme/shadows";
 
 type Props = {
   totalPosts?: number;
@@ -22,10 +24,11 @@ export function ProfileContentLinks({
       StyleSheet.create({
         section: { marginBottom: spacing.lg },
         sectionTitle: {
-          fontSize: 12,
-          fontWeight: "700",
-          color: colors.textMuted,
-          letterSpacing: 0.6,
+          fontFamily: fonts.semiBold,
+          fontSize: 13,
+          fontWeight: "600",
+          color: colors.textSecondary,
+          letterSpacing: 0.4,
           textTransform: "uppercase",
           marginBottom: spacing.sm,
           marginLeft: 2
@@ -33,26 +36,40 @@ export function ProfileContentLinks({
         row: { flexDirection: "row", gap: spacing.sm },
         tile: {
           flex: 1,
+          minHeight: 112,
           backgroundColor: colors.surface,
-          borderRadius: radius.lg,
+          borderRadius: radius.xl,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.md
+          paddingVertical: spacing.lg,
+          paddingHorizontal: spacing.lg,
+          ...cardShadow(mode)
         },
         tilePressed: { backgroundColor: colors.surfaceElevated },
         icon: {
-          width: 36,
-          height: 36,
-          borderRadius: 11,
+          width: 40,
+          height: 40,
+          borderRadius: 12,
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: spacing.sm
+          marginBottom: spacing.sm,
+          backgroundColor: mode === "dark" ? colors.surfaceElevated : colors.primary + "14"
         },
-        title: { fontSize: 15, fontWeight: "800", color: colors.text },
-        sub: { marginTop: 3, fontSize: 12, color: colors.textSecondary, lineHeight: 16 }
+        title: {
+          fontFamily: fonts.semiBold,
+          fontSize: 16,
+          fontWeight: "600",
+          color: colors.text
+        },
+        sub: {
+          marginTop: 4,
+          fontFamily: fonts.regular,
+          fontSize: 13,
+          color: colors.textSecondary,
+          lineHeight: 18
+        }
       }),
-    [colors]
+    [colors, mode]
   );
 
   const tiles = [
@@ -61,8 +78,6 @@ export function ProfileContentLinks({
       title: "My posts",
       sub: totalPosts > 0 ? `${totalPosts} shared` : "Your community posts",
       icon: "grid-outline" as const,
-      tint: "#2563EB",
-      tintBg: mode === "dark" ? colors.surfaceElevated : "#EFF6FF",
       onPress: onMyPostsPress
     },
     {
@@ -70,8 +85,6 @@ export function ProfileContentLinks({
       title: "Activity",
       sub: "Saved & liked",
       icon: "heart-outline" as const,
-      tint: "#DB2777",
-      tintBg: mode === "dark" ? colors.surfaceElevated : "#FDF2F8",
       onPress: onMyActivityPress
     }
   ];
@@ -85,9 +98,11 @@ export function ProfileContentLinks({
             key={tile.key}
             style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
             onPress={tile.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={tile.title}
           >
-            <View style={[s.icon, { backgroundColor: tile.tintBg }]}>
-              <Ionicons name={tile.icon} size={18} color={tile.tint} />
+            <View style={s.icon}>
+              <Ionicons name={tile.icon} size={18} color={colors.primary} />
             </View>
             <Text style={s.title}>{tile.title}</Text>
             <Text style={s.sub} numberOfLines={1}>

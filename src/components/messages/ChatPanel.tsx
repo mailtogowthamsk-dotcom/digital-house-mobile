@@ -29,6 +29,8 @@ type Props = {
   peerTyping?: boolean;
   otherAvatarUri?: string | null;
   headerAvatarUri?: string | null;
+  /** Opens the peer's profile from the chat header avatar. */
+  onAvatarPress?: () => void;
   colors: {
     background: string;
     surface: string;
@@ -73,6 +75,7 @@ function ChatPanelComponent({
   peerTyping = false,
   otherAvatarUri,
   headerAvatarUri,
+  onAvatarPress,
   colors,
   headerLeft,
   headerRight,
@@ -166,6 +169,7 @@ function ChatPanelComponent({
         title={title}
         subtitle={subtitle}
         avatarUri={headerAvatarUri ?? otherAvatarUri}
+        onAvatarPress={onAvatarPress}
         left={headerLeft}
         right={headerRight}
         banner={headerBanner}

@@ -5,13 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Platform,
   ActivityIndicator,
   Image,
   Keyboard
 } from "react-native";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { DobDatePicker } from "../../components/ui/DobDatePicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -221,21 +220,17 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               onSelect={setGender}
               placeholder="Select gender"
             />
-            <Pressable onPress={() => setShowDobPicker(true)} style={styles.dobBtn}>
+            <Pressable onPress={() => setShowDobPicker((v) => !v)} style={styles.dobBtn}>
               <Text style={styles.dobLabel}>Date of birth</Text>
               <Text style={styles.dobValue}>{dob ? formatDate(dob) : "Select date"}</Text>
             </Pressable>
-            {showDobPicker ? (
-              <DateTimePicker
-                value={dob ?? new Date(2000, 0, 1)}
-                mode="date"
-                maximumDate={new Date()}
-                onChange={(_, date) => {
-                  if (Platform.OS === "android") setShowDobPicker(false);
-                  if (date) setDob(date);
-                }}
-              />
-            ) : null}
+            <DobDatePicker
+              visible={showDobPicker}
+              value={dob ?? new Date(2000, 0, 1)}
+              onChange={setDob}
+              onClose={() => setShowDobPicker(false)}
+              maximumDate={new Date()}
+            />
             <Input
               placeholder="Father's name (optional)"
               value={fatherName}

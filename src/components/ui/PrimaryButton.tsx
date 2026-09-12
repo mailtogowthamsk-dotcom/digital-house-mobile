@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from "react-native";
+import { Pressable, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
@@ -34,18 +34,22 @@ export function PrimaryButton({
           backgroundColor: colors.primary,
           paddingVertical: spacing.lg,
           paddingHorizontal: spacing.xl,
-          borderRadius: radius.lg,
+          borderRadius: radius.button,
           alignItems: "center",
           justifyContent: "center",
-          minHeight: 52
+          minHeight: 54
         },
         btnOutline: {
           backgroundColor: "transparent",
-          borderWidth: 2,
+          borderWidth: 1.5,
           borderColor: colors.primary
         },
-        btnSecondary: { backgroundColor: colors.surfaceElevated },
-        btnPressed: { opacity: 0.85 },
+        btnSecondary: {
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: 1,
+          borderColor: colors.border
+        },
+        btnPressed: { opacity: 0.88 },
         btnText: {
           ...typography.button,
           color: colors.white
@@ -60,6 +64,8 @@ export function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       style={({ pressed }) => [
         s.btn,
         isOutline && s.btnOutline,
@@ -69,9 +75,13 @@ export function PrimaryButton({
         style
       ]}
     >
-      <Text style={[s.btnText, isOutline && s.btnTextOutline, isSecondary && s.btnTextSecondary, textStyle]}>
-        {loading ? "Please wait..." : title}
-      </Text>
+      {loading ? (
+        <ActivityIndicator color={isOutline || isSecondary ? colors.primary : colors.white} />
+      ) : (
+        <Text style={[s.btnText, isOutline && s.btnTextOutline, isSecondary && s.btnTextSecondary, textStyle]}>
+          {title}
+        </Text>
+      )}
     </Pressable>
   );
 }

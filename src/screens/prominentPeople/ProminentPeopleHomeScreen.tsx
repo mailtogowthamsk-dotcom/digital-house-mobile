@@ -31,6 +31,7 @@ import { AvatarImage } from "../../components/ui/AvatarImage";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { textFieldCompact } from "../../theme/textField";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 
 const ACCENT = "#1D4ED8";
 const ACCENT_SOFT = "#DBEAFE";
@@ -556,15 +557,7 @@ export function ProminentPeopleHomeScreen() {
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
-        <Pressable
-          style={s.backBtn}
-          onPress={() => navigation.goBack()}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>Prominent People</Text>
           <Text style={s.headerSub}>Community Hall of Fame</Text>

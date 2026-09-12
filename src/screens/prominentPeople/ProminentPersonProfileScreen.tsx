@@ -19,6 +19,7 @@ import {
 } from "../../api/prominentPeople.api";
 import { getErrorStatus, getImageUrl } from "../../api/client";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -270,9 +271,11 @@ export function ProminentPersonProfileScreen() {
   if (error && !person) {
     return (
       <View style={[s.root, s.center]}>
-        <Pressable style={s.backFloat} onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
-        </Pressable>
+        <HeaderBackButton
+          style={s.backFloat}
+          color="#fff"
+          onPress={() => navigation.goBack()}
+        />
         <Text style={s.errorText}>{error}</Text>
         <PrimaryButton
           title="Retry"
@@ -310,15 +313,11 @@ export function ProminentPersonProfileScreen() {
             <View style={[s.hero, { backgroundColor: themeMode === "dark" ? "#1E3A8A" : ACCENT_SOFT }]} />
           )}
           <View style={s.heroOverlay} pointerEvents="none" />
-          <Pressable
+          <HeaderBackButton
             style={s.backFloat}
+            color="#fff"
             onPress={() => navigation.goBack()}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="chevron-back" size={22} color="#fff" />
-          </Pressable>
+          />
         </View>
 
         <View style={s.identity}>

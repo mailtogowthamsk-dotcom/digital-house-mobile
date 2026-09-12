@@ -33,6 +33,8 @@ export type MediaVariants = {
 
 export type UploadImageResult = {
   publicUrl: string;
+  /** R2 object key — prefer this when saving profile_image / DB refs (not signed URLs). */
+  storageKey: string;
   mediaFileId: number;
   variants: MediaVariants;
   width: number;
@@ -232,7 +234,7 @@ export async function uploadOptimizedImage(
   const fileName = `img_${Date.now()}.webp`;
   onProgress?.(0.15);
 
-  const { uploadUrl, mediaFileId, publicUrl } = await getUploadUrl({
+  const { uploadUrl, mediaFileId, publicUrl, key } = await getUploadUrl({
     fileName,
     fileType: optimized.mime,
     fileSize: optimized.size,
@@ -250,7 +252,9 @@ export async function uploadOptimizedImage(
     onProgress?.(1);
 
     return {
+      // Prefer display URL from finalize; persist `storageKey` (object key) on profile/DB.
       publicUrl: finalized.publicUrl,
+      storageKey: key || publicUrl,
       mediaFileId,
       variants: finalized.variants,
       width: finalized.width,

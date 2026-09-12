@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getLandingContent } from "../../api/landing.api";
 import { spacing, radius } from "../../theme/spacing";
+import { fonts } from "../../theme/fonts";
 import { appAlert } from "../../utils/appAlert";
 import { consumeApprovalReauthMessage } from "../../auth/approvalReauth";
 
@@ -26,6 +27,7 @@ const STATUS_BAR = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 
 const LOGO = require("../../../assets/logo_digital_house.png");
 const LANDING_BG = require("../../../assets/landing_background.png");
 const LANDING_GRADIENT = ["#070B14", "#0B1220", "#111827", "#0B1220"] as const;
+const BRAND_PRIMARY = "#16803C";
 
 const FEATURES = [
   { icon: "people-outline" as const, label: "Verified community" },
@@ -157,7 +159,7 @@ export function LandingScreen({ navigation }: any) {
         <Image source={LANDING_BG} style={s.bgImage} resizeMode="cover" />
       </Animated.View>
       <LinearGradient
-        colors={["rgba(7,11,20,0.55)", "rgba(7,11,20,0.2)", "rgba(7,11,20,0.92)"]}
+        colors={["rgba(7,11,20,0.5)", "rgba(7,11,20,0.28)", "rgba(7,11,20,0.88)"]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
@@ -167,7 +169,7 @@ export function LandingScreen({ navigation }: any) {
           s.content,
           {
             paddingTop: Math.max(STATUS_BAR + 8, insets.top + 4),
-            paddingBottom: insets.bottom + spacing.xl
+            paddingBottom: Math.max(insets.bottom, 16) + spacing.xl
           }
         ]}
       >
@@ -221,7 +223,7 @@ export function LandingScreen({ navigation }: any) {
             <View style={s.featureRow}>
               {FEATURES.map((f) => (
                 <View key={f.label} style={s.featureChip}>
-                  <Ionicons name={f.icon} size={14} color="#FBBF24" />
+                  <Ionicons name={f.icon} size={14} color="rgba(255,255,255,0.92)" />
                   <Text style={s.featureText}>{f.label}</Text>
                 </View>
               ))}
@@ -239,22 +241,19 @@ export function LandingScreen({ navigation }: any) {
           ]}
         >
           <Pressable
-            style={({ pressed }) => [s.primaryBtnWrap, pressed && s.btnPressed]}
+            style={({ pressed }) => [s.primaryBtn, pressed && s.btnPressed]}
             onPress={() => navigation.navigate("Registration")}
+            accessibilityRole="button"
+            accessibilityLabel="Get Started"
           >
-            <LinearGradient
-              colors={["#EA580C", "#F59E0B", "#FBBF24"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.primaryBtn}
-            >
-              <Text style={s.primaryBtnText}>Get Started</Text>
-            </LinearGradient>
+            <Text style={s.primaryBtnText}>Get Started</Text>
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
             onPress={() => navigation.navigate("Login")}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in to your account"
           >
             <Text style={s.secondaryBtnText}>Sign in to your account</Text>
           </Pressable>
@@ -277,7 +276,7 @@ const s = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.xxl,
     justifyContent: "space-between"
   },
   upperBlock: {
@@ -294,61 +293,68 @@ const s = StyleSheet.create({
     width: "100%"
   },
   logo: {
-    width: Math.min(SCREEN_WIDTH * 0.55, 248),
-    height: Math.min(SCREEN_WIDTH * 0.55, 248)
+    width: Math.min(SCREEN_WIDTH * 0.48, 220),
+    height: Math.min(SCREEN_WIDTH * 0.48, 220)
   },
   logoFallback: {
+    fontFamily: fonts.bold,
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#fff",
     letterSpacing: 0.4
   },
   wordmark: {
     marginTop: spacing.md,
-    fontSize: 17,
-    fontWeight: "700",
+    fontFamily: fonts.semiBold,
+    fontSize: 18,
+    fontWeight: "600",
     color: "rgba(255,255,255,0.95)",
-    letterSpacing: 2
+    letterSpacing: 1.2
   },
   tagline: {
-    marginTop: spacing.xs,
-    fontSize: 13,
+    marginTop: spacing.sm,
+    fontFamily: fonts.regular,
+    fontSize: 14,
     color: "rgba(255,255,255,0.62)",
-    letterSpacing: 0.3,
-    textAlign: "center"
+    letterSpacing: 0.2,
+    textAlign: "center",
+    lineHeight: 20
   },
   heroCard: {
     alignItems: "center",
-    marginTop: spacing.xl,
+    marginTop: spacing.xxl,
     width: "100%"
   },
   label: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    fontWeight: "500",
     color: "rgba(255,255,255,0.55)",
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
     marginBottom: spacing.sm
   },
   headlineBlock: {
     minHeight: 56,
     justifyContent: "center",
-    marginBottom: spacing.sm
+    marginBottom: spacing.md
   },
   headline: {
-    fontSize: 26,
-    fontWeight: "800",
+    fontFamily: fonts.semiBold,
+    fontSize: 28,
+    fontWeight: "600",
     color: "#FFFFFF",
     textAlign: "center",
     lineHeight: 34,
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
     maxWidth: 320
   },
   subline: {
+    fontFamily: fonts.regular,
     fontSize: 15,
     color: "rgba(255,255,255,0.78)",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 23,
     maxWidth: 300
   },
   featureRow: {
@@ -356,66 +362,65 @@ const s = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     gap: spacing.sm,
-    marginTop: spacing.lg
+    marginTop: spacing.xl
   },
   featureChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    height: 34,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
     borderRadius: radius.full,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)"
+    borderColor: "rgba(255,255,255,0.14)"
   },
   featureText: {
+    fontFamily: fonts.medium,
     fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.88)"
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.9)"
   },
   actions: {
     width: "100%",
     maxWidth: 360,
     alignSelf: "center",
     alignItems: "stretch",
-    paddingTop: spacing.md
+    paddingTop: spacing.md,
+    gap: spacing.md
   },
-  primaryBtnWrap: {
-    borderRadius: radius.md,
-    overflow: "hidden",
-    shadowColor: "#EA580C",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8
-  },
-  btnPressed: { opacity: 0.92 },
+  btnPressed: { opacity: 0.9 },
   primaryBtn: {
-    paddingVertical: 17,
+    minHeight: 54,
+    borderRadius: radius.button,
+    backgroundColor: BRAND_PRIMARY,
+    paddingVertical: 16,
     paddingHorizontal: spacing.xxxl,
     alignItems: "center",
     justifyContent: "center"
   },
   primaryBtnText: {
-    fontSize: 17,
-    fontWeight: "800",
+    fontFamily: fonts.semiBold,
+    fontSize: 16,
+    fontWeight: "600",
     color: "#FFFFFF",
-    letterSpacing: 0.3
+    letterSpacing: 0.2
   },
   secondaryBtn: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
+    minHeight: 54,
+    paddingVertical: 16,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
-    borderRadius: radius.md,
+    justifyContent: "center",
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: "rgba(255,255,255,0.06)"
+    backgroundColor: "rgba(0,0,0,0.28)"
   },
   secondaryBtnText: {
+    fontFamily: fonts.semiBold,
     fontSize: 15,
     color: "rgba(255,255,255,0.95)",
-    fontWeight: "700"
+    fontWeight: "600"
   }
 });

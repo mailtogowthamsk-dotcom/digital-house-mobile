@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
-import { typography } from "../../theme/typography";
+import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
 
 type ActionButtonsProps = {
@@ -19,9 +19,10 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
           marginBottom: spacing.xxl
         },
         label: {
-          ...typography.caption,
+          fontFamily: fonts.semiBold,
+          fontSize: 12,
           color: colors.textMuted,
-          fontWeight: "700",
+          fontWeight: "600",
           letterSpacing: 0.5,
           textTransform: "uppercase",
           marginBottom: spacing.sm,
@@ -32,16 +33,18 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
           alignItems: "center",
           justifyContent: "center",
           gap: spacing.sm,
-          paddingVertical: 13,
+          minHeight: 52,
+          paddingVertical: 14,
           paddingHorizontal: spacing.lg,
-          borderRadius: radius.lg,
+          borderRadius: radius.button,
           backgroundColor: colors.surface,
-          borderWidth: StyleSheet.hairlineWidth,
+          borderWidth: 1,
           borderColor: colors.border
         },
         pressed: { backgroundColor: colors.error + "0D" },
         logoutText: {
-          ...typography.bodySmall,
+          fontFamily: fonts.semiBold,
+          fontSize: 15,
           color: colors.error,
           fontWeight: "600"
         }
@@ -58,7 +61,7 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
         accessibilityRole="button"
         accessibilityLabel="Log out"
       >
-        <Ionicons name="log-out-outline" size={18} color={colors.error} />
+        <Ionicons name="log-out-outline" size={20} color={colors.error} />
         <Text style={s.logoutText}>Log out</Text>
       </Pressable>
     </View>

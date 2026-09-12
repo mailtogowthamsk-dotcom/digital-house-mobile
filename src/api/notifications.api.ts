@@ -87,7 +87,7 @@ export async function markNotificationRead(id: number) {
 export async function markAllNotificationsRead(category: NotificationCategory = "ALL") {
   const { data } = await api.post<{ ok: boolean; counts: UnreadCounts }>(
     "/notifications/read-all",
-    null,
+    {},
     { params: category !== "ALL" ? { category } : {} }
   );
   if (!data?.ok) throw new Error("Failed to mark all read");
@@ -105,7 +105,7 @@ export async function deleteNotification(id: number) {
 export async function deleteAllNotifications(category: NotificationCategory = "ALL") {
   const { data } = await api.post<{ ok: boolean; counts: UnreadCounts }>(
     "/notifications/clear-all",
-    null,
+    {},
     { params: category !== "ALL" ? { category } : {} }
   );
   if (!data?.ok) throw new Error("Failed to clear notifications");

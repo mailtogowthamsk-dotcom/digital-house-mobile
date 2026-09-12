@@ -68,7 +68,7 @@
       "translucent": true
     },
     "android": {
-      "backgroundColor": "#EEF0F4",
+      "backgroundColor": "#F5F6F8",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",

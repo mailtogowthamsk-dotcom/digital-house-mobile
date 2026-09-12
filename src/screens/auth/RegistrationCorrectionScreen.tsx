@@ -165,10 +165,10 @@ export function RegistrationCorrectionScreen() {
     setUploading(true);
     try {
       const uploaded = await uploadOptimizedImage(uri, "profile");
-      setPhotoUrl(uploaded.publicUrl);
+      setPhotoUrl(uploaded.storageKey || uploaded.publicUrl);
       setPhotoPreview(uri);
     } catch (e) {
-      appAlert("Upload failed", (e as Error)?.message ?? "Could not upload photo");
+      appAlert("Upload failed", getAuthErrorMessage(e));
     } finally {
       setUploading(false);
     }

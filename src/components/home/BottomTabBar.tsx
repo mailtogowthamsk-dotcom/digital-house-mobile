@@ -6,9 +6,10 @@
 import React, { memo, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/fonts";
+import { navShadow } from "../../theme/shadows";
 
 export type TabId = "home" | "explore" | "create" | "messages" | "profile";
 
@@ -28,8 +29,8 @@ const TABS: TabItem[] = [
   { id: "profile", label: "Profile", icon: "person-outline", iconActive: "person" }
 ];
 
-const BAR_HEIGHT = 58;
-const CREATE_SIZE = 32;
+const BAR_HEIGHT = 60;
+const CREATE_SIZE = 40;
 const DOCK_H_PAD = 16;
 
 type BottomTabBarProps = {
@@ -67,26 +68,17 @@ function BottomTabBarInner({
         },
         shell: {
           flex: 1,
-          borderRadius: BAR_HEIGHT / 2,
+          borderRadius: 20,
           overflow: "hidden",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.7)",
-          ...Platform.select({
-            ios: {
-              shadowColor: "#0F172A",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: mode === "dark" ? 0.4 : 0.1,
-              shadowRadius: 20
-            },
-            android: { elevation: 12 },
-            default: {}
-          })
+          borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : colors.border,
+          ...navShadow(mode)
         },
         blurFill: { ...StyleSheet.absoluteFill },
         tint: {
           ...StyleSheet.absoluteFill,
           backgroundColor:
-            mode === "dark" ? "rgba(20,28,43,0.82)" : "rgba(255,255,255,0.78)"
+            mode === "dark" ? "rgba(20,28,43,0.92)" : "rgba(255,255,255,0.94)"
         },
         bar: {
           flex: 1,
@@ -98,44 +90,58 @@ function BottomTabBarInner({
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
+          minHeight: 44,
           height: "100%",
-          gap: 3,
+          gap: 2,
           paddingTop: 2
         },
         pressed: { opacity: 0.65 },
         iconWrap: {
-          width: 36,
+          width: 40,
           height: 28,
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 14
         },
         iconWrapActive: {
-          backgroundColor: mode === "dark" ? "rgba(37,99,235,0.22)" : "rgba(37,99,235,0.12)"
+          backgroundColor: mode === "dark" ? "rgba(22,128,60,0.22)" : "rgba(22,128,60,0.12)"
         },
         label: {
-          fontSize: 10,
+          fontFamily: fonts.medium,
+          fontSize: 11,
           fontWeight: "500",
           color: colors.textMuted,
           letterSpacing: 0.1
         },
         labelActive: {
+          fontFamily: fonts.semiBold,
           color: colors.primary,
-          fontWeight: "700"
+          fontWeight: "600"
         },
         createBtn: {
           width: CREATE_SIZE,
           height: CREATE_SIZE,
           borderRadius: CREATE_SIZE / 2,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          backgroundColor: colors.primary,
+          ...Platform.select({
+            ios: {
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.28,
+              shadowRadius: 4
+            },
+            android: { elevation: 3 },
+            default: {}
+          })
         },
         badge: {
           position: "absolute",
           top: -2,
           right: -4,
-          minWidth: 15,
-          height: 15,
+          minWidth: 16,
+          height: 16,
           borderRadius: 8,
           backgroundColor: colors.error,
           alignItems: "center",
@@ -145,8 +151,9 @@ function BottomTabBarInner({
           borderColor: mode === "dark" ? colors.surface : "#FFFFFF"
         },
         badgeText: {
-          fontSize: 8,
-          fontWeight: "800",
+          fontFamily: fonts.bold,
+          fontSize: 9,
+          fontWeight: "700",
           color: colors.white
         }
       }),
@@ -177,14 +184,9 @@ function BottomTabBarInner({
                   accessibilityLabel="Create post"
                 >
                   <View style={s.iconWrap}>
-                    <LinearGradient
-                      colors={[colors.primary, colors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={s.createBtn}
-                    >
-                      <Ionicons name="add" size={20} color={colors.white} />
-                    </LinearGradient>
+                    <View style={s.createBtn}>
+                      <Ionicons name="add" size={22} color={colors.white} />
+                    </View>
                   </View>
                   <Text style={s.label} numberOfLines={1}>
                     {tab.label}

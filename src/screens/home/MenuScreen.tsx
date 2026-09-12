@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { AvatarImage } from "../../components/ui/AvatarImage";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import { spacing, radius } from "../../theme/spacing";
 import type { HeaderActionId } from "../../components/home/Header";
 import { openMessagesInbox } from "../../navigation/openMessages";
@@ -379,15 +380,7 @@ export function MenuScreen() {
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
-        <Pressable
-          style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}
-          onPress={() => navigation.goBack()}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={s.headerTitle}>Menu</Text>
         <Pressable
           style={({ pressed }) => [s.iconBtn, pressed && s.iconBtnPressed]}

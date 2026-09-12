@@ -25,6 +25,7 @@ import { typography } from "../../theme/typography";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { appAlert } from "../../utils/appAlert";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import {
   adStatusColor,
   adStatusLabel,
@@ -240,9 +241,7 @@ export function AdvertisementsHomeScreen() {
   return (
     <View style={s.root}>
       <View style={s.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={s.title}>My Advertisements</Text>
       </View>
       {loading && items.length === 0 ? (

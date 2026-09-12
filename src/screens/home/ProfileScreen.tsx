@@ -59,7 +59,8 @@ export function ProfileScreen() {
         },
         listContent: {
           flexGrow: 1,
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.lg,
           paddingBottom: tabBottomPad
         },
         errorIconWrap: {
@@ -79,10 +80,13 @@ export function ProfileScreen() {
         },
         retryBtn: {
           marginTop: spacing.xl,
+          minHeight: 52,
           paddingVertical: spacing.md,
           paddingHorizontal: spacing.xxl,
           backgroundColor: colors.primary,
-          borderRadius: radius.lg
+          borderRadius: radius.button,
+          alignItems: "center",
+          justifyContent: "center"
         },
         pressed: { opacity: 0.9 },
         retryBtnText: { ...typography.buttonSmall, color: colors.white }
@@ -229,9 +233,7 @@ export function ProfileScreen() {
         style={s.container}
         data={[]}
         renderItem={() => null}
-        ListHeaderComponent={
-          <View style={{ paddingTop: insets.top + spacing.md }}>{listHeader}</View>
-        }
+        ListHeaderComponent={<View>{listHeader}</View>}
         ListFooterComponent={<View>{listFooter}</View>}
         contentContainerStyle={s.listContent}
         refreshControl={

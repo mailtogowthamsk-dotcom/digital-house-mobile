@@ -1,11 +1,19 @@
 import React, { useEffect, useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold
+} from "@expo-google-fonts/inter";
 import { configurePushNotifications } from "./src/services/pushNotifications";
 import { initFeedVideoDiskCache } from "./src/media/initVideoCache";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { rootLinking } from "./src/navigation/linking";
+import { HeaderBackButton } from "./src/components/ui/HeaderBackButton";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { ThemeSystemBars } from "./src/components/ThemeSystemBars";
@@ -94,24 +102,29 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
   const isDark = mode === "dark";
 
   const screenOptions = useMemo(
-    () => ({
-      headerStyle: { backgroundColor: colors.surface },
-      headerTintColor: colors.text,
-      headerShadowVisible: true,
-      contentStyle: { backgroundColor: colors.background },
-      // Native-stack statusBar* hits RNSScreenWindowTraits. On Expo Go iOS that
-      // requires UIViewControllerBasedStatusBarAppearance=YES (Expo Go plist).
-      // iOS appearance is handled by ThemeSystemBars (expo-status-bar) instead.
-      ...(Platform.OS === "android"
-        ? {
-            statusBarStyle: (isDark ? "light" : "dark") as "light" | "dark",
-            statusBarTranslucent: true,
-            // Light canvas under status icons (Menu / stack headers). Transparent
-            // + dark icons on a black window gap made light-mode icons disappear.
-            statusBarBackgroundColor: isDark ? colors.background : colors.surface
-          }
-        : {})
-    }),
+    () =>
+      ({ navigation }: { navigation: { goBack: () => void; canGoBack: () => boolean } }) => ({
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        headerShadowVisible: true,
+        contentStyle: { backgroundColor: colors.background },
+        headerBackVisible: false,
+        headerLeftContainerStyle: { paddingLeft: Platform.OS === "ios" ? 8 : 4 },
+        headerLeft: ({ canGoBack }: { canGoBack?: boolean }) =>
+          canGoBack ? <HeaderBackButton onPress={() => navigation.goBack()} /> : null,
+        // Native-stack statusBar* hits RNSScreenWindowTraits. On Expo Go iOS that
+        // requires UIViewControllerBasedStatusBarAppearance=YES (Expo Go plist).
+        // iOS appearance is handled by ThemeSystemBars (expo-status-bar) instead.
+        ...(Platform.OS === "android"
+          ? {
+              statusBarStyle: (isDark ? "light" : "dark") as "light" | "dark",
+              statusBarTranslucent: true,
+              // Light canvas under status icons (Menu / stack headers). Transparent
+              // + dark icons on a black window gap made light-mode icons disappear.
+              statusBarBackgroundColor: isDark ? colors.background : colors.surface
+            }
+          : {})
+      }),
     [colors.surface, colors.text, colors.background, isDark]
   );
 
@@ -282,9 +295,20 @@ function AppNavigation() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold
+  });
+
   useEffect(() => {
     void configurePushNotifications();
   }, []);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -317,6 +341,6 @@ function ThemedAppShell({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#EEF0F4" },
+  root: { flex: 1, backgroundColor: "#F5F6F8" },
   shell: { flex: 1 }
 });

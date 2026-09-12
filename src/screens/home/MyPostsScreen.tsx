@@ -21,6 +21,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { appAlert } from "../../utils/appAlert";
 import type { ProfilePostItem } from "../../api/profile.api";
+import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 
 export function MyPostsScreen() {
   const navigation = useNavigation<any>();
@@ -191,9 +192,7 @@ export function MyPostsScreen() {
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
-        <Pressable style={s.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>My Posts</Text>
           <Text style={s.headerSub}>

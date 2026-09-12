@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
-import { typography } from "../../theme/typography";
+import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
 import { messages } from "../../theme/messages";
 import { AccordionSection } from "./AccordionSection";
@@ -43,7 +43,7 @@ function Row({
         <Text style={s.rowLabel}>{label}</Text>
         {isProtected ? (
           <View style={s.protectedBadge}>
-            <Ionicons name="lock-closed" size={11} color={colors.sensitive} />
+            <Ionicons name="lock-closed" size={10} color={colors.sensitive} />
             <Text style={s.protectedText}>{messages.sensitive.protected}</Text>
           </View>
         ) : null}
@@ -65,25 +65,36 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 3
+          marginBottom: 6
         },
-        rowLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
+        rowLabel: {
+          fontFamily: fonts.regular,
+          fontSize: 13,
+          color: colors.textSecondary,
+          fontWeight: "400"
+        },
         protectedBadge: {
           flexDirection: "row",
           alignItems: "center",
           gap: 4,
-          paddingHorizontal: 6,
-          paddingVertical: 2,
-          borderRadius: radius.sm,
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: radius.full,
           backgroundColor: colors.sensitiveBg
         },
         protectedText: {
-          ...typography.caption,
-          fontSize: 10,
+          fontFamily: fonts.medium,
+          fontSize: 11,
           color: colors.sensitive,
-          fontWeight: "600"
+          fontWeight: "500"
         },
-        rowValue: { ...typography.bodySmall, color: colors.text, fontWeight: "500" },
+        rowValue: {
+          fontFamily: fonts.medium,
+          fontSize: 15,
+          color: colors.text,
+          fontWeight: "500",
+          lineHeight: 20
+        },
         rowValueProtected: { color: colors.textSecondary },
         divider: {
           position: "absolute",

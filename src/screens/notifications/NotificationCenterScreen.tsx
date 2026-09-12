@@ -37,6 +37,7 @@ import {
 } from "../../features/notifications/notificationPresentation";
 import { maybePromptPushAfterMeaningfulUse } from "../../permissions";
 import { appAlert } from "../../utils/appAlert";
+import { getAuthErrorMessage } from "../../api/client";
 
 const PAGE_SIZE = 25;
 
@@ -184,12 +185,16 @@ export function NotificationCenterScreen() {
     try {
       const c = await markAllNotificationsRead(tab);
       setCounts(c);
-      animateListChange();
+      try {
+        animateListChange();
+      } catch {
+        /* LayoutAnimation optional */
+      }
       setItems((prev) =>
         prev.map((n) => ({ ...n, isRead: true, readAt: n.readAt ?? new Date().toISOString() }))
       );
-    } catch {
-      /* */
+    } catch (e) {
+      appAlert("Couldn't mark read", getAuthErrorMessage(e) || "Please try again.");
     }
   }, [setCounts, tab]);
 
@@ -206,11 +211,15 @@ export function NotificationCenterScreen() {
             try {
               const c = await deleteAllNotifications(tab);
               setCounts(c);
-              animateListChange();
+              try {
+                animateListChange();
+              } catch {
+                /* LayoutAnimation optional */
+              }
               setItems([]);
               setTotal(0);
-            } catch {
-              appAlert("Couldn't clear", "Please try again.");
+            } catch (e) {
+              appAlert("Couldn't clear", getAuthErrorMessage(e) || "Please try again.");
             }
           })()
       }
