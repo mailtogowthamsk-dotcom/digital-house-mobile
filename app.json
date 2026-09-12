@@ -2,6 +2,8 @@
   "expo": {
     "plugins": [
       "expo-font",
+      "expo-image",
+      "expo-secure-store",
       "expo-web-browser",
       "expo-video",
       "react-native-compressor",
