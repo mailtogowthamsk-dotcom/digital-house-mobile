@@ -46,9 +46,13 @@ export type UploadImageResult = {
 
 export type UploadVideoResult = {
   publicUrl: string;
+  /** R2 object key — use this when creating/updating posts (not signed URLs). */
+  storageKey: string;
   mediaFileId: number;
   thumbnailUri: string | null;
   thumbnailUrl: string | null;
+  /** R2 key for poster/thumbnail when available. */
+  thumbnailStorageKey: string | null;
   durationSec: number;
   byteSize: number;
   mimeType: string;
@@ -325,6 +329,7 @@ export async function uploadVideo(
   });
 
   let thumbnailUrl: string | null = null;
+  let thumbnailStorageKey: string | null = null;
   try {
     validateVideoSize(optimized.size);
 
@@ -357,14 +362,16 @@ export async function uploadVideo(
         await uploadToR2(thumbPresign.uploadUrl, optimizedThumb.uri, optimizedThumb.mime);
         const finalizedThumb = await finalizeMedia(thumbPresign.mediaFileId);
         thumbnailUrl = finalizedThumb.variants?.medium || finalizedThumb.publicUrl;
+        thumbnailStorageKey = thumbPresign.key || null;
       } catch {
         thumbnailUrl = null;
+        thumbnailStorageKey = null;
       }
     }
 
     onStage?.("uploading");
     onProgress?.(0.5);
-    const { uploadUrl, mediaFileId, publicUrl } = await getUploadUrl({
+    const { uploadUrl, mediaFileId, publicUrl, key } = await getUploadUrl({
       fileName,
       fileType: uploadMime,
       fileSize: optimized.size,
@@ -398,9 +405,11 @@ export async function uploadVideo(
 
       return {
         publicUrl: finalized.publicUrl,
+        storageKey: key || publicUrl,
         mediaFileId,
         thumbnailUri: thumb?.uri ?? null,
         thumbnailUrl: finalized.thumbnailUrl || thumbnailUrl,
+        thumbnailStorageKey,
         durationSec: Math.floor(finalized.durationSec ?? durationSec),
         byteSize: finalized.byteSize || optimized.size,
         mimeType: "video/mp4",

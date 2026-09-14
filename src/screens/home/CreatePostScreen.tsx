@@ -512,8 +512,8 @@ export function CreatePostScreen() {
             postTypeToModule(submitType),
             (p) => setUploadProgress((i + p) / pendingGallery.length)
           );
-          nextGalleryUrls.push(uploaded.publicUrl);
-          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
+          nextGalleryUrls.push(uploaded.storageKey || uploaded.publicUrl);
+          sessionUploadedUrlsRef.current.add(uploaded.storageKey || uploaded.publicUrl);
         }
         setPendingGallery([]);
         setGalleryUrls(nextGalleryUrls.slice(0, MARKETPLACE_MAX_PHOTOS));
@@ -539,20 +539,24 @@ export function CreatePostScreen() {
             onProgress: (p) => setUploadProgress(p),
             onStage: (stage) => setUploadStage(stage)
           });
-          coverUrl = uploaded.publicUrl;
+          coverUrl = uploaded.storageKey || uploaded.publicUrl;
           nextMediaKind = "video";
-          nextThumb = uploaded.thumbnailUrl;
+          nextThumb = uploaded.thumbnailStorageKey || uploaded.thumbnailUrl;
           nextDuration =
             uploaded.durationSec > 0
               ? uploaded.durationSec
               : pendingUpload.durationSec;
           nextMime = uploaded.mimeType;
           nextSize = uploaded.byteSize;
-          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
-          if (uploaded.thumbnailUrl) sessionUploadedUrlsRef.current.add(uploaded.thumbnailUrl);
-          setMediaUrl(uploaded.publicUrl);
+          sessionUploadedUrlsRef.current.add(uploaded.storageKey || uploaded.publicUrl);
+          if (uploaded.thumbnailStorageKey || uploaded.thumbnailUrl) {
+            sessionUploadedUrlsRef.current.add(
+              uploaded.thumbnailStorageKey || uploaded.thumbnailUrl!
+            );
+          }
+          setMediaUrl(uploaded.storageKey || uploaded.publicUrl);
           setMediaPreviewUri(uploaded.thumbnailUri || pendingUpload.uri);
-          setThumbnailUrl(uploaded.thumbnailUrl);
+          setThumbnailUrl(uploaded.thumbnailStorageKey || uploaded.thumbnailUrl);
           setMediaDurationSec(nextDuration);
           setMimeType(nextMime);
           setFileSize(nextSize);
@@ -562,14 +566,14 @@ export function CreatePostScreen() {
             postTypeToModule(submitType),
             (p) => setUploadProgress(p)
           );
-          coverUrl = uploaded.publicUrl;
+          coverUrl = uploaded.storageKey || uploaded.publicUrl;
           nextMediaKind = "image";
           nextThumb = null;
           nextDuration = null;
           nextMime = uploaded.mimeType;
           nextSize = uploaded.byteSize;
-          sessionUploadedUrlsRef.current.add(uploaded.publicUrl);
-          setMediaUrl(uploaded.publicUrl);
+          sessionUploadedUrlsRef.current.add(uploaded.storageKey || uploaded.publicUrl);
+          setMediaUrl(uploaded.storageKey || uploaded.publicUrl);
           setThumbnailUrl(null);
           setMimeType(nextMime);
           setFileSize(nextSize);
