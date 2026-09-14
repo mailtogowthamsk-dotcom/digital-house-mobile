@@ -151,8 +151,8 @@ export type CompleteGoogleProfilePayload = {
   dob: string;
   district: string;
   kulam: string;
+  mobile: string;
   location?: string | null;
-  mobile?: string | null;
   occupation?: string | null;
   fatherName?: string | null;
   address?: string | null;
