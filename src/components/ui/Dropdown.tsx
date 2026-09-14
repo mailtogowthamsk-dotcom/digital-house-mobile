@@ -28,6 +28,11 @@ type DropdownProps = {
   variant?: "default" | "light";
   containerStyle?: ViewStyle;
   required?: boolean;
+  /** Force search box even when options list is short (e.g. username picker). */
+  forceSearchable?: boolean;
+  /** Show a clear/none row at the top. */
+  allowClear?: boolean;
+  clearLabel?: string;
 };
 
 export function Dropdown({
@@ -38,7 +43,10 @@ export function Dropdown({
   onSelect,
   variant = "default",
   containerStyle,
-  required
+  required,
+  forceSearchable,
+  allowClear,
+  clearLabel = "None"
 }: DropdownProps) {
   const { colors, mode } = useTheme();
   const [open, setOpen] = useState(false);
@@ -49,12 +57,15 @@ export function Dropdown({
 
   const forceLightField = variant === "light";
   const display = value ? options.find((o) => o.value === value)?.label ?? value : placeholder;
-  const searchable = options.length > 8;
+  const searchable = forceSearchable || options.length > 8;
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase().replace(/^@/, "");
     if (!q) return options;
     return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        o.value.toLowerCase().includes(q) ||
+        o.label.toLowerCase().replace(/^@/, "").includes(q)
     );
   }, [options, query]);
 
@@ -164,7 +175,7 @@ export function Dropdown({
                   <TextInput
                     value={query}
                     onChangeText={setQuery}
-                    placeholder="Search Tamil or English"
+                    placeholder={forceSearchable ? "Search username" : "Search Tamil or English"}
                     placeholderTextColor={colors.textMuted}
                     style={[s.searchInput, { color: titleColor }]}
                     autoCorrect={false}
@@ -186,9 +197,38 @@ export function Dropdown({
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
                 ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                ListHeaderComponent={
+                  allowClear ? (
+                    <Pressable
+                      style={[
+                        s.option,
+                        {
+                          marginBottom: 8,
+                          backgroundColor: !value ? optionSelectedBg : optionIdleBg,
+                          borderColor: !value ? colors.primary : sheetBorder
+                        }
+                      ]}
+                      onPress={() => {
+                        onSelect("");
+                        close();
+                      }}
+                    >
+                      <Text
+                        style={[
+                          s.optionText,
+                          { color: titleColor, fontWeight: !value ? "700" : "500" }
+                        ]}
+                      >
+                        {clearLabel}
+                      </Text>
+                    </Pressable>
+                  ) : null
+                }
                 ListEmptyComponent={
                   <Text style={[s.empty, { color: muted }]}>
-                    No matches. Try Tamil or English name.
+                    {forceSearchable
+                      ? "No connected members match. Connect first, then add as family."
+                      : "No matches. Try Tamil or English name."}
                   </Text>
                 }
                 renderItem={({ item }) => {

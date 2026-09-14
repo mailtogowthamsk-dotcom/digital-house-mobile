@@ -283,7 +283,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               value={kulam}
               options={kulamOptions}
               onSelect={setKulam}
-              placeholder="Select kulam"
+              placeholder="Select kulam *"
               required
             />
             <Input

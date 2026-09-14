@@ -42,6 +42,7 @@ import {
   getMasterItems,
   masterItemsToDropdown
 } from "../../api/options.api";
+import { listConnections } from "../../api/connections.api";
 
 const emptyBasic = (): BasicSectionForm => ({
   full_name: "",
@@ -223,6 +224,9 @@ export function EditProfileScreen() {
   const [maritalOptions, setMaritalOptions] = useState<{ label: string; value: string }[]>(
     MARITAL_STATUS_OPTIONS
   );
+  const [familyConnectionOptions, setFamilyConnectionOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   const initialFormRef = React.useRef<ReturnType<typeof mapProfileToForm> | null>(null);
 
@@ -255,12 +259,21 @@ export function EditProfileScreen() {
     setMatrimonyHubLoading(true);
     setError(null);
     try {
-      const [data, hub] = await Promise.all([
+      const [data, hub, connections] = await Promise.all([
         getProfile(),
-        getMatrimonyHub().catch(() => null)
+        getMatrimonyHub().catch(() => null),
+        listConnections().catch(() => [])
       ]);
       setProfile(data);
       setMatrimonyHub(hub);
+      setFamilyConnectionOptions(
+        (connections ?? [])
+          .filter((c) => c.user?.id && c.user?.username)
+          .map((c) => ({
+            value: String(c.user.id),
+            label: `@${c.user.username} · ${c.user.fullName || c.user.username}`
+          }))
+      );
       const form = mapProfileToForm(data);
       initialFormRef.current = form;
       setBasic(form.basic);
@@ -335,10 +348,15 @@ export function EditProfileScreen() {
       }
 
       if (isSectionDirty("community", community)) {
+        if (!String(community.kulam ?? "").trim()) {
+          setError("Please select your Kulam.");
+          setSaving(false);
+          return;
+        }
         sectionsToUpdate.push({
           section: "community",
           payload: {
-            kulam: community.kulam ?? null,
+            kulam: String(community.kulam).trim(),
             kulaDeivam: community.kulaDeivam ?? null,
             nativeVillage: community.nativeVillage ?? null,
             nativeTaluk: community.nativeTaluk ?? null
@@ -377,6 +395,23 @@ export function EditProfileScreen() {
         });
       }
       if (isSectionDirty("family", family)) {
+        const selectedIds = ([1, 2, 3, 4, 5] as const)
+          .map((i) => family[`familyMemberId${i}` as keyof FamilySectionForm])
+          .filter((id): id is number => typeof id === "number" && id > 0);
+        const unique = new Set(selectedIds);
+        if (unique.size !== selectedIds.length) {
+          setError("Each family member can only be added once.");
+          setSaving(false);
+          return;
+        }
+        const connected = new Set(familyConnectionOptions.map((o) => Number(o.value)));
+        for (const id of selectedIds) {
+          if (!connected.has(id)) {
+            setError("Family members must be people you are already connected with. Search by username.");
+            setSaving(false);
+            return;
+          }
+        }
         sectionsToUpdate.push({
           section: "family",
           payload: {
@@ -438,9 +473,11 @@ export function EditProfileScreen() {
     personal,
     business,
     family,
+    familyConnectionOptions,
     isBasicDirty,
     isSectionDirty,
-    navigation
+    navigation,
+    signOut
   ]);
 
   const openMatrimony = useCallback(() => {
@@ -841,7 +878,7 @@ export function EditProfileScreen() {
         <AccordionSection title="Community Details" icon="people-outline">
           <Dropdown
             label="Kulam"
-            placeholder="Select kulam"
+            placeholder="Select kulam *"
             value={community.kulam ?? ""}
             required
             options={
@@ -1070,21 +1107,48 @@ export function EditProfileScreen() {
         </AccordionSection>
 
         <AccordionSection title="Family Details" icon="people-circle-outline">
+          <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: spacing.sm, lineHeight: 18 }}>
+            Add up to 5 family members from your connections. Search by @username. They will get a
+            notification when you add them.
+          </Text>
+          {familyConnectionOptions.length === 0 ? (
+            <Text style={{ color: "#9CA3AF", fontSize: 13, marginBottom: spacing.md, lineHeight: 18 }}>
+              No connections yet. Connect with members first, then add them here.
+            </Text>
+          ) : null}
           {([1, 2, 3, 4, 5] as const).map((i) => {
             const key = `familyMemberId${i}` as keyof FamilySectionForm;
             const val = family[key];
+            const selectedElsewhere = new Set(
+              ([1, 2, 3, 4, 5] as const)
+                .filter((j) => j !== i)
+                .map((j) => family[`familyMemberId${j}` as keyof FamilySectionForm])
+                .filter((id): id is number => typeof id === "number" && id > 0)
+            );
+            const options = familyConnectionOptions.filter((o) => {
+              const id = Number(o.value);
+              return id === val || !selectedElsewhere.has(id);
+            });
+            // Keep showing current selection label even if no longer connected (until cleared).
+            const withCurrent =
+              val != null && !options.some((o) => o.value === String(val))
+                ? [...options, { value: String(val), label: `User #${val} (not connected)` }]
+                : options;
             return (
-              <Input
+              <Dropdown
                 key={i}
-                label={`Family Member ID ${i}`}
+                label={`Family member ${i}`}
+                placeholder="Search @username"
                 value={val != null ? String(val) : ""}
-                onChangeText={(t) => {
-                  const n = t.trim() === "" ? null : parseInt(t, 10);
-                  setFamily((f) => ({ ...f, [key]: n ?? null }));
-                }}
-                placeholder="User ID"
+                options={withCurrent}
+                forceSearchable
+                allowClear
+                clearLabel="Clear"
                 variant="light"
-                keyboardType="number-pad"
+                onSelect={(v) => {
+                  const n = v.trim() === "" ? null : parseInt(v, 10);
+                  setFamily((f) => ({ ...f, [key]: Number.isFinite(n as number) ? n : null }));
+                }}
               />
             );
           })}

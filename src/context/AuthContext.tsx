@@ -65,12 +65,19 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function normalizeAuthUser(user: MeUser): MeUser {
+  const username = typeof user.username === "string" ? user.username.trim() : user.username;
+  const profileComplete =
+    user.signupProvider === "GOOGLE"
+      ? user.profileComplete === true
+      : user.profileComplete !== false;
   return {
     ...user,
+    username: username || null,
     createdAt: user.createdAt ?? new Date().toISOString(),
-    profileComplete: user.profileComplete !== false,
+    profileComplete,
     needsUsernameSetup:
-      user.needsUsernameSetup ?? (user.status === "APPROVED" && !user.username),
+      user.needsUsernameSetup ??
+      (Boolean(profileComplete || user.status === "APPROVED") && !username),
     registrationRequestedFields: Array.isArray(user.registrationRequestedFields)
       ? user.registrationRequestedFields
       : [],
@@ -119,40 +126,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   userRef.current = user;
   statusRef.current = status;
 
-  const applySession = useCallback((nextUser: MeUser | null, signedOut: boolean) => {
-    const normalized = nextUser ? normalizeAuthUser(nextUser) : null;
-    if (
-      shouldReauthAfterApproval(
-        userRef.current,
-        statusRef.current,
-        normalized,
-        signedOut
-      )
-    ) {
-      markApprovalReauthRequired(true);
-      hardResetRealtime();
-      clearWelcomeSession();
-      void clearToken();
-      void clearUserSnapshot();
-      setUser(null);
-      setStatus("signedOut");
-      statusRef.current = "signedOut";
-      userRef.current = null;
-      stopDeliveryRealtime();
-      setSessionEpoch((n) => n + 1);
-      return;
-    }
-    const nextStatus = statusForUser(normalized, signedOut);
-    setUser(normalized);
-    setStatus(nextStatus);
-    statusRef.current = nextStatus;
-    userRef.current = normalized;
-    if (!signedOut && normalized?.status === "APPROVED" && normalized.id) {
-      void prewarmRealtime(normalized.id);
-    } else {
-      stopDeliveryRealtime();
-    }
-  }, []);
+  const applySession = useCallback(
+    (
+      nextUser: MeUser | null,
+      signedOut: boolean,
+      opts?: { skipApprovalReauth?: boolean }
+    ) => {
+      const normalized = nextUser ? normalizeAuthUser(nextUser) : null;
+      // Fresh OTP/Google credentials already replace the revoked waiting JWT —
+      // never bounce that success back to Landing with "Account approved".
+      if (
+        !opts?.skipApprovalReauth &&
+        shouldReauthAfterApproval(
+          userRef.current,
+          statusRef.current,
+          normalized,
+          signedOut
+        )
+      ) {
+        markApprovalReauthRequired(true);
+        hardResetRealtime();
+        clearWelcomeSession();
+        void clearToken();
+        void clearUserSnapshot();
+        setUser(null);
+        setStatus("signedOut");
+        statusRef.current = "signedOut";
+        userRef.current = null;
+        stopDeliveryRealtime();
+        setSessionEpoch((n) => n + 1);
+        return;
+      }
+      const nextStatus = statusForUser(normalized, signedOut);
+      setUser(normalized);
+      setStatus(nextStatus);
+      statusRef.current = nextStatus;
+      userRef.current = normalized;
+      if (!signedOut && normalized?.status === "APPROVED" && normalized.id) {
+        void prewarmRealtime(normalized.id);
+      } else {
+        stopDeliveryRealtime();
+      }
+    },
+    []
+  );
 
   const bumpSessionEpoch = useCallback(() => {
     setSessionEpoch((n) => n + 1);
@@ -342,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         beginWelcomeSession();
         await setToken(accessToken);
         await setUserSnapshot(normalized);
-        applySession(normalized, false);
+        applySession(normalized, false, { skipApprovalReauth: true });
         bumpSessionEpoch();
 
         // Soft refresh profile in background — never clear the session on failure.
@@ -352,10 +369,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (signInLockRef.current) {
               // Still in sign-in commit window; apply quietly.
               await setUserSnapshot(me);
-              applySession(me, false);
+              applySession(me, false, { skipApprovalReauth: true });
             } else if (isSignedInStatus(statusRef.current)) {
               await setUserSnapshot(me);
-              applySession(me, false);
+              applySession(me, false, { skipApprovalReauth: true });
             }
           } catch {
             /* keep the verified OTP/Google session */

@@ -23,7 +23,10 @@ import { markVideoUriWarmed, isVideoUriWarmed } from "../../utils/videoUriWarmCa
 import { buildFeedVideoSource } from "../../utils/videoSource";
 import {
   peekCachedVideoUri,
-  isVideoFileCached
+  getLocalVideoUriIfExists,
+  resolveCachedVideoUri,
+  isVideoFileCached,
+  isLocalFileUri
 } from "../../utils/feedVideoFileCache";
 import { stickySignedMediaUrl } from "../../utils/stickySignedUrlCache";
 import { FeedMediaLoader } from "./FeedMediaLoader";
@@ -809,7 +812,8 @@ function ActiveFeedVideoPlayer({
  * - Active: autoplay decoder
  * - Retain (previous): same player paused — no remount flicker on scroll-back
  * - Preload (next): poster only — no third decoder
- * - Disk cache via feedVideoFileCache (native useCaching off by default)
+ * - Disk cache via feedVideoFileCache.resolveCachedVideoUri (native useCaching off)
+ * - Preload / active / retain tiles download once to file:// for scroll-back
  * - Mute is feed-global (see feedAudioState)
  */
 const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPlayerProps>(
@@ -829,14 +833,46 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
   ) {
     const { colors } = useTheme();
     const togglePlayRef = useRef<(() => void) | null>(null);
-    // Pick source once per remote URI. Never remount mid-play (no remote→file swap).
+    /** True while a native player is mounted — never swap remote→file mid-play. */
+    const nativeMountedRef = useRef(false);
+    // Prefer path-keyed file:// when already on disk; else sticky remote for first play.
     const [bootUri, setBootUri] = useState(
       () => peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri
     );
 
     useEffect(() => {
-      setBootUri(peekCachedVideoUri(uri) ?? stickySignedMediaUrl(uri) ?? uri);
+      let cancelled = false;
+      const remote = stickySignedMediaUrl(uri) ?? uri;
+      const peeked = peekCachedVideoUri(remote);
+      setBootUri(peeked ?? remote);
+
+      // Fast disk hydrate (no download) so cold process still hits prior cache files.
+      void getLocalVideoUriIfExists(remote).then((local) => {
+        if (cancelled || !local) return;
+        if (nativeMountedRef.current) return;
+        setBootUri(local);
+      });
+
+      return () => {
+        cancelled = true;
+      };
     }, [uri]);
+
+    // Download once while this tile is in the active / retain / preload window.
+    useEffect(() => {
+      if (!isActive && !isRetain && !isPreload) return;
+      let cancelled = false;
+      const remote = stickySignedMediaUrl(uri) ?? uri;
+      void resolveCachedVideoUri(remote).then((resolved) => {
+        if (cancelled || !isLocalFileUri(resolved)) return;
+        // Adopt file:// only before native mount — scroll-back remounts from peek/disk.
+        if (nativeMountedRef.current) return;
+        setBootUri(resolved);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [uri, isActive, isRetain, isPreload]);
 
     useEffect(() => {
       if (!ref) return;
@@ -873,7 +909,17 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
       return () => clearTimeout(timer);
     }, [shouldMountPlayer]);
 
-    if (!shouldMountPlayer && !holdPlayer) {
+    const showNativePlayer = shouldMountPlayer || holdPlayer;
+    useEffect(() => {
+      nativeMountedRef.current = showNativePlayer;
+      if (!showNativePlayer) {
+        // After unmount, prefer file:// if download finished while we were playing remote.
+        const local = peekCachedVideoUri(uri);
+        if (local) setBootUri(local);
+      }
+    }, [showNativePlayer, uri]);
+
+    if (!showNativePlayer) {
       return (
         <VideoPosterShell
           thumbnailUrl={thumbnailUrl}

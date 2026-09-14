@@ -33,7 +33,8 @@ import { promptReportPost } from "../../utils/promptReportPost";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import {
   buildMediaWindow,
-  pickActiveAndPreloadPostIds
+  pickActiveAndPreloadPostIds,
+  prefetchFeedVideosInWindow
 } from "../../utils/feedVideoVisibility";
 import { getFeedMediaFocus, setFeedMediaFocus } from "../../media/feedMediaFocus";
 import { FEED_FLATLIST_PERF } from "../../utils/listPerf";
@@ -87,11 +88,13 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     if (!current.activeId) {
       activeMediaSwitchTimer.current = null;
       setFeedMediaFocus(next);
+      prefetchFeedVideosInWindow(next, resultsRef.current);
       return;
     }
     activeMediaSwitchTimer.current = setTimeout(() => {
       activeMediaSwitchTimer.current = null;
       setFeedMediaFocus(next);
+      prefetchFeedVideosInWindow(next, resultsRef.current);
     }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
@@ -127,11 +130,9 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     if (!items.length) return;
     const current = getFeedMediaFocus();
     if (current.activeId && items.some((p) => p.id === current.activeId)) return;
-    setFeedMediaFocus({
-      activeId: items[0]!.id,
-      preloadId: items[1]?.id ?? null,
-      retainId: null
-    });
+    const next = buildMediaWindow(items[0]!.id, items);
+    setFeedMediaFocus(next);
+    prefetchFeedVideosInWindow(next, items);
   }, [explore.results]);
 
   useFocusEffect(

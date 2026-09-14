@@ -41,6 +41,10 @@ type Props = {
 };
 
 function mediaBaseUrl(uri: string): string {
+  if (uri.startsWith("file://")) {
+    const slash = uri.lastIndexOf("/");
+    return slash > 0 ? uri.slice(0, slash + 1) : "file:///";
+  }
   try {
     const u = new URL(uri);
     return `${u.protocol}//${u.host}`;
@@ -453,6 +457,9 @@ function AndroidFeedVideoInner({
       domStorageEnabled
       mixedContentMode="always"
       allowsFullscreenVideo
+      allowFileAccess
+      allowFileAccessFromFileURLs
+      allowUniversalAccessFromFileURLs
       scrollEnabled={false}
       bounces={false}
       overScrollMode="never"
@@ -541,6 +548,9 @@ function AndroidFeedVideoInner({
               domStorageEnabled
               mixedContentMode="always"
               allowsFullscreenVideo
+              allowFileAccess
+              allowFileAccessFromFileURLs
+              allowUniversalAccessFromFileURLs
               scrollEnabled={false}
               onMessage={onMessage}
             />

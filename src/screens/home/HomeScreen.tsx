@@ -45,7 +45,8 @@ import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
 import {
   buildMediaWindow,
-  pickActiveAndPreloadPostIds
+  pickActiveAndPreloadPostIds,
+  prefetchFeedVideosInWindow
 } from "../../utils/feedVideoVisibility";
 import {
   clearFeedMediaFocus,
@@ -139,12 +140,14 @@ export function HomeScreen() {
     if (!current.activeId) {
       activeMediaSwitchTimer.current = null;
       setFeedMediaFocus(next);
+      prefetchFeedVideosInWindow(next, feedItemsRef.current);
       return;
     }
     // Hysteresis — slow reverse scroll used to thrash active↔retain and freeze the UI.
     activeMediaSwitchTimer.current = setTimeout(() => {
       activeMediaSwitchTimer.current = null;
       setFeedMediaFocus(next);
+      prefetchFeedVideosInWindow(next, feedItemsRef.current);
     }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
@@ -190,11 +193,9 @@ export function HomeScreen() {
     }
     const current = getFeedMediaFocus();
     if (current.activeId && feedItems.some((p) => p.id === current.activeId)) return;
-    setFeedMediaFocus({
-      activeId: feedItems[0]!.id,
-      preloadId: feedItems[1]?.id ?? null,
-      retainId: null
-    });
+    const next = buildMediaWindow(feedItems[0]!.id, feedItems);
+    setFeedMediaFocus(next);
+    prefetchFeedVideosInWindow(next, feedItems);
   }, [feedItems]);
 
   const welcomeUser = useMemo(

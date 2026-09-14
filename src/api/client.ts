@@ -207,7 +207,8 @@ export function getAuthErrorMessage(err: unknown): string {
   }
   if (status === 503) return msg || "Server is starting up. Please try again in a few seconds.";
   if (status === 404) {
-    return `API not found (404). Check server proxy and URL: ${getApiBaseUrl()}`;
+    // Prefer API JSON message; only fall back when proxy/HTML returned empty body.
+    return msg || `Not found (404). If this is Connect, the member or route may be missing on the server.`;
   }
   if (ax.code === "ECONNABORTED" || ax.message?.toLowerCase().includes("timeout")) {
     return "Request timed out. Please check your connection and try again.";

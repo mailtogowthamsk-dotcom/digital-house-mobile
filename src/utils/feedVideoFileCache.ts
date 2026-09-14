@@ -154,13 +154,30 @@ export async function resolveCachedVideoUri(remoteUri: string): Promise<string> 
 
 export function peekCachedVideoUri(remoteUri: string | null | undefined): string | null {
   if (!remoteUri) return null;
-  const pathKey = stableMediaCacheKey(remoteUri);
+  const sticky = stickySignedMediaUrl(remoteUri) ?? remoteUri;
+  const pathKey = stableMediaCacheKey(sticky);
   return pathKey ? memory.get(pathKey) ?? null : null;
 }
 
 export function isVideoFileCached(remoteUri: string | null | undefined): boolean {
   if (!remoteUri) return false;
-  const pathKey = stableMediaCacheKey(remoteUri);
+  const sticky = stickySignedMediaUrl(remoteUri) ?? remoteUri;
+  const pathKey = stableMediaCacheKey(sticky);
   if (pathKey && memory.has(pathKey)) return true;
-  return isVideoUriWarmed(remoteUri);
+  return isVideoUriWarmed(sticky);
 }
+
+function isLocalFileUri(uri: string): boolean {
+  return uri.startsWith("file://") || (uri.startsWith("/") && !uri.startsWith("//"));
+}
+
+/**
+ * Warm disk cache for upcoming / visible clips. Safe to call often —
+ * downloads at most once per object path.
+ */
+export function prefetchFeedVideoToDisk(remoteUri: string | null | undefined): void {
+  if (!remoteUri?.trim()) return;
+  void resolveCachedVideoUri(remoteUri).catch(() => undefined);
+}
+
+export { isLocalFileUri };

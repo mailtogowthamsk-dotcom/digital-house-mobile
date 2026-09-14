@@ -1,4 +1,5 @@
 import type { PostCardData } from "../components/home/PostCard";
+import { prefetchFeedVideoToDisk } from "./feedVideoFileCache";
 
 export function isFeedVideoItem(item: PostCardData): boolean {
   return (
@@ -34,7 +35,13 @@ export function buildMediaWindow(
     return { activeId, preloadId: null, retainId: null };
   }
 
-  const preloadId = idx + 1 < items.length ? items[idx + 1]!.id : null;
+  let preloadId: string | null = null;
+  for (let i = idx + 1; i < items.length; i++) {
+    if (isFeedVideoItem(items[i]!)) {
+      preloadId = items[i]!.id;
+      break;
+    }
+  }
   let retainId: string | null = null;
   for (let i = idx - 1; i >= 0; i--) {
     if (isFeedVideoItem(items[i]!)) {
@@ -54,7 +61,7 @@ export function buildMediaWindow(
  * Current + next + previous media window.
  * - active: playing decoder
  * - retain: paused decoder (instant reverse scroll, no remount flicker)
- * - preload: poster only (no third decoder / no parallel download)
+ * - preload: poster only + disk download for the next *video* (no third decoder)
  */
 export function pickActiveAndPreloadPostIds(
   viewableItems: Array<{ item: PostCardData; isViewable: boolean; index?: number | null }>,
@@ -82,4 +89,19 @@ export function pickActiveAndPreloadVideoIds(
   feedItems?: PostCardData[]
 ): FeedMediaWindow {
   return pickActiveAndPreloadPostIds(viewableItems, feedItems);
+}
+
+/** Kick path-keyed downloads for the current media window (active + next video). */
+export function prefetchFeedVideosInWindow(
+  window: FeedMediaWindow,
+  feedItems: PostCardData[]
+): void {
+  if (!feedItems.length) return;
+  const ids = [window.activeId, window.preloadId];
+  for (const id of ids) {
+    if (!id) continue;
+    const item = feedItems.find((p) => p.id === id);
+    if (!item || !isFeedVideoItem(item) || !item.imageUri) continue;
+    prefetchFeedVideoToDisk(item.imageUri);
+  }
 }
