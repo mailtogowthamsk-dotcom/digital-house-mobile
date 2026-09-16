@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-export type ChatLane = "community" | "matrimony";
+export type ChatLane = "community" | "matrimony" | "business";
 
 export type LaneAccess = {
   applicable: boolean;
@@ -49,11 +49,12 @@ export type MessageAccess = {
   readOnly: boolean;
   communityChat?: LaneAccess;
   matrimonyChat?: LaneAccess;
+  businessChat?: LaneAccess;
   primaryLane?: ChatLane | null;
   chatLanes?: ChatLane[];
   code?: string;
   message?: string;
-  reason?: "matrimony_match" | "connection" | "legacy_thread" | "blocked" | "no_permission";
+  reason?: "matrimony_match" | "connection" | "business" | "legacy_thread" | "blocked" | "no_permission";
 };
 
 export async function getMessageAccess(otherUserId: number): Promise<MessageAccess> {

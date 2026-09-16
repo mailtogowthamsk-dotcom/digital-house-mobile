@@ -77,4 +77,11 @@ export type RootStackParamList = {
   AdvertisementsHome: undefined;
   AdvertisementCreate: { id?: number } | undefined;
   AdvertisementDetail: { id: number };
+  MyBusinessBenefits: undefined;
+  CreateBusinessBenefit: { benefitId?: number; mode?: "edit" } | undefined;
+  BusinessBenefitDetail: { benefitId: number };
+  MemberBenefitsBrowse: undefined;
+  MyBenefitClaims: undefined;
+  BenefitClaimDetail: { claimId: number; justClaimed?: boolean };
+  VerifyBenefitClaim: undefined;
 };

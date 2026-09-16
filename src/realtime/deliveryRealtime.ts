@@ -124,6 +124,14 @@ export function resetDeliveryRealtime(): void {
 
 export function ensureDeliveryRealtimeWired(): void {
   if (meId == null) return;
+  if (socketRef) {
+    if (onNew) socketRef.off("message:new", onNew);
+    if (onConnect) socketRef.off("connect", onConnect);
+    if (onDisconnect) socketRef.off("disconnect", onDisconnect);
+  }
+  onNew = null;
+  onConnect = null;
+  onDisconnect = null;
   wired = false;
   socketRef = null;
   void ensureWired();

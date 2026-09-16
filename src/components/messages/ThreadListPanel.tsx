@@ -487,6 +487,14 @@ export function ThreadRow({
               <Ionicons name="heart" size={12} color="#DC2626" />
             </View>
           ) : null}
+          {chatLanes?.includes("business") ? (
+            <View
+              style={[rowStyles.laneIcon, { backgroundColor: "rgba(5,150,105,0.12)" }]}
+              accessibilityLabel="Business chat"
+            >
+              <Ionicons name="storefront" size={12} color="#059669" />
+            </View>
+          ) : null}
           {left ? (
             <Ionicons name="exit-outline" size={14} color={colors.textMuted} />
           ) : archived ? (

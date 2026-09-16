@@ -88,6 +88,21 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
     case "OPEN_PENDING_APPROVAL":
       navigation.navigate("PendingApproval");
       break;
+    case "OPEN_BUSINESS_BENEFIT":
+      if (targetId) navigation.navigate("BusinessBenefitDetail", { benefitId: targetId });
+      else navigation.navigate("MyBusinessBenefits");
+      break;
+    case "OPEN_BUSINESS_BENEFITS_MINE":
+      if (item.type === "BUSINESS_BENEFIT_CLAIMED") {
+        navigation.navigate("VerifyBenefitClaim");
+      } else {
+        navigation.navigate("MyBusinessBenefits");
+      }
+      break;
+    case "OPEN_BENEFIT_CLAIM":
+      if (targetId) navigation.navigate("BenefitClaimDetail", { claimId: targetId });
+      else navigation.navigate("MyBenefitClaims");
+      break;
     default:
       if (item.category === "MATRIMONY") navigation.navigate("MatrimonyHome");
       else if (item.category === "MESSAGES") navigation.navigate("Messages");

@@ -40,9 +40,19 @@ export function mergeChatMessages(
     const clientId = typeof m.clientId === "string" && m.clientId ? m.clientId : null;
     if (clientId) {
       const prev = byClientId.get(clientId);
-      if (prev && prev.id > 0 && m.id < 0) {
-        // Keep confirmed server message over optimistic duplicate
-        return;
+      if (prev) {
+        if (prev.id > 0 && m.id < 0) {
+          // Keep confirmed server message over optimistic duplicate
+          return;
+        }
+        if (prev.id > 0 && m.id > 0 && prev.id !== m.id) {
+          // Same clientId confirmed twice — keep the higher (newer) id
+          if (m.id < prev.id) return;
+          byId.delete(prev.id);
+        }
+        if (prev.id < 0 && m.id > 0) {
+          // Replace optimistic entry tracked only via client map
+        }
       }
       byClientId.set(clientId, m);
     }

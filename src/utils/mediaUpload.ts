@@ -255,10 +255,13 @@ export async function uploadOptimizedImage(
     const finalized = await finalizeMedia(mediaFileId);
     onProgress?.(1);
 
+    // Persist the post-process key (_full.webp), never the staging upload key.
+    // Worker deletes staging after variants exist — saving `key` caused signed GET 404s.
+    const liveKey =
+      finalized.variants?.full || finalized.publicUrl || key || publicUrl;
     return {
-      // Prefer display URL from finalize; persist `storageKey` (object key) on profile/DB.
-      publicUrl: finalized.publicUrl,
-      storageKey: key || publicUrl,
+      publicUrl: finalized.publicUrl || finalized.variants?.full || publicUrl,
+      storageKey: liveKey,
       mediaFileId,
       variants: finalized.variants,
       width: finalized.width,
@@ -403,9 +406,11 @@ export async function uploadVideo(
         await cleanupTempVideoUri(options.tempFileUri);
       }
 
+      const liveKey =
+        finalized.publicUrl || finalized.thumbnailUrl || key || publicUrl;
       return {
-        publicUrl: finalized.publicUrl,
-        storageKey: key || publicUrl,
+        publicUrl: finalized.publicUrl || publicUrl,
+        storageKey: liveKey,
         mediaFileId,
         thumbnailUri: thumb?.uri ?? null,
         thumbnailUrl: finalized.thumbnailUrl || thumbnailUrl,

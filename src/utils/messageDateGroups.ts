@@ -40,9 +40,15 @@ export function buildChatListRows(messages: MessageItem[]): ChatListRow[] {
       lastDay = label;
       rows.push({ kind: "date", id: `date-${label}-${message.id}`, label });
     }
+    // Prefer server id so optimistic + confirmed never share a React key.
     rows.push({
       kind: "message",
-      id: message.clientId ? `c:${message.clientId}` : String(message.id),
+      id:
+        message.id > 0
+          ? `m:${message.id}`
+          : message.clientId
+            ? `c:${message.clientId}`
+            : `t:${message.createdAt}:${message.senderId}`,
       message
     });
   }

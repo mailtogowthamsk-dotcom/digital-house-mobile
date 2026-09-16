@@ -24,6 +24,7 @@ import {
 } from "../../api/notifications.api";
 import { navigateFromNotification } from "../../navigation/notificationNavigation";
 import { useNotifications } from "../../context/NotificationContext";
+import { subscribeNotifications } from "../../realtime/notificationsRealtime";
 import { NotificationActivityHeader } from "../../components/notifications/NotificationActivityHeader";
 import { NotificationSummaryStrip } from "../../components/notifications/NotificationSummaryStrip";
 import { NotificationFilterChips } from "../../components/notifications/NotificationFilterChips";
@@ -32,7 +33,9 @@ import { NotificationSkeletonList } from "../../components/notifications/Notific
 import { NotificationEmptyState } from "../../components/notifications/NotificationEmptyState";
 import {
   buildActivitySummary,
+  collapseMessageNotifications,
   groupNotificationsByDate,
+  isMessageNotificationType,
   type NotificationSection
 } from "../../features/notifications/notificationPresentation";
 import { maybePromptPushAfterMeaningfulUse } from "../../permissions";
@@ -80,7 +83,10 @@ export function NotificationCenterScreen() {
       try {
         const res = await getNotifications(pageNum, PAGE_SIZE, category);
         if (gen !== loadGen.current) return;
-        setItems((prev) => (append ? [...prev, ...res.items] : res.items));
+        const nextItems = collapseMessageNotifications(res.items);
+        setItems((prev) =>
+          append ? collapseMessageNotifications([...prev, ...res.items]) : nextItems
+        );
         setTotal(res.total);
         setPage(pageNum);
         setCounts(res.counts);
@@ -101,6 +107,37 @@ export function NotificationCenterScreen() {
     useCallback(() => {
       void load(1, false, tab);
     }, [load, tab])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      return subscribeNotifications({
+        onNew: ({ notification, counts: next }) => {
+          setCounts(next);
+          setItems((prev) => {
+            const matchesTab =
+              tab === "ALL" || notification.category === tab;
+            if (!matchesTab) return prev;
+
+            const withoutSameId = prev.filter((n) => n.id !== notification.id);
+            // Collapse duplicate DM cards for the same peer if any legacy rows remain.
+            const withoutSameDm =
+              isMessageNotificationType(notification.type) && notification.actorUserId
+                ? withoutSameId.filter(
+                    (n) =>
+                      !(
+                        isMessageNotificationType(n.type) &&
+                        n.actorUserId === notification.actorUserId &&
+                        !n.isRead
+                      )
+                  )
+                : withoutSameId;
+            return collapseMessageNotifications([notification, ...withoutSameDm]);
+          });
+        },
+        onCounts: (next) => setCounts(next)
+      });
+    }, [setCounts, tab])
   );
 
   useFocusEffect(

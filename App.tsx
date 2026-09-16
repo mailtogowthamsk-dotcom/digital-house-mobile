@@ -55,6 +55,13 @@ import { MatrimonyHomeScreen } from "./src/screens/matrimony/MatrimonyHomeScreen
 import { AdvertisementsHomeScreen } from "./src/screens/advertisement/AdvertisementsHomeScreen";
 import { AdvertisementCreateScreen } from "./src/screens/advertisement/AdvertisementCreateScreen";
 import { AdvertisementDetailScreen } from "./src/screens/advertisement/AdvertisementDetailScreen";
+import { MyBusinessBenefitsScreen } from "./src/screens/business/MyBusinessBenefitsScreen";
+import { CreateBusinessBenefitScreen } from "./src/screens/business/CreateBusinessBenefitScreen";
+import { BusinessBenefitDetailScreen } from "./src/screens/business/BusinessBenefitDetailScreen";
+import { MemberBenefitsBrowseScreen } from "./src/screens/business/MemberBenefitsBrowseScreen";
+import { MyBenefitClaimsScreen } from "./src/screens/business/MyBenefitClaimsScreen";
+import { BenefitClaimDetailScreen } from "./src/screens/business/BenefitClaimDetailScreen";
+import { VerifyBenefitClaimScreen } from "./src/screens/business/VerifyBenefitClaimScreen";
 import { JobsHomeScreen } from "./src/screens/jobs/JobsHomeScreen";
 import { MarketplaceHomeScreen } from "./src/screens/marketplace/MarketplaceHomeScreen";
 import { HelpingHandsHomeScreen } from "./src/screens/helpingHands/HelpingHandsHomeScreen";
@@ -228,6 +235,41 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="AdvertisementsHome" component={AdvertisementsHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AdvertisementCreate" component={AdvertisementCreateScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AdvertisementDetail" component={AdvertisementDetailScreen} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="MyBusinessBenefits"
+          component={MyBusinessBenefitsScreen}
+          options={{ title: "Member Benefits" }}
+        />
+        <Stack.Screen
+          name="CreateBusinessBenefit"
+          component={CreateBusinessBenefitScreen}
+          options={{ title: "Create Benefit" }}
+        />
+        <Stack.Screen
+          name="BusinessBenefitDetail"
+          component={BusinessBenefitDetailScreen}
+          options={{ title: "Benefit" }}
+        />
+        <Stack.Screen
+          name="MemberBenefitsBrowse"
+          component={MemberBenefitsBrowseScreen}
+          options={{ title: "Member Benefits" }}
+        />
+        <Stack.Screen
+          name="MyBenefitClaims"
+          component={MyBenefitClaimsScreen}
+          options={{ title: "My Claims" }}
+        />
+        <Stack.Screen
+          name="BenefitClaimDetail"
+          component={BenefitClaimDetailScreen}
+          options={{ title: "Claim Code" }}
+        />
+        <Stack.Screen
+          name="VerifyBenefitClaim"
+          component={VerifyBenefitClaimScreen}
+          options={{ title: "Verify Claim" }}
+        />
         <Stack.Screen name="MatrimonySetup" component={MatrimonySetupScreen} options={{ title: "Matrimony Profile" }} />
         <Stack.Screen name="MatrimonyBrowse" component={MatrimonyBrowseScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MatrimonyCandidate" component={MatrimonyCandidateScreen} options={{ headerShown: false }} />

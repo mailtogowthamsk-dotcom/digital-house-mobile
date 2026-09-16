@@ -354,20 +354,18 @@ export function MessagesHubScreen() {
       if (incoming.id > 0 && forgottenMessageIdsRef.current.has(incoming.id)) {
         return;
       }
-      setMessages((prev) => {
-        const incomingClientId =
-          typeof incoming.clientId === "string" ? incoming.clientId : null;
-        if (incomingClientId && pendingClientIdsRef.current.has(incomingClientId)) {
-          pendingClientIdsRef.current.delete(incomingClientId);
-          const replaced = prev.map((x) =>
-            x.clientId === incomingClientId ? incoming : x
-          );
-          if (replaced.some((x) => x.id === incoming.id)) return replaced;
-          return replaced;
-        }
-        if (prev.some((x) => x.id === incoming.id)) return prev;
-        return [...prev, incoming];
-      });
+      const incomingClientId =
+        typeof incoming.clientId === "string" && incoming.clientId
+          ? incoming.clientId
+          : null;
+      if (incomingClientId) {
+        pendingClientIdsRef.current.delete(incomingClientId);
+      }
+      setMessages((prev) =>
+        mergeChatMessages(prev, [incoming], {
+          forgottenIds: forgottenMessageIdsRef.current
+        })
+      );
       scrollToBottomIfNeeded(true);
     },
     [scrollToBottomIfNeeded]
@@ -640,7 +638,11 @@ export function MessagesHubScreen() {
         clientId
       });
       pendingClientIdsRef.current.delete(clientId);
-      setMessages((prev) => prev.map((x) => (x.clientId === clientId ? saved : x)));
+      setMessages((prev) =>
+        mergeChatMessages(prev, [saved], {
+          forgottenIds: forgottenMessageIdsRef.current
+        })
+      );
       setThreads((prev) => {
         const { threads: next, needsFullReload } = patchThreadsFromMessage(prev, saved, meId);
         if (needsFullReload) loadThreads(undefined, { soft: true }).catch(() => {});

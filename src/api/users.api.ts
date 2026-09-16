@@ -56,6 +56,15 @@ export type MemberProfile = {
   stats?: MemberProfileStats;
   connectedSince?: string | null;
   canViewPosts?: boolean;
+  /** Approved + active business only (never pending/rejected). */
+  business?: {
+    businessName: string | null;
+    businessType: string | null;
+    businessDescription: string | null;
+    businessAddress: string | null;
+    businessPhone: string | null;
+    businessWebsite: string | null;
+  } | null;
 };
 
 export type MemberPostItem = {

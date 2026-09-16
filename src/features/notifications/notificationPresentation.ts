@@ -35,9 +35,14 @@ export function isMatrimonyHighlight(item: NotificationItem): boolean {
 
 export function getNotificationVisual(type: string, category: NotificationCategory): NotificationVisual {
   switch (type) {
+    case "BUSINESS_BENEFIT_APPROVED":
+    case "BUSINESS_BENEFIT_REJECTED":
+    case "BUSINESS_BENEFIT_CLAIMED":
+      return { icon: "gift", accent: "#059669", accentSoft: "rgba(5, 150, 105, 0.12)" };
     case "MESSAGE_NEW":
     case "MESSAGE_REQUEST":
     case "MESSAGE_MEDIA":
+    case "BUSINESS_ENQUIRY_RECEIVED":
       return { icon: "chatbubble-ellipses", accent: "#2563EB", accentSoft: "rgba(37, 99, 235, 0.12)" };
     case "MATRIMONY_INTEREST_RECEIVED":
       return { icon: "heart", accent: "#7C3AED", accentSoft: "rgba(124, 58, 237, 0.14)" };
@@ -106,6 +111,71 @@ export function getNotificationVisual(type: string, category: NotificationCatego
       }
       return { icon: "notifications", accent: "#64748B", accentSoft: "rgba(100, 116, 139, 0.12)" };
   }
+}
+
+export function formatNotificationCount(count: number): string {
+  if (!Number.isFinite(count) || count < 1) return "1";
+  if (count > 99) return "99+";
+  return String(Math.floor(count));
+}
+
+export function isMessageNotificationType(type: string): boolean {
+  return type === "MESSAGE_NEW" || type === "MESSAGE_REQUEST" || type === "MESSAGE_MEDIA";
+}
+
+/**
+ * One Activity card per unread DM peer (heals legacy API rows that were never grouped).
+ * Read notifications are left as-is.
+ */
+export function collapseMessageNotifications(items: NotificationItem[]): NotificationItem[] {
+  const out: NotificationItem[] = [];
+  const unreadDmIndex = new Map<number, number>();
+
+  for (const item of items) {
+    if (!isMessageNotificationType(item.type) || item.isRead || item.actorUserId == null) {
+      out.push(item);
+      continue;
+    }
+    const peerId = Number(item.actorUserId);
+    const existingIdx = unreadDmIndex.get(peerId);
+    if (existingIdx == null) {
+      unreadDmIndex.set(peerId, out.length);
+      out.push(item);
+      continue;
+    }
+    const prev = out[existingIdx];
+    const prevTime = Date.parse(prev.createdAt) || 0;
+    const nextTime = Date.parse(item.createdAt) || 0;
+    const newer = nextTime >= prevTime ? item : prev;
+    const older = newer === item ? prev : item;
+    out[existingIdx] = {
+      ...newer,
+      groupCount: (prev.groupCount ?? 1) + (item.groupCount ?? 1),
+      // Keep the newer preview/body; retain older id only if newer somehow missing.
+      id: newer.id || older.id
+    };
+  }
+
+  return out;
+}
+
+/** Primary body line under the title for Activity cards. */
+export function getNotificationSummary(item: NotificationItem): string | null {
+  if (isMessageNotificationType(item.type)) {
+    const n = item.groupCount ?? 1;
+    if (n <= 1) return "Sent you a message";
+    return `Sent you ${formatNotificationCount(n)} messages`;
+  }
+  return item.body;
+}
+
+/** Secondary preview (latest message text) for grouped DMs. */
+export function getNotificationPreview(item: NotificationItem): string | null {
+  if (isMessageNotificationType(item.type)) {
+    const preview = item.body?.trim();
+    return preview || null;
+  }
+  return null;
 }
 
 export function formatNotificationTime(iso: string, now = Date.now()): string {

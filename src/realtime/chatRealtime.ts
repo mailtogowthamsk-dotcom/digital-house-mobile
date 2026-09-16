@@ -52,6 +52,8 @@ const globalConversationDeletedHandlers = new Map<symbol, GlobalConversationDele
 let socketRef: Socket | null = null;
 let wired = false;
 let wirePromise: Promise<void> | null = null;
+/** Bumps on each wire so stale handlers from overlapping rewires are ignored. */
+let wireGeneration = 0;
 /** Set on drop so the next connect is recognised as a reconnect, not a first connect. */
 let sawDisconnect = false;
 
@@ -90,9 +92,16 @@ function detachListeners(sock: Socket): void {
 }
 
 async function wireSocket(sock: Socket): Promise<void> {
+  // Always detach from the previous socket instance first — ensure*Wired used to
+  // null socketRef without off(), which stacked duplicate message:new/sent handlers.
+  if (socketRef && socketRef !== sock) {
+    detachListeners(socketRef);
+  }
   detachListeners(sock);
+  const generation = ++wireGeneration;
 
   onMessageEvent = (raw: unknown) => {
+    if (generation !== wireGeneration) return;
     if (!raw || typeof raw !== "object") return;
     const m = raw as MessageItem;
     // Normalize ids so strict equality never drops valid events
@@ -130,6 +139,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   };
 
   onDeliveredEvent = (p: unknown) => {
+    if (generation !== wireGeneration) return;
     const payload = p as { messageId?: number; deliveredAt?: string | null };
     const messageId = Number(payload?.messageId);
     if (!messageId) return;
@@ -139,6 +149,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   };
 
   onReadEvent = (p: unknown) => {
+    if (generation !== wireGeneration) return;
     const payload = p as { withUserId?: number; readAt?: string };
     const readAt = payload?.readAt;
     const withUserId = Number(payload?.withUserId);
@@ -152,6 +163,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   };
 
   onTypingEvent = (p: unknown) => {
+    if (generation !== wireGeneration) return;
     const payload = p as { fromUserId?: number; typing?: boolean };
     const fromUserId = Number(payload?.fromUserId);
     if (!fromUserId) return;
@@ -163,6 +175,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   };
 
   onDeletedEvent = (p: unknown) => {
+    if (generation !== wireGeneration) return;
     if (!p || typeof p !== "object") return;
     const raw = p as MessageDeletedPayload;
     const messageId = Number(raw.messageId);
@@ -200,6 +213,7 @@ async function wireSocket(sock: Socket): Promise<void> {
   };
 
   onConversationDeletedEvent = (p: unknown) => {
+    if (generation !== wireGeneration) return;
     if (!p || typeof p !== "object") return;
     const raw = p as Record<string, unknown>;
     const deletedByUserId = Number(raw.deletedByUserId);
@@ -363,6 +377,9 @@ export function ensureChatRealtimeWired(): void {
     globalDeletedHandlers.size === 0
   ) {
     return;
+  }
+  if (socketRef) {
+    detachListeners(socketRef);
   }
   wired = false;
   socketRef = null;

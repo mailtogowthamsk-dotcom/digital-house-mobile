@@ -21,10 +21,12 @@ import {
   ProfileHeader,
   PersonalInfoSection,
   ProfessionalInfoSection,
+  BusinessProfileSection,
   ProfileContentLinks,
   ActionButtons,
   ProfileSkeleton
 } from "../../components/profile";
+import { MemberBenefitsProfileSection } from "../../components/profile/MemberBenefitsProfileSection";
 import { BottomTabBar, FLOATING_TAB_BAR_HEIGHT } from "../../components/home";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { handleMainTabPress } from "../../navigation/mainTabs";
@@ -164,12 +166,32 @@ export function ProfileScreen() {
           totalPosts={profile.stats?.total_posts ?? 0}
           onMyPostsPress={() => navigation.navigate("MyPosts")}
           onMyActivityPress={() => navigation.navigate("MyActivity")}
+          onMemberBenefitsPress={() => navigation.navigate("MemberBenefitsBrowse")}
+          onMyClaimsPress={() => navigation.navigate("MyBenefitClaims")}
         />
         <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
         <ProfessionalInfoSection professional={profile.professional_info} />
+        <BusinessProfileSection
+          visible={profile.show_business === true}
+          business={
+            profile.sections?.business
+              ? {
+                  businessName: (profile.sections.business as any).businessName ?? null,
+                  businessType: (profile.sections.business as any).businessType ?? null,
+                  businessDescription: (profile.sections.business as any).businessDescription ?? null,
+                  businessAddress: (profile.sections.business as any).businessAddress ?? null,
+                  businessPhone: (profile.sections.business as any).businessPhone ?? null,
+                  businessWebsite: (profile.sections.business as any).businessWebsite ?? null
+                }
+              : null
+          }
+        />
+        {profile.show_business === true && user?.id ? (
+          <MemberBenefitsProfileSection businessOwnerId={user.id} isOwner />
+        ) : null}
       </>
     );
-  }, [profile, navigation, user?.username, onEditPress]);
+  }, [profile, navigation, user?.username, user?.id, onEditPress]);
 
   const listFooter = useMemo(
     () => (

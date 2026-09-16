@@ -40,6 +40,9 @@ import {
   type PostSharePayload
 } from "../../components/share/PostActionsBottomSheet";
 import { MemberProfileStatsRow } from "../../components/members/MemberProfileStatsRow";
+import { BusinessProfileCard } from "../../components/profile";
+import { BusinessEnquiryModal } from "../../components/profile/BusinessEnquiryModal";
+import { MemberBenefitsProfileSection } from "../../components/profile/MemberBenefitsProfileSection";
 import { Shimmer } from "../../components/ui/Shimmer";
 import { formatUsername } from "../../utils/username";
 import { relationshipLabel } from "../../utils/relationshipStatus";
@@ -75,6 +78,7 @@ export function MemberProfileScreen() {
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
   const memberFocusOnceRef = useRef(false);
   const memberLastFetchRef = useRef(0);
   const [acting, setActing] = useState(false);
@@ -546,6 +550,18 @@ export function MemberProfileScreen() {
                 ) : null}
               </View>
             ) : null}
+
+            <BusinessProfileCard
+              business={profile.business}
+              onContactBusiness={
+                !profile.isSelf && profile.business
+                  ? () => setEnquiryOpen(true)
+                  : undefined
+              }
+            />
+            {!profile.isSelf && profile.business ? (
+              <MemberBenefitsProfileSection businessOwnerId={profile.id} />
+            ) : null}
           </>
         ) : null}
 
@@ -809,6 +825,23 @@ export function MemberProfileScreen() {
         onClose={() => setSharePost(null)}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
+
+      {profile?.business && !profile.isSelf ? (
+        <BusinessEnquiryModal
+          visible={enquiryOpen}
+          onClose={() => setEnquiryOpen(false)}
+          businessOwnerId={profile.id}
+          business={profile.business}
+          ownerName={profile.fullName}
+          onSent={({ otherUserId, ownerName }) => {
+            navigation.navigate("Chat", {
+              otherUserId,
+              name: ownerName,
+              profileImage: profile.profileImage
+            });
+          }}
+        />
+      ) : null}
     </>
   );
 }

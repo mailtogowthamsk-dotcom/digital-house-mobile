@@ -8,6 +8,7 @@ import { spacing, radius } from "../../theme/spacing";
 import type { NotificationItem } from "../../api/notifications.api";
 import { navigateFromNotification } from "../../navigation/notificationNavigation";
 import { markNotificationRead, type UnreadCounts } from "../../api/notifications.api";
+import { getNotificationSummary } from "../../features/notifications/notificationPresentation";
 
 type Props = {
   item: NotificationItem;
@@ -71,6 +72,8 @@ export function InAppNotificationBanner({ item, onDismiss, onCountsUpdate }: Pro
     }
   };
 
+  const summary = getNotificationSummary(item);
+
   return (
     <View style={s.wrap} pointerEvents="box-none">
       <Pressable style={s.card} onPress={onPress}>
@@ -85,9 +88,10 @@ export function InAppNotificationBanner({ item, onDismiss, onCountsUpdate }: Pro
           <Text style={s.title} numberOfLines={1}>
             {item.title}
           </Text>
-          {item.body ? (
+          {summary ? (
             <Text style={s.body} numberOfLines={2}>
-              {item.body}
+              {summary}
+              {item.body && summary !== item.body ? ` · ${item.body}` : ""}
             </Text>
           ) : null}
         </View>

@@ -9,9 +9,13 @@ import type { NotificationItem } from "../../api/notifications.api";
 import { getImageUrl } from "../../api/client";
 import { appAlert } from "../../utils/appAlert";
 import {
+  formatNotificationCount,
   formatNotificationTime,
+  getNotificationPreview,
+  getNotificationSummary,
   getNotificationVisual,
-  isMatrimonyHighlight
+  isMatrimonyHighlight,
+  isMessageNotificationType
 } from "../../features/notifications/notificationPresentation";
 
 export type NotificationListItemProps = {
@@ -31,6 +35,15 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
   const visual = getNotificationVisual(item.type, item.category);
   const avatarUri = item.image ? getImageUrl(item.image) : null;
   const timeLabel = formatNotificationTime(item.createdAt);
+  const isMessage = isMessageNotificationType(item.type);
+  const summary = getNotificationSummary(item);
+  const preview = getNotificationPreview(item);
+  const countLabel =
+    isMessage && (item.groupCount ?? 1) > 1
+      ? formatNotificationCount(item.groupCount)
+      : item.groupCount > 1
+        ? `${item.groupCount} updates`
+        : null;
 
   const onLongPress = () => {
     appAlert(item.title, undefined, [
@@ -149,6 +162,13 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
           lineHeight: 18,
           color: colors.textSecondary
         },
+        preview: {
+          marginTop: 2,
+          fontSize: 13,
+          lineHeight: 18,
+          color: colors.textMuted,
+          fontWeight: "500"
+        },
         meta: {
           marginTop: 8,
           flexDirection: "row",
@@ -163,6 +183,20 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
           backgroundColor: visual.accentSoft
         },
         groupText: { fontSize: 10, fontWeight: "700", color: visual.accent },
+        countBadge: {
+          minWidth: 22,
+          height: 22,
+          paddingHorizontal: 6,
+          borderRadius: 11,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: visual.accent
+        },
+        countBadgeText: {
+          fontSize: 11,
+          fontWeight: "800",
+          color: "#fff"
+        },
         dot: {
           width: 9,
           height: 9,
@@ -226,16 +260,26 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
               <Text style={s.title} numberOfLines={2}>
                 {item.title}
               </Text>
-              {item.body ? (
+              {summary ? (
                 <Text style={s.body} numberOfLines={2}>
-                  {item.body}
+                  {summary}
+                </Text>
+              ) : null}
+              {preview && isMessage ? (
+                <Text style={s.preview} numberOfLines={1}>
+                  {preview}
                 </Text>
               ) : null}
               <View style={s.meta}>
                 <Text style={s.time}>{timeLabel}</Text>
-                {item.groupCount > 1 ? (
+                {countLabel && !isMessage ? (
                   <View style={s.groupPill}>
-                    <Text style={s.groupText}>{item.groupCount} updates</Text>
+                    <Text style={s.groupText}>{countLabel}</Text>
+                  </View>
+                ) : null}
+                {countLabel && isMessage ? (
+                  <View style={s.countBadge}>
+                    <Text style={s.countBadgeText}>{countLabel}</Text>
                   </View>
                 ) : null}
               </View>

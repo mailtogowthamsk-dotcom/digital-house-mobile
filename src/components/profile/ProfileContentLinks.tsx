@@ -10,12 +10,16 @@ type Props = {
   totalPosts?: number;
   onMyPostsPress: () => void;
   onMyActivityPress: () => void;
+  onMemberBenefitsPress?: () => void;
+  onMyClaimsPress?: () => void;
 };
 
 export function ProfileContentLinks({
   totalPosts = 0,
   onMyPostsPress,
-  onMyActivityPress
+  onMyActivityPress,
+  onMemberBenefitsPress,
+  onMyClaimsPress
 }: Props) {
   const { colors, mode } = useTheme();
 
@@ -89,6 +93,32 @@ export function ProfileContentLinks({
     }
   ];
 
+  const benefitTiles: Array<{
+    key: string;
+    title: string;
+    sub: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress: () => void;
+  }> = [];
+  if (onMemberBenefitsPress) {
+    benefitTiles.push({
+      key: "benefits",
+      title: "Member Benefits",
+      sub: "Offers from businesses",
+      icon: "gift-outline",
+      onPress: onMemberBenefitsPress
+    });
+  }
+  if (onMyClaimsPress) {
+    benefitTiles.push({
+      key: "claims",
+      title: "My Claims",
+      sub: "Claim codes",
+      icon: "ticket-outline",
+      onPress: onMyClaimsPress
+    });
+  }
+
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle}>Your content</Text>
@@ -111,6 +141,27 @@ export function ProfileContentLinks({
           </Pressable>
         ))}
       </View>
+      {benefitTiles.length ? (
+        <View style={[s.row, { marginTop: spacing.sm }]}>
+          {benefitTiles.map((tile) => (
+            <Pressable
+              key={tile.key}
+              style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
+              onPress={tile.onPress}
+              accessibilityRole="button"
+              accessibilityLabel={tile.title}
+            >
+              <View style={s.icon}>
+                <Ionicons name={tile.icon} size={18} color={colors.primary} />
+              </View>
+              <Text style={s.title}>{tile.title}</Text>
+              <Text style={s.sub} numberOfLines={1}>
+                {tile.sub}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
