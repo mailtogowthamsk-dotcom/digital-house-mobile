@@ -151,6 +151,8 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
     jobSalaryMin: item.jobSalaryMin ?? null,
     jobSalaryMax: item.jobSalaryMax ?? null,
     jobStatus: item.jobStatus ?? null,
-    jobInterestedByMe: item.jobInterestedByMe ?? false
+    jobInterestedByMe: item.jobInterestedByMe ?? false,
+    jobApplicationStatus: item.jobApplicationStatus ?? null,
+    jobApplicationDeadline: item.jobApplicationDeadline ?? null
   };
 }

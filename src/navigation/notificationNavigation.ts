@@ -56,6 +56,9 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
     case "OPEN_JOBS":
       navigation.navigate("JobsHome");
       break;
+    case "OPEN_MY_JOB_APPLICATIONS":
+      navigation.navigate("JobsHome", { initialMode: "applications" });
+      break;
     case "OPEN_MARKETPLACE":
       navigation.navigate("MarketplaceHome");
       break;

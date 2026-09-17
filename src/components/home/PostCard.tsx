@@ -58,6 +58,8 @@ export type PostCardData = {
   jobSalaryMax?: number | null;
   jobStatus?: string | null;
   jobInterestedByMe?: boolean;
+  jobApplicationStatus?: string | null;
+  jobApplicationDeadline?: string | null;
 };
 
 const DOUBLE_TAP_DELAY_MS = 280;
@@ -355,6 +357,8 @@ function PostCardInner({
         jobSalaryMax: post.jobSalaryMax,
         jobStatus: post.jobStatus,
         jobInterestedByMe: post.jobInterestedByMe,
+        jobApplicationStatus: post.jobApplicationStatus,
+        jobApplicationDeadline: post.jobApplicationDeadline,
         timeAgo: post.timeAgo
       }}
       onViewJob={onViewJob}

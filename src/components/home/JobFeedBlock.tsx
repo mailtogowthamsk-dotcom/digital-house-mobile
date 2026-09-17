@@ -7,7 +7,10 @@ import {
   formatEmploymentType,
   formatJobExperience,
   formatJobSalary,
-  formatWorkMode
+  formatWorkMode,
+  formatJobDeadline,
+  formatApplicationStatus,
+  deriveJobListingStatus
 } from "../../constants/jobs";
 
 export type JobCardFields = {
@@ -23,6 +26,8 @@ export type JobCardFields = {
   jobSalaryMax?: number | null;
   jobStatus?: string | null;
   jobInterestedByMe?: boolean;
+  jobApplicationStatus?: string | null;
+  jobApplicationDeadline?: string | null;
   timeAgo?: string;
 };
 
@@ -66,7 +71,10 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
   const skills = Array.isArray(job.jobSkills) ? job.jobSkills.filter(Boolean) : [];
   const skillPreview = skills.slice(0, 3);
   const skillMore = Math.max(0, skills.length - skillPreview.length);
-  const closed = job.jobStatus === "CLOSED";
+  const listingStatus = deriveJobListingStatus(job.jobStatus, job.jobApplicationDeadline);
+  const deadlineLabel = formatJobDeadline(job.jobApplicationDeadline);
+  const showClosedBadge = listingStatus === "CLOSED" || listingStatus === "EXPIRED";
+  const closedLabel = listingStatus === "EXPIRED" ? "Expired" : "Closed";
 
   const s = useMemo(
     () =>
@@ -137,13 +145,18 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
 
   return (
     <View style={s.wrap}>
-      {closed || job.jobInterestedByMe ? (
+      {showClosedBadge || job.jobInterestedByMe ? (
         <View style={s.badgeRow}>
-          {closed ? <Chip label="Closed" tone="amber" /> : null}
+          {showClosedBadge ? <Chip label={closedLabel} tone="amber" /> : null}
           {job.jobInterestedByMe ? (
             <View style={s.applied}>
               <Ionicons name="checkmark-circle" size={12} color="#15803D" />
-              <Text style={s.appliedText}>Applied</Text>
+              <Text style={s.appliedText}>
+                Applied
+                {job.jobApplicationStatus
+                  ? ` · ${formatApplicationStatus(job.jobApplicationStatus)}`
+                  : ""}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -194,7 +207,14 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
       ) : null}
 
       <View style={s.actions}>
-        {job.timeAgo ? <Text style={s.posted}>Posted {job.timeAgo}</Text> : <View />}
+        <View style={{ flex: 1, gap: 2 }}>
+          {job.timeAgo ? <Text style={s.posted}>Posted {job.timeAgo}</Text> : null}
+          {deadlineLabel ? (
+            <Text style={s.posted} numberOfLines={1}>
+              {deadlineLabel}
+            </Text>
+          ) : null}
+        </View>
         {onViewJob ? (
           <Pressable
             onPress={onViewJob}

@@ -63,6 +63,7 @@ import { MyBenefitClaimsScreen } from "./src/screens/business/MyBenefitClaimsScr
 import { BenefitClaimDetailScreen } from "./src/screens/business/BenefitClaimDetailScreen";
 import { VerifyBenefitClaimScreen } from "./src/screens/business/VerifyBenefitClaimScreen";
 import { JobsHomeScreen } from "./src/screens/jobs/JobsHomeScreen";
+import { JobApplicantsScreen } from "./src/screens/jobs/JobApplicantsScreen";
 import { MarketplaceHomeScreen } from "./src/screens/marketplace/MarketplaceHomeScreen";
 import { HelpingHandsHomeScreen } from "./src/screens/helpingHands/HelpingHandsHomeScreen";
 import { CreateHelpRequestScreen } from "./src/screens/helpingHands/CreateHelpRequestScreen";
@@ -218,6 +219,7 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
         <Stack.Screen name="Messages" component={MessagesHubScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
         <Stack.Screen name="JobsHome" component={JobsHomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="JobApplicants" component={JobApplicantsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="MarketplaceHome" component={MarketplaceHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="HelpingHandsHome" component={HelpingHandsHomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CreateHelpRequest" component={CreateHelpRequestScreen} options={{ headerShown: false }} />

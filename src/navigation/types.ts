@@ -49,7 +49,8 @@ export type RootStackParamList = {
     profileImage?: string | null;
     online?: boolean;
   };
-  JobsHome: undefined;
+  JobsHome: { initialMode?: "browse" | "mine" | "applications" } | undefined;
+  JobApplicants: { postId: number; jobTitle?: string };
   MarketplaceHome: undefined;
   HelpingHandsHome: undefined;
   CreateHelpRequest: undefined;

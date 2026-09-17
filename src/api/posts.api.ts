@@ -39,6 +39,10 @@ export type PostDetailResponse = {
   job_interested_by_me?: boolean;
   job_interest_count?: number;
   job_can_message_poster?: boolean;
+  job_application_status?: string | null;
+  job_interest_id?: number | null;
+  job_listing_status?: string;
+  job_accepting_applications?: boolean;
   marketplace_status?: string | null;
   marketplace_intent?: string | null;
   marketplace_category?: string | null;
@@ -123,6 +127,8 @@ export type CreatePostPayload = {
   job_skills?: string[];
   job_salary_min?: number | null;
   job_salary_max?: number | null;
+  job_category?: string | null;
+  job_vacancies?: number | null;
   job_application_deadline?: string | null;
   marketplace_status?: string | null;
   marketplace_intent?: string | null;
@@ -166,6 +172,8 @@ export type UpdatePostPayload = {
   job_skills?: string[];
   job_salary_min?: number | null;
   job_salary_max?: number | null;
+  job_category?: string | null;
+  job_vacancies?: number | null;
   job_application_deadline?: string | null;
   marketplace_status?: string | null;
   marketplace_intent?: string | null;
@@ -321,7 +329,7 @@ export async function reportPost(postId: number, reason: string): Promise<{ id: 
 
 export async function expressJobInterest(
   postId: number,
-  opts?: { message?: string | null; contact_mobile?: string | null; resume_url?: string | null }
+  opts?: { message?: string | null; contact_mobile?: string | null }
 ): Promise<{ interested: boolean; canMessage: boolean; interestId: number }> {
   const { data } = await api.post<{
     ok: boolean;
@@ -330,8 +338,7 @@ export async function expressJobInterest(
     interestId: number;
   }>(`/posts/${postId}/job-interest`, {
     message: opts?.message ?? null,
-    contact_mobile: opts?.contact_mobile ?? undefined,
-    resume_url: opts?.resume_url ?? null
+    contact_mobile: opts?.contact_mobile ?? undefined
   });
   if (!data.ok) throw new Error("Failed to express interest");
   return {
@@ -341,27 +348,126 @@ export async function expressJobInterest(
   };
 }
 
-export async function listJobInterests(postId: number): Promise<{
-  items: {
+export type JobInterestItem = {
+  id: number;
+  from_user_id: number;
+  message: string | null;
+  status: string;
+  employer_notes?: string | null;
+  created_at: string;
+  author: { id: number; name: string; profile_image: string | null };
+};
+
+export async function listJobInterests(
+  postId: number,
+  status?: string
+): Promise<{ items: JobInterestItem[]; total: number }> {
+  const { data } = await api.get<{
+    ok: boolean;
+    items: JobInterestItem[];
+    total: number;
+  }>(`/posts/${postId}/job-interests`, {
+    params: status && status !== "all" ? { status } : undefined
+  });
+  if (!data.ok) throw new Error("Failed to load interests");
+  return { items: data.items ?? [], total: data.total ?? 0 };
+}
+
+export async function updateJobInterest(
+  postId: number,
+  interestId: number,
+  payload: { status?: string; employer_notes?: string | null }
+): Promise<JobInterestItem> {
+  const { data } = await api.patch<{ ok: boolean; item: JobInterestItem }>(
+    `/posts/${postId}/job-interests/${interestId}`,
+    payload
+  );
+  if (!data.ok || !data.item) throw new Error("Failed to update application");
+  return data.item;
+}
+
+export async function withdrawJobInterest(
+  postId: number,
+  interestId: number
+): Promise<{ id: number; status: string }> {
+  const { data } = await api.post<{
+    ok: boolean;
+    item: { id: number; status: string };
+  }>(`/posts/${postId}/job-interests/${interestId}/withdraw`);
+  if (!data.ok || !data.item) throw new Error("Failed to withdraw application");
+  return data.item;
+}
+
+export type MyJobApplication = {
+  id: number;
+  status: string;
+  message: string | null;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+  job: {
     id: number;
-    from_user_id: number;
-    message: string | null;
+    title: string;
+    company: string | null;
+    location: string | null;
+    employment_type: string | null;
+    work_mode: string | null;
+    listing_status: string;
+    job_status: string | null;
+    application_deadline: string | null;
+    salary_min: number | null;
+    salary_max: number | null;
+  };
+};
+
+export async function listMyJobApplications(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}): Promise<{ items: MyJobApplication[]; total: number; page: number; limit: number }> {
+  const { data } = await api.get<{
+    ok: boolean;
+    items: MyJobApplication[];
+    total: number;
+    page: number;
+    limit: number;
+  }>("/posts/my-job-applications", {
+    params: {
+      page: params?.page ?? 1,
+      limit: params?.limit ?? 20,
+      ...(params?.status && params.status !== "all" ? { status: params.status } : {})
+    }
+  });
+  if (!data.ok) throw new Error("Failed to load applications");
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    page: data.page ?? 1,
+    limit: data.limit ?? 20
+  };
+}
+
+export async function getMyJobApplicationDetail(interestId: number): Promise<{
+  application: MyJobApplication;
+  timeline: Array<{
+    id: number;
+    action: string;
+    status_from: string | null;
+    status_to: string | null;
     created_at: string;
-    author: { id: number; name: string; profile_image: string | null };
-  }[];
-  total: number;
+  }>;
 }> {
   const { data } = await api.get<{
     ok: boolean;
-    items: {
+    application: MyJobApplication;
+    timeline: Array<{
       id: number;
-      from_user_id: number;
-      message: string | null;
+      action: string;
+      status_from: string | null;
+      status_to: string | null;
       created_at: string;
-      author: { id: number; name: string; profile_image: string | null };
-    }[];
-    total: number;
-  }>(`/posts/${postId}/job-interests`);
-  if (!data.ok) throw new Error("Failed to load interests");
-  return { items: data.items ?? [], total: data.total ?? 0 };
+    }>;
+  }>(`/posts/my-job-applications/${interestId}`);
+  if (!data.ok || !data.application) throw new Error("Failed to load application");
+  return { application: data.application, timeline: data.timeline ?? [] };
 }

@@ -22,7 +22,8 @@ import { UploadProgress } from "../../components/media/UploadProgress";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
 import type { RootStackParamList } from "../../navigation/types";
-import { JOB_EMPLOYMENT_TYPES, isValidIndianMobile, normalizeIndianMobile } from "../../constants/jobs";
+import { JOB_EMPLOYMENT_TYPES, JOB_WORK_MODES, isValidIndianMobile, normalizeIndianMobile } from "../../constants/jobs";
+import { DobDatePicker } from "../../components/ui/DobDatePicker";
 import { useAuth } from "../../context/AuthContext";
 import {
   MARKETPLACE_CATEGORIES,
@@ -157,6 +158,19 @@ export function CreatePostScreen() {
   const [jobCompany, setJobCompany] = useState("");
   const [jobLocation, setJobLocation] = useState("");
   const [jobEmploymentType, setJobEmploymentType] = useState<string>("FULL_TIME");
+  const [jobWorkMode, setJobWorkMode] = useState<string>("ON_SITE");
+  const [jobExperience, setJobExperience] = useState("");
+  const [jobSkills, setJobSkills] = useState("");
+  const [jobCategory, setJobCategory] = useState("");
+  const [jobVacancies, setJobVacancies] = useState("");
+  const [jobDeadline, setJobDeadline] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(12, 0, 0, 0);
+    return d;
+  });
+  const [jobDeadlinePickerOpen, setJobDeadlinePickerOpen] = useState(false);
+  const [showWorkModePicker, setShowWorkModePicker] = useState(false);
   const [jobSalaryMin, setJobSalaryMin] = useState("");
   const [jobSalaryMax, setJobSalaryMax] = useState("");
   /** registered = use account mobile; custom = recruitment number field */
@@ -341,6 +355,17 @@ export function CreatePostScreen() {
           setJobCompany(post.job_company ?? "");
           setJobLocation(post.job_location ?? "");
           setJobEmploymentType(post.job_employment_type ?? "FULL_TIME");
+          setJobWorkMode(post.job_work_mode ?? "ON_SITE");
+          setJobExperience(post.job_experience ?? "");
+          setJobSkills(Array.isArray(post.job_skills) ? post.job_skills.join(", ") : "");
+          setJobCategory(post.job_category ?? "");
+          setJobVacancies(
+            post.job_vacancies != null && post.job_vacancies > 0 ? String(post.job_vacancies) : ""
+          );
+          if (post.job_application_deadline) {
+            const parsed = new Date(post.job_application_deadline);
+            if (!Number.isNaN(parsed.getTime())) setJobDeadline(parsed);
+          }
           setJobSalaryMin(
             post.job_salary_min != null ? String(post.job_salary_min) : ""
           );
@@ -461,6 +486,23 @@ export function CreatePostScreen() {
         );
         return;
       }
+      const deadlineEnd = new Date(jobDeadline);
+      deadlineEnd.setHours(23, 59, 59, 999);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      if (deadlineEnd.getTime() < tomorrow.getTime()) {
+        setError("Application deadline must be at least tomorrow");
+        return;
+      }
+      const vacanciesRaw = jobVacancies.trim();
+      if (vacanciesRaw) {
+        const v = Math.floor(Number(vacanciesRaw));
+        if (!Number.isFinite(v) || v < 1) {
+          setError("Vacancies must be a positive whole number");
+          return;
+        }
+      }
     }
     if (submitType === "MARKETPLACE") {
       if (description.trim().length < 20) {
@@ -490,6 +532,42 @@ export function CreatePostScreen() {
     setSaving(true);
     submittingRef.current = true;
     setError(null);
+    const jobSkillsList =
+      submitType === "JOB"
+        ? jobSkills
+            .split(",")
+            .map((sk) => sk.trim())
+            .filter(Boolean)
+        : [];
+    const jobDeadlineIso =
+      submitType === "JOB"
+        ? (() => {
+            const d = new Date(jobDeadline);
+            d.setHours(23, 59, 59, 999);
+            return d.toISOString();
+          })()
+        : null;
+    const jobVacanciesNum =
+      submitType === "JOB" && jobVacancies.trim()
+        ? Math.floor(Number(jobVacancies.trim()))
+        : null;
+    const jobPayload =
+      submitType === "JOB"
+        ? {
+            job_company: jobCompany.trim() || null,
+            job_location: jobLocation.trim() || null,
+            job_employment_type: jobEmploymentType || null,
+            job_work_mode: jobWorkMode || null,
+            job_experience: jobExperience.trim() || null,
+            job_skills: jobSkillsList.length > 0 ? jobSkillsList : undefined,
+            job_category: jobCategory.trim() || null,
+            job_vacancies: jobVacanciesNum,
+            job_salary_min: minSalary,
+            job_salary_max: maxSalary,
+            job_contact_phone: jobContactNormalized,
+            job_application_deadline: jobDeadlineIso
+          }
+        : null;
     try {
       let coverUrl = (galleryUrls[0] ?? mediaUrl).trim() || null;
       let nextGalleryUrls = [...galleryUrls];
@@ -635,16 +713,7 @@ export function CreatePostScreen() {
           hashtags: mergedHashtags,
           ...mediaPayload,
           ...(submitType === "MARKETPLACE" ? marketplacePayload : {}),
-          ...(submitType === "JOB"
-            ? {
-                job_company: jobCompany.trim() || null,
-                job_location: jobLocation.trim() || null,
-                job_employment_type: jobEmploymentType || null,
-                job_salary_min: minSalary,
-                job_salary_max: maxSalary,
-                job_contact_phone: jobContactNormalized
-              }
-            : {})
+          ...(submitType === "JOB" && jobPayload ? jobPayload : {})
         });
         mediaCommittedRef.current = true;
         sessionUploadedUrlsRef.current.clear();
@@ -657,16 +726,8 @@ export function CreatePostScreen() {
           description: description.trim() || null,
           hashtags: mergedHashtags,
           ...mediaPayload,
-          ...(submitType === "JOB"
-            ? {
-                job_status: "OPEN",
-                job_company: jobCompany.trim() || null,
-                job_location: jobLocation.trim() || null,
-                job_employment_type: jobEmploymentType || null,
-                job_salary_min: minSalary,
-                job_salary_max: maxSalary,
-                job_contact_phone: jobContactNormalized
-              }
+          ...(submitType === "JOB" && jobPayload
+            ? { job_status: "OPEN", ...jobPayload }
             : {}),
           ...(submitType === "MARKETPLACE" ? marketplacePayload : {})
         });
@@ -712,6 +773,12 @@ export function CreatePostScreen() {
     jobCompany,
     jobLocation,
     jobEmploymentType,
+    jobWorkMode,
+    jobExperience,
+    jobSkills,
+    jobCategory,
+    jobVacancies,
+    jobDeadline,
     jobSalaryMin,
     jobSalaryMax,
     jobContactSource,
@@ -1042,6 +1109,108 @@ export function CreatePostScreen() {
                 ))}
               </View>
             ) : null}
+
+            <Text style={s.label}>Work mode</Text>
+            <Pressable
+              style={s.picker}
+              onPress={() => setShowWorkModePicker(!showWorkModePicker)}
+            >
+              <Text style={s.pickerText}>
+                {JOB_WORK_MODES.find((t) => t.value === jobWorkMode)?.label ?? jobWorkMode}
+              </Text>
+              <Ionicons
+                name={showWorkModePicker ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+            {showWorkModePicker ? (
+              <View style={s.pickerOptions}>
+                {JOB_WORK_MODES.map((t) => (
+                  <Pressable
+                    key={t.value}
+                    style={[s.pickerOption, t.value === jobWorkMode && s.pickerOptionActive]}
+                    onPress={() => {
+                      setJobWorkMode(t.value);
+                      setShowWorkModePicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        s.pickerOptionText,
+                        t.value === jobWorkMode && s.pickerOptionTextActive
+                      ]}
+                    >
+                      {t.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
+            <Text style={s.label}>Experience (optional)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. Fresher, 2 years"
+              placeholderTextColor={colors.textMuted}
+              value={jobExperience}
+              onChangeText={setJobExperience}
+              editable={!saving}
+            />
+
+            <Text style={s.label}>Skills (optional)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Comma-separated, e.g. Excel, Tamil"
+              placeholderTextColor={colors.textMuted}
+              value={jobSkills}
+              onChangeText={setJobSkills}
+              editable={!saving}
+            />
+
+            <Text style={s.label}>Category (optional)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="e.g. Retail, IT"
+              placeholderTextColor={colors.textMuted}
+              value={jobCategory}
+              onChangeText={setJobCategory}
+              editable={!saving}
+            />
+
+            <Text style={s.label}>Vacancies (optional)</Text>
+            <TextInput
+              style={s.input}
+              placeholder="Number of openings"
+              placeholderTextColor={colors.textMuted}
+              value={jobVacancies}
+              onChangeText={setJobVacancies}
+              keyboardType="number-pad"
+              editable={!saving}
+            />
+
+            <Text style={s.label}>Application deadline *</Text>
+            <Pressable
+              style={s.picker}
+              onPress={() => setJobDeadlinePickerOpen(true)}
+              disabled={saving}
+            >
+              <Text style={s.pickerText}>{jobDeadline.toLocaleDateString()}</Text>
+              <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
+            </Pressable>
+            <DobDatePicker
+              visible={jobDeadlinePickerOpen}
+              value={jobDeadline}
+              minimumDate={(() => {
+                const t = new Date();
+                t.setDate(t.getDate() + 1);
+                t.setHours(0, 0, 0, 0);
+                return t;
+              })()}
+              onChange={setJobDeadline}
+              onClose={() => setJobDeadlinePickerOpen(false)}
+              doneColor={colors.primary}
+            />
 
             <Text style={s.label}>Salary range (₹ / month, optional)</Text>
             <View style={s.salaryRow}>

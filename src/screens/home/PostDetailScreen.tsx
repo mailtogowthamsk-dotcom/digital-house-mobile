@@ -51,6 +51,9 @@ import {
   formatJobExperience,
   formatJobSalary,
   formatWorkMode,
+  deriveJobListingStatus,
+  formatJobDeadline,
+  formatApplicationStatus,
   isValidIndianMobile,
   normalizeIndianMobile
 } from "../../constants/jobs";
@@ -305,24 +308,43 @@ export function PostDetailScreen() {
 
   const handleToggleJobStatus = useCallback(() => {
     if (postId == null || !post || post.post_type !== "JOB" || updatingJob) return;
-    const isClosed = post.job_status === "CLOSED";
-    const nextStatus = isClosed ? "OPEN" : "CLOSED";
+    const listingStatus = deriveJobListingStatus(
+      post.job_status,
+      post.job_application_deadline
+    );
+    const isClosed = post.job_status === "CLOSED" || listingStatus !== "OPEN";
+    if (isClosed) {
+      appAlert(
+        "Reopen this job?",
+        "Set a new application deadline in the edit form to start accepting applications again.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Edit listing",
+            onPress: () =>
+              navigation.navigate("CreatePost", {
+                initialPostType: "JOB",
+                editPostId: postId
+              })
+          }
+        ]
+      );
+      return;
+    }
     appAlert(
-      isClosed ? "Reopen this job?" : "Close this job?",
-      isClosed
-        ? "The listing will appear under Open jobs again."
-        : "Closed jobs stay visible under Closed, but are hidden from Open jobs.",
+      "Close this job?",
+      "Closed jobs stay visible under Closed, but are hidden from Open jobs.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: isClosed ? "Reopen" : "Close job",
-          style: isClosed ? "default" : "destructive",
+          text: "Close job",
+          style: "destructive",
           onPress: async () => {
             setUpdatingJob(true);
             try {
-              const updated = await updatePost(postId, { job_status: nextStatus });
+              const updated = await updatePost(postId, { job_status: "CLOSED" });
               setPost(updated);
-              appAlert("Updated", isClosed ? "Job is open again." : "Job marked as closed.");
+              appAlert("Updated", "Job marked as closed.");
             } catch {
               appAlert("Error", "Could not update job status.");
             } finally {
@@ -332,7 +354,7 @@ export function PostDetailScreen() {
         }
       ]
     );
-  }, [post, postId, updatingJob]);
+  }, [navigation, post, postId, updatingJob]);
 
   const handleMarkSold = useCallback(() => {
     if (postId == null || !post || post.post_type !== "MARKETPLACE" || updatingJob) return;
@@ -407,22 +429,34 @@ export function PostDetailScreen() {
         setApplyModalOpen(false);
         setApplyMessage("");
         setApplyMobileError(null);
-        if (res.canMessage) {
-          appAlert("Applied", "You can message the poster — you are already connected.", [
-            { text: "OK", style: "cancel" },
-            {
-              text: "Message",
-              onPress: () =>
-                navigation.navigate("Chat", {
-                  otherUserId: post.user_id,
-                  name: post.author.name,
-                  profileImage: post.author.profile_image
-                })
-            }
-          ]);
-        } else {
-          appAlert("Applied", "The poster was notified. Connect with them to start a chat.");
+        const canMessage = res.canMessage;
+        const alertButtons: {
+          text: string;
+          style?: "cancel" | "default" | "destructive";
+          onPress?: () => void;
+        }[] = [
+          {
+            text: "View My Applications",
+            onPress: () =>
+              navigation.navigate("JobsHome", { initialMode: "applications" })
+          },
+          {
+            text: "Back to Jobs",
+            onPress: () => navigation.navigate("JobsHome")
+          }
+        ];
+        if (canMessage) {
+          alertButtons.unshift({
+            text: "Message",
+            onPress: () =>
+              navigation.navigate("Chat", {
+                otherUserId: post.user_id,
+                name: post.author.name,
+                profileImage: post.author.profile_image
+              })
+          });
         }
+        appAlert("Application submitted", "The employer was notified of your application.", alertButtons);
       } catch (e) {
         appAlert(
           "Error",
@@ -448,11 +482,13 @@ export function PostDetailScreen() {
       } else {
         appAlert(
           "Already applied",
-          post.job_status === "CLOSED"
-            ? "This listing is closed. Connect with the poster to message them."
-            : "You already applied. Connect with the poster to message them."
+          "You already applied. Connect with the poster to message them."
         );
       }
+      return;
+    }
+    if (post.job_accepting_applications === false) {
+      appAlert("Applications closed", "This job is no longer accepting applications.");
       return;
     }
     if (post.job_status === "CLOSED") {
@@ -816,7 +852,14 @@ export function PostDetailScreen() {
   const saved = post.saved_by_me ?? false;
   const isOwnJob =
     post.post_type === "JOB" && user?.id != null && post.user_id === user.id;
-  const jobOpen = post.job_status !== "CLOSED";
+  const jobListingStatus = deriveJobListingStatus(
+    post.job_status,
+    post.job_application_deadline
+  );
+  const jobListingLabel =
+    jobListingStatus === "OPEN" ? "Open" : jobListingStatus === "EXPIRED" ? "Expired" : "Closed";
+  const jobAccepting =
+    post.job_accepting_applications !== false && jobListingStatus === "OPEN";
   const isOwnListing =
     post.post_type === "MARKETPLACE" && user?.id != null && post.user_id === user.id;
   const listingLive = post.marketplace_status === "LIVE";
@@ -871,9 +914,19 @@ export function PostDetailScreen() {
               {post.post_type === "JOB" ? (
                 <>
                   <Text style={s.meta}>·</Text>
-                  <View style={[s.typePill, !jobOpen && { backgroundColor: colors.border }]}>
-                    <Text style={[s.typePillText, !jobOpen && { color: colors.textSecondary }]}>
-                      {jobOpen ? "Open" : "Closed"}
+                  <View
+                    style={[
+                      s.typePill,
+                      jobListingStatus !== "OPEN" && { backgroundColor: colors.border }
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.typePillText,
+                        jobListingStatus !== "OPEN" && { color: colors.textSecondary }
+                      ]}
+                    >
+                      {jobListingLabel}
                     </Text>
                   </View>
                 </>
@@ -976,9 +1029,25 @@ export function PostDetailScreen() {
                 <Text style={{ fontSize: 12, color: colors.textMuted }}>
                   Posted {timeAgo(post.created_at)}
                 </Text>
-                {post.job_application_deadline ? (
+                {formatJobDeadline(post.job_application_deadline) ? (
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color:
+                        jobListingStatus === "EXPIRED" ? colors.error : colors.textMuted
+                    }}
+                  >
+                    {formatJobDeadline(post.job_application_deadline)}
+                  </Text>
+                ) : null}
+                {post.job_vacancies != null && post.job_vacancies > 0 ? (
                   <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                    Apply by {new Date(post.job_application_deadline).toLocaleDateString()}
+                    {post.job_vacancies} {post.job_vacancies === 1 ? "vacancy" : "vacancies"}
+                  </Text>
+                ) : null}
+                {post.job_application_status && post.job_interested_by_me ? (
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                    Your status: {formatApplicationStatus(post.job_application_status)}
                   </Text>
                 ) : null}
               </View>
@@ -1100,6 +1169,15 @@ export function PostDetailScreen() {
         {isOwnJob ? (
           <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
             <PrimaryButton
+              title="View Applicants"
+              onPress={() =>
+                navigation.navigate("JobApplicants", {
+                  postId: post.id,
+                  jobTitle: post.title
+                })
+              }
+            />
+            <PrimaryButton
               title="Edit job"
               onPress={() =>
                 navigation.navigate("CreatePost", {
@@ -1110,10 +1188,10 @@ export function PostDetailScreen() {
               variant="secondary"
             />
             <PrimaryButton
-              title={jobOpen ? "Close job listing" : "Reopen job listing"}
+              title={jobListingStatus === "OPEN" ? "Close job listing" : "Reopen job listing"}
               onPress={handleToggleJobStatus}
               loading={updatingJob}
-              variant={jobOpen ? "secondary" : "primary"}
+              variant={jobListingStatus === "OPEN" ? "secondary" : "primary"}
             />
             <PrimaryButton
               title="Delete job"
@@ -1295,7 +1373,7 @@ export function PostDetailScreen() {
                 </Text>
               </Pressable>
             ) : null}
-            {jobOpen || post.job_interested_by_me ? (
+            {post.job_interested_by_me || jobAccepting ? (
               <>
                 {post.job_interested_by_me ? (
                   <View
@@ -1310,8 +1388,23 @@ export function PostDetailScreen() {
                     <Ionicons name="checkmark-circle" size={20} color="#15803D" />
                     <Text style={{ fontSize: 15, fontWeight: "700", color: "#15803D" }}>
                       Applied
+                      {post.job_application_status
+                        ? ` · ${formatApplicationStatus(post.job_application_status)}`
+                        : ""}
                     </Text>
                   </View>
+                ) : null}
+                {!post.job_interested_by_me && !jobAccepting ? (
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.textMuted,
+                      textAlign: "center",
+                      marginBottom: 4
+                    }}
+                  >
+                    Applications are closed for this listing.
+                  </Text>
                 ) : null}
                 <PrimaryButton
                   title={
@@ -1324,6 +1417,7 @@ export function PostDetailScreen() {
                   onPress={handleExpressInterest}
                   loading={interestBusy}
                   variant={post.job_interested_by_me ? "secondary" : "primary"}
+                  disabled={!post.job_interested_by_me && !jobAccepting}
                 />
                 {(post.job_interest_count ?? 0) > 0 ? (
                   <Text
@@ -1589,7 +1683,15 @@ export function PostDetailScreen() {
               paddingBottom: spacing.xl
             }}
           >
-            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>Apply for job</Text>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+              Apply for this job
+            </Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+              {post.title}
+            </Text>
+            {post.job_company ? (
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>{post.job_company}</Text>
+            ) : null}
             <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
               Share a mobile number so the employer can reach you. Required.
             </Text>

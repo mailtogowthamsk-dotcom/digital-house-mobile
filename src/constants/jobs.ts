@@ -12,6 +12,24 @@ export const JOB_WORK_MODES = [
   { value: "REMOTE", label: "Remote" }
 ] as const;
 
+export const JOB_APPLICATION_STATUS_LABELS: Record<string, string> = {
+  APPLIED: "Applied",
+  REVIEWED: "Under Review",
+  SHORTLISTED: "Shortlisted",
+  INTERVIEW_SCHEDULED: "Interview Scheduled",
+  SELECTED: "Selected",
+  REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn"
+};
+
+export const EMPLOYER_APPLICATION_ACTIONS = [
+  { value: "REVIEWED", label: "Mark Reviewed" },
+  { value: "SHORTLISTED", label: "Shortlist" },
+  { value: "INTERVIEW_SCHEDULED", label: "Schedule Interview" },
+  { value: "SELECTED", label: "Select" },
+  { value: "REJECTED", label: "Reject" }
+] as const;
+
 export type JobEmploymentTypeValue = (typeof JOB_EMPLOYMENT_TYPES)[number]["value"];
 
 export function formatEmploymentType(value: string | null | undefined): string | null {
@@ -24,18 +42,23 @@ export function formatWorkMode(value: string | null | undefined): string | null 
   return JOB_WORK_MODES.find((t) => t.value === value)?.label ?? value;
 }
 
+export function formatApplicationStatus(value: string | null | undefined): string {
+  if (!value) return "Applied";
+  return JOB_APPLICATION_STATUS_LABELS[value] ?? value.replace(/_/g, " ");
+}
+
 function formatLakh(n: number): string {
   const lakhs = n / 100_000;
   if (Number.isInteger(lakhs)) return `₹${lakhs}L`;
   return `₹${lakhs.toFixed(1).replace(/\.0$/, "")}L`;
 }
 
-/** Pretty salary for feed/detail. Large annual-style amounts use Lakh notation. */
+/** Pretty salary for feed/detail. Returns null when no range is set (do not show chip). */
 export function formatJobSalary(
   min: number | null | undefined,
   max: number | null | undefined
 ): string | null {
-  if (min == null && max == null) return "Not disclosed";
+  if (min == null && max == null) return null;
   const fmtMonthly = (n: number) => `₹${n.toLocaleString("en-IN")}`;
   const useLakh = (min != null && min >= 100_000) || (max != null && max >= 100_000);
 
@@ -57,6 +80,43 @@ export function formatJobExperience(value: string | null | undefined): string | 
   const v = value.trim();
   if (/^fresher$/i.test(v) || v === "0") return "Fresher";
   return v;
+}
+
+export type JobListingStatus = "OPEN" | "CLOSED" | "EXPIRED";
+
+export function isJobDeadlinePassed(deadline: string | null | undefined, now = Date.now()): boolean {
+  if (!deadline) return false;
+  const t = new Date(deadline).getTime();
+  if (Number.isNaN(t)) return false;
+  return t <= now;
+}
+
+export function deriveJobListingStatus(
+  jobStatus: string | null | undefined,
+  deadline: string | null | undefined,
+  now = Date.now()
+): JobListingStatus {
+  if (jobStatus === "CLOSED") return "CLOSED";
+  if (isJobDeadlinePassed(deadline, now)) return "EXPIRED";
+  return "OPEN";
+}
+
+export function formatJobDeadline(
+  deadline: string | null | undefined,
+  now = Date.now()
+): string | null {
+  if (!deadline) return null;
+  const d = new Date(deadline);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getTime() <= now) return "Expired";
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setHours(23, 59, 59, 999);
+  if (d.getTime() >= startOfToday.getTime() && d.getTime() <= endOfToday.getTime()) {
+    return "Expires today";
+  }
+  return `Apply by ${d.toLocaleDateString()}`;
 }
 
 /** Indian mobile: 10 digits starting 6–9. */

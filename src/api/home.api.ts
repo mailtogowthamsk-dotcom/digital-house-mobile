@@ -68,7 +68,11 @@ export type FeedItem = {
   jobSkills?: string[] | null;
   jobSalaryMin?: number | null;
   jobSalaryMax?: number | null;
+  jobApplicationDeadline?: string | null;
+  jobVacancies?: number | null;
+  jobApplicationCount?: number;
   jobInterestedByMe?: boolean;
+  jobApplicationStatus?: string | null;
   marketplaceStatus?: string | null;
   marketplaceIntent?: string | null;
   marketplaceCategory?: string | null;
@@ -97,10 +101,15 @@ export type FeedQueryParams = {
   cursor?: number | string;
   sort?: "recent" | "popular" | "personalized";
   postType?: string;
-  jobStatus?: "open" | "closed" | "all";
+  jobStatus?: "open" | "closed" | "expired" | "all";
   q?: string;
   jobLocation?: string;
   jobEmploymentType?: string;
+  jobWorkMode?: string;
+  jobCategory?: string;
+  jobExperience?: string;
+  jobSalaryMin?: number;
+  jobSalaryMax?: number;
   marketplaceStatus?:
     | "live"
     | "pending"
@@ -198,6 +207,11 @@ export async function getFeed(params: FeedQueryParams): Promise<FeedResponse> {
       ...(params.q?.trim() ? { q: params.q.trim() } : {}),
       ...(params.jobLocation?.trim() ? { jobLocation: params.jobLocation.trim() } : {}),
       ...(params.jobEmploymentType ? { jobEmploymentType: params.jobEmploymentType } : {}),
+      ...(params.jobWorkMode ? { jobWorkMode: params.jobWorkMode } : {}),
+      ...(params.jobCategory?.trim() ? { jobCategory: params.jobCategory.trim() } : {}),
+      ...(params.jobExperience?.trim() ? { jobExperience: params.jobExperience.trim() } : {}),
+      ...(params.jobSalaryMin != null ? { jobSalaryMin: params.jobSalaryMin } : {}),
+      ...(params.jobSalaryMax != null ? { jobSalaryMax: params.jobSalaryMax } : {}),
       ...(params.marketplaceStatus ? { marketplaceStatus: params.marketplaceStatus } : {}),
       ...(params.marketplaceCategory ? { marketplaceCategory: params.marketplaceCategory } : {}),
       ...(params.marketplaceDistrict?.trim()
