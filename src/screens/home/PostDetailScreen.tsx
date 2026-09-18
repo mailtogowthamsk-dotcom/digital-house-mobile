@@ -9,9 +9,7 @@ import {
   RefreshControl,
   Linking,
   Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform
+  TextInput
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -35,6 +33,8 @@ import { AvatarImage } from "../../components/ui/AvatarImage";
 import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import { PostActionsBottomSheet, type PostSharePayload } from "../../components/share/PostActionsBottomSheet";
+import { ModalKeyboardAvoiding } from "../../components/ui/ModalKeyboardAvoiding";
+import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { timeAgo } from "../../utils/timeAgo";
 import { PostTypeIconBadge } from "../../components/home/PostTypeIconBadge";
 import { emitPostUpdated } from "../../utils/postSync";
@@ -86,6 +86,7 @@ export function PostDetailScreen() {
   const route = useRoute<RouteProp<{ PostDetail: PostDetailParams }, "PostDetail">>();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
   const postId = route.params?.postId;
 
   const [post, setPost] = useState<PostDetailResponse | null>(null);
@@ -1167,7 +1168,21 @@ export function PostDetailScreen() {
         </View>
 
         {isOwnJob ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
+          <View
+            style={{
+              marginHorizontal: spacing.md,
+              marginBottom: spacing.lg,
+              padding: spacing.md,
+              borderRadius: radius.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+              gap: spacing.sm
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary, marginBottom: 2 }}>
+              Manage listing
+            </Text>
             <PrimaryButton
               title="View Applicants"
               onPress={() =>
@@ -1176,29 +1191,41 @@ export function PostDetailScreen() {
                   jobTitle: post.title
                 })
               }
+              style={{ minHeight: 48, paddingVertical: spacing.md }}
             />
-            <PrimaryButton
-              title="Edit job"
-              onPress={() =>
-                navigation.navigate("CreatePost", {
-                  initialPostType: "JOB",
-                  editPostId: postId
-                })
-              }
-              variant="secondary"
-            />
-            <PrimaryButton
-              title={jobListingStatus === "OPEN" ? "Close job listing" : "Reopen job listing"}
-              onPress={handleToggleJobStatus}
-              loading={updatingJob}
-              variant={jobListingStatus === "OPEN" ? "secondary" : "primary"}
-            />
-            <PrimaryButton
-              title="Delete job"
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <PrimaryButton
+                title="Edit"
+                onPress={() =>
+                  navigation.navigate("CreatePost", {
+                    initialPostType: "JOB",
+                    editPostId: postId
+                  })
+                }
+                variant="secondary"
+                style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+              />
+              <PrimaryButton
+                title={jobListingStatus === "OPEN" ? "Close" : "Reopen"}
+                onPress={handleToggleJobStatus}
+                loading={updatingJob}
+                variant="secondary"
+                style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+              />
+            </View>
+            <Pressable
               onPress={handleDeleteJob}
-              loading={updatingJob}
-              variant="secondary"
-            />
+              disabled={updatingJob}
+              style={({ pressed }) => ({
+                alignItems: "center",
+                paddingVertical: 10,
+                opacity: pressed || updatingJob ? 0.6 : 1
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Delete job"
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.error }}>Delete job</Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -1504,28 +1531,76 @@ export function PostDetailScreen() {
         ) : null}
 
         {isOwnJob && interestItems.length > 0 ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 8 }}>
-              Interested members ({interestItems.length})
-            </Text>
-            {interestItems.map((item) => (
+          <View
+            style={{
+              marginHorizontal: spacing.md,
+              marginBottom: spacing.lg,
+              padding: spacing.md,
+              borderRadius: radius.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              backgroundColor: colors.surface
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: spacing.sm
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
+                Interested members ({interestItems.length})
+              </Text>
+              <Pressable
+                onPress={() =>
+                  navigation.navigate("JobApplicants", {
+                    postId: post.id,
+                    jobTitle: post.title
+                  })
+                }
+                hitSlop={8}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>See all</Text>
+              </Pressable>
+            </View>
+            {interestItems.slice(0, 5).map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() =>
                   navigation.navigate("MemberProfile", { userId: item.author.id })
                 }
                 style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 10,
                   paddingVertical: 10,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.border
+                  borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border
                 }}
               >
-                <Text style={{ fontWeight: "600", color: colors.text }}>{item.author.name}</Text>
-                {item.message ? (
-                  <Text style={{ marginTop: 2, fontSize: 12, color: colors.textSecondary }}>
-                    {item.message}
+                <AvatarImage
+                  uri={item.author.profile_image}
+                  name={item.author.name}
+                  size={40}
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontWeight: "700", color: colors.text }} numberOfLines={1}>
+                    {item.author.name}
                   </Text>
-                ) : null}
+                  {item.message ? (
+                    <Text
+                      style={{ marginTop: 2, fontSize: 12, lineHeight: 17, color: colors.textSecondary }}
+                      numberOfLines={2}
+                    >
+                      {item.message}
+                    </Text>
+                  ) : (
+                    <Text style={{ marginTop: 2, fontSize: 12, color: colors.textMuted }}>Applied</Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginTop: 4 }} />
               </Pressable>
             ))}
           </View>
@@ -1664,101 +1739,132 @@ export function PostDetailScreen() {
         transparent
         animationType="slide"
         onRequestClose={() => !interestBusy && setApplyModalOpen(false)}
+        statusBarTranslucent
       >
-        <KeyboardAvoidingView
-          style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
           <Pressable
-            style={{ flex: 1 }}
+            style={StyleSheet.absoluteFill}
             onPress={() => !interestBusy && setApplyModalOpen(false)}
+            accessibilityLabel="Dismiss apply form"
           />
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: radius.lg,
-              borderTopRightRadius: radius.lg,
-              padding: spacing.lg,
-              gap: spacing.md,
-              paddingBottom: spacing.xl
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
-              Apply for this job
-            </Text>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
-              {post.title}
-            </Text>
-            {post.job_company ? (
-              <Text style={{ fontSize: 13, color: colors.textSecondary }}>{post.job_company}</Text>
-            ) : null}
-            <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-              Share a mobile number so the employer can reach you. Required.
-            </Text>
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: 6 }}>
-                Mobile number *
-              </Text>
-              <TextInput
-                value={applyMobile}
-                onChangeText={(t) => {
-                  setApplyMobile(t);
-                  if (applyMobileError) setApplyMobileError(null);
+          <ModalKeyboardAvoiding>
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: radius.lg,
+                borderTopRightRadius: radius.lg,
+                paddingTop: spacing.md,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.xl,
+                maxHeight: "88%"
+              }}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  gap: spacing.md,
+                  paddingBottom: keyboardOpen
+                    ? Math.max(keyboardHeight * 0.08, spacing.sm)
+                    : spacing.sm
                 }}
-                placeholder="10-digit mobile"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="phone-pad"
-                maxLength={14}
-                editable={!interestBusy}
-                style={{
-                  borderWidth: 1,
-                  borderColor: applyMobileError ? colors.error : colors.border,
-                  borderRadius: radius.md,
-                  paddingHorizontal: spacing.md,
-                  ...textField,
-                  color: colors.text,
-                  backgroundColor: colors.surfaceElevated
-                }}
-              />
-              {applyMobileError ? (
-                <Text style={{ marginTop: 6, fontSize: 12, color: colors.error }}>
-                  {applyMobileError}
+              >
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+                  Apply for this job
                 </Text>
-              ) : null}
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                  {post.title}
+                </Text>
+                {post.job_company ? (
+                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>{post.job_company}</Text>
+                ) : null}
+                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                  Share a mobile number so the employer can reach you. Required.
+                </Text>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: colors.textSecondary,
+                      marginBottom: 6
+                    }}
+                  >
+                    Mobile number *
+                  </Text>
+                  <TextInput
+                    value={applyMobile}
+                    onChangeText={(t) => {
+                      setApplyMobile(t);
+                      if (applyMobileError) setApplyMobileError(null);
+                    }}
+                    placeholder="10-digit mobile"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="phone-pad"
+                    maxLength={14}
+                    editable={!interestBusy}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: applyMobileError ? colors.error : colors.border,
+                      borderRadius: radius.md,
+                      paddingHorizontal: spacing.md,
+                      ...textField,
+                      color: colors.text,
+                      backgroundColor: colors.surfaceElevated
+                    }}
+                  />
+                  {applyMobileError ? (
+                    <Text style={{ marginTop: 6, fontSize: 12, color: colors.error }}>
+                      {applyMobileError}
+                    </Text>
+                  ) : null}
+                </View>
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: colors.textSecondary,
+                      marginBottom: 6
+                    }}
+                  >
+                    Note (optional)
+                  </Text>
+                  <TextInput
+                    value={applyMessage}
+                    onChangeText={setApplyMessage}
+                    placeholder="Brief note to the employer"
+                    placeholderTextColor={colors.textMuted}
+                    multiline
+                    numberOfLines={3}
+                    editable={!interestBusy}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: radius.md,
+                      paddingHorizontal: spacing.md,
+                      ...textFieldMultiline,
+                      color: colors.text,
+                      minHeight: 80,
+                      backgroundColor: colors.surfaceElevated
+                    }}
+                  />
+                </View>
+                <PrimaryButton
+                  title="Submit application"
+                  onPress={handleConfirmApply}
+                  loading={interestBusy}
+                />
+                <PrimaryButton
+                  title="Cancel"
+                  onPress={() => setApplyModalOpen(false)}
+                  variant="secondary"
+                  disabled={interestBusy}
+                />
+              </ScrollView>
             </View>
-            <View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: 6 }}>
-                Note (optional)
-              </Text>
-              <TextInput
-                value={applyMessage}
-                onChangeText={setApplyMessage}
-                placeholder="Brief note to the employer"
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-                editable={!interestBusy}
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: radius.md,
-                  paddingHorizontal: spacing.md,
-                  ...textFieldMultiline,
-                  color: colors.text,
-                  minHeight: 80,
-                  backgroundColor: colors.surfaceElevated
-                }}
-              />
-            </View>
-            <PrimaryButton title="Submit application" onPress={handleConfirmApply} loading={interestBusy} />
-            <PrimaryButton
-              title="Cancel"
-              onPress={() => setApplyModalOpen(false)}
-              variant="secondary"
-              disabled={interestBusy}
-            />
-          </View>
-        </KeyboardAvoidingView>
+          </ModalKeyboardAvoiding>
+        </View>
       </Modal>
     </>
   );

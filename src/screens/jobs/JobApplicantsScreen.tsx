@@ -21,6 +21,7 @@ import {
 import { getErrorStatus } from "../../api/client";
 import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { AvatarImage } from "../../components/ui/AvatarImage";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { textFieldMultiline } from "../../theme/textField";
@@ -187,21 +188,35 @@ export function JobApplicantsScreen() {
         headerTextCol: { flex: 1, minWidth: 0 },
         headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
-        chipScroll: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+        chipRow: {
+          flexGrow: 0,
+          flexShrink: 0,
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border
+        },
+        chipScroll: {
+          flexGrow: 0,
+          paddingHorizontal: spacing.md,
+          paddingVertical: 10,
+          alignItems: "center"
+        },
         chip: {
-          paddingHorizontal: 11,
-          paddingVertical: 7,
+          height: 34,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingHorizontal: 14,
           borderRadius: radius.full,
           borderWidth: 1,
           borderColor: colors.border,
           backgroundColor: colors.background,
-          marginRight: spacing.sm
+          marginRight: 8
         },
         chipActive: {
           borderColor: "#0D9488",
           backgroundColor: themeMode === "dark" ? "#134E4A" : "#F0FDFA"
         },
-        chipText: { fontSize: 11, fontWeight: "600", color: colors.textSecondary },
+        chipText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
         chipTextActive: { color: themeMode === "dark" ? "#5EEAD4" : "#0F766E" },
         listContent: {
           paddingHorizontal: spacing.lg,
@@ -212,7 +227,7 @@ export function JobApplicantsScreen() {
         card: {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           padding: spacing.lg,
           marginBottom: spacing.md,
@@ -275,12 +290,26 @@ export function JobApplicantsScreen() {
       const busy = updatingId === item.id || savingId === item.id;
       return (
         <View style={s.card}>
-          <Text style={s.name}>{item.author.name}</Text>
-          <View style={s.statusBadge}>
-            <Text style={s.statusText}>{formatApplicationStatus(item.status)}</Text>
-          </View>
+          <Pressable
+            onPress={() => navigation.navigate("MemberProfile", { userId: item.author.id })}
+            style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+          >
+            <AvatarImage
+              uri={item.author.profile_image}
+              name={item.author.name}
+              size={44}
+            />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.name} numberOfLines={1}>
+                {item.author.name}
+              </Text>
+              <Text style={s.meta}>Applied {timeAgo(item.created_at)}</Text>
+            </View>
+            <View style={s.statusBadge}>
+              <Text style={s.statusText}>{formatApplicationStatus(item.status)}</Text>
+            </View>
+          </Pressable>
           {item.message ? <Text style={s.message}>{item.message}</Text> : null}
-          <Text style={s.meta}>Applied {timeAgo(item.created_at)}</Text>
           {actions.length > 0 ? (
             <View style={s.actionsRow}>
               {actions.map((action) => (
@@ -332,6 +361,7 @@ export function JobApplicantsScreen() {
       colors.textMuted,
       colors.textSecondary,
       handleAction,
+      navigation,
       notesDraft,
       saveNotes,
       savingId,
@@ -354,25 +384,28 @@ export function JobApplicantsScreen() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.chipScroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        {STATUS_CHIPS.map((c) => {
-          const active = statusFilter === c.id;
-          return (
-            <Pressable
-              key={c.id}
-              style={[s.chip, active && s.chipActive]}
-              onPress={() => setStatusFilter(c.id)}
-            >
-              <Text style={[s.chipText, active && s.chipTextActive]}>{c.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={s.chipRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chipScroll}
+          keyboardShouldPersistTaps="handled"
+          style={{ flexGrow: 0, flexShrink: 0 }}
+        >
+          {STATUS_CHIPS.map((c) => {
+            const active = statusFilter === c.id;
+            return (
+              <Pressable
+                key={c.id}
+                style={[s.chip, active && s.chipActive]}
+                onPress={() => setStatusFilter(c.id)}
+              >
+                <Text style={[s.chipText, active && s.chipTextActive]}>{c.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {loading && items.length === 0 ? (
         <View style={s.center}>
