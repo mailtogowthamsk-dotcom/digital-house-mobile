@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { AppState, type AppStateStatus, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import { getApiBaseUrl } from "../api/client";
@@ -7,6 +7,8 @@ import { registerRealtimeTeardown } from "../realtime/teardown";
 
 let handlerConfigured = false;
 let expoGoWarned = false;
+let appStateSub: { remove: () => void } | null = null;
+let channelsReady = false;
 
 /** Avoid hammering the API when the server is down or the token listener fires often */
 let lastSyncedToken: string | null = null;
@@ -16,6 +18,11 @@ let syncInFlight: Promise<boolean> | null = null;
 
 const FAIL_COOLDOWN_MS = 90_000;
 const WARN_COOLDOWN_MS = 90_000;
+
+function isExpoPushTokenString(token: string): boolean {
+  const t = token.trim();
+  return t.startsWith("ExponentPushToken[") || t.startsWith("ExpoPushToken[");
+}
 
 /** Expo Go (SDK 53+) cannot register for remote push on Android/iOS */
 export function isExpoGo(): boolean {
@@ -45,6 +52,33 @@ function warnExpoGoOnce() {
   );
 }
 
+async function ensureAndroidChannels() {
+  if (Platform.OS !== "android" || !isRemotePushSupported()) return;
+  if (channelsReady) return;
+  const Notifications = await loadNotifications();
+  // HIGH so tray alerts are visible; Android keeps first-created importance until uninstall.
+  await Notifications.setNotificationChannelAsync("default", {
+    name: "General",
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#0B1220",
+    sound: "default",
+    enableVibrate: true,
+    showBadge: true
+  });
+  await Notifications.setNotificationChannelAsync("matrimony", {
+    name: "Matrimony",
+    description: "Interests, matches, and profile updates",
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 400, 200, 400],
+    lightColor: "#7C3AED",
+    sound: "default",
+    enableVibrate: true,
+    showBadge: true
+  });
+  channelsReady = true;
+}
+
 export async function configurePushNotifications(): Promise<void> {
   if (handlerConfigured) return;
   handlerConfigured = true;
@@ -54,33 +88,28 @@ export async function configurePushNotifications(): Promise<void> {
   }
 
   const Notifications = await loadNotifications();
+  // Show system banner/list while foreground so tray behavior matches background.
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: false,
+      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
-      shouldShowBanner: false,
+      shouldShowBanner: true,
       shouldShowList: true
     })
   });
-}
 
-async function ensureAndroidChannels() {
-  if (Platform.OS !== "android" || !isRemotePushSupported()) return;
-  const Notifications = await loadNotifications();
-  await Notifications.setNotificationChannelAsync("default", {
-    name: "General",
-    importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: "#0B1220"
+  void ensureAndroidChannels().catch((err) => {
+    if (__DEV__) console.warn("[Push] channel setup failed", err);
   });
-  await Notifications.setNotificationChannelAsync("matrimony", {
-    name: "Matrimony",
-    description: "Interests, matches, and profile updates",
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 400, 200, 400],
-    lightColor: "#7C3AED"
-  });
+
+  // Re-register Expo token when user returns from system Settings after granting permission.
+  if (!appStateSub) {
+    appStateSub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (next !== "active") return;
+      void syncPushTokenWithBackend(false, { requestIfNeeded: false });
+    });
+  }
 }
 
 function resolvePlatform(): "ios" | "android" | "web" {
@@ -132,7 +161,10 @@ export async function getExpoPushToken(opts?: {
 
   if (opts?.requestIfNeeded) {
     const granted = await requestPushPermissions();
-    if (!granted) return null;
+    if (!granted) {
+      if (__DEV__) console.info("[Push] permission not granted");
+      return null;
+    }
   } else {
     const granted = await hasPushPermission();
     if (!granted) return null;
@@ -146,12 +178,38 @@ export async function getExpoPushToken(opts?: {
     return null;
   }
 
-  const Notifications = await loadNotifications();
-  const token = await Notifications.getExpoPushTokenAsync({ projectId });
-  return token.data;
+  try {
+    const Notifications = await loadNotifications();
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (__DEV__) {
+      const kind = isExpoPushTokenString(token.data) ? "expo" : "unknown";
+      console.info(`[Push] got ${kind} token (len=${token.data.length})`);
+    }
+    return token.data;
+  } catch (err) {
+    if (__DEV__) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as Error).message)
+          : "unknown";
+      console.warn(
+        `[Push] getExpoPushTokenAsync failed (${msg}). Ensure google-services.json + EAS FCM V1 credentials for Android.`
+      );
+    }
+    return null;
+  }
 }
 
 async function postPushTokenToBackend(expoToken: string): Promise<boolean> {
+  if (!isExpoPushTokenString(expoToken)) {
+    if (__DEV__) {
+      console.warn(
+        "[Push] refusing to register non-Expo token — use getExpoPushTokenAsync only"
+      );
+    }
+    return false;
+  }
+
   const now = Date.now();
   if (expoToken === lastSyncedToken) return true;
   if (lastFailAt && now - lastFailAt < FAIL_COOLDOWN_MS) return false;
@@ -165,6 +223,7 @@ async function postPushTokenToBackend(expoToken: string): Promise<boolean> {
     });
     lastSyncedToken = expoToken;
     lastFailAt = 0;
+    if (__DEV__) console.info("[Push] token registered with backend");
     return true;
   } catch (err) {
     lastFailAt = Date.now();
@@ -207,16 +266,13 @@ export async function syncPushTokenWithBackend(
   return syncInFlight;
 }
 
-/** Called when Expo reports a new push token */
-export async function syncPushTokenFromListener(deviceToken: string): Promise<boolean> {
+/**
+ * Native push-token listener fires with FCM/APNs device tokens — NOT Expo tokens.
+ * Always re-resolve and register the Expo push token instead of posting native data.
+ */
+export async function syncPushTokenFromListener(_deviceToken?: string): Promise<boolean> {
   if (!isRemotePushSupported()) return false;
-  if (!deviceToken?.trim()) return false;
-  if (deviceToken === lastSyncedToken) return true;
-  if (syncInFlight) return syncInFlight;
-  syncInFlight = postPushTokenToBackend(deviceToken).finally(() => {
-    syncInFlight = null;
-  });
-  return syncInFlight;
+  return syncPushTokenWithBackend(true, { requestIfNeeded: false });
 }
 
 export function resetPushRegistrationState() {

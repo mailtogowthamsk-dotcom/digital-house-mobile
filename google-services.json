@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "896586738096",
+    "project_id": "digitalhouse-68c4a",
+    "storage_bucket": "digitalhouse-68c4a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896586738096:android:dfb710fb27ba7d83a6ce75",
+        "android_client_info": {
+          "package_name": "com.thisisgowtham.digitalhouse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfE9m5zSbClC5OYggZk8D2dXu8jhS5gdU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

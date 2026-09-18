@@ -29,6 +29,7 @@ function handleNotificationTap(
  * Syncs Expo push token when already granted, and wires tap → deep link navigation.
  * Does NOT request notification permission on login / cold start — that is
  * user-initiated via Settings or the notification-center soft prompt.
+ * Token listener refreshes the Expo token (never posts native FCM/APNs tokens).
  * No-op in Expo Go (use a development build for device push).
  */
 export function PushNotificationBootstrap() {
@@ -60,8 +61,9 @@ export function PushNotificationBootstrap() {
 
       if (cancelled) return;
       subTap = Notifications.addNotificationResponseReceivedListener(handleNotificationTap);
-      subToken = Notifications.addPushTokenListener((event) => {
-        void syncPushTokenFromListener(event.data);
+      // Listener payload is a native device token — re-fetch Expo token instead.
+      subToken = Notifications.addPushTokenListener(() => {
+        void syncPushTokenFromListener();
       });
     })();
 
