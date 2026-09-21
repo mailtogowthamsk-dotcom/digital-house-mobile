@@ -18,7 +18,8 @@ import { getFeed, type FeedItem } from "../../api/home.api";
 import {
   getHelpingHandsStats,
   getCommunityHeroes,
-  getMyHelpingActivity,
+  getMyHelpRequestsPage,
+  getMyHelpContributionsPage,
   offerHelp,
   type HelpingHandsStats,
   type CommunityHero,
@@ -26,6 +27,7 @@ import {
   type MyHelpContribution
 } from "../../api/helpingHands.api";
 import { getErrorStatus } from "../../api/client";
+import { deletePost } from "../../api/posts.api";
 import { mergeById } from "../../utils/mergeById";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { useTheme } from "../../theme/ThemeContext";
@@ -33,6 +35,7 @@ import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
 import { appAlert } from "../../utils/appAlert";
 import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
+import { useAuth } from "../../context/AuthContext";
 import {
   HELP_CATEGORIES,
   formatHelpCategory,
@@ -43,13 +46,15 @@ import {
 
 type Tab = "home" | "heroes" | "activity";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const ACCENT = "#7C3AED";
 
 export function HelpingHandsHomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors, mode: themeMode } = useTheme();
+  const { user } = useAuth();
+  const myUserId = user?.id ?? null;
   const [tab, setTab] = useState<Tab>("home");
   const [category, setCategory] = useState<string | null>(null);
   const [items, setItems] = useState<FeedItem[]>([]);
@@ -65,8 +70,17 @@ export function HelpingHandsHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [offeringId, setOfferingId] = useState<number | null>(null);
   const nextCursorRef = React.useRef<number | string | null>(null);
+  const heroesNextOffsetRef = React.useRef<number | null>(null);
+  const requestsNextOffsetRef = React.useRef<number | null>(null);
+  const contributionsNextOffsetRef = React.useRef<number | null>(null);
+  const [heroesNextOffset, setHeroesNextOffset] = useState<number | null>(null);
+  const [requestsNextOffset, setRequestsNextOffset] = useState<number | null>(null);
+  const [contributionsNextOffset, setContributionsNextOffset] = useState<number | null>(null);
   const hasLoadedOnce = React.useRef(false);
   nextCursorRef.current = nextCursor;
+  heroesNextOffsetRef.current = heroesNextOffset;
+  requestsNextOffsetRef.current = requestsNextOffset;
+  contributionsNextOffsetRef.current = contributionsNextOffset;
 
   const loadHome = useCallback(async (mode: "replace" | "append", cat: string | null) => {
     const cursor = mode === "append" ? nextCursorRef.current ?? undefined : undefined;
@@ -85,14 +99,59 @@ export function HelpingHandsHomeScreen() {
     if (statsData) setStats(statsData);
   }, []);
 
-  const loadHeroes = useCallback(async () => {
-    setHeroes(await getCommunityHeroes(30));
+  const loadHeroes = useCallback(async (mode: "replace" | "append") => {
+    const offset = mode === "append" ? heroesNextOffsetRef.current ?? 0 : 0;
+    if (mode === "append" && heroesNextOffsetRef.current == null) return;
+    const data = await getCommunityHeroes({ limit: PAGE_SIZE, offset });
+    setHeroes((prev) => {
+      if (mode !== "append") return data.items;
+      const seen = new Set(prev.map((h) => h.userId));
+      return [...prev, ...data.items.filter((h) => !seen.has(h.userId))];
+    });
+    setHeroesNextOffset(data.nextOffset);
   }, []);
 
-  const loadActivity = useCallback(async () => {
-    const data = await getMyHelpingActivity();
-    setRequests(data.requests);
-    setContributions(data.contributions);
+  const loadActivity = useCallback(async (mode: "replace" | "append") => {
+    if (mode === "replace") {
+      const [reqPage, contribPage] = await Promise.all([
+        getMyHelpRequestsPage({ limit: PAGE_SIZE, offset: 0 }),
+        getMyHelpContributionsPage({ limit: PAGE_SIZE, offset: 0 })
+      ]);
+      setRequests(reqPage.items);
+      setContributions(contribPage.items);
+      setRequestsNextOffset(reqPage.nextOffset);
+      setContributionsNextOffset(contribPage.nextOffset);
+      return;
+    }
+
+    // Append: finish requests first, then contributions.
+    if (requestsNextOffsetRef.current != null) {
+      const reqPage = await getMyHelpRequestsPage({
+        limit: PAGE_SIZE,
+        offset: requestsNextOffsetRef.current
+      });
+      setRequests((prev) => {
+        const seen = new Set(prev.map((r) => r.postId));
+        return [...prev, ...reqPage.items.filter((r) => !seen.has(r.postId))];
+      });
+      setRequestsNextOffset(reqPage.nextOffset);
+      return;
+    }
+
+    if (contributionsNextOffsetRef.current != null) {
+      const contribPage = await getMyHelpContributionsPage({
+        limit: PAGE_SIZE,
+        offset: contributionsNextOffsetRef.current
+      });
+      setContributions((prev) => {
+        const seen = new Set(prev.map((c) => `${c.postId}-${c.date}`));
+        return [
+          ...prev,
+          ...contribPage.items.filter((c) => !seen.has(`${c.postId}-${c.date}`))
+        ];
+      });
+      setContributionsNextOffset(contribPage.nextOffset);
+    }
   }, []);
 
   const loadTab = useCallback(
@@ -100,8 +159,8 @@ export function HelpingHandsHomeScreen() {
       try {
         setError(null);
         if (active === "home") await loadHome("replace", cat);
-        else if (active === "heroes") await loadHeroes();
-        else await loadActivity();
+        else if (active === "heroes") await loadHeroes("replace");
+        else await loadActivity("replace");
         hasLoadedOnce.current = true;
       } catch (e) {
         const status = getErrorStatus(e);
@@ -119,6 +178,9 @@ export function HelpingHandsHomeScreen() {
       const showSpinner = !hasLoadedOnce.current;
       if (showSpinner) setLoading(true);
       setNextCursor(null);
+      setHeroesNextOffset(null);
+      setRequestsNextOffset(null);
+      setContributionsNextOffset(null);
       void loadTab(tab, category).finally(() => setLoading(false));
     }, [tab, category, loadTab])
   );
@@ -126,24 +188,117 @@ export function HelpingHandsHomeScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setNextCursor(null);
+    setHeroesNextOffset(null);
+    setRequestsNextOffset(null);
+    setContributionsNextOffset(null);
     await loadTab(tab, category);
     setRefreshing(false);
   }, [category, loadTab, tab]);
 
+  const openMyRequestActions = useCallback(
+    (r: MyHelpRequest) => {
+      const status = String(r.status || "").toUpperCase();
+      const canEdit = status === "OPEN" || status === "IN_PROGRESS";
+      appAlert(r.title, "Manage this help request", [
+        { text: "View", onPress: () => navigation.navigate("PostDetail", { postId: r.postId }) },
+        ...(canEdit
+          ? [
+              {
+                text: "Edit",
+                onPress: () =>
+                  navigation.navigate("CreateHelpRequest", { editPostId: r.postId })
+              }
+            ]
+          : []),
+        {
+          text: "Delete",
+          style: "destructive" as const,
+          onPress: () => {
+            appAlert(
+              "Delete this request?",
+              "This permanently removes the request and cannot be undone.",
+              [
+                { text: "Keep", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deletePost(r.postId);
+                      setRequests((prev) => prev.filter((x) => x.postId !== r.postId));
+                      appAlert("Deleted", "Help request removed.");
+                    } catch (e) {
+                      appAlert(
+                        "Error",
+                        (e as any)?.response?.data?.message ?? "Could not delete request."
+                      );
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        },
+        { text: "Close", style: "cancel" }
+      ]);
+    },
+    [navigation]
+  );
+
   const onEndReached = useCallback(async () => {
-    if (tab !== "home" || !nextCursorRef.current || loadingMoreRef.current || loading) return;
-    loadingMoreRef.current = true;
-    setLoadingMore(true);
-    try {
-      await loadHome("append", category);
-    } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+    if (loadingMoreRef.current || loading) return;
+
+    if (tab === "home") {
+      if (!nextCursorRef.current) return;
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+      try {
+        await loadHome("append", category);
+      } finally {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+      return;
     }
-  }, [category, loadHome, loading, tab]);
+
+    if (tab === "heroes") {
+      if (heroesNextOffsetRef.current == null) return;
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+      try {
+        await loadHeroes("append");
+      } finally {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+      return;
+    }
+
+    if (tab === "activity") {
+      if (
+        requestsNextOffsetRef.current == null &&
+        contributionsNextOffsetRef.current == null
+      ) {
+        return;
+      }
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+      try {
+        await loadActivity("append");
+      } finally {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [category, loadActivity, loadHeroes, loadHome, loading, tab]);
 
   const handleOffer = useCallback(
     async (postId: number, title: string) => {
+      const post = items.find((i) => i.postId === postId);
+      if (myUserId != null && post?.author?.userId === myUserId) {
+        appAlert("Your request", "You can’t offer help on your own request. Open Manage to edit or resolve it.");
+        return;
+      }
       appAlert("Ready to help?", `Offer help for “${title}”? You can chat or call next.`, [
         { text: "Cancel", style: "cancel" },
         {
@@ -152,7 +307,6 @@ export function HelpingHandsHomeScreen() {
             try {
               setOfferingId(postId);
               const result = await offerHelp(postId);
-              const post = items.find((i) => i.postId === postId);
               appAlert("Thank you", "How would you like to reach out?", [
                 {
                   text: "Chat",
@@ -194,7 +348,7 @@ export function HelpingHandsHomeScreen() {
         }
       ]);
     },
-    [items, navigation]
+    [items, myUserId, navigation]
   );
 
   const s = useMemo(
@@ -498,6 +652,7 @@ export function HelpingHandsHomeScreen() {
     ({ item }: { item: FeedItem }) => {
       const urgency = urgencyBadgeColor(item.helpUrgency);
       const desc = (item.description ?? "").trim();
+      const isOwnRequest = myUserId != null && item.author?.userId === myUserId;
       return (
         <View style={s.card}>
           {item.mediaUrl ? (
@@ -526,6 +681,18 @@ export function HelpingHandsHomeScreen() {
                   {formatHelpCategory(item.helpCategory)}
                 </Text>
               </View>
+              {isOwnRequest ? (
+                <View
+                  style={[
+                    s.badge,
+                    {
+                      backgroundColor: themeMode === "dark" ? colors.surfaceElevated : "#ECFDF5"
+                    }
+                  ]}
+                >
+                  <Text style={[s.badgeText, { color: colors.primary }]}>Your request</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={s.cardTitle} numberOfLines={2}>
               {item.title}
@@ -553,28 +720,40 @@ export function HelpingHandsHomeScreen() {
             </View>
             <View style={s.actions}>
               <Pressable
-                style={s.secondaryBtn}
+                style={[s.secondaryBtn, isOwnRequest ? { flex: 1 } : null]}
                 onPress={() => navigation.navigate("PostDetail", { postId: item.postId })}
               >
-                <Text style={s.secondaryBtnText}>Details</Text>
+                <Text style={s.secondaryBtnText}>{isOwnRequest ? "Manage" : "Details"}</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [s.helpBtn, pressed && s.helpBtnPressed]}
-                disabled={offeringId === item.postId}
-                onPress={() => void handleOffer(item.postId, item.title)}
-              >
-                {offeringId === item.postId ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={s.helpBtnText}>I'm Ready</Text>
-                )}
-              </Pressable>
+              {!isOwnRequest ? (
+                <Pressable
+                  style={({ pressed }) => [s.helpBtn, pressed && s.helpBtnPressed]}
+                  disabled={offeringId === item.postId}
+                  onPress={() => void handleOffer(item.postId, item.title)}
+                >
+                  {offeringId === item.postId ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={s.helpBtnText}>I'm Ready</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
           </View>
         </View>
       );
     },
-    [colors.surfaceElevated, colors.textSecondary, handleOffer, navigation, offeringId, s, themeMode]
+    [
+      colors.primary,
+      colors.surfaceElevated,
+      colors.textSecondary,
+      handleOffer,
+      myUserId,
+      navigation,
+      offeringId,
+      s,
+      themeMode
+    ]
   );
 
   const homeHeader = (
@@ -728,6 +907,8 @@ export function HelpingHandsHomeScreen() {
             />
           }
           contentContainerStyle={s.listPad}
+          onEndReached={() => void onEndReached()}
+          onEndReachedThreshold={0.4}
           ListHeaderComponent={
             <Text style={s.sectionTitle}>Community heroes — kindness remembered</Text>
           }
@@ -741,6 +922,11 @@ export function HelpingHandsHomeScreen() {
                 Heroes appear here as members help each other and receive appreciation.
               </Text>
             </View>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator style={{ marginVertical: 16 }} color={ACCENT} />
+            ) : null
           }
           renderItem={({ item }: { item: CommunityHero }) => (
             <View style={s.heroCard}>
@@ -783,8 +969,22 @@ export function HelpingHandsHomeScreen() {
           )}
         />
       ) : (
-        <ScrollView
-          contentContainerStyle={s.listPad}
+        <FlatList
+          data={[
+            { kind: "header" as const, key: "hdr-requests", title: "My requests" },
+            ...(requests.length === 0
+              ? [{ kind: "empty-requests" as const, key: "empty-requests" }]
+              : requests.map((r) => ({ kind: "request" as const, key: `req-${r.postId}`, item: r }))),
+            { kind: "header" as const, key: "hdr-contrib", title: "My contributions" },
+            ...(contributions.length === 0
+              ? [{ kind: "empty-contrib" as const, key: "empty-contrib" }]
+              : contributions.map((c) => ({
+                  kind: "contrib" as const,
+                  key: `contrib-${c.postId}-${c.date}`,
+                  item: c
+                })))
+          ]}
+          keyExtractor={(row) => row.key}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -792,40 +992,86 @@ export function HelpingHandsHomeScreen() {
               colors={[ACCENT]}
             />
           }
-        >
-          <Text style={s.sectionTitle}>My requests</Text>
-          {requests.length === 0 ? (
-            <View style={[s.empty, { paddingTop: 16 }]}>
-              <Text style={s.emptyText}>You haven’t created a help request yet.</Text>
-            </View>
-          ) : (
-            requests.map((r: MyHelpRequest) => (
-              <Pressable
-                key={r.postId}
-                style={({ pressed }) => [s.activityCard, pressed && s.cardPressed]}
-                onPress={() => navigation.navigate("PostDetail", { postId: r.postId })}
-              >
-                <Text style={s.activityTitle} numberOfLines={2}>
-                  {r.title}
+          contentContainerStyle={s.listPad}
+          onEndReached={() => void onEndReached()}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator style={{ marginVertical: 16 }} color={ACCENT} />
+            ) : null
+          }
+          renderItem={({ item: row }) => {
+            if (row.kind === "header") {
+              return (
+                <Text
+                  style={[
+                    s.sectionTitle,
+                    row.key === "hdr-contrib" ? { marginTop: spacing.lg } : null
+                  ]}
+                >
+                  {row.title}
                 </Text>
-                <Text style={s.activityMeta}>
-                  {formatHelpCategory(r.category)} · {formatHelpStatus(r.status)} ·{" "}
-                  {r.helperCount} helping
-                </Text>
-              </Pressable>
-            ))
-          )}
-
-          <Text style={[s.sectionTitle, { marginTop: spacing.lg }]}>My contributions</Text>
-          {contributions.length === 0 ? (
-            <View style={[s.empty, { paddingTop: 16 }]}>
-              <Text style={s.emptyText}>
-                When you help someone, your contribution history will live here.
-              </Text>
-            </View>
-          ) : (
-            contributions.map((c: MyHelpContribution) => (
-              <View key={`${c.postId}-${c.date}`} style={s.activityCard}>
+              );
+            }
+            if (row.kind === "empty-requests") {
+              return (
+                <View style={[s.empty, { paddingTop: 16 }]}>
+                  <Text style={s.emptyText}>You haven’t created a help request yet.</Text>
+                </View>
+              );
+            }
+            if (row.kind === "empty-contrib") {
+              return (
+                <View style={[s.empty, { paddingTop: 16 }]}>
+                  <Text style={s.emptyText}>
+                    When you help someone, your contribution history will live here.
+                  </Text>
+                </View>
+              );
+            }
+            if (row.kind === "request") {
+              const r = row.item;
+              return (
+                <Pressable
+                  style={({ pressed }) => [s.activityCard, pressed && s.cardPressed]}
+                  onPress={() => navigation.navigate("PostDetail", { postId: r.postId })}
+                  onLongPress={() => openMyRequestActions(r)}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "flex-start",
+                      gap: 10
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.activityTitle} numberOfLines={2}>
+                        {r.title}
+                      </Text>
+                      <Text style={s.activityMeta}>
+                        {formatHelpCategory(r.category)} · {formatHelpStatus(r.status)} ·{" "}
+                        {r.helperCount} helping
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => openMyRequestActions(r)}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel="Manage help request"
+                      style={({ pressed }) => ({
+                        padding: 4,
+                        opacity: pressed ? 0.6 : 1
+                      })}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                </Pressable>
+              );
+            }
+            const c = row.item;
+            return (
+              <View style={s.activityCard}>
                 <Text style={s.activityTitle}>{formatHelpCategory(c.category)}</Text>
                 <Text style={s.activityMeta}>
                   Helped {c.personHelped} · {new Date(c.date).toLocaleDateString()}
@@ -836,9 +1082,9 @@ export function HelpingHandsHomeScreen() {
                   </View>
                 ) : null}
               </View>
-            ))
-          )}
-        </ScrollView>
+            );
+          }}
+        />
       )}
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>

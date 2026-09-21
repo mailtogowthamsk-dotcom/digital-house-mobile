@@ -53,7 +53,7 @@ export type RootStackParamList = {
   JobApplicants: { postId: number; jobTitle?: string };
   MarketplaceHome: undefined;
   HelpingHandsHome: undefined;
-  CreateHelpRequest: undefined;
+  CreateHelpRequest: { editPostId?: number } | undefined;
   ProminentPeopleHome: undefined;
   ProminentPersonProfile: { id: number };
   MatrimonyHome: undefined;

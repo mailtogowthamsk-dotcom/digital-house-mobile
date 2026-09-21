@@ -12,12 +12,17 @@ let channelsReady = false;
 
 /** Avoid hammering the API when the server is down or the token listener fires often */
 let lastSyncedToken: string | null = null;
+let lastSuccessAt = 0;
 let lastFailAt = 0;
 let lastWarnAt = 0;
 let syncInFlight: Promise<boolean> | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const FAIL_COOLDOWN_MS = 90_000;
 const WARN_COOLDOWN_MS = 90_000;
+/** Same Expo token — do not re-POST to backend more often than this */
+const SUCCESS_COOLDOWN_MS = 5 * 60_000;
+const DEBOUNCE_MS = 1_500;
 
 function isExpoPushTokenString(token: string): boolean {
   const t = token.trim();
@@ -107,7 +112,7 @@ export async function configurePushNotifications(): Promise<void> {
   if (!appStateSub) {
     appStateSub = AppState.addEventListener("change", (next: AppStateStatus) => {
       if (next !== "active") return;
-      void syncPushTokenWithBackend(false, { requestIfNeeded: false });
+      schedulePushTokenSync(false, { requestIfNeeded: false });
     });
   }
 }
@@ -211,17 +216,25 @@ async function postPushTokenToBackend(expoToken: string): Promise<boolean> {
   }
 
   const now = Date.now();
-  if (expoToken === lastSyncedToken) return true;
+  if (
+    expoToken === lastSyncedToken &&
+    lastSuccessAt > 0 &&
+    now - lastSuccessAt < SUCCESS_COOLDOWN_MS
+  ) {
+    return true;
+  }
   if (lastFailAt && now - lastFailAt < FAIL_COOLDOWN_MS) return false;
 
   try {
     await registerPushToken({
       token: expoToken,
       platform: resolvePlatform(),
-      deviceId: Constants.sessionId ?? null,
+      // Prefer a stable app version marker; sessionId changes and caused needless writes.
+      deviceId: null,
       appVersion: Constants.expoConfig?.version ?? null
     });
     lastSyncedToken = expoToken;
+    lastSuccessAt = Date.now();
     lastFailAt = 0;
     if (__DEV__) console.info("[Push] token registered with backend");
     return true;
@@ -256,7 +269,11 @@ export async function syncPushTokenWithBackend(
     try {
       const token = await getExpoPushToken({ requestIfNeeded: opts?.requestIfNeeded === true });
       if (!token) return false;
-      if (force) lastSyncedToken = null;
+      // Only clear cache when forcing AND token changed (or unknown) — never spam identical POSTs.
+      if (force && token !== lastSyncedToken) {
+        lastSyncedToken = null;
+        lastSuccessAt = 0;
+      }
       return await postPushTokenToBackend(token);
     } finally {
       syncInFlight = null;
@@ -266,19 +283,38 @@ export async function syncPushTokenWithBackend(
   return syncInFlight;
 }
 
+/** Coalesce rapid AppState / native token listener bursts into one sync. */
+export function schedulePushTokenSync(
+  force = false,
+  opts?: { requestIfNeeded?: boolean }
+): void {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    void syncPushTokenWithBackend(force, opts);
+  }, DEBOUNCE_MS);
+}
+
 /**
  * Native push-token listener fires with FCM/APNs device tokens — NOT Expo tokens.
  * Always re-resolve and register the Expo push token instead of posting native data.
  */
 export async function syncPushTokenFromListener(_deviceToken?: string): Promise<boolean> {
   if (!isRemotePushSupported()) return false;
-  return syncPushTokenWithBackend(true, { requestIfNeeded: false });
+  // Do not force — listener can fire many times in one second on Android.
+  schedulePushTokenSync(false, { requestIfNeeded: false });
+  return true;
 }
 
 export function resetPushRegistrationState() {
   lastSyncedToken = null;
+  lastSuccessAt = 0;
   lastFailAt = 0;
   syncInFlight = null;
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
 }
 
 registerRealtimeTeardown(resetPushRegistrationState);

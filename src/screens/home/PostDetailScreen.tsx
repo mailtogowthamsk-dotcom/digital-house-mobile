@@ -101,6 +101,9 @@ export function PostDetailScreen() {
   const [applyMessage, setApplyMessage] = useState("");
   const [applyMobileError, setApplyMobileError] = useState<string | null>(null);
   const [helpBusy, setHelpBusy] = useState(false);
+  const [resolveModalOpen, setResolveModalOpen] = useState(false);
+  const [resolveSelectedIds, setResolveSelectedIds] = useState<number[]>([]);
+  const [resolveAppreciation, setResolveAppreciation] = useState("");
   const [helpHelpers, setHelpHelpers] = useState<
     {
       id: number;
@@ -620,80 +623,127 @@ export function PostDetailScreen() {
       appAlert("Already resolved", "This request is already marked as resolved.");
       return;
     }
-    const helpers = helpHelpers;
-    const finish = async (helperUserId?: number, appreciation?: string | null) => {
-      setHelpBusy(true);
-      try {
-        await completeHelpRequest(postId, {
-          helper_user_id: helperUserId,
-          appreciation: appreciation ?? null
-        });
-        setPost((p) =>
-          p
-            ? {
-                ...p,
-                help_status: "COMPLETED",
-                help_resolved_at: new Date().toISOString()
-              }
-            : null
-        );
-        appAlert("Resolved", "Your request was marked as resolved and removed from Highlights.");
-      } catch (e) {
-        appAlert(
-          "Error",
-          (e as any)?.response?.data?.message ??
-            (e instanceof Error ? e.message : "Could not complete request.")
-        );
-      } finally {
-        setHelpBusy(false);
-      }
-    };
-
-    appAlert("Mark as resolved?", "Confirm that this request is resolved. It will leave Highlights immediately.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Complete",
-        onPress: () => {
-          if (helpers.length === 0) {
-            void finish();
-            return;
-          }
-          appAlert(
-            "Appreciate your helper?",
-            "Would you like to write a short thank-you for someone who helped?",
-            [
-              {
-                text: "Skip",
-                style: "cancel",
-                onPress: () => void finish()
-              },
-              {
-                text: "Yes",
-                onPress: () => {
-                  const primary = helpers[0];
-                  appAlert(
-                    "Appreciation",
-                    `Write a short thank-you for ${primary.author.name}?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Use default",
-                        onPress: () =>
-                          void finish(
-                            primary.from_user_id,
-                            `Because of ${primary.author.name}'s support, this request was completed successfully.`
-                          )
+    if (helpHelpers.length === 0) {
+      appAlert(
+        "Mark as resolved?",
+        "No one offered help yet. Close this request without Heroes credit?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Resolve",
+            onPress: async () => {
+              setHelpBusy(true);
+              try {
+                await completeHelpRequest(postId, { resolved_by_user_ids: [] });
+                setPost((p) =>
+                  p
+                    ? {
+                        ...p,
+                        help_status: "COMPLETED",
+                        help_resolved_at: new Date().toISOString()
                       }
-                    ]
-                  );
-                }
+                    : null
+                );
+                appAlert("Resolved", "Your request was marked as resolved.");
+              } catch (e) {
+                appAlert(
+                  "Error",
+                  (e as any)?.response?.data?.message ??
+                    (e instanceof Error ? e.message : "Could not complete request.")
+                );
+              } finally {
+                setHelpBusy(false);
               }
-            ]
-          );
-        }
-      }
-    ]);
-  }, [helpBusy, helpHelpers, post, postId]);
+            }
+          }
+        ]
+      );
+      return;
+    }
+    setResolveSelectedIds([]);
+    setResolveAppreciation("");
+    setResolveModalOpen(true);
+  }, [helpBusy, helpHelpers.length, post, postId]);
+
+  const toggleResolveHelper = useCallback((userId: number) => {
+    setResolveSelectedIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  }, []);
+
+  const submitResolveHelp = useCallback(async () => {
+    if (postId == null || helpBusy) return;
+    if (helpHelpers.length > 0 && resolveSelectedIds.length === 0) {
+      appAlert(
+        "Select who helped",
+        "Tap the people who actually helped (Resolved by), or resolve with none if you solved it yourself.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Resolve with none",
+            style: "destructive",
+            onPress: async () => {
+              setHelpBusy(true);
+              try {
+                await completeHelpRequest(postId, { resolved_by_user_ids: [] });
+                setResolveModalOpen(false);
+                setPost((p) =>
+                  p
+                    ? {
+                        ...p,
+                        help_status: "COMPLETED",
+                        help_resolved_at: new Date().toISOString()
+                      }
+                    : null
+                );
+                appAlert("Resolved", "Closed with no Heroes credit.");
+              } catch (e) {
+                appAlert(
+                  "Error",
+                  (e as any)?.response?.data?.message ?? "Could not complete request."
+                );
+              } finally {
+                setHelpBusy(false);
+              }
+            }
+          }
+        ]
+      );
+      return;
+    }
+    setHelpBusy(true);
+    try {
+      const note = resolveAppreciation.trim();
+      const res = await completeHelpRequest(postId, {
+        resolved_by_user_ids: resolveSelectedIds,
+        appreciation: note.length >= 3 ? note : null
+      });
+      setResolveModalOpen(false);
+      setPost((p) =>
+        p
+          ? {
+              ...p,
+              help_status: "COMPLETED",
+              help_resolved_at: new Date().toISOString()
+            }
+          : null
+      );
+      appAlert(
+        "Resolved",
+        res.creditedCount > 0
+          ? `${res.creditedCount} helper${res.creditedCount === 1 ? "" : "s"} credited as Heroes.`
+          : "Your request was marked as resolved."
+      );
+    } catch (e) {
+      appAlert(
+        "Error",
+        (e as any)?.response?.data?.message ??
+          (e instanceof Error ? e.message : "Could not complete request.")
+      );
+    } finally {
+      setHelpBusy(false);
+    }
+  }, [helpBusy, helpHelpers.length, postId, resolveAppreciation, resolveSelectedIds]);
 
   const handleExtendHelp = useCallback(() => {
     if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
@@ -734,6 +784,66 @@ export function PostDetailScreen() {
       }
     ]);
   }, [helpBusy, post, postId]);
+
+  const handleCancelHelp = useCallback(() => {
+    if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
+    appAlert(
+      "Cancel this request?",
+      "It will leave active Helping Hands lists. You can still delete it later.",
+      [
+        { text: "Keep open", style: "cancel" },
+        {
+          text: "Cancel request",
+          style: "destructive",
+          onPress: async () => {
+            setHelpBusy(true);
+            try {
+              const updated = await updatePost(postId, { help_status: "CANCELLED" });
+              setPost(updated);
+              appAlert("Cancelled", "Your help request was cancelled.");
+            } catch (e) {
+              appAlert(
+                "Error",
+                (e as any)?.response?.data?.message ?? "Could not cancel request."
+              );
+            } finally {
+              setHelpBusy(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [helpBusy, post, postId]);
+
+  const handleDeleteHelp = useCallback(() => {
+    if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
+    appAlert(
+      "Delete this request?",
+      "This permanently removes the request, offers, and photos. This cannot be undone.",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setHelpBusy(true);
+            try {
+              await deletePost(postId);
+              appAlert("Deleted", "Help request removed.");
+              navigation.goBack();
+            } catch (e) {
+              appAlert(
+                "Error",
+                (e as any)?.response?.data?.message ?? "Could not delete request."
+              );
+            } finally {
+              setHelpBusy(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [helpBusy, navigation, post, postId]);
 
   const s = useMemo(
     () =>
@@ -1475,20 +1585,84 @@ export function PostDetailScreen() {
           </View>
         ) : null}
 
-        {isOwnHelp && helpOpen ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
-            <PrimaryButton
-              title="Mark as resolved"
-              onPress={handleCompleteHelp}
-              loading={helpBusy}
-              variant="secondary"
-            />
-            <PrimaryButton
-              title="Extend active duration"
-              onPress={handleExtendHelp}
-              loading={helpBusy}
-              variant="secondary"
-            />
+        {isOwnHelp ? (
+          <View
+            style={{
+              marginHorizontal: spacing.md,
+              marginBottom: spacing.lg,
+              padding: spacing.md,
+              borderRadius: radius.lg,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+              gap: spacing.sm
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: colors.textSecondary,
+                marginBottom: 2
+              }}
+            >
+              Manage request
+            </Text>
+            {helpOpen ? (
+              <>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <PrimaryButton
+                    title="Edit"
+                    onPress={() =>
+                      navigation.navigate("CreateHelpRequest", { editPostId: post.id })
+                    }
+                    variant="secondary"
+                    style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+                  />
+                  <PrimaryButton
+                    title="Extend"
+                    onPress={handleExtendHelp}
+                    loading={helpBusy}
+                    variant="secondary"
+                    style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+                  />
+                </View>
+                <PrimaryButton
+                  title="Mark as resolved"
+                  onPress={handleCompleteHelp}
+                  loading={helpBusy}
+                  variant="secondary"
+                  style={{ minHeight: 48, paddingVertical: spacing.md }}
+                />
+                <PrimaryButton
+                  title="Cancel request"
+                  onPress={handleCancelHelp}
+                  loading={helpBusy}
+                  variant="secondary"
+                  style={{ minHeight: 44, paddingVertical: spacing.sm }}
+                />
+              </>
+            ) : (
+              <Text style={{ fontSize: 13, color: colors.textMuted, lineHeight: 18 }}>
+                This request is {String(post.help_status || "closed").toLowerCase()}. You can
+                delete it permanently below.
+              </Text>
+            )}
+            <Pressable
+              onPress={handleDeleteHelp}
+              disabled={helpBusy}
+              style={({ pressed }) => ({
+                alignItems: "center",
+                paddingVertical: 10,
+                opacity: pressed || helpBusy ? 0.6 : 1
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="Delete help request"
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.error }}>
+                Delete request
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -1860,6 +2034,152 @@ export function PostDetailScreen() {
                   onPress={() => setApplyModalOpen(false)}
                   variant="secondary"
                   disabled={interestBusy}
+                />
+              </ScrollView>
+            </View>
+          </ModalKeyboardAvoiding>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={resolveModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !helpBusy && setResolveModalOpen(false)}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" }}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => !helpBusy && setResolveModalOpen(false)}
+            accessibilityLabel="Dismiss resolve form"
+          />
+          <ModalKeyboardAvoiding>
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: radius.lg,
+                borderTopRightRadius: radius.lg,
+                paddingTop: spacing.md,
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.xl,
+                maxHeight: "88%"
+              }}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  gap: spacing.md,
+                  paddingBottom: keyboardOpen
+                    ? Math.max(keyboardHeight * 0.08, spacing.sm)
+                    : spacing.sm
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+                  Resolved by
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                  Select the people who actually helped. Only they get Heroes credit.
+                </Text>
+                {(() => {
+                  const seen = new Set<number>();
+                  const uniqueHelpers = helpHelpers.filter((h) => {
+                    if (seen.has(h.from_user_id)) return false;
+                    seen.add(h.from_user_id);
+                    return true;
+                  });
+                  return uniqueHelpers.map((h) => {
+                    const selected = resolveSelectedIds.includes(h.from_user_id);
+                    return (
+                      <Pressable
+                        key={h.from_user_id}
+                        onPress={() => toggleResolveHelper(h.from_user_id)}
+                        disabled={helpBusy}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: spacing.sm,
+                          paddingVertical: spacing.sm,
+                          paddingHorizontal: spacing.sm,
+                          borderRadius: radius.md,
+                          borderWidth: 1,
+                          borderColor: selected ? colors.primary : colors.border,
+                          backgroundColor: colors.surfaceElevated
+                        }}
+                      >
+                        <AvatarImage
+                          uri={h.author.profile_image}
+                          name={h.author.name}
+                          size={40}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                            {h.author.name}
+                          </Text>
+                          {h.message ? (
+                            <Text
+                              numberOfLines={2}
+                              style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}
+                            >
+                              {h.message}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Ionicons
+                          name={selected ? "checkbox" : "square-outline"}
+                          size={24}
+                          color={selected ? colors.primary : colors.textSecondary}
+                        />
+                      </Pressable>
+                    );
+                  });
+                })()}
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: colors.textSecondary,
+                      marginBottom: 6
+                    }}
+                  >
+                    Appreciation (optional)
+                  </Text>
+                  <TextInput
+                    value={resolveAppreciation}
+                    onChangeText={setResolveAppreciation}
+                    placeholder="Short thank-you note"
+                    placeholderTextColor={colors.textMuted}
+                    multiline
+                    numberOfLines={3}
+                    editable={!helpBusy}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: radius.md,
+                      paddingHorizontal: spacing.md,
+                      ...textFieldMultiline,
+                      color: colors.text,
+                      minHeight: 80,
+                      backgroundColor: colors.surfaceElevated
+                    }}
+                  />
+                </View>
+                <PrimaryButton
+                  title={
+                    resolveSelectedIds.length > 0
+                      ? `Resolve · credit ${resolveSelectedIds.length}`
+                      : "Mark as resolved"
+                  }
+                  onPress={() => void submitResolveHelp()}
+                  loading={helpBusy}
+                />
+                <PrimaryButton
+                  title="Cancel"
+                  onPress={() => setResolveModalOpen(false)}
+                  variant="secondary"
+                  disabled={helpBusy}
                 />
               </ScrollView>
             </View>

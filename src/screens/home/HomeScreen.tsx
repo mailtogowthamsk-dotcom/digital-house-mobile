@@ -456,21 +456,13 @@ export function HomeScreen() {
   );
 
   const onHighlightPress = useCallback(
-    (item: { postId: number }) => {
+    (item: { postId: number; postType?: string }) => {
       trackFeedAction("post_open", item.postId, { source: "highlight" });
-      const index = feedItems.findIndex((p) => Number(p.id) === item.postId);
-      if (index >= 0) {
-        try {
-          listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.05 });
-        } catch {
-          /* index may be off-screen until layout */
-        }
-        return;
-      }
-      const match = feedItems.find((p) => Number(p.id) === item.postId);
-      if (match) setCommentPost({ id: match.id, title: match.title });
+      // Help requests (and other module posts) are not in the home feed — open detail
+      // so helpers can use "I'm Ready to Help" / other actions.
+      navigation.navigate("PostDetail", { postId: item.postId });
     },
-    [feedItems]
+    [navigation]
   );
 
   const listTopPad = insets.top + FLOATING_HEADER_HEIGHT + 8;

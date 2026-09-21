@@ -5,7 +5,6 @@ import { navigationRef } from "../../navigation/rootNavigation";
 import {
   isRemotePushSupported,
   notificationItemFromPushData,
-  syncPushTokenFromListener,
   syncPushTokenWithBackend
 } from "../../services/pushNotifications";
 import { markNotificationRead } from "../../api/notifications.api";
@@ -29,7 +28,9 @@ function handleNotificationTap(
  * Syncs Expo push token when already granted, and wires tap → deep link navigation.
  * Does NOT request notification permission on login / cold start — that is
  * user-initiated via Settings or the notification-center soft prompt.
- * Token listener refreshes the Expo token (never posts native FCM/APNs tokens).
+ * Does NOT subscribe to addPushTokenListener — resolving Expo tokens inside that
+ * listener re-fires it and can flood POST /push-token (seen in prod logs).
+ * Token refresh: bootstrap + AppState active (handled in pushNotifications).
  * No-op in Expo Go (use a development build for device push).
  */
 export function PushNotificationBootstrap() {
@@ -48,7 +49,6 @@ export function PushNotificationBootstrap() {
     if (status !== "home" || !pushSupported) return;
 
     let subTap: { remove: () => void } | undefined;
-    let subToken: { remove: () => void } | undefined;
     let cancelled = false;
 
     void (async () => {
@@ -61,16 +61,11 @@ export function PushNotificationBootstrap() {
 
       if (cancelled) return;
       subTap = Notifications.addNotificationResponseReceivedListener(handleNotificationTap);
-      // Listener payload is a native device token — re-fetch Expo token instead.
-      subToken = Notifications.addPushTokenListener(() => {
-        void syncPushTokenFromListener();
-      });
     })();
 
     return () => {
       cancelled = true;
       subTap?.remove();
-      subToken?.remove();
     };
   }, [status, pushSupported]);
 

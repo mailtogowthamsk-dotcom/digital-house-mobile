@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,15 @@ import {
   Pressable,
   TextInput,
   Image,
-  Platform
+  Platform,
+  ActivityIndicator
 } from "react-native";
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { createPost } from "../../api/posts.api";
+import { createPost, getPost, updatePost } from "../../api/posts.api";
 import { getErrorStatus } from "../../api/client";
 import { uploadOptimizedImage, isAllowedImageType, getMimeFromUri } from "../../utils/mediaUpload";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
@@ -24,6 +25,8 @@ import { spacing, radius } from "../../theme/spacing";
 import { textField, textFieldMultiline } from "../../theme/textField";
 import { appAlert } from "../../utils/appAlert";
 import { ensureMediaLibraryRead } from "../../permissions";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import type { RootStackParamList } from "../../navigation/types";
 import {
   HELP_CATEGORIES,
   HELP_URGENCIES,
@@ -34,10 +37,16 @@ import {
   useDeleteSessionMediaOnLeave
 } from "../../media/sessionUploadedMedia";
 
+const EDITABLE_HELP_STATUSES = new Set(["OPEN", "IN_PROGRESS"]);
+
 export function CreateHelpRequestScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<RootStackParamList, "CreateHelpRequest">>();
+  const editPostId = route.params?.editPostId;
+  const isEditing = editPostId != null && editPostId > 0;
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const keyboardHeight = useKeyboardHeight();
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState<string | null>(null);
   const [urgency, setUrgency] = useState<string>("NORMAL");
@@ -49,6 +58,7 @@ export function CreateHelpRequestScreen() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
   const sessionMedia = useRef(createSessionUploadedMedia()).current;
   const committedRef = useRef(false);
@@ -59,6 +69,55 @@ export function CreateHelpRequestScreen() {
     isCommitted: () => committedRef.current,
     isBusy: () => busyRef.current
   });
+
+  useEffect(() => {
+    if (!isEditing || editPostId == null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const post = await getPost(editPostId);
+        if (cancelled) return;
+        if (post.post_type !== "HELP_REQUEST") {
+          appAlert("Unavailable", "Only Helping Hands requests can be edited here.", [
+            { text: "OK", onPress: () => navigation.goBack() }
+          ]);
+          return;
+        }
+        const status = (post.help_status || "OPEN").toUpperCase();
+        if (!EDITABLE_HELP_STATUSES.has(status)) {
+          appAlert(
+            "Cannot edit",
+            "Closed, cancelled, or expired requests cannot be edited. You can delete them from the request page.",
+            [{ text: "OK", onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
+        setCategory(post.help_category ?? null);
+        setUrgency(post.help_urgency ?? "NORMAL");
+        setTitle(post.title ?? "");
+        setDescription(post.description ?? "");
+        const gallery =
+          post.help_gallery && post.help_gallery.length > 0
+            ? post.help_gallery
+            : post.media_url
+              ? [post.media_url]
+              : [];
+        setGalleryUrls(gallery);
+        setGalleryPreviews(gallery);
+        setLocation(post.help_location ?? "");
+        setPhone(post.help_contact_phone ?? "");
+      } catch (e) {
+        if (!cancelled) {
+          setError((e as any)?.response?.data?.message ?? "Failed to load request");
+        }
+      } finally {
+        if (!cancelled) setLoadingEdit(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editPostId, isEditing, navigation]);
 
   const s = useMemo(
     () =>
@@ -218,9 +277,7 @@ export function CreateHelpRequestScreen() {
     setSaving(true);
     setError(null);
     try {
-      const created = await createPost({
-        post_type: "HELP_REQUEST",
-        creation_source: "helping_hands",
+      const payload = {
         title: title.trim(),
         description: description.trim(),
         media_url: galleryUrls[0] ?? null,
@@ -229,29 +286,82 @@ export function CreateHelpRequestScreen() {
         help_urgency: urgency,
         help_location: location.trim(),
         help_contact_phone: phone.trim(),
-        help_gallery: galleryUrls.length ? galleryUrls : undefined
-      });
-      sessionMedia.release();
-      committedRef.current = true;
-      navigation.replace("PostDetail", { postId: created.id });
+        help_gallery: galleryUrls
+      };
+      if (isEditing && editPostId != null) {
+        await updatePost(editPostId, payload);
+        sessionMedia.release();
+        committedRef.current = true;
+        navigation.replace("PostDetail", { postId: editPostId });
+      } else {
+        const created = await createPost({
+          post_type: "HELP_REQUEST",
+          creation_source: "helping_hands",
+          ...payload,
+          help_gallery: galleryUrls.length ? galleryUrls : undefined
+        });
+        sessionMedia.release();
+        committedRef.current = true;
+        navigation.replace("PostDetail", { postId: created.id });
+      }
     } catch (e) {
       const status = getErrorStatus(e);
       if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       else if (status === 403)
         navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else setError((e as any)?.response?.data?.message ?? "Failed to publish request");
+      else
+        setError(
+          (e as any)?.response?.data?.message ??
+            (isEditing ? "Failed to save changes" : "Failed to publish request")
+        );
     } finally {
       setSaving(false);
     }
-  }, [category, description, galleryUrls, location, navigation, phone, title, urgency]);
+  }, [
+    category,
+    description,
+    editPostId,
+    galleryUrls,
+    isEditing,
+    location,
+    navigation,
+    phone,
+    title,
+    urgency
+  ]);
+
+  if (loadingEdit) {
+    return (
+      <View style={[s.root, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={{ marginTop: 12, color: colors.textMuted }}>Loading request…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={s.root}>
-      <MatrimonyScreenHeader title="Create Request" onBack={() => navigation.goBack()} />
-      <AppKeyboardAvoidingView
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+      <MatrimonyScreenHeader
+        title={isEditing ? "Edit Request" : "Create Request"}
+        onBack={() => navigation.goBack()}
+      />
+      {/*
+        androidPad=false: shrinking the flex child when the keyboard opens remounts/blurs
+        multiline description on Android. Pad ScrollView content + footer instead.
+      */}
+      <AppKeyboardAvoidingView style={{ flex: 1 }} androidPad={false}>
+        <ScrollView
+          contentContainerStyle={[
+            s.body,
+            Platform.OS === "android" && keyboardHeight > 0
+              ? { paddingBottom: 40 + keyboardHeight }
+              : null
+          ]}
+          keyboardShouldPersistTaps="always"
+          // "on-drag" / default Android dismiss + focus scroll dismissed the description keyboard.
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={s.stepLabel}>Step {step} of 4</Text>
           {step === 1 ? (
             <>
@@ -314,6 +424,8 @@ export function CreateHelpRequestScreen() {
                 placeholder="e.g. Need blood donors for surgery"
                 placeholderTextColor={colors.textMuted}
                 maxLength={255}
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
               <Text style={s.label}>Description (min 20 characters)</Text>
               <TextInput
@@ -323,6 +435,9 @@ export function CreateHelpRequestScreen() {
                 placeholder="Share what you need and how someone can help…"
                 placeholderTextColor={colors.textMuted}
                 multiline
+                textAlignVertical="top"
+                blurOnSubmit={false}
+                scrollEnabled
                 maxLength={5000}
               />
             </>
@@ -366,6 +481,7 @@ export function CreateHelpRequestScreen() {
                 onChangeText={setLocation}
                 placeholder="City / area"
                 placeholderTextColor={colors.textMuted}
+                blurOnSubmit={false}
               />
               <Text style={s.label}>Contact phone</Text>
               <TextInput
@@ -384,7 +500,14 @@ export function CreateHelpRequestScreen() {
           ) : null}
         </ScrollView>
 
-        <View style={s.footer}>
+        <View
+          style={[
+            s.footer,
+            Platform.OS === "android" && keyboardHeight > 0
+              ? { marginBottom: keyboardHeight }
+              : null
+          ]}
+        >
           {step > 1 ? (
             <View style={{ flex: 1 }}>
               <PrimaryButton title="Back" variant="secondary" onPress={() => setStep((x) => x - 1)} />
@@ -399,7 +522,7 @@ export function CreateHelpRequestScreen() {
               />
             ) : (
               <PrimaryButton
-                title="Publish"
+                title={isEditing ? "Save changes" : "Publish"}
                 loading={saving}
                 disabled={!canNext || saving}
                 onPress={() => void publish()}
