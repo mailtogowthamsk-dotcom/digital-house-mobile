@@ -1,11 +1,12 @@
 import { api, getApiBaseUrl } from "./client";
 import * as FileSystem from "expo-file-system/legacy";
 import { getTokenReliable } from "../storage/token.storage";
+import { CacheKeys, cachedGet, invalidateRequestCache } from "./requestCache";
 
 export type StoryItem = {
   id: number;
   user_id: number;
-  media_type: "image" | "video";
+  media_type: "image" | "video" | "text";
   media_url: string | null;
   caption?: string | null;
   thumbnail_url: string | null;
@@ -42,10 +43,20 @@ export type StoryViewer = {
   viewed_at: string;
 };
 
-export async function getStoryTray(): Promise<StoryGroup[]> {
-  const { data } = await api.get<{ ok: boolean; groups: StoryGroup[] }>("/stories");
-  if (!data.ok) throw new Error("Failed to load stories");
-  return data.groups ?? [];
+export async function getStoryTray(opts?: { force?: boolean }): Promise<StoryGroup[]> {
+  return cachedGet(
+    CacheKeys.storiesTray,
+    async () => {
+      const { data } = await api.get<{ ok: boolean; groups: StoryGroup[] }>("/stories");
+      if (!data.ok) throw new Error("Failed to load stories");
+      return data.groups ?? [];
+    },
+    { ttlMs: 4_000, force: opts?.force }
+  );
+}
+
+export function invalidateStoriesTray(): void {
+  invalidateRequestCache(CacheKeys.storiesTray);
 }
 
 export async function getStory(storyId: number): Promise<StoryItem> {
@@ -55,8 +66,8 @@ export async function getStory(storyId: number): Promise<StoryItem> {
 }
 
 export async function createStory(payload: {
-  media_url: string;
-  media_type: "image" | "video";
+  media_url?: string | null;
+  media_type: "image" | "video" | "text";
   caption?: string | null;
   thumbnail_url?: string | null;
   duration_seconds?: number | null;
@@ -65,6 +76,7 @@ export async function createStory(payload: {
 }): Promise<StoryItem> {
   const { data } = await api.post<{ ok: boolean; story: StoryItem }>("/stories", payload);
   if (!data.ok || !data.story) throw new Error("Failed to post story");
+  invalidateStoriesTray();
   return data.story;
 }
 
@@ -76,7 +88,13 @@ export async function uploadStoryMediaToServer(
   localUri: string,
   mimeType: string,
   onProgress?: (progress: number) => void
-): Promise<{ key: string; byte_size: number; mime_type: string }> {
+): Promise<{
+  key: string;
+  byte_size: number;
+  mime_type: string;
+  duration_seconds: number | null;
+  media_kind?: "image" | "video";
+}> {
   const token = await getTokenReliable();
   if (!token) throw new Error("Not signed in");
 
@@ -107,6 +125,8 @@ export async function uploadStoryMediaToServer(
     key?: string;
     byte_size?: number;
     mime_type?: string;
+    duration_seconds?: number | null;
+    media_kind?: "image" | "video";
   };
   if (!parsed.ok || !parsed.key) {
     throw new Error("Upload failed");
@@ -114,7 +134,12 @@ export async function uploadStoryMediaToServer(
   return {
     key: parsed.key,
     byte_size: parsed.byte_size ?? 0,
-    mime_type: parsed.mime_type ?? mimeType
+    mime_type: parsed.mime_type ?? mimeType,
+    duration_seconds:
+      parsed.duration_seconds != null && Number.isFinite(Number(parsed.duration_seconds))
+        ? Number(parsed.duration_seconds)
+        : null,
+    media_kind: parsed.media_kind
   };
 }
 
@@ -156,4 +181,5 @@ export async function replyToStory(
 export async function deleteStory(storyId: number): Promise<void> {
   const { data } = await api.delete<{ ok: boolean }>(`/stories/${storyId}`);
   if (!data.ok) throw new Error("Failed to delete story");
+  invalidateStoriesTray();
 }

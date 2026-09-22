@@ -171,15 +171,30 @@ export async function offerHelp(
   return data as OfferHelpResult;
 }
 
-export async function listHelpHelpers(postId: number): Promise<{
+export async function listHelpHelpers(
+  postId: number,
+  opts?: { limit?: number; offset?: number }
+): Promise<{
   items: HelpHelper[];
   total: number;
+  nextOffset: number | null;
 }> {
-  const { data } = await api.get<{ ok: boolean; items: HelpHelper[]; total: number }>(
-    `/helping-hands/requests/${postId}/helpers`
-  );
+  const limit = Math.min(50, Math.max(1, opts?.limit ?? 10));
+  const offset = Math.max(0, opts?.offset ?? 0);
+  const { data } = await api.get<{
+    ok: boolean;
+    items: HelpHelper[];
+    total: number;
+    nextOffset?: number | null;
+  }>(`/helping-hands/requests/${postId}/helpers`, {
+    params: { limit, offset }
+  });
   if (!data.ok) throw new Error("Failed to load helpers");
-  return { items: data.items ?? [], total: data.total ?? 0 };
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    nextOffset: data.nextOffset ?? null
+  };
 }
 
 export async function completeHelpRequest(

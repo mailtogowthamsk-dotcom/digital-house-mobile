@@ -64,11 +64,11 @@ export function SearchMembersScreen() {
   useEffect(() => {
     if (!fromMessages || status !== "home") return;
     let cancelled = false;
-    listThreads({ includeArchived: true })
-      .then((threads) => {
+    listThreads({ includeArchived: true, limit: 50 })
+      .then((page) => {
         if (cancelled) return;
         const map = new Map<number, ThreadMeta>();
-        for (const t of threads) {
+        for (const t of page.threads) {
           map.set(t.otherUser.id, {
             name: t.otherUser.name,
             profileImage: t.otherUser.profileImage,

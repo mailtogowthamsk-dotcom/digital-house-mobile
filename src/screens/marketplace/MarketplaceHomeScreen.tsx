@@ -48,7 +48,7 @@ type MineFilter =
   | "expired"
   | "archived";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const ACCENT = "#EA580C";
 
 const MINE_FILTERS: { id: MineFilter; label: string }[] = [

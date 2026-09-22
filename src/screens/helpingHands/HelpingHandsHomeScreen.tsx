@@ -77,6 +77,7 @@ export function HelpingHandsHomeScreen() {
   const [requestsNextOffset, setRequestsNextOffset] = useState<number | null>(null);
   const [contributionsNextOffset, setContributionsNextOffset] = useState<number | null>(null);
   const hasLoadedOnce = React.useRef(false);
+  const lastFocusLoadAt = React.useRef(0);
   nextCursorRef.current = nextCursor;
   heroesNextOffsetRef.current = heroesNextOffset;
   requestsNextOffsetRef.current = requestsNextOffset;
@@ -175,6 +176,12 @@ export function HelpingHandsHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      const STALE_MS = 45_000;
+      if (hasLoadedOnce.current && now - lastFocusLoadAt.current < STALE_MS) {
+        return;
+      }
+      lastFocusLoadAt.current = now;
       const showSpinner = !hasLoadedOnce.current;
       if (showSpinner) setLoading(true);
       setNextCursor(null);
@@ -187,6 +194,7 @@ export function HelpingHandsHomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    lastFocusLoadAt.current = 0;
     setNextCursor(null);
     setHeroesNextOffset(null);
     setRequestsNextOffset(null);

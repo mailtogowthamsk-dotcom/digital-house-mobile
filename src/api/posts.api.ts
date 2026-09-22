@@ -360,17 +360,31 @@ export type JobInterestItem = {
 
 export async function listJobInterests(
   postId: number,
-  status?: string
-): Promise<{ items: JobInterestItem[]; total: number }> {
+  status?: string,
+  opts?: { page?: number; limit?: number }
+): Promise<{ items: JobInterestItem[]; total: number; page: number; limit: number }> {
+  const page = Math.max(1, opts?.page ?? 1);
+  const limit = Math.min(50, Math.max(1, opts?.limit ?? 10));
   const { data } = await api.get<{
     ok: boolean;
     items: JobInterestItem[];
     total: number;
+    page?: number;
+    limit?: number;
   }>(`/posts/${postId}/job-interests`, {
-    params: status && status !== "all" ? { status } : undefined
+    params: {
+      page,
+      limit,
+      ...(status && status !== "all" ? { status } : {})
+    }
   });
   if (!data.ok) throw new Error("Failed to load interests");
-  return { items: data.items ?? [], total: data.total ?? 0 };
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    page: data.page ?? page,
+    limit: data.limit ?? limit
+  };
 }
 
 export async function updateJobInterest(

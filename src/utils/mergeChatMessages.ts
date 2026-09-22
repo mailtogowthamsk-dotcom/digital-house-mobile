@@ -9,6 +9,11 @@ export type MergeChatOptions = {
    * around after the last visible message is gone.
    */
   clearConfirmedIfEmpty?: boolean;
+  /**
+   * When true, do not drop local messages outside the incoming id window.
+   * Required for scroll-up “load older” pages so newer messages stay on screen.
+   */
+  preserveExistingOutsideWindow?: boolean;
 };
 
 /**
@@ -81,7 +86,7 @@ export function mergeChatMessages(
   const serverIds = new Set(
     incoming.filter((m) => m.id > 0 && !forgotten.has(m.id)).map((m) => m.id)
   );
-  if (serverIds.size > 0) {
+  if (serverIds.size > 0 && !options?.preserveExistingOutsideWindow) {
     let minServerId = Infinity;
     for (const id of serverIds) {
       if (id < minServerId) minServerId = id;

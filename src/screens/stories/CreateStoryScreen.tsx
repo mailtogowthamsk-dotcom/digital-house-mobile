@@ -14,7 +14,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputFocusEventData
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -30,14 +30,25 @@ import { createStory, uploadStoryMediaToServer } from "../../api/stories.api";
 import { optimizeImageForUpload } from "../../utils/imageOptimizer";
 import { optimizeVideoForUpload } from "../../utils/videoOptimizer";
 import { ensureMediaLibraryRead } from "../../permissions";
-import { VIDEO_MAX_BYTES, VIDEO_MIN_DURATION_SEC } from "../../config/media.config";
+import { VIDEO_MAX_BYTES, formatDuration } from "../../config/media.config";
+import {
+  STORY_CAPTION_MAX_LENGTH,
+  STORY_VIDEO_MAX_DURATION_SEC,
+  STORY_VIDEO_MIN_DURATION_SEC,
+  STORY_VIDEO_PICKER_MAX_DURATION_SEC
+} from "../../config/stories.constants";
 import { appAlert } from "../../context/AppAlertContext";
 import { emitStoriesChanged } from "../../utils/storiesEvents";
+import { probeLocalVideoDurationSec } from "../../utils/probeLocalVideoDuration";
+import { pendingMediaDraft } from "../../media/pendingMediaDraft";
+import { cleanupTempVideoUri } from "../../services/videoProcessing.service";
 
-const STORY_VIDEO_MAX_SEC = 30;
-const STORY_CAPTION_MAX = 120;
+const STORY_CAPTION_MAX = STORY_CAPTION_MAX_LENGTH;
+const MAX_LABEL = `${Math.floor(STORY_VIDEO_MAX_DURATION_SEC / 60)} min`;
 
-type StoryPickKind = "image" | "video";
+type StoryPickKind = "image" | "video" | "text";
+
+const TEXT_BG_PRESETS = ["#0F172A", "#7C2D12", "#1E3A5F", "#14532D", "#4C1D95", "#9F1239"] as const;
 
 function LocalVideoPreview({ uri, compact }: { uri: string; compact?: boolean }) {
   const player = useVideoPlayer(uri, (p) => {
@@ -61,16 +72,52 @@ export function CreateStoryScreen() {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [localUri, setLocalUri] = useState<string | null>(null);
-  const [kind, setKind] = useState<"image" | "video" | null>(null);
+  const [kind, setKind] = useState<"image" | "video" | "text" | null>(null);
   const [durationSec, setDurationSec] = useState<number | null>(null);
   const [mimeType, setMimeType] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
+  const [textBg, setTextBg] = useState<string>(TEXT_BG_PRESETS[0]);
   const [posting, setPosting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [caption, setCaption] = useState("");
   const [captionFocused, setCaptionFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const postingRef = useRef(false);
+  const tempTrimUriRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const uri = tempTrimUriRef.current;
+      tempTrimUriRef.current = null;
+      if (uri) void cleanupTempVideoUri(uri);
+    };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const outcome = pendingMediaDraft.consumeResult();
+      if (!outcome || outcome.result !== "confirmed" || !outcome.asset) return;
+      const asset = outcome.asset;
+      if (asset.kind === "image") {
+        setKind("image");
+        setLocalUri(asset.uri);
+        setDurationSec(null);
+        setMimeType(asset.mimeType || "image/jpeg");
+        setFileSize(asset.fileSize ?? null);
+        return;
+      }
+      if (asset.kind !== "video") return;
+      if (tempTrimUriRef.current && tempTrimUriRef.current !== asset.uri) {
+        void cleanupTempVideoUri(tempTrimUriRef.current);
+      }
+      tempTrimUriRef.current = asset.tempFileUri ?? asset.uri;
+      setKind("video");
+      setLocalUri(asset.uri);
+      setDurationSec(asset.durationSec);
+      setMimeType(asset.mimeType || "video/mp4");
+      setFileSize(asset.fileSize ?? null);
+    }, [])
+  );
 
   useEffect(() => {
     const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -110,16 +157,69 @@ export function CreateStoryScreen() {
     [scrollCaptionIntoView]
   );
 
+  const openPhotoCrop = useCallback(
+    async (uri: string, mime: string, size: number | null, fileName?: string, width?: number | null, height?: number | null) => {
+      pendingMediaDraft.open(
+        {
+          uri,
+          kind: "image",
+          mimeType: mime || "image/jpeg",
+          fileName: fileName || uri.split("/").pop() || "story.jpg",
+          fileSize: size,
+          width: width ?? null,
+          height: height ?? null,
+          durationSec: null
+        },
+        localUri ? "replace" : "create"
+      );
+      navigation.navigate("MediaPreview", {
+        allowVideo: false,
+        defaultCropRatio: "9:16",
+        mode: localUri ? "replace" : "create"
+      });
+    },
+    [navigation, localUri]
+  );
+
+  const openTrim = useCallback(
+    (uri: string, duration: number, mime: string, size: number | null, fileName?: string) => {
+      pendingMediaDraft.open(
+        {
+          uri,
+          kind: "video",
+          mimeType: mime || "video/mp4",
+          fileName: fileName || uri.split("/").pop() || "story.mp4",
+          fileSize: size,
+          width: null,
+          height: null,
+          durationSec: duration
+        },
+        "create"
+      );
+      navigation.navigate("VideoTrim");
+    },
+    [navigation]
+  );
+
   const pick = useCallback(async (want: StoryPickKind) => {
+    if (want === "text") {
+      setKind("text");
+      setLocalUri(null);
+      setDurationSec(null);
+      setMimeType("text/plain");
+      setFileSize(null);
+      setCaption("");
+      return;
+    }
     const permission = await ensureMediaLibraryRead({
       rationaleMessage: "Digital House needs photo library access to post a story."
     });
     if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      // Prefer modern MediaType arrays — MediaTypeOptions.Images still surfaces videos on Android.
       mediaTypes: want === "image" ? ["images"] : ["videos"],
       quality: 0.92,
-      videoMaxDuration: STORY_VIDEO_MAX_SEC,
+      // Allow longer gallery picks; trim screen enforces the 1-minute story max.
+      videoMaxDuration: STORY_VIDEO_PICKER_MAX_DURATION_SEC,
       allowsEditing: false
     });
     if (result.canceled || !result.assets?.[0]) return;
@@ -133,42 +233,120 @@ export function CreateStoryScreen() {
       return;
     }
     if (want === "video" && !isVideo) {
-      appAlert("Videos only", "Please pick a video (30 seconds or less).");
+      appAlert("Videos only", `Please pick a video (up to ${MAX_LABEL} after trim).`);
       return;
     }
-    if (isVideo) {
-      const dur = asset.duration != null ? Number(asset.duration) / 1000 : null;
-      if (dur != null && dur > STORY_VIDEO_MAX_SEC) {
-        appAlert("Video too long", "Videos must be 30 seconds or less.");
-        return;
-      }
-      if (dur != null && dur < VIDEO_MIN_DURATION_SEC) {
-        appAlert("Video too short", `Videos must be at least ${VIDEO_MIN_DURATION_SEC} seconds.`);
-        return;
-      }
-      if (asset.fileSize && asset.fileSize > VIDEO_MAX_BYTES) {
-        appAlert("File too large", "Video must be 50 MB or less.");
-        return;
-      }
-      setKind("video");
-      setDurationSec(dur != null && Number.isFinite(dur) ? dur : null);
-      setMimeType(asset.mimeType ?? "video/mp4");
-      setFileSize(asset.fileSize ?? null);
-    } else {
-      setKind("image");
-      setDurationSec(null);
-      setMimeType(asset.mimeType ?? "image/jpeg");
-      setFileSize(asset.fileSize ?? null);
+    if (!isVideo) {
+      await openPhotoCrop(
+        asset.uri,
+        asset.mimeType ?? "image/jpeg",
+        asset.fileSize ?? null,
+        asset.fileName ?? undefined,
+        asset.width ?? null,
+        asset.height ?? null
+      );
+      return;
     }
+    let dur = asset.duration != null ? Number(asset.duration) / 1000 : null;
+    if (dur == null || !Number.isFinite(dur) || dur <= 0) {
+      dur = await probeLocalVideoDurationSec(asset.uri);
+    }
+    if (dur == null || !Number.isFinite(dur) || dur <= 0) {
+      appAlert(
+        "Could not read video",
+        "We could not determine this video’s length. Try another clip."
+      );
+      return;
+    }
+    if (dur < STORY_VIDEO_MIN_DURATION_SEC) {
+      appAlert(
+        "Video too short",
+        `Videos must be at least ${STORY_VIDEO_MIN_DURATION_SEC} seconds.`
+      );
+      return;
+    }
+    if (dur > STORY_VIDEO_PICKER_MAX_DURATION_SEC) {
+      appAlert(
+        "Video too long",
+        `Please choose a video under ${Math.floor(STORY_VIDEO_PICKER_MAX_DURATION_SEC / 60)} minutes.`
+      );
+      return;
+    }
+    if (asset.fileSize && asset.fileSize > VIDEO_MAX_BYTES * 4) {
+      appAlert("File too large", "Video is too large to process. Try a shorter clip.");
+      return;
+    }
+    const mime = asset.mimeType ?? "video/mp4";
+    // Longer than 1 minute → trim required before story create.
+    if (dur > STORY_VIDEO_MAX_DURATION_SEC) {
+      openTrim(asset.uri, dur, mime, asset.fileSize ?? null, asset.fileName ?? undefined);
+      return;
+    }
+    setKind("video");
+    setDurationSec(dur);
+    setMimeType(mime);
+    setFileSize(asset.fileSize ?? null);
     setLocalUri(asset.uri);
-  }, []);
+  }, [openTrim, openPhotoCrop]);
 
   const post = useCallback(async () => {
-    if (!localUri || !kind || postingRef.current) return;
+    if ((!localUri && kind !== "text") || !kind || postingRef.current) return;
+    if (kind === "text") {
+      const body = caption.trim().replace(/\s+/g, " ");
+      if (!body) {
+        appAlert("Add text", "Type something for your text story.");
+        return;
+      }
+      Keyboard.dismiss();
+      postingRef.current = true;
+      setPosting(true);
+      try {
+        await createStory({
+          media_type: "text",
+          caption: body,
+          mime_type: "text/plain"
+        });
+        emitStoriesChanged({ reason: "created" });
+        navigation.goBack();
+      } catch (e: any) {
+        appAlert(
+          "Could not post",
+          e?.response?.data?.message ?? e?.message ?? "Try again"
+        );
+      } finally {
+        postingRef.current = false;
+        setPosting(false);
+        setProgress(0);
+      }
+      return;
+    }
+    if (!localUri) return;
     if (kind === "video") {
-      const d = durationSec ?? 0;
-      if (d > STORY_VIDEO_MAX_SEC) {
-        appAlert("Video too long", "Videos must be 30 seconds or less.");
+      let d = durationSec;
+      if (d == null || !Number.isFinite(d) || d <= 0) {
+        d = await probeLocalVideoDurationSec(localUri);
+        if (d != null) setDurationSec(d);
+      }
+      if (d == null || !Number.isFinite(d) || d <= 0) {
+        appAlert(
+          "Could not read video",
+          "We could not determine this video’s length. Try another clip."
+        );
+        return;
+      }
+      if (d < STORY_VIDEO_MIN_DURATION_SEC) {
+        appAlert(
+          "Video too short",
+          `Videos must be at least ${STORY_VIDEO_MIN_DURATION_SEC} seconds.`
+        );
+        return;
+      }
+      if (d > STORY_VIDEO_MAX_DURATION_SEC) {
+        appAlert(
+          "Trim required",
+          `Stories can be up to ${MAX_LABEL}. Trim your video to continue.`
+        );
+        openTrim(localUri, d, mimeType || "video/mp4", fileSize);
         return;
       }
     }
@@ -217,9 +395,33 @@ export function CreateStoryScreen() {
         const uploaded = await uploadStoryMediaToServer(optimized.uri, "video/mp4", (p) =>
           setProgress(0.5 + p * 0.4)
         );
-        const finalDuration = durationSec;
-        if (finalDuration != null && finalDuration > STORY_VIDEO_MAX_SEC) {
-          appAlert("Video too long", "Videos must be 30 seconds or less.");
+        const serverDuration =
+          uploaded.duration_seconds != null && Number.isFinite(uploaded.duration_seconds)
+            ? Number(uploaded.duration_seconds)
+            : null;
+        let finalDuration = serverDuration ?? durationSec;
+        if (finalDuration == null || !Number.isFinite(finalDuration)) {
+          finalDuration = await probeLocalVideoDurationSec(optimized.uri);
+        }
+        if (finalDuration == null || !Number.isFinite(finalDuration)) {
+          appAlert(
+            "Could not read video",
+            "We could not determine this video’s length after processing."
+          );
+          return;
+        }
+        if (finalDuration > STORY_VIDEO_MAX_DURATION_SEC) {
+          appAlert(
+            "Video too long",
+            `Stories must be ${STORY_VIDEO_MAX_DURATION_SEC} seconds or less. Trim and try again.`
+          );
+          return;
+        }
+        if (finalDuration < STORY_VIDEO_MIN_DURATION_SEC) {
+          appAlert(
+            "Video too short",
+            `Videos must be at least ${STORY_VIDEO_MIN_DURATION_SEC} seconds.`
+          );
           return;
         }
         await createStory({
@@ -227,24 +429,48 @@ export function CreateStoryScreen() {
           media_type: "video",
           caption: caption.trim() || null,
           thumbnail_url: thumbnailKey,
-          duration_seconds: finalDuration != null ? Math.ceil(finalDuration) : null,
+          duration_seconds: Math.ceil(finalDuration),
           mime_type: uploaded.mime_type,
           file_size: uploaded.byte_size || fileSize
         });
         await optimized.cleanup?.();
+        if (tempTrimUriRef.current) {
+          const t = tempTrimUriRef.current;
+          tempTrimUriRef.current = null;
+          await cleanupTempVideoUri(t);
+        }
       }
       emitStoriesChanged({ reason: "created" });
       navigation.goBack();
     } catch (e: any) {
-      appAlert("Could not post", e?.response?.data?.message ?? e?.message ?? "Try again");
+      const raw = e?.response?.data?.message ?? e?.message ?? "Try again";
+      const msg = String(raw);
+      let title = "Could not post";
+      let body = msg;
+      if (/too long|VIDEO_TOO_LONG|Trim/i.test(msg)) {
+        title = "Video too long";
+        body = `Stories must be ${STORY_VIDEO_MAX_DURATION_SEC} seconds or less. Trim your clip and try again.`;
+      } else if (/too short|VIDEO_TOO_SHORT/i.test(msg)) {
+        title = "Video too short";
+        body = `Videos must be at least ${STORY_VIDEO_MIN_DURATION_SEC} seconds.`;
+      } else if (/corrupt|INVALID_VIDEO|UNSUPPORTED|MIME/i.test(msg)) {
+        title = "Unsupported media";
+        body = "This file could not be used as a story. Try another photo or video.";
+      } else if (/upload/i.test(msg)) {
+        title = "Upload failed";
+        body = "Could not upload your story media. Check your connection and try again.";
+      }
+      appAlert(title, body);
     } finally {
       postingRef.current = false;
       setPosting(false);
       setProgress(0);
     }
-  }, [localUri, kind, durationSec, mimeType, fileSize, caption, navigation]);
+  }, [localUri, kind, durationSec, mimeType, fileSize, caption, navigation, openTrim]);
 
   const compactPreview = captionFocused || keyboardHeight > 0;
+  const canPost =
+    kind === "text" ? caption.trim().length > 0 : Boolean(localUri && kind);
 
   return (
     <KeyboardAvoidingView
@@ -276,7 +502,7 @@ export function CreateStoryScreen() {
           keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
-          {!localUri ? (
+          {!localUri && kind !== "text" ? (
             <View style={styles.pickRow}>
               <Pressable
                 style={[
@@ -287,6 +513,7 @@ export function CreateStoryScreen() {
               >
                 <Ionicons name="image-outline" size={28} color={colors.primary} />
                 <Text style={{ color: colors.text, fontWeight: "700" }}>Photo</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Crop 9:16</Text>
               </Pressable>
               <Pressable
                 style={[
@@ -296,10 +523,66 @@ export function CreateStoryScreen() {
                 onPress={() => void pick("video")}
               >
                 <Ionicons name="videocam-outline" size={28} color={colors.primary} />
-                <Text style={{ color: colors.text, fontWeight: "700" }}>Video (≤30s)</Text>
+                <Text style={{ color: colors.text, fontWeight: "700" }}>Video (≤{MAX_LABEL})</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.pickBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border }
+                ]}
+                onPress={() => void pick("text")}
+              >
+                <Ionicons name="text-outline" size={28} color={colors.primary} />
+                <Text style={{ color: colors.text, fontWeight: "700" }}>Text</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Type a status</Text>
               </Pressable>
             </View>
-          ) : (
+          ) : kind === "text" ? (
+            <View style={styles.textComposer}>
+              <View style={[styles.textPreview, { backgroundColor: textBg }]}>
+                <TextInput
+                  value={caption}
+                  onChangeText={(t) => setCaption(t.slice(0, STORY_CAPTION_MAX))}
+                  placeholder="Type your story…"
+                  placeholderTextColor="rgba(255,255,255,0.55)"
+                  style={styles.textStoryInput}
+                  maxLength={STORY_CAPTION_MAX}
+                  multiline
+                  textAlign="center"
+                  textAlignVertical="center"
+                  autoFocus
+                />
+              </View>
+              <View style={styles.bgRow}>
+                {TEXT_BG_PRESETS.map((c) => (
+                  <Pressable
+                    key={c}
+                    onPress={() => setTextBg(c)}
+                    style={[
+                      styles.bgDot,
+                      {
+                        backgroundColor: c,
+                        borderColor: textBg === c ? colors.primary : "transparent",
+                        borderWidth: textBg === c ? 3 : 0
+                      }
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.textCount, { color: colors.textMuted }]}>
+                {caption.length}/{STORY_CAPTION_MAX}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setKind(null);
+                  setCaption("");
+                }}
+                style={styles.change}
+              >
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>Choose different</Text>
+              </Pressable>
+            </View>
+          ) : localUri ? (
             <View style={styles.preview}>
               {kind === "video" ? (
                 <LocalVideoPreview uri={localUri} compact={compactPreview} />
@@ -312,14 +595,48 @@ export function CreateStoryScreen() {
               )}
               {kind === "video" && durationSec != null ? (
                 <Text style={[styles.meta, { color: colors.textSecondary }]}>
-                  {durationSec.toFixed(1)}s
+                  {formatDuration(durationSec)}
+                  {durationSec > STORY_VIDEO_MAX_DURATION_SEC ? " · trim required" : ""}
                 </Text>
+              ) : null}
+              {kind === "video" && localUri && durationSec != null ? (
+                <Pressable
+                  onPress={() =>
+                    openTrim(localUri, durationSec, mimeType || "video/mp4", fileSize)
+                  }
+                  style={[
+                    styles.trimBtn,
+                    { borderColor: colors.border, backgroundColor: colors.surface }
+                  ]}
+                >
+                  <Ionicons name="cut-outline" size={18} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Trim video</Text>
+                </Pressable>
+              ) : null}
+              {kind === "image" && localUri ? (
+                <Pressable
+                  onPress={() =>
+                    void openPhotoCrop(localUri, mimeType || "image/jpeg", fileSize)
+                  }
+                  style={[
+                    styles.trimBtn,
+                    { borderColor: colors.border, backgroundColor: colors.surface }
+                  ]}
+                >
+                  <Ionicons name="crop-outline" size={18} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Crop photo</Text>
+                </Pressable>
               ) : null}
               <Pressable
                 onPress={() => {
                   Keyboard.dismiss();
+                  if (tempTrimUriRef.current) {
+                    void cleanupTempVideoUri(tempTrimUriRef.current);
+                    tempTrimUriRef.current = null;
+                  }
                   setLocalUri(null);
                   setKind(null);
+                  setDurationSec(null);
                   setCaption("");
                 }}
                 style={styles.change}
@@ -349,7 +666,7 @@ export function CreateStoryScreen() {
                 {caption.length}/{STORY_CAPTION_MAX}
               </Text>
             </View>
-          )}
+          ) : null}
         </ScrollView>
 
         <View
@@ -363,12 +680,12 @@ export function CreateStoryScreen() {
           ]}
         >
           <Pressable
-            disabled={!localUri || posting}
+            disabled={!canPost || posting}
             onPress={() => void post()}
             style={[
               styles.postBtn,
               {
-                backgroundColor: !localUri || posting ? colors.border : colors.primary,
+                backgroundColor: !canPost || posting ? colors.border : colors.primary,
                 opacity: posting ? 0.85 : 1
               }
             ]}
@@ -402,21 +719,77 @@ const styles = StyleSheet.create({
   },
   title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
   body: { padding: 16, gap: 16, flexGrow: 1 },
-  pickRow: { flexDirection: "row", gap: 12, marginTop: 24 },
+  pickRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 24 },
   pickBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
+    minWidth: 100,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 28,
+    paddingVertical: 22,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth
+  },
+  textComposer: {
+    width: "100%",
+    alignItems: "center",
+    gap: 14,
+    paddingTop: 8
+  },
+  textPreview: {
+    width: "100%",
+    maxWidth: 280,
+    aspectRatio: 9 / 16,
+    maxHeight: 420,
+    alignSelf: "center",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    overflow: "hidden"
+  },
+  textStoryInput: {
+    width: "100%",
+    color: "#fff",
+    fontSize: 26,
+    fontWeight: "700",
+    lineHeight: 34,
+    minHeight: 140,
+    textAlign: "center",
+    paddingHorizontal: 4
+  },
+  bgRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%"
+  },
+  bgDot: { width: 32, height: 32, borderRadius: 16 },
+  textCount: {
+    fontSize: 11,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 280,
+    textAlign: "right"
   },
   preview: { alignItems: "center", gap: 12 },
   media: { width: "100%", aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 16 },
   mediaCompact: { maxHeight: 180, aspectRatio: 9 / 12 },
   meta: { fontSize: 13, fontWeight: "600" },
-  change: { padding: 8 },
+  trimBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  change: { padding: 8, alignSelf: "center" },
   captionInput: {
     width: "100%",
     minHeight: 72,

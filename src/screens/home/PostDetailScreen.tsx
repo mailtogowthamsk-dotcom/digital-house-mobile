@@ -74,10 +74,12 @@ import {
   offerHelp,
   listHelpHelpers,
   completeHelpRequest,
-  extendHelpRequest
+  extendHelpRequest,
+  type HelpHelper
 } from "../../api/helpingHands.api";
 
 const HEART_COLOR = "#E91E63";
+const HELPERS_PAGE_SIZE = 10;
 
 type PostDetailParams = { postId: number };
 
@@ -104,15 +106,12 @@ export function PostDetailScreen() {
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
   const [resolveSelectedIds, setResolveSelectedIds] = useState<number[]>([]);
   const [resolveAppreciation, setResolveAppreciation] = useState("");
-  const [helpHelpers, setHelpHelpers] = useState<
-    {
-      id: number;
-      from_user_id: number;
-      message: string | null;
-      created_at: string;
-      author: { id: number; name: string; profile_image: string | null };
-    }[]
-  >([]);
+  const [helpHelpers, setHelpHelpers] = useState<HelpHelper[]>([]);
+  const [helpHelpersTotal, setHelpHelpersTotal] = useState(0);
+  const [helpHelpersNextOffset, setHelpHelpersNextOffset] = useState<number | null>(null);
+  const [helpHelpersLoadingMore, setHelpHelpersLoadingMore] = useState(false);
+  const helpHelpersNextOffsetRef = React.useRef<number | null>(null);
+  helpHelpersNextOffsetRef.current = helpHelpersNextOffset;
   const [interestItems, setInterestItems] = useState<
     {
       id: number;
@@ -122,10 +121,34 @@ export function PostDetailScreen() {
       author: { id: number; name: string; profile_image: string | null };
     }[]
   >([]);
+  const [interestTotal, setInterestTotal] = useState(0);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [likesOpen, setLikesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState<PostSharePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const applyHelpersPage = useCallback(
+    (mode: "replace" | "append", data: { items: HelpHelper[]; total: number; nextOffset: number | null }) => {
+      setHelpHelpers((prev) => {
+        if (mode !== "append") return data.items;
+        const seen = new Set(prev.map((h) => h.id));
+        return [...prev, ...data.items.filter((h) => !seen.has(h.id))];
+      });
+      setHelpHelpersTotal(data.total);
+      setHelpHelpersNextOffset(data.nextOffset);
+    },
+    []
+  );
+
+  const loadHelpHelpersPage = useCallback(
+    async (mode: "replace" | "append", id: number) => {
+      const offset = mode === "append" ? helpHelpersNextOffsetRef.current ?? 0 : 0;
+      if (mode === "append" && helpHelpersNextOffsetRef.current == null) return;
+      const helpers = await listHelpHelpers(id, { limit: HELPERS_PAGE_SIZE, offset });
+      applyHelpersPage(mode, helpers);
+    },
+    [applyHelpersPage]
+  );
 
   const loadPost = useCallback(async () => {
     if (postId == null) return;
@@ -135,24 +158,30 @@ export function PostDetailScreen() {
       setError(null);
       if (data.post_type === "JOB" && user?.id != null && data.user_id === user.id) {
         try {
-          const interests = await listJobInterests(postId);
+          const interests = await listJobInterests(postId, undefined, { page: 1, limit: 5 });
           setInterestItems(interests.items);
+          setInterestTotal(interests.total);
         } catch {
           setInterestItems([]);
+          setInterestTotal(0);
         }
       }
       if (data.post_type === "HELP_REQUEST") {
         try {
-          const helpers = await listHelpHelpers(postId);
-          setHelpHelpers(helpers.items);
+          await loadHelpHelpersPage("replace", postId);
         } catch {
           setHelpHelpers([]);
+          setHelpHelpersTotal(0);
+          setHelpHelpersNextOffset(null);
         }
       } else {
         setHelpHelpers([]);
+        setHelpHelpersTotal(0);
+        setHelpHelpersNextOffset(null);
       }
       if (!(data.post_type === "JOB" && user?.id != null && data.user_id === user.id)) {
         setInterestItems([]);
+        setInterestTotal(0);
       }
     } catch (e) {
       const status = getErrorStatus(e);
@@ -160,7 +189,7 @@ export function PostDetailScreen() {
       else if (status === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
       else setError((e as any)?.response?.data?.message ?? messages.error.generic);
     }
-  }, [postId, navigation, user?.id]);
+  }, [postId, navigation, user?.id, loadHelpHelpersPage]);
 
   const refresh = useCallback(async () => {
     if (postId == null) return;
@@ -600,8 +629,7 @@ export function PostDetailScreen() {
                   }
                 : null
             );
-            const helpers = await listHelpHelpers(postId);
-            setHelpHelpers(helpers.items);
+            await loadHelpHelpersPage("replace", postId);
             contactAfter(res.requesterUserId, res.contactPhone);
           } catch (e) {
             appAlert(
@@ -615,7 +643,22 @@ export function PostDetailScreen() {
         }
       }
     ]);
-  }, [helpBusy, navigation, post, postId]);
+  }, [helpBusy, loadHelpHelpersPage, navigation, post, postId]);
+
+  const hasHelpers =
+    helpHelpersTotal > 0 || helpHelpers.length > 0 || (post?.help_helper_count ?? 0) > 0;
+
+  const loadMoreHelpHelpers = useCallback(async () => {
+    if (postId == null || helpHelpersLoadingMore || helpHelpersNextOffsetRef.current == null) return;
+    setHelpHelpersLoadingMore(true);
+    try {
+      await loadHelpHelpersPage("append", postId);
+    } catch {
+      // Keep already-loaded helpers; user can retry via Load more.
+    } finally {
+      setHelpHelpersLoadingMore(false);
+    }
+  }, [helpHelpersLoadingMore, loadHelpHelpersPage, postId]);
 
   const handleCompleteHelp = useCallback(() => {
     if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
@@ -623,7 +666,7 @@ export function PostDetailScreen() {
       appAlert("Already resolved", "This request is already marked as resolved.");
       return;
     }
-    if (helpHelpers.length === 0) {
+    if (!hasHelpers) {
       appAlert(
         "Mark as resolved?",
         "No one offered help yet. Close this request without Heroes credit?",
@@ -663,7 +706,7 @@ export function PostDetailScreen() {
     setResolveSelectedIds([]);
     setResolveAppreciation("");
     setResolveModalOpen(true);
-  }, [helpBusy, helpHelpers.length, post, postId]);
+  }, [hasHelpers, helpBusy, post, postId]);
 
   const toggleResolveHelper = useCallback((userId: number) => {
     setResolveSelectedIds((prev) =>
@@ -673,7 +716,7 @@ export function PostDetailScreen() {
 
   const submitResolveHelp = useCallback(async () => {
     if (postId == null || helpBusy) return;
-    if (helpHelpers.length > 0 && resolveSelectedIds.length === 0) {
+    if (hasHelpers && helpHelpers.length > 0 && resolveSelectedIds.length === 0) {
       appAlert(
         "Select who helped",
         "Tap the people who actually helped (Resolved by), or resolve with none if you solved it yourself.",
@@ -743,7 +786,7 @@ export function PostDetailScreen() {
     } finally {
       setHelpBusy(false);
     }
-  }, [helpBusy, helpHelpers.length, postId, resolveAppreciation, resolveSelectedIds]);
+  }, [hasHelpers, helpBusy, helpHelpers.length, postId, resolveAppreciation, resolveSelectedIds]);
 
   const handleExtendHelp = useCallback(() => {
     if (postId == null || !post || post.post_type !== "HELP_REQUEST" || helpBusy) return;
@@ -1669,7 +1712,7 @@ export function PostDetailScreen() {
         {post.post_type === "HELP_REQUEST" && helpHelpers.length > 0 ? (
           <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
             <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 8 }}>
-              Current volunteers ({helpHelpers.length})
+              Current volunteers ({helpHelpersTotal || helpHelpers.length})
             </Text>
             {helpHelpers.map((item) => (
               <Pressable
@@ -1701,6 +1744,25 @@ export function PostDetailScreen() {
                 <Ionicons name="chatbubble-outline" size={18} color={colors.textMuted} />
               </Pressable>
             ))}
+            {helpHelpersNextOffset != null ? (
+              <Pressable
+                onPress={() => void loadMoreHelpHelpers()}
+                disabled={helpHelpersLoadingMore}
+                style={({ pressed }) => ({
+                  alignItems: "center",
+                  paddingVertical: 12,
+                  opacity: pressed || helpHelpersLoadingMore ? 0.7 : 1
+                })}
+              >
+                {helpHelpersLoadingMore ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                    Load more volunteers
+                  </Text>
+                )}
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -1725,7 +1787,7 @@ export function PostDetailScreen() {
               }}
             >
               <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
-                Interested members ({interestItems.length})
+                Interested members ({interestTotal || interestItems.length})
               </Text>
               <Pressable
                 onPress={() =>
@@ -1739,7 +1801,7 @@ export function PostDetailScreen() {
                 <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>See all</Text>
               </Pressable>
             </View>
-            {interestItems.slice(0, 5).map((item, index) => (
+            {interestItems.map((item, index) => (
               <Pressable
                 key={item.id}
                 onPress={() =>
@@ -2089,51 +2151,74 @@ export function PostDetailScreen() {
                     seen.add(h.from_user_id);
                     return true;
                   });
-                  return uniqueHelpers.map((h) => {
-                    const selected = resolveSelectedIds.includes(h.from_user_id);
-                    return (
-                      <Pressable
-                        key={h.from_user_id}
-                        onPress={() => toggleResolveHelper(h.from_user_id)}
-                        disabled={helpBusy}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: spacing.sm,
-                          paddingVertical: spacing.sm,
-                          paddingHorizontal: spacing.sm,
-                          borderRadius: radius.md,
-                          borderWidth: 1,
-                          borderColor: selected ? colors.primary : colors.border,
-                          backgroundColor: colors.surfaceElevated
-                        }}
-                      >
-                        <AvatarImage
-                          uri={h.author.profile_image}
-                          name={h.author.name}
-                          size={40}
-                        />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
-                            {h.author.name}
-                          </Text>
-                          {h.message ? (
-                            <Text
-                              numberOfLines={2}
-                              style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}
-                            >
-                              {h.message}
+                  return (
+                    <>
+                      {uniqueHelpers.map((h) => {
+                        const selected = resolveSelectedIds.includes(h.from_user_id);
+                        return (
+                          <Pressable
+                            key={h.from_user_id}
+                            onPress={() => toggleResolveHelper(h.from_user_id)}
+                            disabled={helpBusy}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: spacing.sm,
+                              paddingVertical: spacing.sm,
+                              paddingHorizontal: spacing.sm,
+                              borderRadius: radius.md,
+                              borderWidth: 1,
+                              borderColor: selected ? colors.primary : colors.border,
+                              backgroundColor: colors.surfaceElevated
+                            }}
+                          >
+                            <AvatarImage
+                              uri={h.author.profile_image}
+                              name={h.author.name}
+                              size={40}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                                {h.author.name}
+                              </Text>
+                              {h.message ? (
+                                <Text
+                                  numberOfLines={2}
+                                  style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}
+                                >
+                                  {h.message}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <Ionicons
+                              name={selected ? "checkbox" : "square-outline"}
+                              size={24}
+                              color={selected ? colors.primary : colors.textSecondary}
+                            />
+                          </Pressable>
+                        );
+                      })}
+                      {helpHelpersNextOffset != null ? (
+                        <Pressable
+                          onPress={() => void loadMoreHelpHelpers()}
+                          disabled={helpBusy || helpHelpersLoadingMore}
+                          style={({ pressed }) => ({
+                            alignItems: "center",
+                            paddingVertical: spacing.sm,
+                            opacity: pressed || helpHelpersLoadingMore ? 0.7 : 1
+                          })}
+                        >
+                          {helpHelpersLoadingMore ? (
+                            <ActivityIndicator color={colors.primary} />
+                          ) : (
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                              Load more helpers
                             </Text>
-                          ) : null}
-                        </View>
-                        <Ionicons
-                          name={selected ? "checkbox" : "square-outline"}
-                          size={24}
-                          color={selected ? colors.primary : colors.textSecondary}
-                        />
-                      </Pressable>
-                    );
-                  });
+                          )}
+                        </Pressable>
+                      ) : null}
+                    </>
+                  );
                 })()}
                 <View>
                   <Text

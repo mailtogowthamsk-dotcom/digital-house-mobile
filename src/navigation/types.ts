@@ -33,8 +33,10 @@ export type RootStackParamList = {
   /** In-app photo/video review before Create Post upload. */
   MediaPreview: {
     mode?: "create" | "replace";
-    /** When false, picker replacement is images-only (marketplace). */
+    /** When false, picker replacement is images-only (marketplace / stories). */
     allowVideo?: boolean;
+    /** Stories use 9:16 crop frame by default. */
+    defaultCropRatio?: import("../media/cropTypes").CropRatioId;
   } | undefined;
   /** Trim long videos to ≤ 60s + pick cover frame. */
   VideoTrim: undefined;
@@ -54,6 +56,10 @@ export type RootStackParamList = {
     name: string;
     profileImage?: string | null;
     online?: boolean;
+    /** Prefer passing from MessagesHub to avoid a full inbox fetch. */
+    muted?: boolean;
+    archived?: boolean;
+    left?: boolean;
   };
   JobsHome: { initialMode?: "browse" | "mine" | "applications" } | undefined;
   JobApplicants: { postId: number; jobTitle?: string };

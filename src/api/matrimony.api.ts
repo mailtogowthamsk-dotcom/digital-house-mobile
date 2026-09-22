@@ -1,5 +1,6 @@
 import axios from "axios";
 import { api, getAuthErrorMessage } from "./client";
+import { CacheKeys, cachedGet, invalidateRequestCache } from "./requestCache";
 
 export type MatrimonyHubStatus =
   | "NOT_STARTED"
@@ -181,21 +182,21 @@ export type MatrimonyFormOptions = {
   profile_for?: { value: string; label: string }[];
 };
 
-/** Coalesce parallel hub loads (Home + BrowseGate + guard often fire together). */
-let matrimonyHubInflight: Promise<MatrimonyHub> | null = null;
-
-export async function getMatrimonyHub(): Promise<MatrimonyHub> {
-  if (matrimonyHubInflight) return matrimonyHubInflight;
-  matrimonyHubInflight = (async () => {
-    try {
+/** Coalesce + short TTL for hub (gate + screens often load back-to-back). */
+export async function getMatrimonyHub(opts?: { force?: boolean }): Promise<MatrimonyHub> {
+  return cachedGet(
+    CacheKeys.matrimonyHub,
+    async () => {
       const { data } = await api.get<{ ok: boolean } & MatrimonyHub>("/matrimony/me");
       if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to load matrimony");
       return data;
-    } finally {
-      matrimonyHubInflight = null;
-    }
-  })();
-  return matrimonyHubInflight;
+    },
+    { ttlMs: 45_000, force: opts?.force }
+  );
+}
+
+export function invalidateMatrimonyHub(): void {
+  invalidateRequestCache(CacheKeys.matrimonyHub);
 }
 
 export async function getMatrimonyFormOptions(): Promise<MatrimonyFormOptions> {
@@ -213,6 +214,7 @@ export async function getMatrimonyFormOptions(): Promise<MatrimonyFormOptions> {
 export async function saveMatrimonyDraft(matrimony: MatrimonyProfileData): Promise<MatrimonyHub> {
   const { data } = await api.put<{ ok: boolean } & MatrimonyHub>("/matrimony/draft", { matrimony });
   if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to save draft");
+  invalidateMatrimonyHub();
   return data;
 }
 
@@ -221,6 +223,7 @@ export async function submitMatrimonyProfile(matrimony?: MatrimonyProfileData): 
     matrimony: matrimony ?? undefined
   });
   if (!data?.ok) throw new Error((data as any)?.message ?? "Failed to submit");
+  invalidateMatrimonyHub();
   return data;
 }
 

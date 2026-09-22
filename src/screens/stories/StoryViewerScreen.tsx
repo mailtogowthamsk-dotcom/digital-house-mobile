@@ -17,6 +17,15 @@ import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  runOnJS,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from "react-native-reanimated";
 import { useTheme } from "../../theme/ThemeContext";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import {
@@ -42,8 +51,28 @@ import { emitStoriesChanged } from "../../utils/storiesEvents";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const REPLY_MAX = 500;
+const PROGRESS_EASING = Easing.linear;
 
 type Route = RouteProp<RootStackParamList, "StoryViewer">;
+
+function ProgressSegment({
+  mode,
+  progressSV
+}: {
+  mode: "done" | "active" | "todo";
+  progressSV: SharedValue<number>;
+}) {
+  const fillStyle = useAnimatedStyle(() => {
+    const t = mode === "done" ? 1 : mode === "todo" ? 0 : Math.min(1, Math.max(0, progressSV.value));
+    return { width: `${t * 100}%` };
+  }, [mode]);
+
+  return (
+    <View style={styles.progressTrack}>
+      <Animated.View style={[styles.progressFill, fillStyle]} />
+    </View>
+  );
+}
 
 function StoryVideo({
   uri,
@@ -59,6 +88,8 @@ function StoryVideo({
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
     p.muted = false;
+    // Required — without this, timeUpdate never fires and the top progress bar stays empty.
+    p.timeUpdateEventInterval = 0.04;
   });
 
   useEffect(() => {
@@ -67,17 +98,32 @@ function StoryVideo({
   }, [paused, player, uri]);
 
   useEffect(() => {
-    const endSub = player.addListener("playToEnd", () => onEnded());
-    const timeSub = player.addListener("timeUpdate", (ev: { currentTime?: number }) => {
+    const report = () => {
       const dur = player.duration;
-      const cur = ev.currentTime ?? player.currentTime;
-      if (dur > 0) onProgress(Math.min(1, cur / dur));
+      const cur = player.currentTime;
+      if (Number.isFinite(dur) && dur > 0) {
+        onProgress(Math.min(1, Math.max(0, cur / dur)));
+      }
+    };
+
+    const endSub = player.addListener("playToEnd", () => {
+      onProgress(1);
+      onEnded();
     });
+    const timeSub = player.addListener("timeUpdate", () => report());
+
+    // ~30fps poll so the bar keeps gliding between native timeUpdate ticks.
+    const poll = setInterval(() => {
+      if (!paused) report();
+    }, 33);
+
+    report();
     return () => {
       endSub.remove();
       timeSub.remove();
+      clearInterval(poll);
     };
-  }, [player, onEnded, onProgress]);
+  }, [player, onEnded, onProgress, paused]);
 
   return (
     <VideoView
@@ -97,7 +143,8 @@ export function StoryViewerScreen() {
   const groups = route.params.groups;
   const [groupIndex, setGroupIndex] = useState(route.params.initialGroupIndex ?? 0);
   const [storyIndex, setStoryIndex] = useState(route.params.initialStoryIndex ?? 0);
-  const [progress, setProgress] = useState(0);
+  const progressSV = useSharedValue(0);
+  const progressHoldRef = useRef(0);
   const [paused, setPaused] = useState(false);
   const [viewersOpen, setViewersOpen] = useState(false);
   const [viewers, setViewers] = useState<StoryViewer[]>([]);
@@ -165,38 +212,53 @@ export function StoryViewerScreen() {
     });
   }, [clearTimer, navigation]);
 
+  const resetProgress = useCallback(() => {
+    cancelAnimation(progressSV);
+    progressSV.value = 0;
+    progressHoldRef.current = 0;
+  }, [progressSV]);
+
   const goNext = useCallback(() => {
     if (!group) {
       close();
       return;
     }
     if (storyIndex + 1 < group.stories.length) {
+      resetProgress();
       setStoryIndex((i) => i + 1);
-      setProgress(0);
       return;
     }
     if (groupIndex + 1 < liveGroups.length) {
+      resetProgress();
       setGroupIndex((g) => g + 1);
       setStoryIndex(0);
-      setProgress(0);
       return;
     }
     close();
-  }, [group, storyIndex, groupIndex, liveGroups.length, close]);
+  }, [group, storyIndex, groupIndex, liveGroups.length, close, resetProgress]);
 
   const goPrev = useCallback(() => {
     if (storyIndex > 0) {
+      resetProgress();
       setStoryIndex((i) => i - 1);
-      setProgress(0);
       return;
     }
     if (groupIndex > 0) {
       const prevGroup = liveGroups[groupIndex - 1]!;
+      resetProgress();
       setGroupIndex((g) => g - 1);
       setStoryIndex(Math.max(0, prevGroup.stories.length - 1));
-      setProgress(0);
     }
-  }, [storyIndex, groupIndex, liveGroups]);
+  }, [storyIndex, groupIndex, liveGroups, resetProgress]);
+
+  const onVideoProgress = useCallback(
+    (p: number) => {
+      // Short linear ease between samples → continuous glide, not stepped jumps.
+      progressSV.value = withTiming(p, { duration: 80, easing: PROGRESS_EASING });
+      progressHoldRef.current = p;
+    },
+    [progressSV]
+  );
 
   useEffect(() => {
     if (!story) return;
@@ -275,7 +337,7 @@ export function StoryViewerScreen() {
               setLiveGroups(next);
               setGroupIndex(safeGroup);
               setStoryIndex(safeStory);
-              setProgress(0);
+              resetProgress();
               setPaused(false);
             } catch (e: any) {
               setPaused(false);
@@ -290,7 +352,7 @@ export function StoryViewerScreen() {
         }
       }
     ]);
-  }, [story, group?.is_own, groupIndex, storyIndex, liveGroups, clearTimer, close]);
+  }, [story, group?.is_own, groupIndex, storyIndex, liveGroups, clearTimer, close, resetProgress]);
 
   const likingRef = useRef(false);
   const onToggleLike = useCallback(async () => {
@@ -361,7 +423,17 @@ export function StoryViewerScreen() {
 
   // Download once → store in mobile disk cache → play from file:// next time.
   useEffect(() => {
-    if (!story || !mediaUri) {
+    if (!story) {
+      setPlayUri(null);
+      setMediaReady(false);
+      return;
+    }
+    if (story.media_type === "text") {
+      setPlayUri(null);
+      setMediaReady(true);
+      return;
+    }
+    if (!mediaUri) {
       setPlayUri(null);
       setMediaReady(false);
       return;
@@ -370,7 +442,7 @@ export function StoryViewerScreen() {
     setMediaReady(false);
     setPlayUri(null);
     void resolveCachedStoryMediaUri(story.id, mediaUri, {
-      mediaType: story.media_type,
+      mediaType: story.media_type === "video" ? "video" : "image",
       expiresAt: story.expires_at
     })
       .then((uri) => {
@@ -394,23 +466,40 @@ export function StoryViewerScreen() {
     prefetchNearbyStories(liveGroups, groupIndex, storyIndex, 4);
   }, [liveGroups, groupIndex, storyIndex]);
 
+  // Reset bar when switching stories.
+  useEffect(() => {
+    resetProgress();
+  }, [story?.id, resetProgress]);
+
   useEffect(() => {
     clearTimer();
-    setProgress(0);
-    if (!story || paused || !mediaReady || replyOpen) return;
+    if (!story || !mediaReady || replyOpen) return;
     if (story.media_type === "video") return;
 
+    if (paused) {
+      cancelAnimation(progressSV);
+      progressHoldRef.current = progressSV.value;
+      return;
+    }
+
     const duration = Math.max(story.duration_ms || 5000, 2000);
-    const started = Date.now();
-    timerRef.current = setInterval(() => {
-      const p = Math.min(1, (Date.now() - started) / duration);
-      setProgress(p);
-      if (p >= 1) {
-        clearTimer();
+    const from = Math.min(1, Math.max(0, progressHoldRef.current));
+    progressSV.value = from;
+    const remaining = Math.max(16, (1 - from) * duration);
+    const finished = (done?: boolean) => {
+      if (done) {
+        progressHoldRef.current = 0;
         goNext();
       }
-    }, 50);
-    return clearTimer;
+    };
+    progressSV.value = withTiming(1, { duration: remaining, easing: PROGRESS_EASING }, (ok) => {
+      if (ok) runOnJS(finished)(true);
+    });
+
+    return () => {
+      cancelAnimation(progressSV);
+      progressHoldRef.current = progressSV.value;
+    };
   }, [
     story?.id,
     story?.media_type,
@@ -419,10 +508,11 @@ export function StoryViewerScreen() {
     mediaReady,
     replyOpen,
     clearTimer,
-    goNext
+    goNext,
+    progressSV
   ]);
 
-  if (!group || !story || !mediaUri) {
+  if (!group || !story || (story.media_type !== "text" && !mediaUri)) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <Pressable onPress={close} style={{ padding: 20 }}>
@@ -433,22 +523,27 @@ export function StoryViewerScreen() {
   }
 
   const caption = (story.caption ?? "").trim();
+  const isTextStory = story.media_type === "text";
 
   return (
     <View style={styles.root}>
-      {!mediaReady || !playUri ? (
+      {!mediaReady || (!isTextStory && !playUri) ? (
         <ActivityIndicator color="#fff" style={styles.mediaLoader} />
+      ) : isTextStory ? (
+        <View style={styles.textStoryBg}>
+          <Text style={styles.textStoryBody}>{caption || "…"}</Text>
+        </View>
       ) : story.media_type === "video" ? (
         <StoryVideo
           key={`${story.id}-${playUri}`}
-          uri={playUri}
+          uri={playUri!}
           paused={paused || replyOpen}
           onEnded={goNext}
-          onProgress={setProgress}
+          onProgress={onVideoProgress}
         />
       ) : (
         <Image
-          source={{ uri: playUri }}
+          source={{ uri: playUri! }}
           style={styles.media}
           contentFit="cover"
           cachePolicy="memory-disk"
@@ -474,21 +569,11 @@ export function StoryViewerScreen() {
       <View style={[styles.overlay, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
         <View style={styles.progressRow}>
           {group.stories.map((s, i) => (
-            <View key={s.id} style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width:
-                      i < storyIndex
-                        ? "100%"
-                        : i === storyIndex
-                          ? `${Math.round(progress * 100)}%`
-                          : "0%"
-                  }
-                ]}
-              />
-            </View>
+            <ProgressSegment
+              key={s.id}
+              mode={i < storyIndex ? "done" : i === storyIndex ? "active" : "todo"}
+              progressSV={progressSV}
+            />
           ))}
         </View>
 
@@ -520,7 +605,7 @@ export function StoryViewerScreen() {
             }
           ]}
         >
-          {caption && !replyOpen ? (
+          {caption && !replyOpen && !isTextStory ? (
             <Text style={styles.caption} numberOfLines={3}>
               {caption}
             </Text>
@@ -640,6 +725,22 @@ export function StoryViewerScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
   media: { ...StyleSheet.absoluteFill, width: SCREEN_W, height: SCREEN_H },
+  textStoryBg: {
+    ...StyleSheet.absoluteFill,
+    width: SCREEN_W,
+    height: SCREEN_H,
+    backgroundColor: "#0F172A",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28
+  },
+  textStoryBody: {
+    color: "#F8FAFC",
+    fontSize: 28,
+    fontWeight: "700",
+    lineHeight: 38,
+    textAlign: "center"
+  },
   mediaLoader: { ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" },
   tapLayer: { ...StyleSheet.absoluteFill, flexDirection: "row", zIndex: 1 },
   tapLeft: { flex: 1 },
@@ -653,7 +754,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.35)",
     overflow: "hidden"
   },
-  progressFill: { height: "100%", backgroundColor: "#fff" },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#fff"
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

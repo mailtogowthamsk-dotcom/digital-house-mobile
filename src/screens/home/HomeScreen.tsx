@@ -70,8 +70,12 @@ import type { RootStackParamList } from "../../navigation/types";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { ExploreScreen } from "../explore/ExploreScreen";
 import { StoryTray } from "../../components/stories/StoryTray";
-import { getStoryTray, type StoryGroup } from "../../api/stories.api";
+import { getStoryTray, invalidateStoriesTray, type StoryGroup } from "../../api/stories.api";
 import { prefetchStoryGroups } from "../../utils/storyMediaCache";
+import {
+  STORY_PREFETCH_CONCURRENCY,
+  STORY_PREFETCH_MAX_ITEMS
+} from "../../config/stories.constants";
 import { subscribeStoriesChanged } from "../../utils/storiesEvents";
 
 const PADDING = 16;
@@ -224,13 +228,16 @@ export function HomeScreen() {
     [navigation, signOut]
   );
 
-  const loadStories = useCallback(async () => {
+  const loadStories = useCallback(async (opts?: { force?: boolean }) => {
     try {
       setStoriesLoading(true);
-      const groups = await getStoryTray();
+      const groups = await getStoryTray({ force: opts?.force });
       setStoryGroups(groups);
-      // Warm disk cache in background so open → play hits file://.
-      prefetchStoryGroups(groups);
+      // Bounded warm cache — do not download the entire tray.
+      prefetchStoryGroups(groups, {
+        maxItems: STORY_PREFETCH_MAX_ITEMS,
+        concurrency: STORY_PREFETCH_CONCURRENCY
+      });
     } catch {
       /* keep previous tray */
     } finally {
@@ -254,7 +261,9 @@ export function HomeScreen() {
             .filter((g) => g.stories.length > 0 || g.is_own)
         );
       }
-      void loadStories();
+      // Invalidate + single forced refresh (TTL coalesces with a concurrent focus reload).
+      invalidateStoriesTray();
+      void loadStories({ force: true });
     });
     return () => sub.remove();
   }, [loadStories]);
@@ -699,7 +708,7 @@ export function HomeScreen() {
           authUser?.kulam?.trim() ||
           null
         }
-        notificationCountFallback={summary?.unreadNotificationsCount ?? 0}
+        notificationCountFallback={0}
         messageCount={summary?.unreadMessagesCount ?? 0}
         onNotificationPress={onNotificationPress}
         onMessagePress={onMessagePress}

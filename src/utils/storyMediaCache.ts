@@ -199,23 +199,61 @@ export async function resolveCachedStoryMediaUri(
 
 /** Warm cache for a single story (fire-and-forget). */
 export function prefetchStoryMedia(story: StoryItem | null | undefined): void {
-  if (!story?.media_url) return;
+  if (!story?.media_url || story.media_type === "text") return;
   const remote = getImageUrl(story.media_url);
   if (!remote) return;
   void resolveCachedStoryMediaUri(story.id, remote, {
-    mediaType: story.media_type,
+    mediaType: story.media_type === "video" ? "video" : "image",
     expiresAt: story.expires_at
   }).catch(() => undefined);
 }
 
-/** Prefetch tray groups (own + connections) after home load. */
-export function prefetchStoryGroups(groups: StoryGroup[] | null | undefined): void {
+/** Prefetch tray groups after home load — bounded count + concurrency (not entire tray). */
+export function prefetchStoryGroups(
+  groups: StoryGroup[] | null | undefined,
+  opts?: { maxItems?: number; concurrency?: number; signal?: { cancelled?: boolean } }
+): void {
   if (!groups?.length) return;
-  for (const g of groups) {
+  const maxItems = Math.max(0, opts?.maxItems ?? 3);
+  const concurrency = Math.max(1, opts?.concurrency ?? 2);
+  if (maxItems === 0) return;
+
+  const queue: StoryItem[] = [];
+  outer: for (const g of groups) {
     for (const s of g.stories) {
-      prefetchStoryMedia(s);
+      if (!s?.media_url || s.media_type === "text") continue;
+      // Skip clearly expired items if expires_at is present.
+      if (s.expires_at) {
+        const exp = Date.parse(s.expires_at);
+        if (Number.isFinite(exp) && exp <= Date.now()) continue;
+      }
+      queue.push(s);
+      if (queue.length >= maxItems) break outer;
     }
   }
+  if (!queue.length) return;
+
+  let next = 0;
+  const workers = Math.min(concurrency, queue.length);
+  const runOne = async (): Promise<void> => {
+    while (next < queue.length) {
+      if (opts?.signal?.cancelled) return;
+      const idx = next;
+      next += 1;
+      const story = queue[idx]!;
+      const remote = getImageUrl(story.media_url);
+      if (!remote) continue;
+      try {
+        await resolveCachedStoryMediaUri(story.id, remote, {
+          mediaType: story.media_type === "video" ? "video" : "image",
+          expiresAt: story.expires_at
+        });
+      } catch {
+        /* ignore prefetch failures */
+      }
+    }
+  };
+  void Promise.all(Array.from({ length: workers }, () => runOne()));
 }
 
 /** Prefetch current + next few stories while viewer is open. */

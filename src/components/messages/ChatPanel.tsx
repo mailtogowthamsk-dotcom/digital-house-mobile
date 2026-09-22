@@ -27,6 +27,8 @@ type Props = {
   chatKeyboardInset?: number;
   keyboardVisible?: boolean;
   peerTyping?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
   otherAvatarUri?: string | null;
   headerAvatarUri?: string | null;
   /** Opens the peer's profile from the chat header avatar. */
@@ -74,6 +76,8 @@ function ChatPanelComponent({
   chatKeyboardInset = 0,
   keyboardVisible = false,
   peerTyping = false,
+  loadingOlder = false,
+  onLoadOlder,
   otherAvatarUri,
   headerAvatarUri,
   onAvatarPress,
@@ -160,6 +164,8 @@ function ChatPanelComponent({
       colors={bubbleColors}
       keyboardVisible={keyboardVisible}
       peerTyping={peerTyping}
+      loadingOlder={loadingOlder}
+      onLoadOlder={onLoadOlder}
       onSharedPostPress={onSharedPostPress}
       onSharedStoryPress={onSharedStoryPress}
       onDeleteMessage={onDeleteMessage}

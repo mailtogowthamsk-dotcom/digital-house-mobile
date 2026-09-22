@@ -59,7 +59,7 @@ export function MediaPreviewScreen() {
   const [busy, setBusy] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const cropRectRef = useRef<ImageCropRect | null>(null);
-  const ratioIdRef = useRef<CropRatioId>("original");
+  const ratioIdRef = useRef<CropRatioId>(route.params?.defaultCropRatio ?? "original");
 
   useLayoutEffect(() => {
     navigation.setOptions?.({ headerShown: false });
@@ -238,7 +238,11 @@ export function MediaPreviewScreen() {
           <Ionicons name="close" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {asset.kind === "video" ? "Preview video" : "Preview photo"}
+          {asset.kind === "video"
+            ? "Preview video"
+            : route.params?.defaultCropRatio === "9:16"
+              ? "Crop story photo"
+              : "Preview photo"}
         </Text>
         <View style={styles.headerBtn} />
       </View>
@@ -249,6 +253,7 @@ export function MediaPreviewScreen() {
             uri={asset.uri}
             imageWidth={asset.width}
             imageHeight={asset.height}
+            initialRatioId={route.params?.defaultCropRatio ?? "original"}
             onCropChange={onCropChange}
             accentColor={colors.primary}
             textColor="#F8FAFC"

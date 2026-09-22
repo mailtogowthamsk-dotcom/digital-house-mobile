@@ -5,7 +5,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing } from "../../theme/spacing";
 import { getImageUrl } from "../../api/client";
-import { getMe } from "../../api/auth.api";
 import { hapticSendMessage } from "../../utils/chatHaptics";
 import { ChatMessagesSkeleton } from "../../components/messages/ChatSkeleton";
 import { ChatHeader } from "../../components/messages/ChatHeader";
@@ -14,7 +13,7 @@ import {
   deleteConversation,
   getHistory,
   getMessageAccess,
-  listThreads,
+  getThreadPreference,
   markRead,
   updateThreadPreference,
   type MessageAccess,
@@ -48,15 +47,20 @@ import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { appAlert } from "../../utils/appAlert";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
+import { openSharedStoryInViewer } from "../../utils/openSharedStory";
+import { useAuth } from "../../context/AuthContext";
 
 type ChatParams = {
   otherUserId: number;
   name: string;
   profileImage?: string | null;
   online?: boolean;
+  muted?: boolean;
+  archived?: boolean;
+  left?: boolean;
 };
 
-const HISTORY_LIMIT = 40;
+const HISTORY_LIMIT = 30;
 
 export function ChatScreen() {
   const navigation = useNavigation<any>();
@@ -64,12 +68,18 @@ export function ChatScreen() {
   const route = useRoute<RouteProp<{ Chat: ChatParams }, "Chat">>();
   const { colors } = useTheme();
   const layout = useChatLayout();
+  const { user: authUser } = useAuth();
   const { otherUserId, name, profileImage } = route.params;
   const otherAvatarUri = getImageUrl(profileImage);
 
   const listRef = useRef<ChatMessageListHandle>(null);
-  const [meId, setMeId] = useState<number | null>(null);
+  const [meId, setMeId] = useState<number | null>(() => authUser?.id ?? null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const historyNextCursorRef = useRef<number | null>(null);
+  const loadingOlderRef = useRef(false);
+  historyNextCursorRef.current = historyNextCursor;
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -87,9 +97,9 @@ export function ChatScreen() {
   const forgottenMessageIdsRef = useRef<Set<number>>(new Set());
   const deletingMessageIdsRef = useRef<Set<number>>(new Set());
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
-  const [threadMuted, setThreadMuted] = useState(false);
-  const [threadArchived, setThreadArchived] = useState(false);
-  const [threadLeft, setThreadLeft] = useState(false);
+  const [threadMuted, setThreadMuted] = useState(() => !!route.params.muted);
+  const [threadArchived, setThreadArchived] = useState(() => !!route.params.archived);
+  const [threadLeft, setThreadLeft] = useState(() => !!route.params.left);
   /** True when *I* blocked the other user (Unblock is available). */
   const [blockedByMe, setBlockedByMe] = useState(false);
   const chatLocked = !!chatAccess && (!chatAccess.allowed || chatAccess.readOnly);
@@ -133,26 +143,55 @@ export function ChatScreen() {
 
   const loadInitial = useCallback(async () => {
     setLoadError(null);
-    const me = await getMe();
-    setMeId(me.id);
+    const id = authUser?.id ?? meId;
+    if (id == null) {
+      setLoadError("Not signed in");
+      return;
+    }
+    setMeId(id);
     const hist = await getHistory(otherUserId, HISTORY_LIMIT);
+    setHistoryNextCursor(hist.nextCursorId);
     setMessages((prev) =>
       mergeChatMessages(prev, hist.messages, {
         forgottenIds: forgottenMessageIdsRef.current,
         clearConfirmedIfEmpty: true
       })
     );
-    void ackUndeliveredMessages(hist.messages, me.id);
+    void ackUndeliveredMessages(hist.messages, id);
+  }, [otherUserId, authUser?.id, meId]);
+
+  const loadOlderMessages = useCallback(async () => {
+    const cursor = historyNextCursorRef.current;
+    if (cursor == null || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const hist = await getHistory(otherUserId, HISTORY_LIMIT, cursor);
+      setHistoryNextCursor(hist.nextCursorId);
+      if (hist.messages.length === 0) return;
+      setMessages((prev) =>
+        mergeChatMessages(prev, hist.messages, {
+          forgottenIds: forgottenMessageIdsRef.current,
+          preserveExistingOutsideWindow: true
+        })
+      );
+    } catch {
+      /* keep current */
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
   }, [otherUserId]);
 
   /** Soft catch-up after reconnect — merge only, never wipe live state. */
   const syncRecent = useCallback(async () => {
     try {
       const hist = await getHistory(otherUserId, HISTORY_LIMIT);
+      // Soft sync refreshes the newest page only — keep older pages already loaded.
       setMessages((prev) =>
         mergeChatMessages(prev, hist.messages, {
           forgottenIds: forgottenMessageIdsRef.current,
-          clearConfirmedIfEmpty: true
+          preserveExistingOutsideWindow: true
         })
       );
       if (meId != null) void ackUndeliveredMessages(hist.messages, meId);
@@ -269,15 +308,19 @@ export function ChatScreen() {
     // Clear previous chat's lock banner immediately when switching users
     setChatAccess(null);
     setLoadError(null);
-    setThreadMuted(false);
-    setThreadArchived(false);
-    setThreadLeft(false);
+    const hasRoutePrefs =
+      route.params.muted != null || route.params.archived != null || route.params.left != null;
+    setThreadMuted(!!route.params.muted);
+    setThreadArchived(!!route.params.archived);
+    setThreadLeft(!!route.params.left);
     setBlockedByMe(false);
     setMessages([]);
+    setHistoryNextCursor(null);
     forgottenMessageIdsRef.current.clear();
     deletingMessageIdsRef.current.clear();
     setSendError(null);
     setInput("");
+    if (authUser?.id != null) setMeId(authUser.id);
 
     (async () => {
       try {
@@ -293,24 +336,22 @@ export function ChatScreen() {
         } else {
           setBlockedByMe(false);
         }
-        const allThreads = await listThreads({ includeArchived: true }).catch(() => []);
-        if (cancelled) return;
-        const hit = allThreads.find((t) => t.otherUser.id === otherUserId);
-        setThreadMuted(!!hit?.muted);
-        setThreadArchived(!!hit?.archived);
-        setThreadLeft(!!hit?.left);
+        // Prefer route params from hub; otherwise peer-scoped preference (never full inbox).
+        if (!hasRoutePrefs) {
+          const pref = await getThreadPreference(otherUserId).catch(() => null);
+          if (cancelled) return;
+          if (pref) {
+            setThreadMuted(!!pref.muted);
+            setThreadArchived(!!pref.archived);
+            setThreadLeft(!!pref.leftAt);
+          }
+        }
         if (hasPresenceSynced()) {
           setOtherHidden(isPresenceHidden(otherUserId));
           setOtherOnline(
             !isPresenceHidden(otherUserId) && isUserOnlineCached(otherUserId)
           );
           setOtherLastSeen(getCachedLastSeenAt(otherUserId));
-        } else if (hit?.otherUser.online != null) {
-          setOtherHidden(isPresenceHidden(otherUserId));
-          setOtherOnline(
-            !isPresenceHidden(otherUserId) &&
-              (!!hit.otherUser.online || isUserOnlineCached(otherUserId))
-          );
         }
         if (!access.canViewHistory) {
           setLoadError(access.message ?? "You cannot view this conversation.");
@@ -332,7 +373,7 @@ export function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [loadInitial, otherUserId]);
+  }, [loadInitial, otherUserId, authUser?.id, route.params.muted, route.params.archived, route.params.left]);
 
   const typing = useChatTyping(otherUserId, !chatLocked);
   const { onInputChange, stopTyping, applyPeerTyping } = typing;
@@ -478,33 +519,12 @@ export function ChatScreen() {
 
   const handleSharedStoryPress = useCallback(
     (sharedStoryId: number) => {
-      void (async () => {
-        try {
-          const { getStory } = await import("../../api/stories.api");
-          const story = await getStory(sharedStoryId);
-          const isOwn = meId != null && story.user_id === meId;
-          navigation.navigate("StoryViewer", {
-            groups: [
-              {
-                user: {
-                  id: story.user_id,
-                  name: isOwn ? "You" : name ?? "Member",
-                  username: null,
-                  profile_image: isOwn ? null : profileImage ?? null
-                },
-                has_unseen: false,
-                latest_at: story.created_at,
-                is_own: isOwn,
-                stories: [story]
-              }
-            ],
-            initialGroupIndex: 0,
-            initialStoryIndex: 0
-          });
-        } catch {
-          appAlert("Story unavailable", "This story may have expired.");
-        }
-      })();
+      void openSharedStoryInViewer({
+        sharedStoryId,
+        meId,
+        peer: { name, profileImage },
+        navigation
+      });
     },
     [navigation, name, profileImage, meId]
   );
@@ -865,6 +885,8 @@ export function ChatScreen() {
         chatKeyboardInset={layout.chatKeyboardInset}
         keyboardVisible={layout.keyboardVisible}
         peerTyping={typing.peerTyping}
+        loadingOlder={loadingOlder}
+        onLoadOlder={() => void loadOlderMessages()}
         otherAvatarUri={otherAvatarUri}
         headerAvatarUri={otherAvatarUri}
         colors={panelColors}

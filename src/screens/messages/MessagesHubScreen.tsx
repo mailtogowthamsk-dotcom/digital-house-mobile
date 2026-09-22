@@ -6,7 +6,7 @@ import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-
 import { useTheme } from "../../theme/ThemeContext";
 import { getImageUrl } from "../../api/client";
 import { hapticSendMessage } from "../../utils/chatHaptics";
-import { getMe } from "../../api/auth.api";
+import { useAuth } from "../../context/AuthContext";
 import {
   deleteMessage,
   getHistory,
@@ -40,6 +40,7 @@ import { ThreadListPanel, ThreadRow, type MessagesFolder } from "../../component
 import { ChatPanel } from "../../components/messages/ChatPanel";
 import type { ChatMessageListHandle } from "../../components/messages/ChatMessageList";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
+import { mergeById } from "../../utils/mergeById";
 import { BottomTabBar, FLOATING_TAB_BAR_HEIGHT } from "../../components/home";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { handleMainTabPress } from "../../navigation/mainTabs";
@@ -49,8 +50,9 @@ import {
   type BlockedMember
 } from "../../api/users.api";
 import { appAlert } from "../../utils/appAlert";
+import { openSharedStoryInViewer } from "../../utils/openSharedStory";
 
-const HISTORY_LIMIT = 50;
+const HISTORY_LIMIT = 30;
 
 type SelectedChat = {
   id: number;
@@ -64,18 +66,26 @@ export function MessagesHubScreen() {
   const route = useRoute<RouteProp<{ Messages: { folder?: MessagesFolder } | undefined }, "Messages">>();
   const layout = useChatLayout();
   const { colors } = useTheme();
+  const { user: authUser } = useAuth();
 
-  const [meId, setMeId] = useState<number | null>(null);
+  const [meId, setMeId] = useState<number | null>(() => authUser?.id ?? null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [folder, setFolder] = useState<MessagesFolder>(
     () => route.params?.folder ?? "inbox"
   );
   const [blockedMembers, setBlockedMembers] = useState<BlockedMember[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
+  const [loadingMoreThreads, setLoadingMoreThreads] = useState(false);
   const [threadsError, setThreadsError] = useState<string | null>(null);
+  const [threadsNextCursor, setThreadsNextCursor] = useState<number | null>(null);
   const [selectedUser, setSelectedUser] = useState<SelectedChat | null>(null);
   const [selectedThreadUserId, setSelectedThreadUserId] = useState<number | null>(null);
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [historyNextCursor, setHistoryNextCursor] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const historyNextCursorRef = useRef<number | null>(null);
+  const loadingOlderRef = useRef(false);
+  historyNextCursorRef.current = historyNextCursor;
   const [loadingChat, setLoadingChat] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
@@ -129,24 +139,59 @@ export function MessagesHubScreen() {
   }, []);
 
   const loadMe = useCallback(async () => {
-    const me = await getMe();
-    setMeId(me.id);
-  }, []);
+    if (authUser?.id != null) {
+      setMeId(authUser.id);
+      return;
+    }
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (authUser?.id != null) setMeId(authUser.id);
+  }, [authUser?.id]);
 
   const meIdRef = useRef<number | null>(null);
   meIdRef.current = meId;
 
   const threadsLoadGenRef = useRef(0);
+  const threadsLoadMoreRef = useRef(false);
+  const threadsNextCursorRef = useRef<number | null>(null);
+  threadsNextCursorRef.current = threadsNextCursor;
+  const threadsLoadScheduledRef = useRef(false);
+  const pendingThreadsLoadRef = useRef<{
+    folder?: MessagesFolder;
+    opts?: { soft?: boolean; force?: boolean };
+  } | null>(null);
 
   const folderRef = useRef(folder);
   folderRef.current = folder;
 
+  const applyPresence = useCallback((data: Thread[]) => {
+    return hasPresenceSynced()
+      ? data.map((t) => ({
+          ...t,
+          otherUser: {
+            ...t.otherUser,
+            online: !isPresenceHidden(t.otherUser.id) && isUserOnlineCached(t.otherUser.id)
+          }
+        }))
+      : data.map((t) => ({
+          ...t,
+          otherUser: {
+            ...t.otherUser,
+            online:
+              !isPresenceHidden(t.otherUser.id) &&
+              (t.otherUser.online || isUserOnlineCached(t.otherUser.id))
+          }
+        }));
+  }, []);
+
   const loadThreads = useCallback(async (
     activeFolder?: MessagesFolder,
-    opts?: { soft?: boolean }
+    opts?: { soft?: boolean; force?: boolean }
   ) => {
     const folderToLoad = activeFolder ?? folderRef.current;
     const gen = ++threadsLoadGenRef.current;
+    threadsLoadMoreRef.current = false;
     setThreadsError(null);
     if (!opts?.soft) setLoadingThreads(true);
     try {
@@ -155,32 +200,15 @@ export function MessagesHubScreen() {
         if (gen !== threadsLoadGenRef.current) return;
         setBlockedMembers(blocked);
         setThreads([]);
+        setThreadsNextCursor(null);
       } else {
-        const data =
+        const page =
           folderToLoad === "archived"
-            ? await listThreads({ archivedOnly: true })
-            : await listThreads();
+            ? await listThreads({ archivedOnly: true, force: opts?.force })
+            : await listThreads({ force: opts?.force });
         if (gen !== threadsLoadGenRef.current) return;
-        const merged =
-          hasPresenceSynced()
-            ? data.map((t) => ({
-                ...t,
-                otherUser: {
-                  ...t.otherUser,
-                  online:
-                    !isPresenceHidden(t.otherUser.id) && isUserOnlineCached(t.otherUser.id)
-                }
-              }))
-            : data.map((t) => ({
-                ...t,
-                otherUser: {
-                  ...t.otherUser,
-                  online:
-                    !isPresenceHidden(t.otherUser.id) &&
-                    (t.otherUser.online || isUserOnlineCached(t.otherUser.id))
-                }
-              }));
-        setThreads(merged);
+        setThreads(applyPresence(page.threads));
+        setThreadsNextCursor(page.nextCursorId);
         setBlockedMembers([]);
         setSelectedUser((prev) =>
           prev
@@ -201,16 +229,64 @@ export function MessagesHubScreen() {
     } finally {
       if (gen === threadsLoadGenRef.current) {
         setLoadingThreads(false);
+        setLoadingMoreThreads(false);
       }
     }
-  }, []);
+  }, [applyPresence]);
 
+  const loadMoreThreads = useCallback(async () => {
+    const folderToLoad = folderRef.current;
+    if (folderToLoad === "blocked") return;
+    const cursor = threadsNextCursorRef.current;
+    if (cursor == null || threadsLoadMoreRef.current || loadingThreads) return;
+    threadsLoadMoreRef.current = true;
+    setLoadingMoreThreads(true);
+    const gen = threadsLoadGenRef.current;
+    try {
+      const page =
+        folderToLoad === "archived"
+          ? await listThreads({ archivedOnly: true, cursorId: cursor })
+          : await listThreads({ cursorId: cursor });
+      if (gen !== threadsLoadGenRef.current) return;
+      setThreads((prev) => applyPresence(mergeById(prev, page.threads, (t) => t.otherUser.id)));
+      setThreadsNextCursor(page.nextCursorId);
+    } catch {
+      /* keep current list */
+    } finally {
+      if (gen === threadsLoadGenRef.current) {
+        threadsLoadMoreRef.current = false;
+        setLoadingMoreThreads(false);
+      }
+    }
+  }, [applyPresence, loadingThreads]);
+  /** Coalesce focus + folder-param effects that fire in the same tick into one load. */
+  const scheduleLoadThreads = useCallback(
+    (activeFolder?: MessagesFolder, opts?: { soft?: boolean; force?: boolean }) => {
+      const prev = pendingThreadsLoadRef.current;
+      pendingThreadsLoadRef.current = {
+        folder: activeFolder ?? prev?.folder,
+        opts: {
+          soft: opts?.soft === true && prev?.opts?.soft !== false,
+          force: opts?.force === true || prev?.opts?.force === true
+        }
+      };
+      if (threadsLoadScheduledRef.current) return;
+      threadsLoadScheduledRef.current = true;
+      queueMicrotask(() => {
+        threadsLoadScheduledRef.current = false;
+        const pending = pendingThreadsLoadRef.current;
+        pendingThreadsLoadRef.current = null;
+        void loadThreads(pending?.folder, pending?.opts);
+      });
+    },
+    [loadThreads]
+  );
   const onFolderChange = useCallback(
     (next: MessagesFolder) => {
       setFolder(next);
       setSelectedUser(null);
       setSelectedThreadUserId(null);
-      void loadThreads(next);
+      void loadThreads(next, { force: true });
     },
     [loadThreads]
   );
@@ -221,33 +297,16 @@ export function MessagesHubScreen() {
     setFolder(requested);
     setSelectedUser(null);
     setSelectedThreadUserId(null);
-    void loadThreads(requested);
-  }, [loadThreads, route.params?.folder]);
+    scheduleLoadThreads(requested, { force: true });
+  }, [scheduleLoadThreads, route.params?.folder]);
 
   /**
-   * Every realtime subscription below is gated on `meId`. A single swallowed
-   * failure here used to leave the inbox on focus-refetch only, so retry with
-   * backoff until it resolves.
+   * Every realtime subscription below is gated on `meId`. Prefer AuthContext —
+   * do not hit GET /auth/me just for the current user id.
    */
   useEffect(() => {
     if (meId != null) return;
-    let cancelled = false;
-    let attempt = 0;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const attemptLoad = () => {
-      loadMe().catch(() => {
-        if (cancelled) return;
-        attempt += 1;
-        timer = setTimeout(attemptLoad, Math.min(1_000 * 2 ** attempt, 30_000));
-      });
-    };
-    attemptLoad();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
+    void loadMe();
   }, [loadMe, meId]);
 
   useFocusEffect(
@@ -261,8 +320,8 @@ export function MessagesHubScreen() {
         setChatAccess(null);
         setLoadingChat(false);
       }
-      void loadThreads();
-    }, [loadThreads, layout.isSplit])
+      scheduleLoadThreads();
+    }, [scheduleLoadThreads, layout.isSplit])
   );
 
   useAppResume(() => {
@@ -285,7 +344,10 @@ export function MessagesHubScreen() {
           otherUserId: other.id,
           name: other.name,
           profileImage: other.profileImage ?? null,
-          online: other.online
+          online: other.online,
+          muted: !!t.muted,
+          archived: !!t.archived,
+          left: !!t.left
         });
         return;
       }
@@ -296,6 +358,7 @@ export function MessagesHubScreen() {
       setChatError(null);
       setSendError(null);
       setMessages([]);
+      setHistoryNextCursor(null);
       forgottenMessageIdsRef.current.clear();
       deletingMessageIdsRef.current.clear();
       setChatAccess(null);
@@ -309,6 +372,7 @@ export function MessagesHubScreen() {
         }
 
         const hist = await getHistory(other.id, HISTORY_LIMIT);
+        setHistoryNextCursor(hist.nextCursorId);
         setMessages((prev) =>
           mergeChatMessages(prev, hist.messages, {
             forgottenIds: forgottenMessageIdsRef.current,
@@ -316,7 +380,7 @@ export function MessagesHubScreen() {
           })
         );
         listRef.current?.scrollToBottom(false);
-        const ackAs = meId ?? (await getMe().then((m) => m.id).catch(() => null));
+        const ackAs = meId ?? authUser?.id ?? null;
         if (ackAs != null) {
           void ackUndeliveredMessages(hist.messages, ackAs);
         }
@@ -333,7 +397,7 @@ export function MessagesHubScreen() {
         setLoadingChat(false);
       }
     },
-    [layout.isSplit, meId, navigation]
+    [layout.isSplit, meId, navigation, authUser?.id]
   );
 
   const typing = useChatTyping(selectedUser?.id ?? null, !chatLocked);
@@ -540,7 +604,7 @@ export function MessagesHubScreen() {
         setMessages((prev) =>
           mergeChatMessages(prev, hist.messages, {
             forgottenIds: forgottenMessageIdsRef.current,
-            clearConfirmedIfEmpty: true
+            preserveExistingOutsideWindow: true
           })
         );
         const ackAs = meIdRef.current;
@@ -551,6 +615,30 @@ export function MessagesHubScreen() {
     },
     []
   );
+
+  const loadOlderMessages = useCallback(async () => {
+    const otherId = selectedThreadUserId;
+    const cursor = historyNextCursorRef.current;
+    if (otherId == null || cursor == null || loadingOlderRef.current) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const hist = await getHistory(otherId, HISTORY_LIMIT, cursor);
+      setHistoryNextCursor(hist.nextCursorId);
+      if (hist.messages.length === 0) return;
+      setMessages((prev) =>
+        mergeChatMessages(prev, hist.messages, {
+          forgottenIds: forgottenMessageIdsRef.current,
+          preserveExistingOutsideWindow: true
+        })
+      );
+    } catch {
+      /* keep */
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [selectedThreadUserId]);
 
   /** Socket-first; the REST route emits the same event when we are offline. */
   const markReadSplitRef = useRef<(id: number) => void>(() => {});
@@ -768,10 +856,12 @@ export function MessagesHubScreen() {
       colors={threadColors}
       titleSize={layout.titleSize}
       loadingThreads={loadingThreads}
+      loadingMoreThreads={loadingMoreThreads}
       threadsError={threadsError}
       threads={threads}
       renderThread={renderThread}
       keyThread={keyThread}
+      onEndReachedThreads={() => void loadMoreThreads()}
       folder={folder}
       onFolderChange={onFolderChange}
       contentBottomInset={tabBottomPad}
@@ -798,34 +888,16 @@ export function MessagesHubScreen() {
 
   const handleSharedStoryPress = useCallback(
     (sharedStoryId: number) => {
-      void (async () => {
-        try {
-          const { getStory } = await import("../../api/stories.api");
-          const story = await getStory(sharedStoryId);
-          navigation.navigate("StoryViewer", {
-            groups: [
-              {
-                user: {
-                  id: story.user_id,
-                  name: "Story",
-                  username: null,
-                  profile_image: null
-                },
-                has_unseen: false,
-                latest_at: story.created_at,
-                is_own: false,
-                stories: [story]
-              }
-            ],
-            initialGroupIndex: 0,
-            initialStoryIndex: 0
-          });
-        } catch {
-          appAlert("Story unavailable", "This story may have expired.");
-        }
-      })();
+      void openSharedStoryInViewer({
+        sharedStoryId,
+        meId,
+        peer: selectedUser
+          ? { name: selectedUser.fullName, profileImage: selectedUser.profileImage }
+          : null,
+        navigation
+      });
     },
-    [navigation]
+    [navigation, meId, selectedUser]
   );
 
   const openPeerProfile = useCallback(() => {
@@ -879,6 +951,8 @@ export function MessagesHubScreen() {
               chatKeyboardInset={layout.chatKeyboardInset}
               keyboardVisible={layout.keyboardVisible}
               peerTyping={typing.peerTyping}
+              loadingOlder={loadingOlder}
+              onLoadOlder={() => void loadOlderMessages()}
               otherAvatarUri={getImageUrl(selectedUser.profileImage)}
               headerAvatarUri={getImageUrl(selectedUser.profileImage)}
               colors={panelColors}

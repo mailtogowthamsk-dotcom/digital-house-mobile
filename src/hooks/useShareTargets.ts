@@ -48,13 +48,17 @@ export function useShareTargets(enabled: boolean) {
     setLoading(true);
     setError(null);
     try {
-      const [connections, threads, matchesRaw] = await Promise.all([
+      const [connections, threadsPage, matchesRaw] = await Promise.all([
         listConnections().catch(() => [] as Awaited<ReturnType<typeof listConnections>>),
-        listThreads().catch(() => [] as Awaited<ReturnType<typeof listThreads>>),
+        listThreads({ limit: 50 }).catch(() => ({
+          threads: [] as Awaited<ReturnType<typeof listThreads>>["threads"],
+          nextCursorId: null
+        })),
         getMatrimonyMatches().catch(() => [] as unknown[])
       ]);
       if (gen !== genRef.current) return;
 
+      const threads = threadsPage.threads;
       const byId = new Map<number, ShareTarget>();
 
       const upsert = (next: ShareTarget) => {

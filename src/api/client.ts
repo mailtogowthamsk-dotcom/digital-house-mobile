@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import { getTokenReliable } from "../storage/token.storage";
 import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
 import { stickySignedMediaUrl } from "../utils/stickySignedUrlCache";
+import { installAxiosGetDedupe } from "./requestCache";
 
 type RetryableConfig = InternalAxiosRequestConfig & {
   __retryCount?: number;
@@ -91,6 +92,9 @@ export const api = axios.create({
     Accept: "application/json"
   }
 });
+
+// Coalesce identical in-flight GETs across the whole app (never POST/PATCH/PUT/DELETE).
+installAxiosGetDedupe(api);
 
 api.interceptors.request.use(async (config) => {
   config.baseURL = getApiBaseUrl();

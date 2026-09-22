@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { CacheKeys, cachedGet, invalidateRequestCache } from "./requestCache";
 
 export type NotificationCategory =
   | "ALL"
@@ -44,17 +45,27 @@ export type NotificationPreferences = {
   pushEnabled: boolean;
 };
 
-export async function getNotificationCounts(): Promise<UnreadCounts> {
-  const { data } = await api.get<{ ok: boolean } & UnreadCounts>("/notifications/counts");
-  if (!data?.ok) throw new Error("Failed to load counts");
-  return {
-    total: data.total ?? 0,
-    social: data.social ?? 0,
-    matrimony: data.matrimony ?? 0,
-    messages: data.messages ?? 0,
-    community: data.community ?? 0,
-    system: data.system ?? 0
-  };
+export async function getNotificationCounts(opts?: { force?: boolean }): Promise<UnreadCounts> {
+  return cachedGet(
+    CacheKeys.notificationCounts,
+    async () => {
+      const { data } = await api.get<{ ok: boolean } & UnreadCounts>("/notifications/counts");
+      if (!data?.ok) throw new Error("Failed to load counts");
+      return {
+        total: data.total ?? 0,
+        social: data.social ?? 0,
+        matrimony: data.matrimony ?? 0,
+        messages: data.messages ?? 0,
+        community: data.community ?? 0,
+        system: data.system ?? 0
+      };
+    },
+    { ttlMs: 30_000, force: opts?.force }
+  );
+}
+
+export function invalidateNotificationCounts(): void {
+  invalidateRequestCache(CacheKeys.notificationCounts);
 }
 
 export async function getNotifications(
@@ -81,6 +92,7 @@ export async function markNotificationRead(id: number) {
     `/notifications/${id}/read`
   );
   if (!data?.ok) throw new Error("Failed to mark read");
+  invalidateNotificationCounts();
   return data.counts;
 }
 
@@ -91,6 +103,7 @@ export async function markAllNotificationsRead(category: NotificationCategory = 
     { params: category !== "ALL" ? { category } : {} }
   );
   if (!data?.ok) throw new Error("Failed to mark all read");
+  invalidateNotificationCounts();
   return data.counts;
 }
 
@@ -99,6 +112,7 @@ export async function deleteNotification(id: number) {
     `/notifications/${id}`
   );
   if (!data?.ok) throw new Error("Failed to delete");
+  invalidateNotificationCounts();
   return data.counts;
 }
 

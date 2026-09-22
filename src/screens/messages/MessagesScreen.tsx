@@ -26,8 +26,8 @@ export function MessagesScreen() {
 
   const load = useCallback(async () => {
     setError(null);
-    const data = await listThreads();
-    setThreads(data);
+    const page = await listThreads({ force: true });
+    setThreads(page.threads);
   }, []);
 
   useEffect(() => {

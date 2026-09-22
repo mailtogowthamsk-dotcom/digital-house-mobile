@@ -1,4 +1,4 @@
-export type CropRatioId = "original" | "1:1" | "4:5" | "16:9";
+export type CropRatioId = "original" | "1:1" | "4:5" | "9:16" | "16:9";
 
 export type CropRatioOption = {
   id: CropRatioId;
@@ -11,6 +11,7 @@ export const CROP_RATIO_OPTIONS: CropRatioOption[] = [
   { id: "original", label: "Original", value: null },
   { id: "1:1", label: "1:1", value: 1 },
   { id: "4:5", label: "4:5", value: 4 / 5 },
+  { id: "9:16", label: "9:16", value: 9 / 16 },
   { id: "16:9", label: "16:9", value: 16 / 9 }
 ];
 

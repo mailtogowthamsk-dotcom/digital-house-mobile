@@ -30,15 +30,16 @@ import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScree
 import { MatrimonyMatchCard } from "../../components/matrimony/MatrimonyMatchCard";
 import { MatrimonyQuickFilterBar } from "../../components/matrimony/MatrimonyQuickFilterBar";
 import { buildDiscoverChips, type QuickBrowseFilter } from "../../components/matrimony/matrimonyUi";
-import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
+import { MatrimonyBrowseGate, useMatrimonyHubFromGate } from "../../components/matrimony/MatrimonyBrowseGate";
 import { mergeById } from "../../utils/mergeById";
 
 const PAGE_SIZE = 20;
 
-export function MatrimonyBrowseScreen() {
+function MatrimonyBrowseBody() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const gateHub = useMatrimonyHubFromGate();
   const [items, setItems] = useState<DiscoverCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -114,17 +115,22 @@ export function MatrimonyBrowseScreen() {
       const stale = now - lastFocusLoadRef.current > STALE_MS;
       if (!stale && itemsLenRef.current > 0) return;
       lastFocusLoadRef.current = now;
-      getMatrimonyHub()
-        .then((h) => {
-          setViewerDistrict(h.user_context?.district ?? null);
-          setSubscription(h.subscription ?? null);
-        })
-        .catch(() => {
-          setViewerDistrict(null);
-          setSubscription(null);
-        });
+      if (gateHub) {
+        setViewerDistrict(gateHub.user_context?.district ?? null);
+        setSubscription(gateHub.subscription ?? null);
+      } else {
+        getMatrimonyHub()
+          .then((h) => {
+            setViewerDistrict(h.user_context?.district ?? null);
+            setSubscription(h.subscription ?? null);
+          })
+          .catch(() => {
+            setViewerDistrict(null);
+            setSubscription(null);
+          });
+      }
       void load(1, false);
-    }, [load])
+    }, [load, gateHub])
   );
 
   const onQuickFilter = (q: QuickBrowseFilter) => {
@@ -173,7 +179,6 @@ export function MatrimonyBrowseScreen() {
   );
 
   return (
-    <MatrimonyBrowseGate>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MatrimonyScreenHeader
         title="Browse profiles"
@@ -279,6 +284,13 @@ export function MatrimonyBrowseScreen() {
         onClear={onClearFilters}
       />
     </View>
+  );
+}
+
+export function MatrimonyBrowseScreen() {
+  return (
+    <MatrimonyBrowseGate>
+      <MatrimonyBrowseBody />
     </MatrimonyBrowseGate>
   );
 }

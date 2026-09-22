@@ -125,6 +125,7 @@ export function JobsHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const nextCursorRef = React.useRef<number | string | null>(null);
   const hasLoadedOnce = React.useRef(false);
+  const lastFocusLoadAt = React.useRef(0);
   const requestIdRef = React.useRef(0);
   nextCursorRef.current = nextCursor;
 
@@ -250,6 +251,13 @@ export function JobsHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      const STALE_MS = 45_000;
+      if (hasLoadedOnce.current && now - lastFocusLoadAt.current < STALE_MS) {
+        return;
+      }
+
+      lastFocusLoadAt.current = now;
       const showSpinner = !hasLoadedOnce.current;
       if (showSpinner) setLoading(true);
       setNextCursor(null);
@@ -274,6 +282,7 @@ export function JobsHomeScreen() {
       setNextCursor(null);
       setError(null);
       hasLoadedOnce.current = false;
+      lastFocusLoadAt.current = 0;
       setLoading(true);
     },
     [mode]
@@ -366,6 +375,7 @@ export function JobsHomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    lastFocusLoadAt.current = 0;
     setNextCursor(null);
     if (mode === "applications") {
       await loadApplications("replace", 1);

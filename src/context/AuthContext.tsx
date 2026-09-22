@@ -10,6 +10,7 @@ import React, {
 import { AppState, type AppStateStatus } from "react-native";
 import { getMe, type MeUser } from "../api/auth.api";
 import { getErrorStatus } from "../api/client";
+import { clearAllRequestCaches, setRequestCacheUserId } from "../api/requestCache";
 import {
   registerAuthSignOut,
   setAllowAutoClearOn401,
@@ -149,6 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearWelcomeSession();
         void clearToken();
         void clearUserSnapshot();
+        clearAllRequestCaches();
+        setRequestCacheUserId(null);
         setUser(null);
         setStatus("signedOut");
         statusRef.current = "signedOut";
@@ -162,6 +165,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus(nextStatus);
       statusRef.current = nextStatus;
       userRef.current = normalized;
+      if (signedOut || !normalized?.id) {
+        clearAllRequestCaches();
+        setRequestCacheUserId(null);
+      } else {
+        setRequestCacheUserId(normalized.id);
+      }
       if (!signedOut && normalized?.status === "APPROVED" && normalized.id) {
         void prewarmRealtime(normalized.id);
       } else {
@@ -312,6 +321,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastResumeRestoreAt = 0;
+    const RESUME_ME_MIN_MS = 45_000;
     const onAppState = (next: AppStateStatus) => {
       if (
         next === "active" &&
@@ -328,9 +339,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (resumeTimer) clearTimeout(resumeTimer);
         resumeTimer = setTimeout(() => {
-          if (!signInLockRef.current) {
-            restoreSession().catch(() => {});
-          }
+          if (signInLockRef.current) return;
+          const now = Date.now();
+          // Throttle soft /auth/me on every foreground — focused screens soft-refresh separately.
+          if (now - lastResumeRestoreAt < RESUME_ME_MIN_MS) return;
+          lastResumeRestoreAt = now;
+          restoreSession().catch(() => {});
         }, 400);
       }
     };
@@ -395,6 +409,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       hardResetRealtime();
       clearWelcomeSession();
+      clearAllRequestCaches();
+      setRequestCacheUserId(null);
       await clearToken();
       await clearUserSnapshot();
       applySession(null, true);

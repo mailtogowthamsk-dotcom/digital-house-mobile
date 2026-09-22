@@ -10,9 +10,9 @@ import React, {
 } from "react";
 import {
   FlatList,
-  Platform,
   StyleSheet,
   View,
+  ActivityIndicator,
   type ListRenderItem,
   type NativeSyntheticEvent,
   type NativeScrollEvent
@@ -60,6 +60,9 @@ type Props = {
   };
   keyboardVisible?: boolean;
   peerTyping?: boolean;
+  loadingOlder?: boolean;
+  /** Fired when the user scrolls near the top (older history). */
+  onLoadOlder?: () => void;
   onAutoScrollChange?: (enabled: boolean) => void;
   onSharedPostPress?: (postId: number) => void;
   onSharedStoryPress?: (storyId: number) => void;
@@ -77,6 +80,8 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     colors,
     keyboardVisible = false,
     peerTyping = false,
+    loadingOlder = false,
+    onLoadOlder,
     onAutoScrollChange,
     onSharedPostPress,
     onSharedStoryPress,
@@ -87,6 +92,11 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
   const listRef = useRef<FlatList<ChatListRow>>(null);
   const autoScrollRef = useRef(true);
   const [showScrollFab, setShowScrollFab] = useState(false);
+  const loadOlderLockRef = useRef(false);
+  const onLoadOlderRef = useRef(onLoadOlder);
+  onLoadOlderRef.current = onLoadOlder;
+  const loadingOlderRef = useRef(loadingOlder);
+  loadingOlderRef.current = loadingOlder;
 
   const rows = useMemo(() => buildChatListRows(messages), [messages]);
 
@@ -109,6 +119,17 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     [scrollToBottom]
   );
 
+  const maybeLoadOlder = useCallback((offsetY: number) => {
+    if (offsetY > 72) {
+      loadOlderLockRef.current = false;
+      return;
+    }
+    if (loadingOlderRef.current || loadOlderLockRef.current) return;
+    if (!onLoadOlderRef.current) return;
+    loadOlderLockRef.current = true;
+    onLoadOlderRef.current();
+  }, []);
+
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
@@ -120,9 +141,17 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
         onAutoScrollChange?.(nearBottom);
       }
       setShowScrollFab(!nearBottom && messages.length > 0);
+      maybeLoadOlder(contentOffset.y);
     },
-    [messages.length, onAutoScrollChange]
+    [messages.length, onAutoScrollChange, maybeLoadOlder]
   );
+
+  useEffect(() => {
+    if (!loadingOlder) {
+      // Allow another top-edge trigger after the previous page finishes.
+      loadOlderLockRef.current = false;
+    }
+  }, [loadingOlder]);
 
   const handleContentSizeChange = useCallback(() => {
     if (autoScrollRef.current) {
@@ -191,6 +220,14 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
 
   const keyExtractor = useCallback((item: ChatListRow) => item.id, []);
 
+  const listHeader = loadingOlder ? (
+    <View style={styles.olderSpinner}>
+      <ActivityIndicator color={colors.primary} />
+    </View>
+  ) : (
+    <View style={styles.olderSpacer} />
+  );
+
   const typingFooter = (
     <ChatTypingIndicator
       visible={peerTyping}
@@ -217,6 +254,7 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
         data={rows}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        ListHeaderComponent={listHeader}
         ListFooterComponent={typingFooter}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -259,6 +297,13 @@ const styles = StyleSheet.create({
   contentEmpty: {
     flex: 1,
     justifyContent: "flex-end"
+  },
+  olderSpinner: {
+    paddingVertical: 12,
+    alignItems: "center"
+  },
+  olderSpacer: {
+    height: 4
   }
 });
 

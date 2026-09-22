@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -49,9 +49,7 @@ const STATUS_CHIPS: { id: StatusFilter; label: string }[] = [
   { id: "REJECTED", label: "Rejected" }
 ];
 
-const ACTION_LABELS: Record<string, string> = Object.fromEntries(
-  EMPLOYER_APPLICATION_ACTIONS.map((a) => [a.value, a.label])
-);
+const PAGE_SIZE = 10;
 
 export function JobApplicantsScreen() {
   const navigation = useNavigation<any>();
@@ -62,47 +60,85 @@ export function JobApplicantsScreen() {
   const { colors, mode: themeMode } = useTheme();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [items, setItems] = useState<JobInterestItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const loadingMoreRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const pageRef = useRef(1);
+  const totalRef = useRef(0);
+  pageRef.current = page;
+  totalRef.current = total;
 
-  const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await listJobInterests(postId, statusFilter === "all" ? undefined : statusFilter);
-      setItems(data.items);
-      setNotesDraft((prev) => {
-        const next = { ...prev };
-        for (const it of data.items) {
-          if (next[it.id] === undefined && it.employer_notes) {
-            next[it.id] = it.employer_notes;
-          }
+  const mergeNotesDraft = useCallback((rows: JobInterestItem[]) => {
+    setNotesDraft((prev) => {
+      const next = { ...prev };
+      for (const it of rows) {
+        if (next[it.id] === undefined && it.employer_notes) {
+          next[it.id] = it.employer_notes;
         }
-        return next;
-      });
-    } catch (e) {
-      const status = getErrorStatus(e);
-      if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-      else if (status === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else setError(e instanceof Error ? e.message : "Failed to load applicants");
-    }
-  }, [navigation, postId, statusFilter]);
+      }
+      return next;
+    });
+  }, []);
+
+  const load = useCallback(
+    async (modeLoad: "replace" | "append", pageNum: number) => {
+      const requestId = ++requestIdRef.current;
+      try {
+        setError(null);
+        const data = await listJobInterests(
+          postId,
+          statusFilter === "all" ? undefined : statusFilter,
+          { page: pageNum, limit: PAGE_SIZE }
+        );
+        if (requestId !== requestIdRef.current) return;
+        setItems((prev) => (modeLoad === "append" ? [...prev, ...data.items] : data.items));
+        setTotal(data.total);
+        setPage(data.page);
+        mergeNotesDraft(data.items);
+      } catch (e) {
+        if (requestId !== requestIdRef.current) return;
+        const status = getErrorStatus(e);
+        if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        else if (status === 403) navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
+        else setError(e instanceof Error ? e.message : "Failed to load applicants");
+      }
+    },
+    [mergeNotesDraft, navigation, postId, statusFilter]
+  );
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      void load().finally(() => setLoading(false));
+      void load("replace", 1).finally(() => setLoading(false));
     }, [load])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    await load("replace", 1);
     setRefreshing(false);
   }, [load]);
+
+  const onEndReached = useCallback(async () => {
+    if (loadingMoreRef.current || loading || refreshing) return;
+    if (pageRef.current * PAGE_SIZE >= totalRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await load("append", pageRef.current + 1);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [load, loading, refreshing]);
 
   const patchItem = useCallback((updated: JobInterestItem) => {
     setItems((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
@@ -128,7 +164,6 @@ export function JobApplicantsScreen() {
 
   const handleAction = useCallback(
     (item: JobInterestItem, action: string) => {
-      const label = ACTION_LABELS[action] ?? action;
       if (action === "REJECTED") {
         appAlert("Reject applicant?", `${item.author.name} will be marked as rejected.`, [
           { text: "Cancel", style: "cancel" },
@@ -273,7 +308,13 @@ export function JobApplicantsScreen() {
         errorText: { color: colors.error, textAlign: "center", marginBottom: spacing.md },
         empty: { alignItems: "center", paddingTop: 48, paddingHorizontal: spacing.xl },
         emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-        emptyText: { marginTop: spacing.sm, fontSize: 13, color: colors.textSecondary, textAlign: "center" }
+        emptyText: {
+          marginTop: spacing.sm,
+          fontSize: 13,
+          color: colors.textSecondary,
+          textAlign: "center"
+        },
+        footer: { paddingVertical: spacing.md, alignItems: "center" }
       }),
     [colors, themeMode]
   );
@@ -370,6 +411,11 @@ export function JobApplicantsScreen() {
     ]
   );
 
+  const headerSub =
+    total > 0
+      ? `${jobTitle?.trim() || `Job #${postId}`} · ${total} applicant${total === 1 ? "" : "s"}`
+      : jobTitle?.trim() || `Job #${postId}`;
+
   return (
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + spacing.xs }]}>
@@ -379,7 +425,7 @@ export function JobApplicantsScreen() {
             Applicants
           </Text>
           <Text style={s.headerSub} numberOfLines={1}>
-            {jobTitle?.trim() || `Job #${postId}`}
+            {headerSub}
           </Text>
         </View>
       </View>
@@ -414,7 +460,7 @@ export function JobApplicantsScreen() {
       ) : error && items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.errorText}>{error}</Text>
-          <PrimaryButton title="Retry" onPress={() => void load()} />
+          <PrimaryButton title="Retry" onPress={() => void load("replace", 1)} />
         </View>
       ) : (
         <FlatList
@@ -424,6 +470,15 @@ export function JobApplicantsScreen() {
           contentContainerStyle={s.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} colors={[colors.primary]} />
+          }
+          onEndReached={() => void onEndReached()}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={s.footer}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null
           }
           ListEmptyComponent={
             <View style={s.empty}>

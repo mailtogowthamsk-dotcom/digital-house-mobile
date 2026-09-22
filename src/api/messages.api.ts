@@ -1,4 +1,9 @@
 import { api } from "./client";
+import {
+  CacheKeys,
+  cachedGet,
+  invalidateRequestCacheMatching
+} from "./requestCache";
 
 export type ChatLane = "community" | "matrimony" | "business";
 
@@ -63,17 +68,73 @@ export async function getMessageAccess(otherUserId: number): Promise<MessageAcce
   return res.data.access;
 }
 
-export async function listThreads(opts?: {
+const THREADS_TTL_MS = 45_000;
+const THREADS_PAGE_SIZE = 25;
+
+function threadsCacheKey(opts?: {
   includeArchived?: boolean;
   archivedOnly?: boolean;
-}): Promise<Thread[]> {
-  const res = await api.get<{ ok: true; threads: Thread[] }>("/messages/threads", {
-    params: {
-      ...(opts?.includeArchived ? { includeArchived: "1" } : {}),
-      ...(opts?.archivedOnly ? { archivedOnly: "1" } : {})
-    }
+  cursorId?: number;
+}): string {
+  const base = opts?.archivedOnly
+    ? CacheKeys.threadsArchived
+    : opts?.includeArchived
+      ? CacheKeys.threadsIncludeArchived
+      : CacheKeys.threadsInbox;
+  // Only cache the first page — pagination pages must always hit network.
+  if (opts?.cursorId) return `${base}:p:${opts.cursorId}`;
+  return base;
+}
+
+export type ThreadListPage = {
+  threads: Thread[];
+  nextCursorId: number | null;
+};
+
+export async function listThreads(
+  opts?: {
+    includeArchived?: boolean;
+    archivedOnly?: boolean;
+    force?: boolean;
+    limit?: number;
+    cursorId?: number;
+  }
+): Promise<ThreadListPage> {
+  const { force, limit, cursorId, ...query } = opts ?? {};
+  const pageLimit = limit ?? THREADS_PAGE_SIZE;
+  const isFirstPage = cursorId == null;
+  const run = async (): Promise<ThreadListPage> => {
+    const res = await api.get<{
+      ok: true;
+      threads: Thread[];
+      nextCursorId?: number | null;
+    }>("/messages/threads", {
+      params: {
+        limit: pageLimit,
+        ...(cursorId != null ? { cursorId } : {}),
+        ...(query.includeArchived ? { includeArchived: "1" } : {}),
+        ...(query.archivedOnly ? { archivedOnly: "1" } : {})
+      }
+    });
+    return {
+      threads: res.data.threads ?? [],
+      nextCursorId: res.data.nextCursorId ?? null
+    };
+  };
+
+  // TTL only for first page (hub focus / resume soft refresh).
+  if (!isFirstPage) {
+    return run();
+  }
+
+  return cachedGet(threadsCacheKey(query), run, {
+    ttlMs: THREADS_TTL_MS,
+    force
   });
-  return res.data.threads ?? [];
+}
+
+export function invalidateThreadsCache(): void {
+  invalidateRequestCacheMatching("threads:");
 }
 
 export type ThreadPreference = {
@@ -83,6 +144,21 @@ export type ThreadPreference = {
   leftAt: string | null;
 };
 
+/** Single-peer mute/archive/left — prefer over listThreads for Chat UI flags. */
+export async function getThreadPreference(otherUserId: number): Promise<ThreadPreference> {
+  const res = await api.get<{ ok: true; preference: ThreadPreference }>(
+    `/messages/threads/${otherUserId}`
+  );
+  return (
+    res.data.preference ?? {
+      otherUserId,
+      muted: false,
+      archived: false,
+      leftAt: null
+    }
+  );
+}
+
 export async function updateThreadPreference(
   otherUserId: number,
   patch: { muted?: boolean; archived?: boolean; left?: boolean }
@@ -91,6 +167,7 @@ export async function updateThreadPreference(
     `/messages/threads/${otherUserId}`,
     patch
   );
+  invalidateThreadsCache();
   return res.data.preference;
 }
 
@@ -106,6 +183,7 @@ export async function deleteConversation(otherUserId: number): Promise<Conversat
   const res = await api.delete<{ ok: true; deletion: ConversationDeletion }>(
     `/messages/threads/${otherUserId}`
   );
+  invalidateThreadsCache();
   return res.data.deletion;
 }
 

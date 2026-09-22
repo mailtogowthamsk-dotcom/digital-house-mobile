@@ -6,6 +6,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  ActivityIndicator,
   type ListRenderItem
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -40,10 +41,12 @@ type ThreadListPanelProps = {
   colors: Colors;
   titleSize: number;
   loadingThreads: boolean;
+  loadingMoreThreads?: boolean;
   threadsError: string | null;
   threads: Thread[];
   renderThread: ListRenderItem<Thread>;
   keyThread: (t: Thread) => string;
+  onEndReachedThreads?: () => void;
   onBack?: () => void;
   /** Opens member / conversation search (messages hub). */
   onSearch?: () => void;
@@ -64,10 +67,12 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
     colors,
     titleSize,
     loadingThreads,
+    loadingMoreThreads = false,
     threadsError,
     threads,
     renderThread,
     keyThread,
+    onEndReachedThreads,
     onBack,
     onSearch,
     folder = "inbox",
@@ -268,6 +273,15 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             windowSize={9}
             updateCellsBatchingPeriod={50}
             initialNumToRender={12}
+            onEndReached={() => onEndReachedThreads?.()}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={
+              loadingMoreThreads ? (
+                <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : null
+            }
           />
         )}
       </View>

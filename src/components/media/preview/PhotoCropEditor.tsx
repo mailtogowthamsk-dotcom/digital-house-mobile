@@ -23,6 +23,8 @@ type Props = {
   imageHeight: number;
   /** Called whenever framing changes so parent can export on Continue. */
   onCropChange: (rect: ImageCropRect, ratioId: CropRatioId) => void;
+  /** Initial aspect ratio (Stories default to 9:16). */
+  initialRatioId?: CropRatioId;
   accentColor: string;
   textColor: string;
   mutedColor: string;
@@ -44,12 +46,13 @@ function PhotoCropEditorInner({
   imageWidth,
   imageHeight,
   onCropChange,
+  initialRatioId = "original",
   accentColor,
   textColor,
   mutedColor,
   surfaceColor
 }: Props) {
-  const [ratioId, setRatioId] = useState<CropRatioId>("original");
+  const [ratioId, setRatioId] = useState<CropRatioId>(initialRatioId);
   const [viewport, setViewport] = useState<LayoutSize>({ width: 0, height: 0 });
 
   const scale = useRef(new Animated.Value(1)).current;

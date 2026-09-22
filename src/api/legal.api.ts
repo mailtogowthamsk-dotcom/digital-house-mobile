@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { CacheKeys, cachedGet, invalidateRequestCache } from "./requestCache";
 
 export type LegalCatalogItem = {
   documentKey: string;
@@ -134,17 +135,27 @@ export async function getLegalDocument(slugOrKey: string): Promise<LegalPublishe
 }
 
 /** GET /legal/status — auth required. */
-export async function getLegalStatus(): Promise<LegalAcceptanceStatus> {
-  const { data } = await api.get<{ ok: boolean } & LegalAcceptanceStatus>("/legal/status");
-  if (!data?.ok) throw new Error("Failed to load legal acceptance status");
-  return {
-    mustAccept: Boolean(data.mustAccept),
-    pending: Array.isArray(data.pending) ? data.pending : [],
-    registrationRequired: Array.isArray(data.registrationRequired)
-      ? data.registrationRequired
-      : [],
-    items: Array.isArray(data.items) ? data.items : []
-  };
+export async function getLegalStatus(opts?: { force?: boolean }): Promise<LegalAcceptanceStatus> {
+  return cachedGet(
+    CacheKeys.legalStatus,
+    async () => {
+      const { data } = await api.get<{ ok: boolean } & LegalAcceptanceStatus>("/legal/status");
+      if (!data?.ok) throw new Error("Failed to load legal acceptance status");
+      return {
+        mustAccept: Boolean(data.mustAccept),
+        pending: Array.isArray(data.pending) ? data.pending : [],
+        registrationRequired: Array.isArray(data.registrationRequired)
+          ? data.registrationRequired
+          : [],
+        items: Array.isArray(data.items) ? data.items : []
+      };
+    },
+    { ttlMs: 60_000, force: opts?.force }
+  );
+}
+
+export function invalidateLegalStatus(): void {
+  invalidateRequestCache(CacheKeys.legalStatus);
 }
 
 /** POST /legal/accept — auth required. */
@@ -167,6 +178,7 @@ export async function acceptLegalDocuments(opts: {
   if (!data?.ok || !data.status) {
     throw new Error(data?.message || "Could not record acceptance");
   }
+  invalidateLegalStatus();
   return {
     accepted: data.accepted ?? [],
     status: data.status
