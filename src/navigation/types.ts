@@ -24,6 +24,12 @@ export type RootStackParamList = {
   MyActivity: undefined;
   PostDetail: { postId: number };
   CreatePost: { initialPostType?: string; editPostId?: number } | undefined;
+  CreateStory: undefined;
+  StoryViewer: {
+    groups: import("../api/stories.api").StoryGroup[];
+    initialGroupIndex?: number;
+    initialStoryIndex?: number;
+  };
   /** In-app photo/video review before Create Post upload. */
   MediaPreview: {
     mode?: "create" | "replace";

@@ -299,10 +299,10 @@ export function HelpingHandsHomeScreen() {
         appAlert("Your request", "You can’t offer help on your own request. Open Manage to edit or resolve it.");
         return;
       }
-      appAlert("Ready to help?", `Offer help for “${title}”? You can chat or call next.`, [
+      appAlert("Offer help?", `Confirm you’ll help with “${title}”. Next you can chat or call.`, [
         { text: "Cancel", style: "cancel" },
         {
-          text: "I'm Ready",
+          text: "Offer help",
           onPress: async () => {
             try {
               setOfferingId(postId);
@@ -394,9 +394,12 @@ export function HelpingHandsHomeScreen() {
         },
         segmentBtn: {
           flex: 1,
+          flexDirection: "row",
+          gap: 4,
           paddingVertical: 9,
           borderRadius: radius.sm,
-          alignItems: "center"
+          alignItems: "center",
+          justifyContent: "center"
         },
         segmentBtnActive: {
           backgroundColor: colors.surface,
@@ -410,50 +413,59 @@ export function HelpingHandsHomeScreen() {
         segmentTextActive: { color: ACCENT, fontWeight: "700" },
         listPad: {
           paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
+          paddingTop: spacing.sm,
           paddingBottom: 110
         },
-        banner: {
-          backgroundColor: themeMode === "dark" ? "#2E1065" : "#F5F3FF",
-          borderRadius: radius.lg,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          borderWidth: 1,
-          borderColor: themeMode === "dark" ? "#5B21B6" : "#EDE9FE"
+        bannerPrimary: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          backgroundColor: ACCENT,
+          borderRadius: radius.md,
+          paddingVertical: 12,
+          paddingHorizontal: 14
         },
-        bannerTitle: {
-          fontSize: 18,
-          fontWeight: "800",
-          color: themeMode === "dark" ? "#E9D5FF" : "#4C1D95",
-          marginBottom: 4
-        },
-        bannerSub: {
-          fontSize: 13,
-          lineHeight: 19,
-          color: themeMode === "dark" ? "#C4B5FD" : "#6D28D9"
-        },
+        bannerPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 14 },
         statsRow: {
           flexDirection: "row",
-          gap: 8,
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: colors.border,
+          paddingVertical: 10,
           marginBottom: spacing.md
+        },
+        statsDivider: {
+          width: StyleSheet.hairlineWidth,
+          alignSelf: "stretch",
+          backgroundColor: colors.border
         },
         statPill: {
           flex: 1,
-          backgroundColor: colors.surface,
-          borderRadius: radius.md,
-          paddingVertical: 10,
-          paddingHorizontal: 8,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: "center"
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 4
         },
         statValue: { fontSize: 16, fontWeight: "800", color: colors.text },
         statLabel: {
-          marginTop: 2,
-          fontSize: 10,
+          marginTop: 1,
+          fontSize: 11,
           fontWeight: "600",
-          color: colors.textMuted,
-          textAlign: "center"
+          color: colors.textMuted
+        },
+        listSectionHead: { marginBottom: 6 },
+        listSectionTitle: {
+          fontSize: 15,
+          fontWeight: "800",
+          color: colors.text
+        },
+        listSectionSub: {
+          marginTop: 2,
+          fontSize: 12,
+          color: colors.textSecondary,
+          lineHeight: 16
         },
         chipScroll: { paddingBottom: spacing.sm },
         chip: {
@@ -544,10 +556,13 @@ export function HelpingHandsHomeScreen() {
         helpBtn: {
           flex: 1.2,
           paddingVertical: 12,
+          paddingHorizontal: 10,
           borderRadius: radius.md,
           backgroundColor: ACCENT,
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: 6
         },
         helpBtnPressed: { opacity: 0.9 },
         helpBtnText: { fontWeight: "800", color: "#fff", fontSize: 13 },
@@ -653,15 +668,16 @@ export function HelpingHandsHomeScreen() {
       const urgency = urgencyBadgeColor(item.helpUrgency);
       const desc = (item.description ?? "").trim();
       const isOwnRequest = myUserId != null && item.author?.userId === myUserId;
+      const coverUri =
+        item.mediaUrl ||
+        (Array.isArray(item.helpGallery) && item.helpGallery.length > 0
+          ? item.helpGallery[0]
+          : null);
       return (
         <View style={s.card}>
-          {item.mediaUrl ? (
-            <Image source={{ uri: item.mediaUrl }} style={s.cover} resizeMode="cover" />
-          ) : (
-            <View style={[s.cover, { alignItems: "center", justifyContent: "center" }]}>
-              <Ionicons name="hand-left-outline" size={36} color={ACCENT} />
-            </View>
-          )}
+          {coverUri ? (
+            <Image source={{ uri: coverUri }} style={s.cover} resizeMode="cover" />
+          ) : null}
           <View style={s.cardBody}>
             <View style={s.badgeRow}>
               <View style={[s.badge, { backgroundColor: urgency.bg }]}>
@@ -723,7 +739,7 @@ export function HelpingHandsHomeScreen() {
                 style={[s.secondaryBtn, isOwnRequest ? { flex: 1 } : null]}
                 onPress={() => navigation.navigate("PostDetail", { postId: item.postId })}
               >
-                <Text style={s.secondaryBtnText}>{isOwnRequest ? "Manage" : "Details"}</Text>
+                <Text style={s.secondaryBtnText}>{isOwnRequest ? "Manage" : "View details"}</Text>
               </Pressable>
               {!isOwnRequest ? (
                 <Pressable
@@ -734,7 +750,10 @@ export function HelpingHandsHomeScreen() {
                   {offeringId === item.postId ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={s.helpBtnText}>I'm Ready</Text>
+                    <>
+                      <Ionicons name="hand-left-outline" size={16} color="#fff" />
+                      <Text style={s.helpBtnText}>Offer help</Text>
+                    </>
                   )}
                 </Pressable>
               ) : null}
@@ -758,27 +777,28 @@ export function HelpingHandsHomeScreen() {
 
   const homeHeader = (
     <>
-      <View style={s.banner}>
-        <Text style={s.bannerTitle}>Together, we make a difference</Text>
-        <Text style={s.bannerSub}>
-          Offer help to members in need — or create a request when you need support.
-        </Text>
-      </View>
       {stats ? (
         <View style={s.statsRow}>
           {[
-            { label: "Helped", value: stats.peopleHelped },
-            { label: "Volunteers", value: stats.activeVolunteers },
-            { label: "Done", value: stats.requestsCompleted },
-            { label: "Touched", value: stats.livesTouched }
-          ].map((st) => (
-            <View key={st.label} style={s.statPill}>
-              <Text style={s.statValue}>{st.value}</Text>
-              <Text style={s.statLabel}>{st.label}</Text>
-            </View>
+            { label: "Open", value: stats.activeRequests },
+            { label: "Helping", value: stats.activeVolunteers },
+            { label: "Resolved", value: stats.requestsCompleted }
+          ].map((st, i) => (
+            <React.Fragment key={st.label}>
+              {i > 0 ? <View style={s.statsDivider} /> : null}
+              <View style={s.statPill}>
+                <Text style={s.statValue}>{st.value}</Text>
+                <Text style={s.statLabel}>{st.label}</Text>
+              </View>
+            </React.Fragment>
           ))}
         </View>
       ) : null}
+
+      <View style={s.listSectionHead}>
+        <Text style={s.listSectionTitle}>Open requests</Text>
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -807,10 +827,10 @@ export function HelpingHandsHomeScreen() {
     </>
   );
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "home", label: "Requests" },
-    { id: "heroes", label: "Heroes" },
-    { id: "activity", label: "My activity" }
+  const tabs: { id: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { id: "home", label: "Requests", icon: "list-outline" },
+    { id: "heroes", label: "Heroes", icon: "trophy-outline" },
+    { id: "activity", label: "Mine", icon: "person-outline" }
   ];
 
   return (
@@ -819,7 +839,7 @@ export function HelpingHandsHomeScreen() {
         <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>Helping Hands</Text>
-          <Text style={s.headerSub}>Community help & kindness</Text>
+          <Text style={s.headerSub}>Ask · Offer · Resolve</Text>
         </View>
         <Pressable
           style={s.backBtn}
@@ -842,6 +862,11 @@ export function HelpingHandsHomeScreen() {
                 style={[s.segmentBtn, active && s.segmentBtnActive]}
                 onPress={() => setTab(t.id)}
               >
+                <Ionicons
+                  name={t.icon}
+                  size={14}
+                  color={active ? ACCENT : colors.textSecondary}
+                />
                 <Text style={[s.segmentText, active && s.segmentTextActive]}>{t.label}</Text>
               </Pressable>
             );
@@ -883,10 +908,18 @@ export function HelpingHandsHomeScreen() {
               <View style={s.emptyIcon}>
                 <Ionicons name="hand-left-outline" size={32} color={ACCENT} />
               </View>
-              <Text style={s.emptyTitle}>No open requests</Text>
+              <Text style={s.emptyTitle}>No open requests right now</Text>
               <Text style={s.emptyText}>
-                When someone needs help, it will show up here. You can also create a request.
+                When a member asks for help, it appears here. If you need support, create a
+                request — neighbors can offer help.
               </Text>
+              <Pressable
+                style={({ pressed }) => [s.bannerPrimary, { marginTop: 14 }, pressed && { opacity: 0.9 }]}
+                onPress={() => navigation.navigate("CreateHelpRequest")}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                <Text style={s.bannerPrimaryText}>Ask for help</Text>
+              </Pressable>
             </View>
           }
           ListFooterComponent={
@@ -910,7 +943,12 @@ export function HelpingHandsHomeScreen() {
           onEndReached={() => void onEndReached()}
           onEndReachedThreshold={0.4}
           ListHeaderComponent={
-            <Text style={s.sectionTitle}>Community heroes — kindness remembered</Text>
+            <View style={{ marginBottom: spacing.sm }}>
+              <Text style={s.sectionTitle}>Community heroes</Text>
+              <Text style={s.listSectionSub}>
+                Members credited when a requester marks help as resolved
+              </Text>
+            </View>
           }
           ListEmptyComponent={
             <View style={s.empty}>
@@ -919,7 +957,8 @@ export function HelpingHandsHomeScreen() {
               </View>
               <Text style={s.emptyTitle}>No heroes yet</Text>
               <Text style={s.emptyText}>
-                Heroes appear here as members help each other and receive appreciation.
+                Offer help on a request. When the person marks it resolved and thanks you, you
+                show up here.
               </Text>
             </View>
           }
@@ -971,11 +1010,11 @@ export function HelpingHandsHomeScreen() {
       ) : (
         <FlatList
           data={[
-            { kind: "header" as const, key: "hdr-requests", title: "My requests" },
+            { kind: "header" as const, key: "hdr-requests", title: "My requests", sub: "Help you asked for" },
             ...(requests.length === 0
               ? [{ kind: "empty-requests" as const, key: "empty-requests" }]
               : requests.map((r) => ({ kind: "request" as const, key: `req-${r.postId}`, item: r }))),
-            { kind: "header" as const, key: "hdr-contrib", title: "My contributions" },
+            { kind: "header" as const, key: "hdr-contrib", title: "My contributions", sub: "Help you gave others" },
             ...(contributions.length === 0
               ? [{ kind: "empty-contrib" as const, key: "empty-contrib" }]
               : contributions.map((c) => ({
@@ -1003,20 +1042,36 @@ export function HelpingHandsHomeScreen() {
           renderItem={({ item: row }) => {
             if (row.kind === "header") {
               return (
-                <Text
+                <View
                   style={[
-                    s.sectionTitle,
+                    { marginBottom: spacing.sm },
                     row.key === "hdr-contrib" ? { marginTop: spacing.lg } : null
                   ]}
                 >
-                  {row.title}
-                </Text>
+                  <Text style={s.sectionTitle}>{row.title}</Text>
+                  {"sub" in row && row.sub ? (
+                    <Text style={s.listSectionSub}>{row.sub}</Text>
+                  ) : null}
+                </View>
               );
             }
             if (row.kind === "empty-requests") {
               return (
                 <View style={[s.empty, { paddingTop: 16 }]}>
-                  <Text style={s.emptyText}>You haven’t created a help request yet.</Text>
+                  <Text style={s.emptyText}>
+                    You haven’t asked for help yet. Create a request when you need support.
+                  </Text>
+                  <Pressable
+                    style={({ pressed }) => [
+                      s.bannerPrimary,
+                      { marginTop: 12, alignSelf: "stretch" },
+                      pressed && { opacity: 0.9 }
+                    ]}
+                    onPress={() => navigation.navigate("CreateHelpRequest")}
+                  >
+                    <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                    <Text style={s.bannerPrimaryText}>Ask for help</Text>
+                  </Pressable>
                 </View>
               );
             }
@@ -1024,7 +1079,7 @@ export function HelpingHandsHomeScreen() {
               return (
                 <View style={[s.empty, { paddingTop: 16 }]}>
                   <Text style={s.emptyText}>
-                    When you help someone, your contribution history will live here.
+                    Open a request, tap Offer help, and when they thank you it appears here.
                   </Text>
                 </View>
               );
@@ -1072,9 +1127,9 @@ export function HelpingHandsHomeScreen() {
             const c = row.item;
             return (
               <View style={s.activityCard}>
-                <Text style={s.activityTitle}>{formatHelpCategory(c.category)}</Text>
+                  <Text style={s.activityTitle}>{c.title || formatHelpCategory(c.category)}</Text>
                 <Text style={s.activityMeta}>
-                  Helped {c.personHelped} · {new Date(c.date).toLocaleDateString()}
+                  You helped {c.personHelped} · {new Date(c.date).toLocaleDateString()}
                 </Text>
                 {c.appreciation ? (
                   <View style={s.quote}>
@@ -1089,7 +1144,7 @@ export function HelpingHandsHomeScreen() {
 
       <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <PrimaryButton
-          title="Create request"
+          title="Ask for help"
           onPress={() => navigation.navigate("CreateHelpRequest")}
         />
       </View>

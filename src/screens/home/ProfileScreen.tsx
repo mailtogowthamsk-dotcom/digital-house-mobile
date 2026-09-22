@@ -158,9 +158,11 @@ export function ProfileScreen() {
           stats={{
             posts: profile.stats?.total_posts ?? 0,
             jobs: profile.stats?.jobs_posted ?? 0,
-            marketplace: profile.stats?.marketplace_items ?? 0
+            marketplace: profile.stats?.marketplace_items ?? 0,
+            connections: profile.stats?.connections_count ?? 0
           }}
           onEditPress={onEditPress}
+          onConnectionsPress={() => navigation.navigate("Connections")}
         />
         <ProfileContentLinks
           totalPosts={profile.stats?.total_posts ?? 0}

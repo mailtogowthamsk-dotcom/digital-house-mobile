@@ -62,6 +62,7 @@ type Props = {
   peerTyping?: boolean;
   onAutoScrollChange?: (enabled: boolean) => void;
   onSharedPostPress?: (postId: number) => void;
+  onSharedStoryPress?: (storyId: number) => void;
   onDeleteMessage?: (item: MessageItem) => void;
 };
 
@@ -78,6 +79,7 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
     peerTyping = false,
     onAutoScrollChange,
     onSharedPostPress,
+    onSharedStoryPress,
     onDeleteMessage
   },
   ref
@@ -169,11 +171,22 @@ const ChatMessageListInner = forwardRef<ChatMessageListHandle, Props>(function C
           groupedTop={groupedTop}
           groupedBottom={groupedBottom}
           onSharedPostPress={onSharedPostPress}
+          onSharedStoryPress={onSharedStoryPress}
           onDelete={onDeleteMessage}
         />
       );
     },
-    [meId, bubbleMaxWidth, fontSize, colors, otherAvatarUri, onSharedPostPress, onDeleteMessage, rows]
+    [
+      meId,
+      bubbleMaxWidth,
+      fontSize,
+      colors,
+      otherAvatarUri,
+      onSharedPostPress,
+      onSharedStoryPress,
+      onDeleteMessage,
+      rows
+    ]
   );
 
   const keyExtractor = useCallback((item: ChatListRow) => item.id, []);

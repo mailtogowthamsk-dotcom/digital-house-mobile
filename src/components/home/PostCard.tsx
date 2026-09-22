@@ -12,6 +12,9 @@ import { PostCaption } from "./PostCaption";
 import { PostActions } from "./PostActions";
 import { CommentPreview } from "./CommentPreview";
 import { JobFeedBlock } from "./JobFeedBlock";
+import { MarketplaceFeedBlock } from "./MarketplaceFeedBlock";
+import { HelpFeedBlock } from "./HelpFeedBlock";
+import { MarketplaceGallery } from "../marketplace/MarketplaceGallery";
 import { useTheme } from "../../theme/ThemeContext";
 import { feedCardShadow } from "../../theme/feedStyles";
 
@@ -28,6 +31,8 @@ export type PostCardData = {
   imageUri?: string | null;
   /** Extra signed image URLs if primary fails (medium / full / thumb). */
   imageUriFallbacks?: string[];
+  /** Marketplace / help multi-photo gallery (feed swipe). */
+  galleryUrls?: string[];
   mediaType?: "image" | "video" | "none" | string | null;
   thumbnailUrl?: string | null;
   videoDuration?: number | null;
@@ -60,6 +65,20 @@ export type PostCardData = {
   jobInterestedByMe?: boolean;
   jobApplicationStatus?: string | null;
   jobApplicationDeadline?: string | null;
+  /** MARKETPLACE feed enrichment. */
+  marketplaceIntent?: string | null;
+  marketplaceCategory?: string | null;
+  marketplaceCondition?: string | null;
+  marketplacePrice?: number | null;
+  marketplaceNegotiable?: boolean;
+  marketplaceDistrict?: string | null;
+  /** HELP_REQUEST feed enrichment. */
+  helpStatus?: string | null;
+  helpCategory?: string | null;
+  helpUrgency?: string | null;
+  helpLocation?: string | null;
+  helpExpiresAt?: string | null;
+  helpHelperCount?: number | null;
 };
 
 const DOUBLE_TAP_DELAY_MS = 280;
@@ -93,6 +112,10 @@ type PostCardProps = {
   onActivateMedia?: (postId: string) => void;
   /** JOB: open PostDetail for this job id. */
   onViewJob?: () => void;
+  /** MARKETPLACE: open PostDetail for this listing. */
+  onViewMarketplace?: () => void;
+  /** HELP_REQUEST: open PostDetail for this help request. */
+  onViewHelp?: () => void;
 };
 
 function PostCardInner({
@@ -109,7 +132,9 @@ function PostCardInner({
   onSharePress,
   onMenuPress,
   onActivateMedia,
-  onViewJob
+  onViewJob,
+  onViewMarketplace,
+  onViewHelp
 }: PostCardProps) {
   const { colors, mode } = useTheme();
   const lastTapTime = useRef(0);
@@ -123,7 +148,10 @@ function PostCardInner({
 
   const video = isVideoPost(post);
   const isJob = (post.postType || "").toLowerCase() === "job";
-  const hasImage = Boolean(post.imageUri) && !video;
+  const isMarketplace = (post.postType || "").toLowerCase() === "marketplace";
+  const isHelp = (post.postType || "").toLowerCase() === "help request";
+  const hasImage =
+    !video && (Boolean(post.imageUri) || (post.galleryUrls?.length ?? 0) > 0);
   const isMediaActive = isMediaActiveProp ?? Boolean(post.isMediaActive);
   const isMediaPreload = isMediaPreloadProp ?? Boolean(post.isMediaPreload);
   const isMediaRetain = isMediaRetainProp ?? Boolean(post.isMediaRetain);
@@ -365,6 +393,42 @@ function PostCardInner({
     />
   ) : null;
 
+  const marketplaceBlock = isMarketplace ? (
+    <MarketplaceFeedBlock
+      listing={{
+        title: post.title,
+        description: post.description,
+        marketplaceIntent: post.marketplaceIntent,
+        marketplaceCategory: post.marketplaceCategory,
+        marketplaceCondition: post.marketplaceCondition,
+        marketplacePrice: post.marketplacePrice,
+        marketplaceNegotiable: post.marketplaceNegotiable,
+        marketplaceDistrict: post.marketplaceDistrict,
+        timeAgo: post.timeAgo
+      }}
+      onViewListing={onViewMarketplace}
+      compact={hasImage}
+    />
+  ) : null;
+
+  const helpBlock = isHelp ? (
+    <HelpFeedBlock
+      help={{
+        title: post.title,
+        description: post.description,
+        helpCategory: post.helpCategory,
+        helpUrgency: post.helpUrgency,
+        helpStatus: post.helpStatus,
+        helpLocation: post.helpLocation,
+        helpExpiresAt: post.helpExpiresAt,
+        helpHelperCount: post.helpHelperCount,
+        timeAgo: post.timeAgo
+      }}
+      onViewHelp={onViewHelp}
+      compact={hasImage}
+    />
+  ) : null;
+
   return (
     <View style={[s.card, video && s.cardVideo]}>
       {post.isRepost ? (
@@ -404,34 +468,91 @@ function PostCardInner({
           {heartLayer}
         </View>
       ) : (
-        <Pressable onPress={handleImageRegionPress}>
+        <View>
           {heartLayer}
           {header}
-          {post.imageUri ? (
+          {post.galleryUrls && post.galleryUrls.length > 1 ? (
             <View style={s.mediaPad}>
               <View style={s.mediaClip}>
-                <PostMedia
-                  mediaUrl={post.imageUri}
-                  mediaUrlFallbacks={post.imageUriFallbacks}
-                  mediaType={post.mediaType}
-                  thumbnailUrl={post.thumbnailUrl}
-                  videoDuration={post.videoDuration}
-                  isActive={isMediaActive}
-                  isPreload={isMediaPreload}
-                  isRetain={isMediaRetain}
-                  feedMode
-                  cornerRadius={0}
-                />
+                {/* Outside Pressable so horizontal swipe is not swallowed by double-tap handler. */}
+                <MarketplaceGallery urls={post.galleryUrls} />
               </View>
             </View>
+          ) : post.imageUri ? (
+            <Pressable onPress={handleImageRegionPress}>
+              <View style={s.mediaPad}>
+                <View style={s.mediaClip}>
+                  <PostMedia
+                    mediaUrl={post.imageUri}
+                    mediaUrlFallbacks={post.imageUriFallbacks}
+                    mediaType={post.mediaType}
+                    thumbnailUrl={post.thumbnailUrl}
+                    videoDuration={post.videoDuration}
+                    isActive={isMediaActive}
+                    isPreload={isMediaPreload}
+                    isRetain={isMediaRetain}
+                    feedMode
+                    cornerRadius={0}
+                  />
+                </View>
+              </View>
+            </Pressable>
           ) : null}
-        </Pressable>
+        </View>
       )}
 
       <View style={[video ? s.videoFooter : undefined, (hasImage || video) && s.mediaFooter]}>
         {isJob ? (
           <>
             {jobBlock}
+            <CommentPreview
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              firstLikerName={post.firstLikerName}
+              onLikeCountPress={onLikeCountPress}
+              onViewComments={onCommentPress}
+              compact
+            />
+            <PostActions
+              compact={hasImage || video}
+              likedByMe={post.likedByMe}
+              savedByMe={post.savedByMe}
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              onLikePress={onLikePress}
+              onLikeCountPress={onLikeCountPress}
+              onCommentPress={onCommentPress}
+              onSharePress={onSharePress}
+              onSavePress={onSavePress}
+            />
+          </>
+        ) : isMarketplace ? (
+          <>
+            {marketplaceBlock}
+            <CommentPreview
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              firstLikerName={post.firstLikerName}
+              onLikeCountPress={onLikeCountPress}
+              onViewComments={onCommentPress}
+              compact
+            />
+            <PostActions
+              compact={hasImage || video}
+              likedByMe={post.likedByMe}
+              savedByMe={post.savedByMe}
+              likeCount={post.likeCount}
+              commentCount={post.commentCount}
+              onLikePress={onLikePress}
+              onLikeCountPress={onLikeCountPress}
+              onCommentPress={onCommentPress}
+              onSharePress={onSharePress}
+              onSavePress={onSavePress}
+            />
+          </>
+        ) : isHelp ? (
+          <>
+            {helpBlock}
             <CommentPreview
               likeCount={post.likeCount}
               commentCount={post.commentCount}
@@ -530,7 +651,9 @@ export const PostCard = memo(PostCardInner, (prev, next) => {
     prev.onSavePress !== next.onSavePress ||
     prev.onSharePress !== next.onSharePress ||
     prev.onMenuPress !== next.onMenuPress ||
-    prev.onViewJob !== next.onViewJob
+    prev.onViewJob !== next.onViewJob ||
+    prev.onViewMarketplace !== next.onViewMarketplace ||
+    prev.onViewHelp !== next.onViewHelp
   ) {
     return false;
   }

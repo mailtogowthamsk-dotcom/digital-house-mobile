@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Pressable,
   useWindowDimensions
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -19,6 +19,7 @@ import type { HeaderActionId } from "../../components/home/Header";
 import { openMessagesInbox } from "../../navigation/openMessages";
 import { usePlatform } from "../../context/PlatformContext";
 import { MENU_FEATURE_MAP } from "../../api/platform.api";
+import { getHelpingHandsStats } from "../../api/helpingHands.api";
 
 type MenuRouteParams = { messageCount?: number };
 
@@ -139,6 +140,23 @@ export function MenuScreen() {
   const { width } = useWindowDimensions();
   const { isFeatureEnabled, isMenuVisible } = usePlatform();
   const messageCount = route.params?.messageCount ?? 0;
+  const [helpingHandsActiveCount, setHelpingHandsActiveCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void getHelpingHandsStats()
+        .then((stats) => {
+          if (!cancelled) setHelpingHandsActiveCount(stats.activeRequests ?? 0);
+        })
+        .catch(() => {
+          if (!cancelled) setHelpingHandsActiveCount(0);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   const filterItem = (item: MenuItem) => {
     const flag = MENU_FEATURE_MAP[item.id];
@@ -292,6 +310,22 @@ export function MenuScreen() {
           marginBottom: spacing.sm
         },
         tileIconWide: { marginBottom: 0 },
+        tileIconWrap: { position: "relative", alignSelf: "flex-start" },
+        tileBadge: {
+          position: "absolute",
+          top: -6,
+          right: -8,
+          minWidth: 20,
+          height: 20,
+          borderRadius: 10,
+          backgroundColor: colors.error,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 5,
+          borderWidth: 2,
+          borderColor: colors.surface
+        },
+        tileBadgeText: { fontSize: 10, fontWeight: "800", color: colors.white },
         tileLabel: { fontSize: 15, fontWeight: "700", color: colors.text },
         tileSub: {
           marginTop: 2,
@@ -439,6 +473,12 @@ export function MenuScreen() {
                 // An odd item count would leave a half-width tile alone on the last row.
                 const isWide =
                   exploreItems.length % 2 === 1 && idx === exploreItems.length - 1;
+                const helpCount =
+                  item.id === "helping-hand" ? helpingHandsActiveCount : 0;
+                const subtitle =
+                  item.id === "helping-hand" && helpCount > 0
+                    ? `${helpCount} open request${helpCount === 1 ? "" : "s"}`
+                    : item.subtitle;
                 return (
                   <Pressable
                     key={item.id}
@@ -449,20 +489,30 @@ export function MenuScreen() {
                     ]}
                     onPress={() => onActionPress(item.id)}
                     accessibilityRole="button"
-                    accessibilityLabel={item.label}
+                    accessibilityLabel={
+                      helpCount > 0 ? `${item.label}, ${helpCount} open` : item.label
+                    }
                   >
-                    <View
-                      style={[
-                        s.tileIcon,
-                        isWide && s.tileIconWide,
-                        { backgroundColor: chipBg(item) }
-                      ]}
-                    >
-                      <Ionicons name={item.icon as any} size={22} color={item.tint} />
+                    <View style={[s.tileIconWrap, !isWide && { marginBottom: spacing.sm }]}>
+                      <View
+                        style={[
+                          s.tileIcon,
+                          { backgroundColor: chipBg(item), marginBottom: 0 }
+                        ]}
+                      >
+                        <Ionicons name={item.icon as any} size={22} color={item.tint} />
+                      </View>
+                      {helpCount > 0 ? (
+                        <View style={s.tileBadge}>
+                          <Text style={s.tileBadgeText}>
+                            {helpCount > 99 ? "99+" : helpCount}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     <View style={isWide ? { flex: 1 } : undefined}>
                       <Text style={s.tileLabel}>{item.label}</Text>
-                      {item.subtitle ? <Text style={s.tileSub}>{item.subtitle}</Text> : null}
+                      {subtitle ? <Text style={s.tileSub}>{subtitle}</Text> : null}
                     </View>
                     {isWide ? (
                       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

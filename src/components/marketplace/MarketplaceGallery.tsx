@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, memo, useMemo } from "react";
 import {
   View,
   Image,
@@ -7,7 +7,8 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Text
+  Text,
+  type LayoutChangeEvent
 } from "react-native";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
@@ -19,13 +20,24 @@ type Props = {
 
 function MarketplaceGalleryInner({ urls, height }: Props) {
   const { colors } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const [index, setIndex] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
+  const width = pageWidth > 0 ? pageWidth : windowWidth;
   const h = height ?? Math.min(width * 0.85, 420);
-  const cleaned = urls.map((u) => getImageUrl(u)).filter(Boolean) as string[];
+  const cleaned = useMemo(
+    () => urls.map((u) => getImageUrl(u)).filter(Boolean) as string[],
+    [urls]
+  );
+
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    if (w > 0) setPageWidth((prev) => (prev === w ? prev : w));
+  }, []);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (width <= 0) return;
       const x = e.nativeEvent.contentOffset.x;
       const i = Math.round(x / width);
       if (i !== index && i >= 0 && i < cleaned.length) setIndex(i);
@@ -37,27 +49,40 @@ function MarketplaceGalleryInner({ urls, height }: Props) {
 
   if (cleaned.length === 1) {
     return (
-      <View style={[styles.wrap, { height: h, backgroundColor: colors.surfaceElevated }]}>
+      <View
+        onLayout={onLayout}
+        style={[styles.wrap, { height: h, backgroundColor: colors.surfaceElevated }]}
+      >
         <Image source={{ uri: cleaned[0] }} style={styles.image} resizeMode="cover" />
       </View>
     );
   }
 
   return (
-    <View style={[styles.wrap, { height: h, backgroundColor: colors.surfaceElevated }]}>
-      <FlatList
-        data={cleaned}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(uri, i) => `${uri}-${i}`}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={{ width, height: h }} resizeMode="cover" />
-        )}
-      />
-      <View style={styles.dots}>
+    <View
+      onLayout={onLayout}
+      style={[styles.wrap, { height: h, backgroundColor: colors.surfaceElevated }]}
+    >
+      {width > 0 ? (
+        <FlatList
+          data={cleaned}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          nestedScrollEnabled
+          directionalLockEnabled
+          disableIntervalMomentum
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(uri, i) => `${uri}-${i}`}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          renderItem={({ item }) => (
+            <Image source={{ uri: item }} style={{ width, height: h }} resizeMode="cover" />
+          )}
+        />
+      ) : null}
+      <View style={styles.dots} pointerEvents="none">
         {cleaned.map((_, i) => (
           <View
             key={i}
@@ -68,7 +93,7 @@ function MarketplaceGalleryInner({ urls, height }: Props) {
           />
         ))}
       </View>
-      <View style={styles.counter}>
+      <View style={styles.counter} pointerEvents="none">
         <Text style={styles.counterText}>
           {index + 1}/{cleaned.length}
         </Text>

@@ -5,11 +5,9 @@ import { timeAgo } from "../utils/timeAgo";
 import {
   getHomeSummary,
   getFeed,
-  getHighlights,
   type HomeSummaryResponse,
   type FeedItem,
-  type FeedResponse,
-  type HighlightsResponse
+  type FeedResponse
 } from "../api/home.api";
 import type { PostCardData } from "../components/home/PostCard";
 import { getImageUrl } from "../api/client";
@@ -28,9 +26,6 @@ export type HomeState = {
   feedError: Error | null;
   feedSort: "recent" | "popular";
   feedNextCursor: number | string | null;
-  highlights: HighlightsResponse | null;
-  highlightsLoading: boolean;
-  highlightsError: Error | null;
 };
 
 import { formatPostType } from "../utils/postMappers";
@@ -67,6 +62,12 @@ function mergeFeedCardsPreservingMedia(
 }
 
 function feedItemToPostCard(item: FeedItem): PostCardData {
+  const gallery =
+    item.postType === "MARKETPLACE"
+      ? item.marketplaceGallery ?? []
+      : item.postType === "HELP_REQUEST"
+        ? item.helpGallery ?? []
+        : [];
   return {
     id: String(item.postId),
     userName: item.author.name,
@@ -91,6 +92,7 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
       mediaUrlThumb: item.mediaUrlThumb,
       mediaType: item.mediaType ?? null
     }),
+    galleryUrls: gallery.length > 1 ? gallery : undefined,
     mediaType: item.mediaType ?? null,
     thumbnailUrl: preferThumbUrl({
       thumbnailUrl: item.thumbnailUrl ?? null,
@@ -106,7 +108,31 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
     engagementScore: item.engagementScore,
     isRepost: item.isRepost ?? false,
     originalAuthorName: item.originalAuthor?.name ?? null,
-    originalPostId: item.originalPostId ?? null
+    originalPostId: item.originalPostId ?? null,
+    jobCompany: item.jobCompany ?? null,
+    jobLocation: item.jobLocation ?? null,
+    jobEmploymentType: item.jobEmploymentType ?? null,
+    jobWorkMode: item.jobWorkMode ?? null,
+    jobExperience: item.jobExperience ?? null,
+    jobSkills: item.jobSkills ?? null,
+    jobSalaryMin: item.jobSalaryMin ?? null,
+    jobSalaryMax: item.jobSalaryMax ?? null,
+    jobStatus: item.jobStatus ?? null,
+    jobInterestedByMe: item.jobInterestedByMe ?? false,
+    jobApplicationStatus: item.jobApplicationStatus ?? null,
+    jobApplicationDeadline: item.jobApplicationDeadline ?? null,
+    marketplaceIntent: item.marketplaceIntent ?? null,
+    marketplaceCategory: item.marketplaceCategory ?? null,
+    marketplaceCondition: item.marketplaceCondition ?? null,
+    marketplacePrice: item.marketplacePrice ?? null,
+    marketplaceNegotiable: item.marketplaceNegotiable ?? false,
+    marketplaceDistrict: item.marketplaceDistrict ?? null,
+    helpStatus: item.helpStatus ?? null,
+    helpCategory: item.helpCategory ?? null,
+    helpUrgency: item.helpUrgency ?? null,
+    helpLocation: item.helpLocation ?? null,
+    helpExpiresAt: item.helpExpiresAt ?? null,
+    helpHelperCount: item.helpHelperCount ?? 0
   };
 }
 
@@ -122,10 +148,6 @@ export function useHome() {
   const [feedError, setFeedError] = useState<Error | null>(null);
   const [feedSort, setFeedSort] = useState<"recent" | "popular">("recent");
   const [feedNextCursor, setFeedNextCursor] = useState<number | string | null>(null);
-
-  const [highlights, setHighlights] = useState<HighlightsResponse | null>(null);
-  const [highlightsLoading, setHighlightsLoading] = useState(true);
-  const [highlightsError, setHighlightsError] = useState<Error | null>(null);
 
   const feedSortRef = useRef(feedSort);
   feedSortRef.current = feedSort;
@@ -224,19 +246,6 @@ export function useHome() {
     }
   }, []);
 
-  const fetchHighlights = useCallback(async () => {
-    setHighlightsError(null);
-    setHighlightsLoading(true);
-    try {
-      const data = await getHighlights();
-      setHighlights(data);
-    } catch (e) {
-      setHighlightsError(e instanceof Error ? e : new Error("Failed to load highlights"));
-    } finally {
-      setHighlightsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
@@ -245,23 +254,17 @@ export function useHome() {
     fetchFeed(false);
   }, [fetchFeed]);
 
-  useEffect(() => {
-    fetchHighlights();
-  }, [fetchHighlights]);
-
   const refetchAll = useCallback(async () => {
     feedRequestIdRef.current += 1;
     resetFeedImpressionSession();
     setFeedError(null);
-    setHighlightsError(null);
     const hasSummary = summaryRef.current != null;
     if (!hasSummary) setSummaryError(null);
     await Promise.all([
       fetchSummary({ background: hasSummary }),
-      fetchFeed(false),
-      fetchHighlights()
+      fetchFeed(false)
     ]);
-  }, [fetchSummary, fetchFeed, fetchHighlights]);
+  }, [fetchSummary, fetchFeed]);
 
   const loadMoreFeed = useCallback(() => {
     if (feedLoadingMoreRef.current || feedLoading) return;
@@ -341,10 +344,7 @@ export function useHome() {
     feedLoadingMore,
     feedError,
     feedSort,
-    feedNextCursor,
-    highlights,
-    highlightsLoading,
-    highlightsError
+    feedNextCursor
   };
 
   return {
@@ -356,7 +356,6 @@ export function useHome() {
     prependFeedPost,
     setFeedSortMode,
     retrySummary,
-    retryFeed,
-    retryHighlights: fetchHighlights
+    retryFeed
   };
 }

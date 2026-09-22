@@ -204,6 +204,14 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     onViewJob: (item) => {
       trackFeedAction("post_open", Number(item.id), { source: "explore_job_card" });
       navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewMarketplace: (item) => {
+      trackFeedAction("post_open", Number(item.id), { source: "explore_marketplace_card" });
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewHelp: (item) => {
+      trackFeedAction("post_open", Number(item.id), { source: "explore_help_card" });
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
     }
   };
 

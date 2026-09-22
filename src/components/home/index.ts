@@ -1,7 +1,6 @@
 export { Header, type HeaderActionId, FLOATING_HEADER_HEIGHT } from "./Header";
 export { WelcomeCard } from "./WelcomeCard";
 export { DismissibleWelcomeCard } from "./DismissibleWelcomeCard";
-export { hasHighlightsData } from "./HighlightSection";
 export { QuickActionGrid, type QuickActionItem } from "./QuickActionGrid";
 export { PostCard, type PostCardData } from "./PostCard";
 export { FeedPostCardRow, type FeedPostCardActions } from "./FeedPostCardRow";
@@ -11,7 +10,8 @@ export { PostCaption } from "./PostCaption";
 export { CommentPreview } from "./CommentPreview";
 export { PostMedia } from "./PostMedia";
 export { BottomTabBar, type TabId, FLOATING_TAB_BAR_HEIGHT } from "./BottomTabBar";
-export { HighlightSection } from "./HighlightSection";
 export { SkeletonCard, WelcomeCardSkeleton, SkeletonLine } from "./SkeletonCard";
 export { FeedPostSkeleton } from "./FeedPostSkeleton";
 export { JobFeedBlock } from "./JobFeedBlock";
+export { MarketplaceFeedBlock } from "./MarketplaceFeedBlock";
+export { HelpFeedBlock } from "./HelpFeedBlock";

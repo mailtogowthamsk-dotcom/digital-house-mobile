@@ -26,6 +26,7 @@ type Props = {
   groupedTop?: boolean;
   groupedBottom?: boolean;
   onSharedPostPress?: (postId: number) => void;
+  onSharedStoryPress?: (storyId: number) => void;
   onDelete?: (item: MessageItem) => void;
 };
 
@@ -43,6 +44,7 @@ function ChatMessageBubbleComponent({
   groupedTop = false,
   groupedBottom = false,
   onSharedPostPress,
+  onSharedStoryPress,
   onDelete
 }: Props) {
   const time = new Date(item.createdAt).toLocaleTimeString([], {
@@ -50,11 +52,14 @@ function ChatMessageBubbleComponent({
     minute: "2-digit"
   });
   const sharedPostId = item.sharedPostId != null ? Number(item.sharedPostId) : null;
+  const sharedStoryId = item.sharedStoryId != null ? Number(item.sharedStoryId) : null;
   const showNote =
-    sharedPostId != null &&
+    (sharedPostId != null || sharedStoryId != null) &&
     item.body.trim() &&
     item.body.trim() !== "Shared a post with you";
-  const showBody = Boolean(showNote || (!sharedPostId && item.body?.trim()));
+  const showBody = Boolean(
+    showNote || (!sharedPostId && !sharedStoryId && item.body?.trim())
+  );
 
   const tick = mine
     ? item.readAt || item.deliveredAt
@@ -117,6 +122,10 @@ function ChatMessageBubbleComponent({
   const onOpenSharedPost = useCallback(() => {
     if (sharedPostId) onSharedPostPress?.(sharedPostId);
   }, [onSharedPostPress, sharedPostId]);
+
+  const onOpenSharedStory = useCallback(() => {
+    if (sharedStoryId) onSharedStoryPress?.(sharedStoryId);
+  }, [onSharedStoryPress, sharedStoryId]);
 
   const corners = mine
     ? {
@@ -211,6 +220,37 @@ function ChatMessageBubbleComponent({
               ]}
             >
               Tap to open
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {sharedStoryId ? (
+          <Pressable
+            onPress={onOpenSharedStory}
+            onLongPress={onLongPress}
+            delayLongPress={400}
+            style={({ pressed }) => [
+              styles.sharedCard,
+              {
+                backgroundColor: mine ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.06)",
+                borderColor: mine ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.08)"
+              },
+              pressed && styles.pressed
+            ]}
+          >
+            <View style={styles.sharedCardHeader}>
+              <Ionicons name="ellipse-outline" size={14} color={mine ? "#fff" : colors.primary} />
+              <Text style={[styles.sharedCardTitle, { color: mine ? "#fff" : colors.text }]}>
+                Story reply
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.sharedCardHint,
+                { color: mine ? "rgba(255,255,255,0.78)" : colors.textMuted }
+              ]}
+            >
+              Tap to open story
             </Text>
           </Pressable>
         ) : null}

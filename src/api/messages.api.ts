@@ -37,6 +37,7 @@ export type MessageItem = {
   recipientId: number;
   body: string;
   sharedPostId?: number | null;
+  sharedStoryId?: number | null;
   clientId: string | null;
   deliveredAt: string | null;
   readAt: string | null;

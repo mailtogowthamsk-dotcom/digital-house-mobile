@@ -735,6 +735,12 @@ export function MemberProfileScreen() {
     },
     onViewJob: (item) => {
       navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewMarketplace: (item) => {
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewHelp: (item) => {
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
     }
   };
 

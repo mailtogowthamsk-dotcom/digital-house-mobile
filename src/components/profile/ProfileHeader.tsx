@@ -22,21 +22,25 @@ export type ProfileHeaderProps = {
     posts: number;
     jobs: number;
     marketplace: number;
+    connections: number;
   };
   onEditPress?: () => void;
+  onConnectionsPress?: () => void;
 };
 
 function StatCell({
   value,
   label,
-  colors
+  colors,
+  onPress
 }: {
   value: number;
   label: string;
   colors: { text: string; textSecondary: string };
+  onPress?: () => void;
 }) {
-  return (
-    <View style={{ flex: 1, alignItems: "center" }}>
+  const content = (
+    <>
       <Text
         style={{
           fontFamily: fonts.semiBold,
@@ -59,8 +63,21 @@ function StatCell({
       >
         {label}
       </Text>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable
+        style={{ flex: 1, alignItems: "center" }}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${value} ${label}`}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+  return <View style={{ flex: 1, alignItems: "center" }}>{content}</View>;
 }
 
 export function ProfileHeader({
@@ -73,7 +90,8 @@ export function ProfileHeader({
   location,
   completion_percentage,
   stats,
-  onEditPress
+  onEditPress,
+  onConnectionsPress
 }: ProfileHeaderProps) {
   const { colors, mode } = useTheme();
   const showCompletion = completion_percentage != null && completion_percentage < 100;
@@ -271,7 +289,12 @@ export function ProfileHeader({
           <View style={s.statsRow}>
             <StatCell value={stats.posts} label="Posts" colors={colors} />
             <View style={s.statDivider} />
-            <StatCell value={stats.jobs} label="Jobs" colors={colors} />
+            <StatCell
+              value={stats.connections}
+              label="Connections"
+              colors={colors}
+              onPress={onConnectionsPress}
+            />
             <View style={s.statDivider} />
             <StatCell value={stats.marketplace} label="Listings" colors={colors} />
           </View>

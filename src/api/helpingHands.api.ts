@@ -5,6 +5,8 @@ export type HelpingHandsStats = {
   activeVolunteers: number;
   requestsCompleted: number;
   livesTouched: number;
+  /** OPEN + IN_PROGRESS requests in the community (not expired filter is feed-side). */
+  activeRequests: number;
 };
 
 export type CommunityHero = {
@@ -64,7 +66,8 @@ export async function getHelpingHandsStats(): Promise<HelpingHandsStats> {
     peopleHelped: data.peopleHelped ?? 0,
     activeVolunteers: data.activeVolunteers ?? 0,
     requestsCompleted: data.requestsCompleted ?? 0,
-    livesTouched: data.livesTouched ?? 0
+    livesTouched: data.livesTouched ?? 0,
+    activeRequests: data.activeRequests ?? 0
   };
 }
 

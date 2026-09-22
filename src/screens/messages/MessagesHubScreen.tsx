@@ -796,6 +796,38 @@ export function MessagesHubScreen() {
     [navigation]
   );
 
+  const handleSharedStoryPress = useCallback(
+    (sharedStoryId: number) => {
+      void (async () => {
+        try {
+          const { getStory } = await import("../../api/stories.api");
+          const story = await getStory(sharedStoryId);
+          navigation.navigate("StoryViewer", {
+            groups: [
+              {
+                user: {
+                  id: story.user_id,
+                  name: "Story",
+                  username: null,
+                  profile_image: null
+                },
+                has_unseen: false,
+                latest_at: story.created_at,
+                is_own: false,
+                stories: [story]
+              }
+            ],
+            initialGroupIndex: 0,
+            initialStoryIndex: 0
+          });
+        } catch {
+          appAlert("Story unavailable", "This story may have expired.");
+        }
+      })();
+    },
+    [navigation]
+  );
+
   const openPeerProfile = useCallback(() => {
     if (selectedUser?.id == null) return;
     navigation.navigate("MemberProfile", { userId: selectedUser.id });
@@ -854,6 +886,7 @@ export function MessagesHubScreen() {
               headerBanner={lockBanner}
               onAvatarPress={openPeerProfile}
               onSharedPostPress={handleSharedPostPress}
+              onSharedStoryPress={handleSharedStoryPress}
               onDeleteMessage={handleDeleteMessage}
             />
           ) : (

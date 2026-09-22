@@ -88,6 +88,7 @@ export type FeedItem = {
   helpCategory?: string | null;
   helpUrgency?: string | null;
   helpLocation?: string | null;
+  helpExpiresAt?: string | null;
   helpGallery?: string[];
   helpHelperCount?: number;
   isRepost?: boolean;

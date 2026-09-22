@@ -102,6 +102,12 @@ export function memberPostToCardData(
 
 /** Map feed/explore API items into PostCard props. */
 export function feedItemToPostCard(item: FeedItem): PostCardData {
+  const gallery =
+    item.postType === "MARKETPLACE"
+      ? item.marketplaceGallery ?? []
+      : item.postType === "HELP_REQUEST"
+        ? item.helpGallery ?? []
+        : [];
   return {
     id: String(item.postId),
     userName: item.author.name,
@@ -126,6 +132,7 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
       mediaUrlThumb: item.mediaUrlThumb,
       mediaType: item.mediaType ?? null
     }),
+    galleryUrls: gallery.length > 1 ? gallery : undefined,
     mediaType: item.mediaType ?? null,
     thumbnailUrl: preferThumbUrl({
       thumbnailUrl: item.thumbnailUrl ?? null,
@@ -153,6 +160,18 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
     jobStatus: item.jobStatus ?? null,
     jobInterestedByMe: item.jobInterestedByMe ?? false,
     jobApplicationStatus: item.jobApplicationStatus ?? null,
-    jobApplicationDeadline: item.jobApplicationDeadline ?? null
+    jobApplicationDeadline: item.jobApplicationDeadline ?? null,
+    marketplaceIntent: item.marketplaceIntent ?? null,
+    marketplaceCategory: item.marketplaceCategory ?? null,
+    marketplaceCondition: item.marketplaceCondition ?? null,
+    marketplacePrice: item.marketplacePrice ?? null,
+    marketplaceNegotiable: item.marketplaceNegotiable ?? false,
+    marketplaceDistrict: item.marketplaceDistrict ?? null,
+    helpStatus: item.helpStatus ?? null,
+    helpCategory: item.helpCategory ?? null,
+    helpUrgency: item.helpUrgency ?? null,
+    helpLocation: item.helpLocation ?? null,
+    helpExpiresAt: item.helpExpiresAt ?? null,
+    helpHelperCount: item.helpHelperCount ?? 0
   };
 }

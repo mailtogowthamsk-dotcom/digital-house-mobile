@@ -54,6 +54,7 @@ export type ProfileMeResponse = {
     jobs_posted: number;
     marketplace_items: number;
     help_requests: number;
+    connections_count: number;
   };
   completion_percentage?: number;
   show_matrimony?: boolean;
@@ -138,7 +139,8 @@ const defaultStats = {
   total_posts: 0,
   jobs_posted: 0,
   marketplace_items: 0,
-  help_requests: 0
+  help_requests: 0,
+  connections_count: 0
 };
 
 /** GET /api/profile/me – full profile (masked email/mobile) + stats + sections + completion. No cache so image URL is always fresh (signed). */

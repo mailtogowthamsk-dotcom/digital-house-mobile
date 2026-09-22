@@ -23,9 +23,7 @@ import {
   DismissibleWelcomeCard,
   FeedPostCardRow,
   BottomTabBar,
-  HighlightSection,
-  FeedPostSkeleton,
-  hasHighlightsData
+  FeedPostSkeleton
 } from "../../components/home";
 import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
 import type { PostCardData } from "../../components/home";
@@ -71,13 +69,17 @@ import { handleMainTabPress } from "../../navigation/mainTabs";
 import type { RootStackParamList } from "../../navigation/types";
 import type { TabId } from "../../components/home/BottomTabBar";
 import { ExploreScreen } from "../explore/ExploreScreen";
+import { StoryTray } from "../../components/stories/StoryTray";
+import { getStoryTray, type StoryGroup } from "../../api/stories.api";
+import { prefetchStoryGroups } from "../../utils/storyMediaCache";
+import { subscribeStoriesChanged } from "../../utils/storiesEvents";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
 const HEADER_HIDE_DELTA = 8;
 
 /**
- * Home Screen – community feed, welcome card, quick actions, highlights, bottom tabs.
+ * Home Screen – community feed, welcome card, bottom tabs.
  * Data from useHome(); no inline API calls. Handles 401 → Login, 403 → PendingApproval.
  */
 export function HomeScreen() {
@@ -93,8 +95,7 @@ export function HomeScreen() {
     loadMoreFeed,
     updatePost,
     retrySummary,
-    retryFeed,
-    retryHighlights
+    retryFeed
   } = useHome();
 
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
@@ -105,6 +106,8 @@ export function HomeScreen() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [adRefreshKey, setAdRefreshKey] = useState(0);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
+  const [storiesLoading, setStoriesLoading] = useState(true);
   const [commentPost, setCommentPost] = useState<{ id: string; title: string } | null>(null);
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
@@ -135,7 +138,7 @@ export function HomeScreen() {
     }
     if (activeMediaSwitchTimer.current) clearTimeout(activeMediaSwitchTimer.current);
     // First assignment is applied synchronously: startup layout churn (header
-    // growth, highlights loading) emits repeated viewability updates that keep
+    // growth) emits repeated viewability updates that keep
     // rescheduling the timer, which starves the very first activation.
     if (!current.activeId) {
       activeMediaSwitchTimer.current = null;
@@ -178,10 +181,7 @@ export function HomeScreen() {
     feedTotal,
     feedLoading,
     feedLoadingMore,
-    feedError,
-    highlights,
-    highlightsLoading,
-    highlightsError
+    feedError
   } = state;
 
   feedItemsRef.current = feedItems;
@@ -209,13 +209,7 @@ export function HomeScreen() {
 
   const showWelcomeCard = Boolean(welcomeCardVisible && welcomeUser);
   const showSummaryError = Boolean(summaryError && !summary);
-  const showHighlights = hasHighlightsData(highlights);
-  const showHighlightsSection = showHighlights || highlightsLoading || Boolean(highlightsError);
-  const hasScrollHeader =
-    showWelcomeCard ||
-    showHighlightsSection ||
-    showSummaryError ||
-    (summaryLoading && !summary && !welcomeCardVisible);
+  const hasScrollHeader = true;
 
   /** 401 → sign out (app returns to Landing); 403 → Approval Pending */
   const handleAuthError = useCallback(
@@ -230,6 +224,41 @@ export function HomeScreen() {
     [navigation, signOut]
   );
 
+  const loadStories = useCallback(async () => {
+    try {
+      setStoriesLoading(true);
+      const groups = await getStoryTray();
+      setStoryGroups(groups);
+      // Warm disk cache in background so open → play hits file://.
+      prefetchStoryGroups(groups);
+    } catch {
+      /* keep previous tray */
+    } finally {
+      setStoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStories();
+  }, [loadStories]);
+
+  useEffect(() => {
+    const sub = subscribeStoriesChanged((payload) => {
+      if (payload.deletedId != null) {
+        setStoryGroups((prev) =>
+          prev
+            .map((g) => ({
+              ...g,
+              stories: g.stories.filter((s) => s.id !== payload.deletedId)
+            }))
+            .filter((g) => g.stories.length > 0 || g.is_own)
+        );
+      }
+      void loadStories();
+    });
+    return () => sub.remove();
+  }, [loadStories]);
+
   useFocusEffect(
     useCallback(() => {
       const tab = route.params?.tab;
@@ -238,20 +267,17 @@ export function HomeScreen() {
       }
       if (focusRefreshRef.current) {
         void retrySummaryRef.current();
+        void loadStories();
       } else {
         focusRefreshRef.current = true;
       }
-      // Pause only — keep activeMediaPostId so the player stays mounted and
-      // resumes when playbackAllowed becomes true again (viewability often
-      // does not re-fire on focus, which left a dead play button).
       return () => {
         pauseAllFeedVideos();
       };
-    }, [route.params?.tab])
+    }, [route.params?.tab, loadStories])
   );
 
   useAppResume(() => {
-    // Soft: summary badges only — avoid full feed refetch on every foreground.
     void retrySummaryRef.current();
   });
 
@@ -267,9 +293,9 @@ export function HomeScreen() {
     setRefreshing(true);
     setAdRefreshKey((k) => k + 1);
     setFeedAdSlotVisible(true);
-    await refetchAll();
+    await Promise.all([refetchAll(), loadStories()]);
     setRefreshing(false);
-  }, [refetchAll]);
+  }, [refetchAll, loadStories]);
 
   const onTabPress = (tab: TabId) => {
     if (tab === "create") {
@@ -422,6 +448,14 @@ export function HomeScreen() {
     onViewJob: (item) => {
       trackFeedAction("post_open", Number(item.id), { source: "feed_job_card" });
       navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewMarketplace: (item) => {
+      trackFeedAction("post_open", Number(item.id), { source: "feed_marketplace_card" });
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
+    },
+    onViewHelp: (item) => {
+      trackFeedAction("post_open", Number(item.id), { source: "feed_help_card" });
+      navigation.navigate("PostDetail", { postId: Number(item.id) });
     }
   };
 
@@ -451,16 +485,6 @@ export function HomeScreen() {
         return;
       }
       navigation.navigate("MemberProfile", { userId: liker.userId });
-    },
-    [navigation]
-  );
-
-  const onHighlightPress = useCallback(
-    (item: { postId: number; postType?: string }) => {
-      trackFeedAction("post_open", item.postId, { source: "highlight" });
-      // Help requests (and other module posts) are not in the home feed — open detail
-      // so helpers can use "I'm Ready to Help" / other actions.
-      navigation.navigate("PostDetail", { postId: item.postId });
     },
     [navigation]
   );
@@ -568,17 +592,27 @@ export function HomeScreen() {
           </View>
         ) : null}
 
-        {showHighlightsSection ? (
-          <View style={s.headerPad}>
-            <HighlightSection
-              highlights={highlights}
-              loading={highlightsLoading}
-              error={highlightsError}
-              onRetry={retryHighlights}
-              onItemPress={onHighlightPress}
-            />
-          </View>
-        ) : null}
+        <StoryTray
+          groups={storyGroups}
+          loading={storiesLoading}
+          currentUser={
+            authUser
+              ? {
+                  id: authUser.id,
+                  name: authUser.fullName,
+                  profileImage: authUser.profilePhoto ?? null
+                }
+              : null
+          }
+          onAddStory={() => navigation.navigate("CreateStory")}
+          onOpenGroup={(group) => {
+            const idx = storyGroups.findIndex((g) => g.user.id === group.user.id);
+            navigation.navigate("StoryViewer", {
+              groups: storyGroups,
+              initialGroupIndex: Math.max(0, idx)
+            });
+          }}
+        />
 
         <View collapsable={false}>
           <PaidFeedAd placement="home" refreshKey={adRefreshKey} />
@@ -589,15 +623,13 @@ export function HomeScreen() {
       welcomeUser,
       showSummaryError,
       showWelcomeCard,
-      showHighlightsSection,
-      highlights,
-      highlightsLoading,
-      highlightsError,
       retrySummary,
-      retryHighlights,
-      onHighlightPress,
       adRefreshKey,
-      s
+      s,
+      storyGroups,
+      storiesLoading,
+      authUser,
+      navigation
     ]
   );
 

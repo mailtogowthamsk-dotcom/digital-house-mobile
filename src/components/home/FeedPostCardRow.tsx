@@ -21,6 +21,8 @@ export type FeedPostCardActions = {
   onSharePress: (item: PostCardData) => void;
   onActivateMedia?: (postId: string) => void;
   onViewJob?: (item: PostCardData) => void;
+  onViewMarketplace?: (item: PostCardData) => void;
+  onViewHelp?: (item: PostCardData) => void;
 };
 
 type Props = {
@@ -83,12 +85,22 @@ function FeedPostCardRowInner({
     actionsRef.current.onViewJob?.(post);
   }, [actionsRef, post]);
 
+  const onViewMarketplace = useCallback(() => {
+    actionsRef.current.onViewMarketplace?.(post);
+  }, [actionsRef, post]);
+
+  const onViewHelp = useCallback(() => {
+    actionsRef.current.onViewHelp?.(post);
+  }, [actionsRef, post]);
+
   const onActivateMedia = useCallback(
     (postId: string) => {
       actionsRef.current.onActivateMedia?.(postId);
     },
     [actionsRef]
   );
+
+  const type = (post.postType || "").toLowerCase();
 
   return (
     <PostCard
@@ -104,9 +116,9 @@ function FeedPostCardRowInner({
       onCommentPress={onCommentPress}
       onSavePress={onSavePress}
       onSharePress={onSharePress}
-      onViewJob={
-        (post.postType || "").toLowerCase() === "job" ? onViewJob : undefined
-      }
+      onViewJob={type === "job" ? onViewJob : undefined}
+      onViewMarketplace={type === "marketplace" ? onViewMarketplace : undefined}
+      onViewHelp={type === "help request" ? onViewHelp : undefined}
       onActivateMedia={onActivateMedia}
     />
   );

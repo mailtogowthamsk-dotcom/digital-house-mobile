@@ -476,6 +476,39 @@ export function ChatScreen() {
     [navigation]
   );
 
+  const handleSharedStoryPress = useCallback(
+    (sharedStoryId: number) => {
+      void (async () => {
+        try {
+          const { getStory } = await import("../../api/stories.api");
+          const story = await getStory(sharedStoryId);
+          const isOwn = meId != null && story.user_id === meId;
+          navigation.navigate("StoryViewer", {
+            groups: [
+              {
+                user: {
+                  id: story.user_id,
+                  name: isOwn ? "You" : name ?? "Member",
+                  username: null,
+                  profile_image: isOwn ? null : profileImage ?? null
+                },
+                has_unseen: false,
+                latest_at: story.created_at,
+                is_own: isOwn,
+                stories: [story]
+              }
+            ],
+            initialGroupIndex: 0,
+            initialStoryIndex: 0
+          });
+        } catch {
+          appAlert("Story unavailable", "This story may have expired.");
+        }
+      })();
+    },
+    [navigation, name, profileImage, meId]
+  );
+
   const openPeerProfile = useCallback(() => {
     navigation.navigate("MemberProfile", { userId: otherUserId });
   }, [navigation, otherUserId]);
@@ -840,6 +873,7 @@ export function ChatScreen() {
         headerBanner={threadLeft || threadArchived || chatLockMessage ? chatLockBanner : undefined}
         onAvatarPress={openPeerProfile}
         onSharedPostPress={handleSharedPostPress}
+        onSharedStoryPress={handleSharedStoryPress}
         onDeleteMessage={handleDeleteMessage}
       />
     </View>

@@ -113,6 +113,10 @@ async function wireSocket(sock: Socket): Promise<void> {
       sharedPostId:
         (m as MessageItem).sharedPostId != null
           ? Number((m as MessageItem).sharedPostId)
+          : null,
+      sharedStoryId:
+        (m as MessageItem).sharedStoryId != null
+          ? Number((m as MessageItem).sharedStoryId)
           : null
     };
     if (!normalized.id || !normalized.senderId || !normalized.recipientId) return;
