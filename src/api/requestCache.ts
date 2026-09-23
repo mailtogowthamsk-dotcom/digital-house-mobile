@@ -62,12 +62,24 @@ export const CacheKeys = {
   authMe: "auth:me"
 } as const;
 
-function logDev(kind: "NEW" | "REUSE" | "CACHE_HIT" | "COMPLETE", key: string, extra?: string) {
+function logDev(
+  kind: "NEW" | "REUSE" | "CACHE_HIT" | "COMPLETE" | "CACHE_MISS",
+  key: string,
+  extra?: string
+) {
   if (!__DEV__) return;
   const suffix = extra ? ` ${extra}` : "";
   // eslint-disable-next-line no-console
   console.log(`[API DEDUPE] ${kind} ${key}${suffix}`);
+  if (kind === "CACHE_HIT" || kind === "CACHE_MISS" || kind === "REUSE" || kind === "NEW") {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[cache-metrics]",
+      JSON.stringify({ event: kind, key, ...(extra ? { extra } : {}) })
+    );
+  }
 }
+
 
 /**
  * Shared loader: fresh TTL → return; else coalesce in-flight; else fetch + store.
@@ -87,6 +99,7 @@ export async function cachedGet<T>(
       logDev("CACHE_HIT", logicalKey);
       return hit.value as T;
     }
+    if (ttlMs > 0) logDev("CACHE_MISS", logicalKey);
   }
 
   const existing = inflight.get(key);

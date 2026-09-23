@@ -32,7 +32,25 @@ export function PaidFeedAd({ placement, refreshKey = 0, slotVisible }: Props) {
 
   useEffect(() => {
     // Defer paid ads until after Home bootstrap / first paint (cold-start concurrency).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { startupMark } = require("../../utils/startupTiming") as {
+        startupMark: (n: string) => void;
+      };
+      startupMark("ads_deferred_start");
+    } catch {
+      /* metrics */
+    }
     const t = setTimeout(() => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { startupMark } = require("../../utils/startupTiming") as {
+          startupMark: (n: string) => void;
+        };
+        startupMark("ads_deferred_ready");
+      } catch {
+        /* metrics */
+      }
       void load();
     }, 600);
     return () => clearTimeout(t);

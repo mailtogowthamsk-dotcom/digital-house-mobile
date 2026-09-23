@@ -35,12 +35,24 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
+      const { startupMark } = await import("../utils/startupTiming");
+      startupMark("platform_bootstrap_start");
+    } catch {
+      /* metrics */
+    }
+    try {
       const data = await fetchPlatformBootstrap();
       setBootstrap(data);
     } catch {
       /* keep last known / allow offline entry */
     } finally {
       setLoading(false);
+      try {
+        const { startupMark } = await import("../utils/startupTiming");
+        startupMark("platform_bootstrap_end");
+      } catch {
+        /* metrics */
+      }
     }
   }, []);
 

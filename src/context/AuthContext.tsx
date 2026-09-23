@@ -189,6 +189,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (restoringRef.current) return;
     restoringRef.current = true;
     setAllowAutoClearOn401(false);
+    try {
+      const { startupMark } = await import("../utils/startupTiming");
+      startupMark("auth_restore_start");
+    } catch {
+      /* metrics */
+    }
 
     try {
       const token = await getTokenReliable();
@@ -212,6 +218,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           throw firstErr;
         }
+      }
+      try {
+        const { startupMark } = await import("../utils/startupTiming");
+        startupMark("auth_me_done");
+      } catch {
+        /* metrics */
       }
       const snapshot = await getUserSnapshot();
       if (shouldReauthAfterApproval(snapshot, statusRef.current, me, false)) {
@@ -294,6 +306,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAllowAutoClearOn401(true);
       restoringRef.current = false;
       bootstrapDone.current = true;
+      try {
+        const { startupMark } = await import("../utils/startupTiming");
+        startupMark("auth_restore_end");
+      } catch {
+        /* metrics */
+      }
     }
   }, [applySession, bumpSessionEpoch]);
 

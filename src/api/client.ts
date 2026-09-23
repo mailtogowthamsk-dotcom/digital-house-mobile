@@ -5,6 +5,7 @@ import { getTokenReliable } from "../storage/token.storage";
 import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
 import { stickySignedMediaUrl } from "../utils/stickySignedUrlCache";
 import { installAxiosGetDedupe } from "./requestCache";
+import { noteOutgoingRequest } from "../utils/duplicateRequestDetect";
 
 type RetryableConfig = InternalAxiosRequestConfig & {
   __retryCount?: number;
@@ -103,6 +104,13 @@ api.interceptors.request.use(async (config) => {
     if (token) config.headers.Authorization = `Bearer ${token}`;
   } catch {
     /* SecureStore */
+  }
+  try {
+    const method = config.method ?? "get";
+    const url = `${config.baseURL ?? ""}${config.url ?? ""}`;
+    noteOutgoingRequest(method, url);
+  } catch {
+    /* metrics only */
   }
   return config;
 });

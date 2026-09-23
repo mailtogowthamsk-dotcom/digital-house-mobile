@@ -38,6 +38,7 @@ import type { PostLiker } from "../../api/posts.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { useHome } from "../../hooks/useHome";
+import { startupMark } from "../../utils/startupTiming";
 import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 import { useAppResume } from "../../hooks/useAppResume";
 import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
@@ -97,6 +98,22 @@ export function HomeScreen() {
     retrySummary,
     retryFeed
   } = useHome();
+
+  useEffect(() => {
+    const hasContent =
+      (!!state.summary && !state.summaryLoading) ||
+      (state.feedItems.length > 0 && !state.feedLoading);
+    if (!hasContent) return;
+    startupMark("home_first_render", {
+      hasSummary: !!state.summary,
+      feedCount: state.feedItems.length
+    });
+  }, [
+    state.summary,
+    state.summaryLoading,
+    state.feedItems.length,
+    state.feedLoading
+  ]);
 
   const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
   const navigateToPostAuthor = useNavigateToPostAuthor();

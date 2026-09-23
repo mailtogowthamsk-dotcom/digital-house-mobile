@@ -351,6 +351,17 @@ function AppNavigation() {
 }
 
 export default function App() {
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { startupMark } = require("./src/utils/startupTiming") as {
+        startupMark: (n: string) => void;
+      };
+      startupMark("app_mount");
+    } catch {
+      /* metrics */
+    }
+  }, []);
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,

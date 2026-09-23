@@ -259,6 +259,12 @@ export function useHome() {
       if (feedItemsRef.current.length === 0) setFeedLoading(true);
       const requestId = ++feedRequestIdRef.current;
       try {
+        const { startupMark } = await import("../utils/startupTiming");
+        startupMark("home_bootstrap_start");
+      } catch {
+        /* metrics */
+      }
+      try {
         const boot = await getHomeBootstrap(FEED_PAGE_SIZE);
         if (cancelled || requestId !== feedRequestIdRef.current) return;
         setSummary(boot.summary);
@@ -276,16 +282,39 @@ export function useHome() {
         if (mediaUris.length) prefetchAspectRatios(mediaUris);
         seedStartupUnreadCounts(boot.unread);
         seedStartupStoryGroups((boot.stories.groups ?? []) as StoryGroup[]);
+        try {
+          const { startupMark } = await import("../utils/startupTiming");
+          startupMark("home_bootstrap_end", {
+            feedCount: mapped.length,
+            storyGroups: boot.stories.groups?.length ?? 0
+          });
+          startupMark("stories_seeded");
+          startupMark("unread_seeded");
+        } catch {
+          /* metrics */
+        }
       } catch (e) {
         if (cancelled || requestId !== feedRequestIdRef.current) return;
         const err = e instanceof Error ? e : new Error("Failed to load home");
         if (!summaryRef.current) setSummaryError(err);
         setFeedError(err);
+        try {
+          const { startupMark } = await import("../utils/startupTiming");
+          startupMark("home_bootstrap_end", { error: true });
+        } catch {
+          /* metrics */
+        }
       } finally {
         if (!cancelled && requestId === feedRequestIdRef.current) {
           setSummaryLoading(false);
           setFeedLoading(false);
           feedLoadingMoreRef.current = false;
+          try {
+            const { startupMark } = await import("../utils/startupTiming");
+            startupMark("home_interactive");
+          } catch {
+            /* metrics */
+          }
         }
       }
     })();
