@@ -99,18 +99,23 @@ export function ProfileScreen() {
   const profileFocusOnceRef = useRef(false);
   const profileLastFetchRef = useRef(0);
 
+  useEffect(() => {
+    if (profile) profileLastFetchRef.current = Date.now();
+  }, [profile]);
+
   useFocusEffect(
     useCallback(() => {
-      // useProfile already fetches on mount — avoid double request on first focus.
+      // useProfile already fetches on mount — skip first focus entirely.
+      // Do not stamp lastFetch until we have profile data, or a failed first
+      // load can block refetch for 60s.
       if (!profileFocusOnceRef.current) {
         profileFocusOnceRef.current = true;
-        profileLastFetchRef.current = Date.now();
         return;
       }
-      if (Date.now() - profileLastFetchRef.current < 60_000) return;
+      if (profile && Date.now() - profileLastFetchRef.current < 60_000) return;
       profileLastFetchRef.current = Date.now();
       void refetch();
-    }, [refetch])
+    }, [refetch, profile])
   );
 
   useEffect(() => {
@@ -129,6 +134,7 @@ export function ProfileScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    profileLastFetchRef.current = Date.now();
     await refetch();
     setRefreshing(false);
   }, [refetch]);

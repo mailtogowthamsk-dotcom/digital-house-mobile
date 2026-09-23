@@ -183,6 +183,98 @@ export async function getHomeSummary(): Promise<HomeSummaryResponse> {
   };
 }
 
+export type HomeBootstrapUnread = {
+  total: number;
+  social: number;
+  matrimony: number;
+  messages: number;
+  community: number;
+  system: number;
+};
+
+export type HomeBootstrapResponse = {
+  summary: HomeSummaryResponse;
+  feed: FeedResponse;
+  stories: { groups: unknown[] };
+  unread: HomeBootstrapUnread;
+};
+
+/**
+ * GET /api/home/bootstrap — cold-start: summary + feed page1 + stories tray + unread.
+ * Falls back to separate calls if the endpoint is missing (older servers).
+ */
+export async function getHomeBootstrap(limit = 6): Promise<HomeBootstrapResponse> {
+  try {
+    const { data } = await api.get<{
+      ok: boolean;
+      summary?: HomeSummaryResponse;
+      feed?: FeedResponse;
+      stories?: { groups: unknown[] };
+      unread?: HomeBootstrapUnread;
+    }>("/home/bootstrap", { params: { limit } });
+    if (!data.ok || !data.summary || !data.feed) {
+      throw new Error("Invalid home bootstrap payload");
+    }
+    const summary = await normalizeSummary(data.summary);
+    return {
+      summary,
+      feed: {
+        items: data.feed.items ?? [],
+        page: data.feed.page ?? 1,
+        limit: data.feed.limit ?? limit,
+        total: data.feed.total ?? 0,
+        nextCursor: data.feed.nextCursor ?? null,
+        sort: data.feed.sort ?? "recent"
+      },
+      stories: { groups: data.stories?.groups ?? [] },
+      unread: data.unread ?? {
+        total: summary.unreadNotificationsCount,
+        social: 0,
+        matrimony: 0,
+        messages: 0,
+        community: 0,
+        system: 0
+      }
+    };
+  } catch (e: unknown) {
+    const status = (e as { response?: { status?: number } })?.response?.status;
+    if (status !== 404) throw e;
+    // Older API without /home/bootstrap — preserve behavior with parallel GETs.
+    const [summary, feed] = await Promise.all([
+      getHomeSummary(),
+      getFeed({ page: 1, limit, sort: "recent" })
+    ]);
+    return {
+      summary,
+      feed,
+      stories: { groups: [] },
+      unread: {
+        total: summary.unreadNotificationsCount,
+        social: 0,
+        matrimony: 0,
+        messages: 0,
+        community: 0,
+        system: 0
+      }
+    };
+  }
+}
+
+function normalizeSummary(data: HomeSummaryResponse): Promise<HomeSummaryResponse> {
+  const u = data.user as Record<string, unknown> | undefined;
+  const profileImage = u && (u.profileImage ?? u.profile_image);
+  return Promise.resolve({
+    user: {
+      name: (u?.name as string) ?? "User",
+      profileImage: typeof profileImage === "string" ? profileImage : null,
+      verified: !!(u?.verified ?? false)
+    },
+    quickActionCounts: data.quickActionCounts!,
+    unreadNotificationsCount: data.unreadNotificationsCount ?? 0,
+    unreadMessagesCount: data.unreadMessagesCount ?? 0
+  });
+}
+
 /** GET /api/home/quick-actions – module counters only */
 export async function getQuickActions(): Promise<QuickActionCounts> {
   const { data } = await api.get<{ ok: boolean } & QuickActionCounts>("/home/quick-actions");

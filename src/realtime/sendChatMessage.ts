@@ -4,7 +4,10 @@
  */
 import type { Socket } from "socket.io-client";
 import type { MessageItem } from "../api/messages.api";
-import { sendMessage as sendMessageRest } from "../api/messages.api";
+import {
+  invalidateThreadsCache,
+  sendMessage as sendMessageRest
+} from "../api/messages.api";
 import { getSocket } from "./socket";
 
 type SendArgs = {
@@ -68,6 +71,8 @@ export async function sendChatMessage(args: SendArgs): Promise<MessageItem> {
     });
 
     if (viaSocket && viaSocket !== "rejected") {
+      // Socket path skips REST sendMessage — still bust threads list TTL for hub lastMessage.
+      invalidateThreadsCache();
       return viaSocket;
     }
 

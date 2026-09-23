@@ -44,11 +44,12 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const authReady = status === "home" || status === "pending";
-
+  // Fetch once after auth leaves "loading" — avoids duplicate /platform/bootstrap
+  // (previously: once during splash + again when authReady flipped).
   useEffect(() => {
+    if (status === "loading") return;
     void refresh();
-  }, [refresh, authReady]);
+  }, [refresh, status]);
 
   const isFeatureEnabled = useCallback(
     (code: string) => {

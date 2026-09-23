@@ -16,6 +16,7 @@ import { subscribeNotifications } from "../realtime/notificationsRealtime";
 import { InAppNotificationBanner } from "../components/notifications/InAppNotificationBanner";
 import { useAuth } from "./AuthContext";
 import { setBadgeCount } from "../services/pushNotifications";
+import { subscribeStartupUnreadCounts } from "../utils/startupUnreadSeed";
 
 type BannerState = {
   notification: NotificationItem;
@@ -56,7 +57,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (status !== "home") return;
-    void refreshCounts();
+    let gotSeed = false;
+    const unsub = subscribeStartupUnreadCounts((next) => {
+      gotSeed = true;
+      setCounts(next);
+    });
+    // If bootstrap is slow/unavailable, fall back to dedicated counts GET.
+    const t = setTimeout(() => {
+      if (!gotSeed) void refreshCounts();
+    }, 1500);
+    return () => {
+      unsub();
+      clearTimeout(t);
+    };
   }, [status, refreshCounts]);
 
   useEffect(() => {

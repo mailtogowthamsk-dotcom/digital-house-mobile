@@ -1,6 +1,7 @@
 /**
- * Client-side video compression for social posts.
- * Caps longest edge at 720p and targets ~2 Mbps H.264 before R2 upload.
+ * Client-side video compression.
+ * Default (feed posts): ≤720p @ ~2 Mbps.
+ * Callers (e.g. Stories) may pass higher maxSize/bitrate.
  *
  * react-native-compressor requires a custom native build (EAS / expo run).
  * Expo Go has no native module — we skip the import entirely to avoid redbox errors.
@@ -24,6 +25,14 @@ export type OptimizeVideoResult = {
   /** True when a compressed file was produced (caller should delete when done). */
   didCompress: boolean;
   cleanup?: () => Promise<void>;
+};
+
+export type OptimizeVideoOptions = {
+  onProgress?: (progress: number) => void;
+  /** Longest edge in px (default: feed VIDEO_MAX_DIMENSION = 720). */
+  maxSize?: number;
+  /** Target video bitrate in bps (default: feed VIDEO_TARGET_BITRATE). */
+  bitrate?: number;
 };
 
 async function getLocalFileSize(uri: string): Promise<number> {
@@ -70,16 +79,17 @@ function uncompressedFallback(
 }
 
 /**
- * Compress video to ≤720p when native compressor is available (EAS / dev builds).
+ * Compress video when native compressor is available (EAS / dev builds).
  * Expo Go / missing native module: fall back to original only if ≤ VIDEO_MAX_BYTES.
  * Always enforces picker + upload size caps.
  */
 export async function optimizeVideoForUpload(
   localUri: string,
-  options: {
-    onProgress?: (progress: number) => void;
-  } = {}
+  options: OptimizeVideoOptions = {}
 ): Promise<OptimizeVideoResult> {
+  const maxSize = Math.max(360, options.maxSize ?? VIDEO_MAX_DIMENSION);
+  const bitrate = Math.max(500_000, options.bitrate ?? VIDEO_TARGET_BITRATE);
+
   const rawSize = await getLocalFileSize(localUri);
   if (rawSize <= 0) {
     throw new Error("Could not read video file size");
@@ -108,8 +118,8 @@ export async function optimizeVideoForUpload(
       normalizeCompressUri(localUri),
       {
         compressionMethod: "manual",
-        maxSize: VIDEO_MAX_DIMENSION,
-        bitrate: VIDEO_TARGET_BITRATE,
+        maxSize,
+        bitrate,
         minimumFileSizeForCompress: 0
       },
       (p) => {

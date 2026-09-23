@@ -174,13 +174,23 @@ export function HelpingHandsHomeScreen() {
     [loadActivity, loadHeroes, loadHome, navigation]
   );
 
+  const tabQueryKey = `${tab}|${category ?? ""}`;
+  const lastLoadedTabQueryRef = React.useRef<string | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
       const STALE_MS = 45_000;
-      if (hasLoadedOnce.current && now - lastFocusLoadAt.current < STALE_MS) {
+      const queryChanged = lastLoadedTabQueryRef.current !== tabQueryKey;
+      // Stale skip only for re-focus with same tab/category — never block chip changes.
+      if (
+        !queryChanged &&
+        hasLoadedOnce.current &&
+        now - lastFocusLoadAt.current < STALE_MS
+      ) {
         return;
       }
+      lastLoadedTabQueryRef.current = tabQueryKey;
       lastFocusLoadAt.current = now;
       const showSpinner = !hasLoadedOnce.current;
       if (showSpinner) setLoading(true);
@@ -189,7 +199,7 @@ export function HelpingHandsHomeScreen() {
       setRequestsNextOffset(null);
       setContributionsNextOffset(null);
       void loadTab(tab, category).finally(() => setLoading(false));
-    }, [tab, category, loadTab])
+    }, [tab, category, loadTab, tabQueryKey])
   );
 
   const onRefresh = useCallback(async () => {

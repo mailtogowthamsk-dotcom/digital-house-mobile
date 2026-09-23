@@ -15,7 +15,15 @@ export const STORY_VIDEO_PICKER_MAX_DURATION_SEC = 10 * 60;
 export const STORY_CAPTION_MAX_LENGTH = 200;
 export const STORY_TEXT_DURATION_MS = 7_000;
 
-/** Home tray: prefetch at most this many upcoming stories (not the whole tray). */
-export const STORY_PREFETCH_MAX_ITEMS = 3;
-/** Max parallel story media downloads during prefetch. */
+/**
+ * Story video encode (full-screen vertical). Higher than feed posts (720p/2Mbps)
+ * so Stories do not look soft on modern phones. Still ≤50MB for ≤60s clips.
+ */
+export const STORY_VIDEO_MAX_DIMENSION = 1080;
+/** ~4.5 Mbps H.264 — clear 1080p without blowing the 50MB story upload cap. */
+export const STORY_VIDEO_TARGET_BITRATE = 4_500_000;
+
+/** Home tray must NOT prefetch media (startup bandwidth). Kept for optional callers. */
+export const STORY_PREFETCH_MAX_ITEMS = 0;
+/** Max parallel story media downloads during prefetch (viewer nearby only). */
 export const STORY_PREFETCH_CONCURRENCY = 2;

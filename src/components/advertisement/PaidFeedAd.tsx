@@ -31,7 +31,11 @@ export function PaidFeedAd({ placement, refreshKey = 0, slotVisible }: Props) {
   }, [placement, refreshKey]);
 
   useEffect(() => {
-    void load();
+    // Defer paid ads until after Home bootstrap / first paint (cold-start concurrency).
+    const t = setTimeout(() => {
+      void load();
+    }, 600);
+    return () => clearTimeout(t);
   }, [load]);
 
   if (!ad) return null;

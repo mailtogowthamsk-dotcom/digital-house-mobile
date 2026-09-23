@@ -256,17 +256,24 @@ export function prefetchStoryGroups(
   void Promise.all(Array.from({ length: workers }, () => runOne()));
 }
 
-/** Prefetch current + next few stories while viewer is open. */
+/**
+ * Prefetch upcoming stories while viewer is open.
+ * Starts at the story AFTER the current one — current is already loaded by the viewer.
+ * `ahead` = how many subsequent items to warm (use 1 for next-only).
+ */
 export function prefetchNearbyStories(
   groups: StoryGroup[],
   groupIndex: number,
   storyIndex: number,
-  ahead = 3
+  ahead = 1
 ): void {
-  let remaining = ahead;
+  let remaining = Math.max(0, ahead);
+  if (remaining === 0 || !groups.length) return;
+
   for (let gi = groupIndex; gi < groups.length && remaining > 0; gi++) {
     const g = groups[gi]!;
-    const start = gi === groupIndex ? storyIndex : 0;
+    // Same group: start after current; later groups: from first story.
+    const start = gi === groupIndex ? storyIndex + 1 : 0;
     for (let si = start; si < g.stories.length && remaining > 0; si++) {
       prefetchStoryMedia(g.stories[si]);
       remaining -= 1;

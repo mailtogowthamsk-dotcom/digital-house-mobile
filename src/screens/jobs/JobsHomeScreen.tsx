@@ -249,14 +249,23 @@ export function JobsHomeScreen() {
     ]
   );
 
+  const lastLoadedQueryKeyRef = React.useRef<string | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
       const STALE_MS = 45_000;
-      if (hasLoadedOnce.current && now - lastFocusLoadAt.current < STALE_MS) {
+      const queryChanged = lastLoadedQueryKeyRef.current !== queryKey;
+      // Stale skip only for re-focus with same filters — never block search/filter changes.
+      if (
+        !queryChanged &&
+        hasLoadedOnce.current &&
+        now - lastFocusLoadAt.current < STALE_MS
+      ) {
         return;
       }
 
+      lastLoadedQueryKeyRef.current = queryKey;
       lastFocusLoadAt.current = now;
       const showSpinner = !hasLoadedOnce.current;
       if (showSpinner) setLoading(true);
@@ -268,7 +277,7 @@ export function JobsHomeScreen() {
       void run.finally(() => {
         if (showSpinner) setLoading(false);
       });
-    }, [feedOpts, loadApplications, loadFeed, mode])
+    }, [feedOpts, loadApplications, loadFeed, mode, queryKey])
   );
 
   const switchMode = useCallback(

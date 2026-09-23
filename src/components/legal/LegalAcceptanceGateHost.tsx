@@ -24,10 +24,13 @@ export function LegalAcceptanceGateHost() {
         return;
       }
 
-      // Prefer auth payload when present and not forcing — avoid immediate duplicate GET.
+      // Prefer /auth/me legal payload — skip cold-start GET /legal/status entirely.
       if (!force && user?.legal) {
         setLegal(user.legal);
-        // Still refresh in background if cache/TTL cold, but skip if we fetched recently.
+        // Treat me.legal as a fresh network-equivalent so we don't immediately re-fetch.
+        if (lastNetworkFetchAt.current === 0) {
+          lastNetworkFetchAt.current = Date.now();
+        }
         if (Date.now() - lastNetworkFetchAt.current < 60_000) return;
       }
 

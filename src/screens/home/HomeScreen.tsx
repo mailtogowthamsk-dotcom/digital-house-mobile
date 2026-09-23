@@ -71,12 +71,8 @@ import type { TabId } from "../../components/home/BottomTabBar";
 import { ExploreScreen } from "../explore/ExploreScreen";
 import { StoryTray } from "../../components/stories/StoryTray";
 import { getStoryTray, invalidateStoriesTray, type StoryGroup } from "../../api/stories.api";
-import { prefetchStoryGroups } from "../../utils/storyMediaCache";
-import {
-  STORY_PREFETCH_CONCURRENCY,
-  STORY_PREFETCH_MAX_ITEMS
-} from "../../config/stories.constants";
 import { subscribeStoriesChanged } from "../../utils/storiesEvents";
+import { subscribeStartupStoryGroups } from "../../utils/startupStorySeed";
 
 const PADDING = 16;
 const SECTION_MARGIN = 28;
@@ -233,11 +229,7 @@ export function HomeScreen() {
       setStoriesLoading(true);
       const groups = await getStoryTray({ force: opts?.force });
       setStoryGroups(groups);
-      // Bounded warm cache — do not download the entire tray.
-      prefetchStoryGroups(groups, {
-        maxItems: STORY_PREFETCH_MAX_ITEMS,
-        concurrency: STORY_PREFETCH_CONCURRENCY
-      });
+      // Do not prefetch story media on home — download only when the viewer opens.
     } catch {
       /* keep previous tray */
     } finally {
@@ -246,7 +238,19 @@ export function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    void loadStories();
+    let gotSeed = false;
+    const unsub = subscribeStartupStoryGroups((groups) => {
+      gotSeed = true;
+      setStoryGroups(groups);
+      setStoriesLoading(false);
+    });
+    const t = setTimeout(() => {
+      if (!gotSeed) void loadStories();
+    }, 1500);
+    return () => {
+      unsub();
+      clearTimeout(t);
+    };
   }, [loadStories]);
 
   useEffect(() => {

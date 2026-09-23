@@ -33,9 +33,11 @@ import { ensureMediaLibraryRead } from "../../permissions";
 import { VIDEO_MAX_BYTES, formatDuration } from "../../config/media.config";
 import {
   STORY_CAPTION_MAX_LENGTH,
+  STORY_VIDEO_MAX_DIMENSION,
   STORY_VIDEO_MAX_DURATION_SEC,
   STORY_VIDEO_MIN_DURATION_SEC,
-  STORY_VIDEO_PICKER_MAX_DURATION_SEC
+  STORY_VIDEO_PICKER_MAX_DURATION_SEC,
+  STORY_VIDEO_TARGET_BITRATE
 } from "../../config/stories.constants";
 import { appAlert } from "../../context/AppAlertContext";
 import { emitStoriesChanged } from "../../utils/storiesEvents";
@@ -373,7 +375,9 @@ export function CreateStoryScreen() {
       } else {
         setProgress(0.05);
         const optimized = await optimizeVideoForUpload(localUri, {
-          onProgress: (p) => setProgress(0.05 + p * 0.35)
+          onProgress: (p) => setProgress(0.05 + p * 0.35),
+          maxSize: STORY_VIDEO_MAX_DIMENSION,
+          bitrate: STORY_VIDEO_TARGET_BITRATE
         });
         validateVideoSize(optimized.size);
         let thumbnailKey: string | null = null;
@@ -443,6 +447,7 @@ export function CreateStoryScreen() {
       emitStoriesChanged({ reason: "created" });
       navigation.goBack();
     } catch (e: any) {
+      const status = e?.response?.status ?? e?.status;
       const raw = e?.response?.data?.message ?? e?.message ?? "Try again";
       const msg = String(raw);
       let title = "Could not post";
@@ -456,9 +461,12 @@ export function CreateStoryScreen() {
       } else if (/corrupt|INVALID_VIDEO|UNSUPPORTED|MIME/i.test(msg)) {
         title = "Unsupported media";
         body = "This file could not be used as a story. Try another photo or video.";
-      } else if (/upload/i.test(msg)) {
+      } else if (/upload failed \(\d+\)/i.test(msg) || /Empty upload|IMAGE_TOO_LARGE|VIDEO_TOO_LARGE/i.test(msg)) {
         title = "Upload failed";
-        body = "Could not upload your story media. Check your connection and try again.";
+        body = status ? `${msg} (HTTP ${status})` : msg;
+      } else if (/network|timeout|connection|ENOTFOUND|ECONNREFUSED/i.test(msg)) {
+        title = "Upload failed";
+        body = "Could not reach the server. Check your connection and try again.";
       }
       appAlert(title, body);
     } finally {

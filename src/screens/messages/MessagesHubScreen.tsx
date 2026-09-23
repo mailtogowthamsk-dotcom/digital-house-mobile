@@ -164,6 +164,8 @@ export function MessagesHubScreen() {
 
   const folderRef = useRef(folder);
   folderRef.current = folder;
+  const threadsLenRef = useRef(0);
+  threadsLenRef.current = threads.length;
 
   const applyPresence = useCallback((data: Thread[]) => {
     return hasPresenceSynced()
@@ -190,10 +192,14 @@ export function MessagesHubScreen() {
     opts?: { soft?: boolean; force?: boolean }
   ) => {
     const folderToLoad = activeFolder ?? folderRef.current;
-    const gen = ++threadsLoadGenRef.current;
+    const soft = opts?.soft === true;
+    // Soft reloads must not bump gen / own the full-page spinner — otherwise a
+    // resume/realtime soft load can cancel a hard load's finally and leave
+    // loadingThreads=true forever if the latest request hangs.
+    const gen = soft ? threadsLoadGenRef.current : ++threadsLoadGenRef.current;
     threadsLoadMoreRef.current = false;
     setThreadsError(null);
-    if (!opts?.soft) setLoadingThreads(true);
+    if (!soft) setLoadingThreads(true);
     try {
       if (folderToLoad === "blocked") {
         const blocked = await listBlockedMembers();
@@ -227,7 +233,7 @@ export function MessagesHubScreen() {
         setThreadsError(e instanceof Error ? e.message : "Failed to load conversations");
       }
     } finally {
-      if (gen === threadsLoadGenRef.current) {
+      if (!soft && gen === threadsLoadGenRef.current) {
         setLoadingThreads(false);
         setLoadingMoreThreads(false);
       }
@@ -320,7 +326,12 @@ export function MessagesHubScreen() {
         setChatAccess(null);
         setLoadingChat(false);
       }
-      scheduleLoadThreads();
+      // Phone: returning from Chat must not reuse the 45s threads TTL (stale lastMessage).
+      // Soft only when a list is already on screen — first open still owns the spinner.
+      scheduleLoadThreads(undefined, {
+        force: true,
+        soft: threadsLenRef.current > 0
+      });
     }, [scheduleLoadThreads, layout.isSplit])
   );
 
@@ -522,7 +533,8 @@ export function MessagesHubScreen() {
         // First message of a brand new conversation — the peer's name and photo
         // are not in the socket payload, so the row has to come from the API.
         loadThreads(folderRef.current === "inbox" ? "inbox" : undefined, {
-          soft: true
+          soft: true,
+          force: true
         }).catch(() => {});
       }
     });

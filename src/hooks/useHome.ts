@@ -5,6 +5,7 @@ import { timeAgo } from "../utils/timeAgo";
 import {
   getHomeSummary,
   getFeed,
+  getHomeBootstrap,
   type HomeSummaryResponse,
   type FeedItem,
   type FeedResponse
@@ -14,6 +15,9 @@ import { getImageUrl } from "../api/client";
 import { prefetchAspectRatios } from "../utils/imageDimensions";
 import { mergeById } from "../utils/mergeById";
 import { resetFeedImpressionSession } from "../utils/feedImpressionTracker";
+import { seedStartupUnreadCounts } from "../utils/startupUnreadSeed";
+import { seedStartupStoryGroups } from "../utils/startupStorySeed";
+import type { StoryGroup } from "../api/stories.api";
 
 export type HomeState = {
   summary: HomeSummaryResponse | null;
@@ -247,12 +251,48 @@ export function useHome() {
   }, []);
 
   useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
-
-  useEffect(() => {
-    fetchFeed(false);
-  }, [fetchFeed]);
+    let cancelled = false;
+    (async () => {
+      setSummaryError(null);
+      setFeedError(null);
+      if (!summaryRef.current) setSummaryLoading(true);
+      if (feedItemsRef.current.length === 0) setFeedLoading(true);
+      const requestId = ++feedRequestIdRef.current;
+      try {
+        const boot = await getHomeBootstrap(FEED_PAGE_SIZE);
+        if (cancelled || requestId !== feedRequestIdRef.current) return;
+        setSummary(boot.summary);
+        setSummaryError(null);
+        setFeedTotal(boot.feed.total);
+        setFeedNextCursor(boot.feed.nextCursor ?? null);
+        if (boot.feed.sort === "popular" || boot.feed.sort === "recent") {
+          setFeedSort(boot.feed.sort);
+        }
+        const mapped = boot.feed.items.map(feedItemToPostCard);
+        setFeedItems((prev) => mergeFeedCardsPreservingMedia(prev, mapped));
+        const mediaUris = mapped
+          .map((p) => getImageUrl(p.imageUri))
+          .filter((u): u is string => !!u);
+        if (mediaUris.length) prefetchAspectRatios(mediaUris);
+        seedStartupUnreadCounts(boot.unread);
+        seedStartupStoryGroups((boot.stories.groups ?? []) as StoryGroup[]);
+      } catch (e) {
+        if (cancelled || requestId !== feedRequestIdRef.current) return;
+        const err = e instanceof Error ? e : new Error("Failed to load home");
+        if (!summaryRef.current) setSummaryError(err);
+        setFeedError(err);
+      } finally {
+        if (!cancelled && requestId === feedRequestIdRef.current) {
+          setSummaryLoading(false);
+          setFeedLoading(false);
+          feedLoadingMoreRef.current = false;
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refetchAll = useCallback(async () => {
     feedRequestIdRef.current += 1;

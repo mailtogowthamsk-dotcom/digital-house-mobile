@@ -462,8 +462,9 @@ export function StoryViewerScreen() {
     };
   }, [story?.id, story?.media_type, story?.expires_at, mediaUri]);
 
+  // While current story plays, warm exactly the next one (not a batch of 4).
   useEffect(() => {
-    prefetchNearbyStories(liveGroups, groupIndex, storyIndex, 4);
+    prefetchNearbyStories(liveGroups, groupIndex, storyIndex, 1);
   }, [liveGroups, groupIndex, storyIndex]);
 
   // Reset bar when switching stories.

@@ -113,12 +113,20 @@ export async function uploadStoryMediaToServer(
   if (result.status < 200 || result.status >= 300) {
     let message = `Upload failed (${result.status})`;
     try {
-      const parsed = JSON.parse(result.body || "{}") as { message?: string };
-      if (parsed.message) message = parsed.message;
+      const parsed = JSON.parse(result.body || "{}") as { message?: string; code?: string };
+      if (parsed.message) {
+        message = parsed.code ? `${parsed.message} [${parsed.code}]` : parsed.message;
+      } else if (result.body && /Request Entity Too Large|413|client intended to send|Payload Too Large/i.test(result.body)) {
+        message = "Upload failed (413) — video too large for the reverse proxy. Ask admin to raise body size limit.";
+      }
     } catch {
-      /* ignore */
+      if (result.body && /Request Entity Too Large|413|Payload Too Large/i.test(result.body)) {
+        message = "Upload failed (413) — video too large for the reverse proxy.";
+      }
     }
-    throw new Error(message);
+    const err = new Error(message) as Error & { status?: number };
+    err.status = result.status;
+    throw err;
   }
   const parsed = JSON.parse(result.body || "{}") as {
     ok?: boolean;

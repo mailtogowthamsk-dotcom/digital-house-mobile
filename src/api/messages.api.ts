@@ -210,6 +210,8 @@ export async function sendMessage(recipientId: number, body: string, clientId?: 
     body,
     clientId
   });
+  // Hub list uses a 45s TTL — clear so back-navigation does not show a stale lastMessage.
+  invalidateThreadsCache();
   return res.data.message;
 }
 
