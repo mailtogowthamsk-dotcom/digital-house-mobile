@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getAdvertisementFeed, type FeedAdvertisement } from "../../api/advertisement.api";
 import { AdvertisementCard } from "./AdvertisementCard";
 import { useFeedAdSlotVisible } from "../../media/feedAdSlotVisibility";
+import {
+  isHomeInteractive,
+  onHomeInteractive,
+  startupMark
+} from "../../utils/startupTiming";
 
 type Props = {
   placement: "home" | "explore" | "browse";
@@ -10,6 +15,13 @@ type Props = {
   slotVisible?: boolean;
 };
 
+/**
+ * Home Feed paid ad slot — separate from GET /home/feed (not embedded in feed DTO).
+ * P4E: wait for Home interactive (bootstrap/feed settled) before GET /advertisements/feed
+ * so P2 ads do not occupy scheduler/DB slots during cold-start P0 Home work.
+ * Same ad UI/placement/eligibility; only request start timing changes on cold start.
+ * Pull-to-refresh (refreshKey) loads immediately once Home is already interactive.
+ */
 export function PaidFeedAd({ placement, refreshKey = 0, slotVisible }: Props) {
   const [ad, setAd] = useState<FeedAdvertisement | null>(null);
   const shownId = useRef<number | undefined>(undefined);
@@ -31,29 +43,34 @@ export function PaidFeedAd({ placement, refreshKey = 0, slotVisible }: Props) {
   }, [placement, refreshKey]);
 
   useEffect(() => {
-    // Defer paid ads until after Home bootstrap / first paint (cold-start concurrency).
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { startupMark } = require("../../utils/startupTiming") as {
-        startupMark: (n: string) => void;
-      };
-      startupMark("ads_deferred_start");
-    } catch {
-      /* metrics */
-    }
-    const t = setTimeout(() => {
+    let cancelled = false;
+    const startLoad = () => {
+      if (cancelled) return;
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { startupMark } = require("../../utils/startupTiming") as {
-          startupMark: (n: string) => void;
-        };
         startupMark("ads_deferred_ready");
       } catch {
         /* metrics */
       }
       void load();
-    }, 600);
-    return () => clearTimeout(t);
+    };
+
+    if (isHomeInteractive()) {
+      startLoad();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    try {
+      startupMark("ads_deferred_start");
+    } catch {
+      /* metrics */
+    }
+    const unsub = onHomeInteractive(startLoad);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [load]);
 
   if (!ad) return null;

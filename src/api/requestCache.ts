@@ -57,6 +57,7 @@ export const CacheKeys = {
   legalStatus: "legal:status",
   notificationCounts: "notifications:counts",
   homeSummary: "home:summary",
+  homeBootstrap: "home:bootstrap",
   jobsFeed: "jobs:feed",
   helpingHandsFeed: "helpingHands:feed",
   authMe: "auth:me"
@@ -153,10 +154,16 @@ export function buildGetRequestKey(
 /**
  * Install axios-level GET in-flight coalescing on an instance.
  * Retries (__retryCount / __authRetry) bypass reuse of a settled failure by using a distinct key suffix.
+ *
+ * Optional `wrapNew` runs only for newly started GETs (not REUSE) — used by the HTTP scheduler
+ * so duplicate callers share one queue slot via the shared promise.
  */
 export function installAxiosGetDedupe(
   axiosInstance: {
     request: (config: any) => Promise<any>;
+  },
+  opts?: {
+    wrapNew?: (run: () => Promise<any>, config: any) => Promise<any>;
   }
 ): void {
   const original = axiosInstance.request.bind(axiosInstance);
@@ -182,7 +189,9 @@ export function installAxiosGetDedupe(
     }
 
     logDev("NEW", config.url || key);
-    const promise = original(config).finally(() => {
+    const run = () => original(config);
+    const started = opts?.wrapNew ? opts.wrapNew(run, config) : run();
+    const promise = started.finally(() => {
       inflight.delete(key);
       logDev("COMPLETE", config.url || key);
     });

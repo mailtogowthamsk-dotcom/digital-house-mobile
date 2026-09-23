@@ -6,10 +6,17 @@ import { shouldAutoClearOn401, invokeAuthSignOut } from "../auth/authSession";
 import { stickySignedMediaUrl } from "../utils/stickySignedUrlCache";
 import { installAxiosGetDedupe } from "./requestCache";
 import { noteOutgoingRequest } from "../utils/duplicateRequestDetect";
+import {
+  classifyRequestPriority,
+  scheduleHttpRequestPromise,
+  shouldBypassHttpScheduler
+} from "./httpScheduler";
 
 type RetryableConfig = InternalAxiosRequestConfig & {
   __retryCount?: number;
   __authRetry?: boolean;
+  __bypassHttpScheduler?: boolean;
+  __httpPriority?: "P0" | "P1" | "P2";
 };
 
 function isLocalLanApiUrl(url: string): boolean {
@@ -94,8 +101,34 @@ export const api = axios.create({
   }
 });
 
-// Coalesce identical in-flight GETs across the whole app (never POST/PATCH/PUT/DELETE).
-installAxiosGetDedupe(api);
+/**
+ * Request pipeline (P4B):
+ *   caller → GET dedupe (reuse in-flight) → priority scheduler (new only) → axios
+ * Non-GET mutations also go through the scheduler (P0) unless bypassed (auth retry / uploads).
+ */
+installAxiosGetDedupe(api, {
+  wrapNew: (run, config) => {
+    if (shouldBypassHttpScheduler(config as RetryableConfig)) {
+      return run();
+    }
+    const priority = classifyRequestPriority(config as RetryableConfig);
+    return scheduleHttpRequestPromise(priority, run);
+  }
+});
+
+const scheduledRequest = api.request.bind(api);
+api.request = function scheduledApiRequest(config: RetryableConfig) {
+  const method = String(config?.method || "get").toLowerCase();
+  // GETs already pass through dedupe → scheduler via installAxiosGetDedupe.
+  if (method === "get" || method === "head") {
+    return scheduledRequest(config);
+  }
+  if (shouldBypassHttpScheduler(config)) {
+    return scheduledRequest(config);
+  }
+  const priority = classifyRequestPriority(config);
+  return scheduleHttpRequestPromise(priority, () => scheduledRequest(config));
+};
 
 api.interceptors.request.use(async (config) => {
   config.baseURL = getApiBaseUrl();

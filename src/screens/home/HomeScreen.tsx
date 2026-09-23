@@ -134,8 +134,6 @@ export function HomeScreen() {
   const headerHideProgress = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
   const headerHiddenRef = useRef(false);
-  const retrySummaryRef = useRef(retrySummary);
-  retrySummaryRef.current = retrySummary;
   const feedItemsRef = useRef<PostCardData[]>([]);
   const activeMediaSwitchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewabilityConfig = useRef({
@@ -296,19 +294,19 @@ export function HomeScreen() {
         setActiveTab(tab);
       }
       if (focusRefreshRef.current) {
-        void retrySummaryRef.current();
-        void loadStories();
+        // Soft re-entry: reuse bootstrap / TTL (force: false). Do not fan out summary+stories.
+        void refetchAll({ force: false });
       } else {
         focusRefreshRef.current = true;
       }
       return () => {
         pauseAllFeedVideos();
       };
-    }, [route.params?.tab, loadStories])
+    }, [route.params?.tab, refetchAll])
   );
 
   useAppResume(() => {
-    void retrySummaryRef.current();
+    void refetchAll({ force: false });
   });
 
   useEffect(() => {
@@ -320,12 +318,17 @@ export function HomeScreen() {
   }, [feedError, handleAuthError]);
 
   const onRefresh = useCallback(async () => {
+    if (refreshing) return;
     setRefreshing(true);
     setAdRefreshKey((k) => k + 1);
     setFeedAdSlotVisible(true);
-    await Promise.all([refetchAll(), loadStories()]);
-    setRefreshing(false);
-  }, [refetchAll, loadStories]);
+    try {
+      // P4B: single /home/bootstrap (stories seeded from response — no parallel tray GET).
+      await refetchAll({ force: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchAll, refreshing]);
 
   const onTabPress = (tab: TabId) => {
     if (tab === "create") {
@@ -802,7 +805,7 @@ export function HomeScreen() {
         visible={sharePost != null}
         post={sharePost}
         onClose={() => setSharePost(null)}
-        onReposted={() => void refetchAll()}
+        onReposted={() => void refetchAll({ force: true })}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
 

@@ -10,6 +10,8 @@
  *     not AuthSplash / blank loading shell.
  *   TIME_TO_INTERACTIVE_HOME — Home usable: bootstrap settled (loading flags false) with
  *     summary and/or feed available (errors still count as "settled").
+ *
+ * P4E: `onHomeInteractive` lets non-critical UI (PaidFeedAd) wait for Home without setTimeout.
  */
 
 type MarkName =
@@ -33,6 +35,10 @@ const marks = new Map<MarkName, number>();
 const origin = Date.now();
 marks.set("origin", origin);
 
+type HomeInteractiveListener = () => void;
+const homeInteractiveListeners = new Set<HomeInteractiveListener>();
+let homeInteractiveReached = false;
+
 function enabled(): boolean {
   try {
     if (typeof __DEV__ !== "undefined" && __DEV__) return true;
@@ -43,8 +49,64 @@ function enabled(): boolean {
   }
 }
 
+/** True once Home bootstrap/feed first settle (including error settle). */
+export function isHomeInteractive(): boolean {
+  return homeInteractiveReached;
+}
+
+/**
+ * Subscribe to first Home-interactive signal.
+ * If already interactive, invokes `cb` on next microtask.
+ * Returns unsubscribe.
+ */
+export function onHomeInteractive(cb: HomeInteractiveListener): () => void {
+  if (homeInteractiveReached) {
+    Promise.resolve()
+      .then(() => {
+        try {
+          cb();
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => undefined);
+    return () => undefined;
+  }
+  homeInteractiveListeners.add(cb);
+  return () => {
+    homeInteractiveListeners.delete(cb);
+  };
+}
+
+function notifyHomeInteractive(): void {
+  if (homeInteractiveReached) return;
+  homeInteractiveReached = true;
+  const listeners = [...homeInteractiveListeners];
+  homeInteractiveListeners.clear();
+  for (const cb of listeners) {
+    try {
+      cb();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Test helper — reset interactive gate between unit tests. */
+export function resetHomeInteractiveForTests(): void {
+  homeInteractiveReached = false;
+  homeInteractiveListeners.clear();
+  marks.delete("home_interactive");
+}
+
 export function startupMark(name: MarkName, detail?: Record<string, unknown>): void {
+  // Gate must fire even when metrics logging is disabled (P4E ads dependency).
+  if (name === "home_interactive") {
+    notifyHomeInteractive();
+  }
+
   if (!enabled()) return;
+
   if (marks.has(name) && name !== "origin") {
     // Keep first occurrence for primary milestones; allow re-log of detail only.
     if (

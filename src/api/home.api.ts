@@ -1,4 +1,8 @@
 import { api } from "./client";
+import { CacheKeys, cachedGet } from "./requestCache";
+
+/** Soft freshness for automatic Home re-entry (explicit pull uses force: true). */
+export const HOME_BOOTSTRAP_SOFT_REFRESH_MS = 15_000;
 
 // ---------------------------------------------------------------------------
 // Types (match backend DTOs – no email/mobile)
@@ -200,10 +204,27 @@ export type HomeBootstrapResponse = {
 };
 
 /**
- * GET /api/home/bootstrap — cold-start: summary + feed page1 + stories tray + unread.
+ * GET /api/home/bootstrap — cold-start / refresh: summary + feed page1 + stories tray + unread.
  * Falls back to separate calls if the endpoint is missing (older servers).
+ *
+ * In-flight callers coalesce via requestCache; soft TTL applies unless `force`.
  */
-export async function getHomeBootstrap(limit = 6): Promise<HomeBootstrapResponse> {
+export async function getHomeBootstrap(
+  limit = 6,
+  opts?: { force?: boolean }
+): Promise<HomeBootstrapResponse> {
+  const force = opts?.force === true;
+  return cachedGet(
+    `${CacheKeys.homeBootstrap}:${limit}`,
+    () => fetchHomeBootstrapNetwork(limit),
+    {
+      force,
+      ttlMs: force ? 0 : HOME_BOOTSTRAP_SOFT_REFRESH_MS
+    }
+  );
+}
+
+async function fetchHomeBootstrapNetwork(limit: number): Promise<HomeBootstrapResponse> {
   try {
     const { data } = await api.get<{
       ok: boolean;

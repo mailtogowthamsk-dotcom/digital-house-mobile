@@ -7,6 +7,7 @@ import {
   getFeed,
   getHomeBootstrap,
   type HomeSummaryResponse,
+  type HomeBootstrapResponse,
   type FeedItem,
   type FeedResponse
 } from "../api/home.api";
@@ -17,7 +18,8 @@ import { mergeById } from "../utils/mergeById";
 import { resetFeedImpressionSession } from "../utils/feedImpressionTracker";
 import { seedStartupUnreadCounts } from "../utils/startupUnreadSeed";
 import { seedStartupStoryGroups } from "../utils/startupStorySeed";
-import type { StoryGroup } from "../api/stories.api";
+import { invalidateStoriesTray, type StoryGroup } from "../api/stories.api";
+import { invalidateRequestCache, CacheKeys } from "../api/requestCache";
 
 export type HomeState = {
   summary: HomeSummaryResponse | null;
@@ -170,6 +172,28 @@ export function useHome() {
 
   const feedRequestIdRef = useRef(0);
   const feedLoadingMoreRef = useRef(false);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+
+  const applyHomeBootstrap = useCallback((boot: HomeBootstrapResponse, requestId: number) => {
+    if (requestId !== feedRequestIdRef.current) return;
+    setSummary(boot.summary);
+    setSummaryError(null);
+    setFeedTotal(boot.feed.total);
+    setFeedNextCursor(boot.feed.nextCursor ?? null);
+    if (boot.feed.sort === "popular" || boot.feed.sort === "recent") {
+      setFeedSort(boot.feed.sort);
+    }
+    const mapped = boot.feed.items.map(feedItemToPostCard);
+    setFeedItems((prev) => mergeFeedCardsPreservingMedia(prev, mapped));
+    const mediaUris = mapped
+      .map((p) => getImageUrl(p.imageUri))
+      .filter((u): u is string => !!u);
+    if (mediaUris.length) prefetchAspectRatios(mediaUris);
+    seedStartupUnreadCounts(boot.unread);
+    seedStartupStoryGroups((boot.stories.groups ?? []) as StoryGroup[]);
+    // Keep tray cache coherent with bootstrap seed (avoid immediate /stories refetch).
+    invalidateStoriesTray();
+  }, []);
 
   const fetchSummary = useCallback(async (opts?: { background?: boolean }) => {
     const cached = summaryRef.current;
@@ -265,27 +289,13 @@ export function useHome() {
         /* metrics */
       }
       try {
-        const boot = await getHomeBootstrap(FEED_PAGE_SIZE);
+        const boot = await getHomeBootstrap(FEED_PAGE_SIZE, { force: false });
         if (cancelled || requestId !== feedRequestIdRef.current) return;
-        setSummary(boot.summary);
-        setSummaryError(null);
-        setFeedTotal(boot.feed.total);
-        setFeedNextCursor(boot.feed.nextCursor ?? null);
-        if (boot.feed.sort === "popular" || boot.feed.sort === "recent") {
-          setFeedSort(boot.feed.sort);
-        }
-        const mapped = boot.feed.items.map(feedItemToPostCard);
-        setFeedItems((prev) => mergeFeedCardsPreservingMedia(prev, mapped));
-        const mediaUris = mapped
-          .map((p) => getImageUrl(p.imageUri))
-          .filter((u): u is string => !!u);
-        if (mediaUris.length) prefetchAspectRatios(mediaUris);
-        seedStartupUnreadCounts(boot.unread);
-        seedStartupStoryGroups((boot.stories.groups ?? []) as StoryGroup[]);
+        applyHomeBootstrap(boot, requestId);
         try {
           const { startupMark } = await import("../utils/startupTiming");
           startupMark("home_bootstrap_end", {
-            feedCount: mapped.length,
+            feedCount: boot.feed.items?.length ?? 0,
             storyGroups: boot.stories.groups?.length ?? 0
           });
           startupMark("stories_seeded");
@@ -321,19 +331,53 @@ export function useHome() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyHomeBootstrap]);
 
-  const refetchAll = useCallback(async () => {
-    feedRequestIdRef.current += 1;
-    resetFeedImpressionSession();
-    setFeedError(null);
-    const hasSummary = summaryRef.current != null;
-    if (!hasSummary) setSummaryError(null);
-    await Promise.all([
-      fetchSummary({ background: hasSummary }),
-      fetchFeed(false)
-    ]);
-  }, [fetchSummary, fetchFeed]);
+  /**
+   * P4B Home refresh — one `/home/bootstrap` when on recent sort.
+   * Popular sort: backend bootstrap feed is always recent, so use a single `/home/feed` call.
+   */
+  const refetchAll = useCallback(
+    async (opts?: { force?: boolean }) => {
+      const force = opts?.force !== false;
+      if (refreshInFlightRef.current) {
+        return refreshInFlightRef.current;
+      }
+
+      const run = (async () => {
+        feedRequestIdRef.current += 1;
+        const requestId = feedRequestIdRef.current;
+        resetFeedImpressionSession();
+        setFeedError(null);
+        const hasSummary = summaryRef.current != null;
+        if (!hasSummary) setSummaryError(null);
+
+        try {
+          if (feedSortRef.current === "popular") {
+            // Preserve popular ranking — bootstrap cannot supply it without a backend sort param.
+            await fetchFeed(false);
+            return;
+          }
+          if (force) {
+            invalidateRequestCache(`${CacheKeys.homeBootstrap}:${FEED_PAGE_SIZE}`);
+          }
+          const boot = await getHomeBootstrap(FEED_PAGE_SIZE, { force });
+          applyHomeBootstrap(boot, requestId);
+        } catch (e) {
+          if (requestId !== feedRequestIdRef.current) return;
+          const err = e instanceof Error ? e : new Error("Failed to refresh home");
+          if (!summaryRef.current) setSummaryError(err);
+          setFeedError(err);
+        }
+      })();
+
+      refreshInFlightRef.current = run.finally(() => {
+        if (refreshInFlightRef.current === run) refreshInFlightRef.current = null;
+      });
+      return refreshInFlightRef.current;
+    },
+    [applyHomeBootstrap, fetchFeed]
+  );
 
   const loadMoreFeed = useCallback(() => {
     if (feedLoadingMoreRef.current || feedLoading) return;

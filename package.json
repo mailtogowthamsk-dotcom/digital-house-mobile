@@ -15,7 +15,9 @@
     "build:ios": "eas build --platform ios --profile preview",
     "build:ios-simulator": "eas build --platform ios --profile preview-simulator",
     "build:android": "eas build --platform android --profile preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:p4b": "npx --yes tsx src/api/runP4bSelftest.ts",
+    "test:p4e": "npx --yes tsx src/api/runP4eSelftest.ts"
   },
   "expo": {
     "doctor": {

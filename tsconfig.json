@@ -6,5 +6,5 @@
     "ignoreDeprecations": "6.0"
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "src/mobile_app"]
+  "exclude": ["node_modules", "src/mobile_app", "scripts"]
 }
