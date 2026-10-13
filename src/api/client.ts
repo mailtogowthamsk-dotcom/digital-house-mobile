@@ -36,7 +36,7 @@ function isTransientNetworkError(err: AxiosError): boolean {
   );
 }
 
-const PRODUCTION_API = "https://konguvettuvagounder.com/api";
+const PRODUCTION_API = "https://api.konguvettuvagounder.com/api";
 
 /**
  * Production API must use www (Apache 301 on bare domain breaks some clients).
