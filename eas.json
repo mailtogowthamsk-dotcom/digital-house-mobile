@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 13.0.0"
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -36,6 +37,7 @@
     },
     "production": {
       "channel": "production",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.konguvettuvagounder.com/api",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "457331615949-83vqrhtgb8o67mekio6e7f3hiphiaulc.apps.googleusercontent.com",
