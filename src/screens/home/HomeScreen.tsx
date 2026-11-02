@@ -32,6 +32,7 @@ import { PaginationFooter } from "../../components/ui/PaginationFooter";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
   PostActionsBottomSheet,
+  postCardToSharePayload,
   type PostSharePayload
 } from "../../components/share/PostActionsBottomSheet";
 import type { PostLiker } from "../../api/posts.api";
@@ -468,15 +469,7 @@ export function HomeScreen() {
     onSavePress: (item) => toggleSave(item.id, item),
     onSharePress: (item) => {
       trackFeedAction("share", Number(item.id));
-      setSharePost({
-        postId: Number(item.id),
-        title: item.title,
-        authorName: item.userName,
-        authorUserId: item.authorUserId,
-        mediaUrl: item.imageUri,
-        mediaType: item.mediaType,
-        thumbnailUrl: item.thumbnailUrl
-      });
+      setSharePost(postCardToSharePayload(item));
     },
     onViewJob: (item) => {
       trackFeedAction("post_open", Number(item.id), { source: "feed_job_card" });
@@ -806,6 +799,7 @@ export function HomeScreen() {
         post={sharePost}
         onClose={() => setSharePost(null)}
         onReposted={() => void refetchAll({ force: true })}
+        onUndoRepost={() => void refetchAll({ force: true })}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
 

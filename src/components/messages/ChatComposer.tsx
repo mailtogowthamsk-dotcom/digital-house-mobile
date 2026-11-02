@@ -21,6 +21,8 @@ type Props = {
   sending: boolean;
   paddingBottom: number;
   horizontalPadding: number;
+  hasAttachment?: boolean;
+  placeholder?: string;
   colors: {
     surface: string;
     border: string;
@@ -39,9 +41,11 @@ function ChatComposerComponent({
   sending,
   paddingBottom,
   horizontalPadding,
+  hasAttachment = false,
+  placeholder = "Message",
   colors
 }: Props) {
-  const canSend = value.trim().length > 0 && !sending;
+  const canSend = (value.trim().length > 0 || hasAttachment) && !sending;
 
   return (
     <View
@@ -67,7 +71,7 @@ function ChatComposerComponent({
           ]}
           value={value}
           onChangeText={onChangeText}
-          placeholder="Message"
+          placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           multiline
           blurOnSubmit={false}

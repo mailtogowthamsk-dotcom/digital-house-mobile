@@ -19,10 +19,6 @@ type RetryableConfig = InternalAxiosRequestConfig & {
   __httpPriority?: "P0" | "P1" | "P2";
 };
 
-function isLocalLanApiUrl(url: string): boolean {
-  return /\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost|127\.0\.0\.1)/i.test(url);
-}
-
 function isTransientNetworkError(err: AxiosError): boolean {
   if (err.response) return false;
   const code = err.code ?? "";
@@ -226,34 +222,79 @@ export function getErrorStatus(err: unknown): number | undefined {
     : undefined;
 }
 
-export function getAuthErrorMessage(err: unknown): string {
-  if (!err || typeof err !== "object") return "Something went wrong. Please try again.";
-  const ax = err as AxiosError;
-  // Local throws (e.g. googleAuth incomplete response) — surface the real message.
-  if (!ax.isAxiosError && !ax.response && err instanceof Error && err.message.trim()) {
-    return err.message;
+const GENERIC_USER_ERROR = "Something went wrong. Please try again.";
+const NETWORK_USER_ERROR =
+  "Could not reach the server. Check your internet connection and try again.";
+
+function leaksInfrastructure(text: string): boolean {
+  if (/\b(?:\d{1,3}\.){3}\d{1,3}\b/.test(text)) return true;
+  if (/\[[0-9a-f:]+\]/i.test(text)) return true;
+  if (/https?:\/\//i.test(text)) return true;
+  if (/\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0)\b/i.test(text)) return true;
+  if (/\b(?:api|www)\.[a-z0-9.-]+\.[a-z]{2,}\b/i.test(text)) return true;
+  if (/[a-z0-9.-]+\.[a-z]{2,}\/\d/i.test(text)) return true;
+  if (/konguvettuvagounder|infosensetechnologies|digitalhouse\/backend|EXPO_PUBLIC_API/i.test(text)) {
+    return true;
   }
+  if (/\/api\b/i.test(text) && /reach|connect|url|gateway|server/i.test(text)) return true;
+  return false;
+}
+
+function looksLikeTransportFailure(text: string): boolean {
+  return /failed to connect|unable to resolve host|econnrefused|enotfound|etimedout|err_network|econnaborted|ehostunreach|network request failed|socket exception|ssl handshake|cleartext|unknownhost/i.test(
+    text
+  );
+}
+
+/** Strip hosts, IPs, and transport traces before showing an error to a member. */
+export function sanitizeUserFacingError(message: string | null | undefined): string {
+  const text = (message ?? "").trim();
+  if (!text) return GENERIC_USER_ERROR;
+  if (leaksInfrastructure(text) || looksLikeTransportFailure(text)) {
+    return NETWORK_USER_ERROR;
+  }
+  return text;
+}
+
+export function getAuthErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return GENERIC_USER_ERROR;
+  const ax = err as AxiosError;
+  const transportText = `${ax.code ?? ""} ${ax.message ?? ""}`.trim();
+
+  if (__DEV__) {
+    console.warn("[DigitalHouse] API error", {
+      code: ax.code,
+      message: ax.message,
+      status: ax.response?.status
+    });
+  }
+
+  if (looksLikeTransportFailure(transportText) || leaksInfrastructure(ax.message ?? "")) {
+    return NETWORK_USER_ERROR;
+  }
+
   const msg = (ax.response?.data as { message?: string })?.message;
-  if (msg && typeof msg === "string") return msg;
+  if (typeof msg === "string" && msg.trim()) {
+    return sanitizeUserFacingError(msg);
+  }
   const status = ax.response?.status;
   if (status === 401) {
     return "Session expired or not signed in. Please log in again and retry.";
   }
   if (status === 403) {
-    return msg || "Your account cannot access this feature yet.";
+    return "Your account cannot access this feature yet.";
   }
-  if (status === 400) return msg || "Invalid request. Please check your details.";
+  if (status === 400) return "Invalid request. Please check your details.";
   if (status === 409) {
-    return msg || "This mobile number/email is already registered.";
+    return "This mobile number/email is already registered.";
   }
   if (status === 500) return "Server error. Please try again in a moment.";
   if (status === 502 || status === 504) {
-    return "Server gateway error. Check that /digitalhouse/backend/api is reachable.";
+    return "The server is temporarily unavailable. Please try again in a moment.";
   }
-  if (status === 503) return msg || "Server is starting up. Please try again in a few seconds.";
+  if (status === 503) return "Server is starting up. Please try again in a few seconds.";
   if (status === 404) {
-    // Prefer API JSON message; only fall back when proxy/HTML returned empty body.
-    return msg || `Not found (404). If this is Connect, the member or route may be missing on the server.`;
+    return "This item could not be found.";
   }
   if (ax.code === "ECONNABORTED" || ax.message?.toLowerCase().includes("timeout")) {
     return "Request timed out. Please check your connection and try again.";
@@ -262,16 +303,16 @@ export function getAuthErrorMessage(err: unknown): string {
     !ax.response &&
     (ax.code === "ECONNREFUSED" ||
       ax.code === "ERR_NETWORK" ||
-      ax.message?.toLowerCase().includes("network"))
+      ax.code === "ENOTFOUND" ||
+      ax.code === "ETIMEDOUT" ||
+      ax.message?.toLowerCase().includes("network") ||
+      ax.message?.toLowerCase().includes("connect"))
   ) {
-    const base = getApiBaseUrl();
-    const hint = __DEV__ ? ` (${base})` : "";
-    if (Platform.OS === "android" && isLocalLanApiUrl(base)) {
-      return `Cannot reach your dev server${hint}. On Realme/Oppo: turn off "Wi‑Fi assistant" / "Smart network switch", keep phone on the same Wi‑Fi as your computer, and disable battery restrictions for this app. Or use the production HTTPS API URL in mobile/.env.`;
-    }
-    return `Cannot reach server. Check internet and API URL${hint}.`;
+    return NETWORK_USER_ERROR;
   }
-  if (err instanceof Error && err.message.trim()) return err.message;
+  if (err instanceof Error && err.message.trim()) {
+    return sanitizeUserFacingError(err.message);
+  }
   return "Request failed. Please try again.";
 }
 

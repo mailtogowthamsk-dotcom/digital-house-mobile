@@ -4,8 +4,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessageList, type ChatMessageListHandle } from "./ChatMessageList";
 import { ChatComposer } from "./ChatComposer";
+import { ChatShareDraftCard } from "./ChatShareDraftCard";
 import { ChatMessagesSkeleton } from "./ChatSkeleton";
 import type { MessageItem } from "../../api/messages.api";
+import type { ChatShareDraft } from "../../navigation/chatShare";
 
 type Props = {
   title: string;
@@ -54,6 +56,8 @@ type Props = {
   onSharedPostPress?: (postId: number) => void;
   onSharedStoryPress?: (storyId: number) => void;
   onDeleteMessage?: (item: MessageItem) => void;
+  shareDraft?: ChatShareDraft | null;
+  onDismissShareDraft?: () => void;
 };
 
 function ChatPanelComponent({
@@ -88,7 +92,9 @@ function ChatPanelComponent({
   headerTopInset,
   onSharedPostPress,
   onSharedStoryPress,
-  onDeleteMessage
+  onDeleteMessage,
+  shareDraft,
+  onDismissShareDraft
 }: Props) {
   const internalRef = useRef<ChatMessageListHandle>(null);
   const listRef = externalListRef ?? internalRef;
@@ -125,6 +131,27 @@ function ChatPanelComponent({
         chatKeyboardInset > 0 && { marginBottom: chatKeyboardInset }
       ]}
     >
+      {shareDraft ? (
+        <View
+          style={{
+            paddingHorizontal: horizontalPadding,
+            paddingTop: 8,
+            backgroundColor: colors.surface
+          }}
+        >
+          <ChatShareDraftCard
+            draft={shareDraft}
+            onDismiss={() => onDismissShareDraft?.()}
+            colors={{
+              surfaceElevated: colors.surfaceElevated,
+              border: colors.border,
+              text: colors.text,
+              textMuted: colors.textMuted,
+              primary: colors.primary
+            }}
+          />
+        </View>
+      ) : null}
       <ChatComposer
         value={input}
         onChangeText={onChangeText}
@@ -132,6 +159,8 @@ function ChatPanelComponent({
         sending={sending}
         paddingBottom={composerPaddingBottom}
         horizontalPadding={horizontalPadding}
+        hasAttachment={!!shareDraft}
+        placeholder={shareDraft ? "Add a note (optional)" : "Message"}
         colors={{
           surface: colors.surface,
           border: colors.border,

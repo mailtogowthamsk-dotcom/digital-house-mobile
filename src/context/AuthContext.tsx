@@ -11,6 +11,11 @@ import { AppState, type AppStateStatus } from "react-native";
 import { getMe, type MeUser } from "../api/auth.api";
 import { getErrorStatus } from "../api/client";
 import { clearAllRequestCaches, setRequestCacheUserId } from "../api/requestCache";
+import { clearStickySignedMediaUrls } from "../utils/stickySignedUrlCache";
+import {
+  clearAllStoryMediaCache,
+  setStoryMediaCacheUserId
+} from "../utils/storyMediaCache";
 import {
   registerAuthSignOut,
   setAllowAutoClearOn401,
@@ -152,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         void clearUserSnapshot();
         clearAllRequestCaches();
         setRequestCacheUserId(null);
+        setStoryMediaCacheUserId(null);
+        clearStickySignedMediaUrls();
+        void clearAllStoryMediaCache();
         setUser(null);
         setStatus("signedOut");
         statusRef.current = "signedOut";
@@ -168,8 +176,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (signedOut || !normalized?.id) {
         clearAllRequestCaches();
         setRequestCacheUserId(null);
+        setStoryMediaCacheUserId(null);
+        clearStickySignedMediaUrls();
+        void clearAllStoryMediaCache();
       } else {
         setRequestCacheUserId(normalized.id);
+        setStoryMediaCacheUserId(normalized.id);
       }
       if (!signedOut && normalized?.status === "APPROVED" && normalized.id) {
         void prewarmRealtime(normalized.id);
@@ -429,6 +441,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearWelcomeSession();
       clearAllRequestCaches();
       setRequestCacheUserId(null);
+      setStoryMediaCacheUserId(null);
+      clearStickySignedMediaUrls();
+      void clearAllStoryMediaCache();
       await clearToken();
       await clearUserSnapshot();
       applySession(null, true);

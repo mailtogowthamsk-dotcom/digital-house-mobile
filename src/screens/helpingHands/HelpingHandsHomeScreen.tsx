@@ -34,6 +34,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { timeAgo } from "../../utils/timeAgo";
 import { appAlert } from "../../utils/appAlert";
+import { chatParamsForShare, chatShareDraftFromFeedItem } from "../../navigation/chatShare";
 import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -329,11 +330,24 @@ export function HelpingHandsHomeScreen() {
                 {
                   text: "Chat",
                   onPress: () =>
-                    navigation.navigate("Chat", {
-                      otherUserId: result.requesterUserId,
-                      name: post?.author?.name ?? "Member",
-                      profileImage: post?.author?.profileImage ?? null
-                    })
+                    navigation.navigate(
+                      "Chat",
+                      chatParamsForShare(
+                        {
+                          userId: result.requesterUserId,
+                          name: post?.author?.name ?? "Member",
+                          profileImage: post?.author?.profileImage ?? null
+                        },
+                        chatShareDraftFromFeedItem({
+                          postId,
+                          title: post?.title ?? title,
+                          postType: post?.postType ?? "HELP_REQUEST",
+                          helpCategory: post?.helpCategory,
+                          helpUrgency: post?.helpUrgency,
+                          helpLocation: post?.helpLocation
+                        })
+                      )
+                    )
                 },
                 ...(result.contactPhone
                   ? [

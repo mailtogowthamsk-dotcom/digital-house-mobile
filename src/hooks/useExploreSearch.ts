@@ -5,7 +5,7 @@ import {
   type ExploreDiscoveryResponse
 } from "../api/explore.api";
 import type { PostCardData } from "../components/home/PostCard";
-import { feedItemToPostCard } from "../utils/postMappers";
+import { feedCardMatchesPostId, feedItemToPostCard } from "../utils/postMappers";
 import {
   loadRecentSearches,
   pushRecentSearch,
@@ -130,7 +130,7 @@ export function useExploreSearch() {
   }, []);
 
   const updatePost = useCallback((id: string, patch: Partial<PostCardData>) => {
-    setResults((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    setResults((prev) => prev.map((p) => (feedCardMatchesPostId(p, id) ? { ...p, ...patch } : p)));
   }, []);
 
   const retry = useCallback(() => {

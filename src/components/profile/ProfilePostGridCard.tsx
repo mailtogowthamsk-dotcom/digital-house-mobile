@@ -114,6 +114,23 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
         <View style={s.typePill}>
           <PostTypeIconBadge postType={post.postType} onDark size={24} />
         </View>
+        {post.isRepost ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 8,
+              bottom: 8,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: "rgba(15,23,42,0.6)",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Ionicons name="repeat" size={13} color="#fff" />
+          </View>
+        ) : null}
         <Pressable style={s.menuFab} onPress={onMenuPress} hitSlop={8}>
           <Ionicons name="ellipsis-horizontal" size={14} color="#fff" />
         </Pressable>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { subscribePostSync } from "../utils/postSync";
-import { profilePostToCardData } from "../utils/postMappers";
+import { feedCardMatchesPostId, profilePostToCardData } from "../utils/postMappers";
 import { timeAgo } from "../utils/timeAgo";
 import {
   getHomeSummary,
@@ -115,6 +115,9 @@ function feedItemToPostCard(item: FeedItem): PostCardData {
     isRepost: item.isRepost ?? false,
     originalAuthorName: item.originalAuthor?.name ?? null,
     originalPostId: item.originalPostId ?? null,
+    repostedByName: item.repostedBy?.name ?? null,
+    repostedByUserId: item.repostedBy?.userId ?? null,
+    repostedByMe: item.repostedByMe ?? false,
     jobCompany: item.jobCompany ?? null,
     jobLocation: item.jobLocation ?? null,
     jobEmploymentType: item.jobEmploymentType ?? null,
@@ -393,7 +396,7 @@ export function useHome() {
 
   const updatePost = useCallback((postId: string, patch: Partial<PostCardData>) => {
     setFeedItems((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, ...patch } : p))
+      prev.map((p) => (feedCardMatchesPostId(p, postId) ? { ...p, ...patch } : p))
     );
   }, []);
 

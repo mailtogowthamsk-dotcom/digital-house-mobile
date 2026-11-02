@@ -15,7 +15,7 @@ import {
 import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { googleAuth, loginRequest } from "../../api/auth.api";
-import { getApiBaseUrl, getAuthErrorMessage } from "../../api/client";
+import { getAuthErrorMessage, sanitizeUserFacingError } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import {
   EXPO_GO_GOOGLE_MESSAGE,
@@ -201,42 +201,19 @@ function LoginScreenBody({
         return;
       }
       navigation.navigate("OtpVerify", { email: normalizedEmail });
-    } catch (e: any) {
-      const status = e?.response?.status;
-      const backendMsg = e?.response?.data?.message ?? "";
-      if (status === 403) {
-        // Suspended / blocked — show message; do not send to Pending without a session.
-        setMsg(backendMsg || "Unable to sign in with this account.");
-        return;
-      }
+    } catch (e: unknown) {
+      const ax = e as { response?: { status?: number; data?: { message?: string } } };
+      const status = ax?.response?.status;
       if (status === 404) {
-        setMsg(backendMsg || "No account found. Please register first.");
+        const backend = ax.response?.data?.message?.trim();
+        setMsg(
+          backend
+            ? sanitizeUserFacingError(backend)
+            : "No account found. Please register first."
+        );
         return;
       }
-      if (status === 503) {
-        setMsg(backendMsg || "Server is starting up. Please try again in a few seconds.");
-        return;
-      }
-      if (status === 500 && backendMsg) {
-        setMsg(backendMsg);
-        return;
-      }
-      const isNetwork =
-        !e?.response &&
-        (e?.message?.includes("Network") || e?.code === "ECONNREFUSED" || e?.code === "ERR_NETWORK");
-      const isTimeout = e?.code === "ECONNABORTED" || e?.message?.includes("timeout");
-      const baseHint = __DEV__ ? ` Trying: ${getApiBaseUrl()}` : "";
-      const networkMsg = __DEV__
-        ? `Cannot reach server. Check mobile/.env EXPO_PUBLIC_API_URL (same WiFi as backend; use Mac IP for local, or public URL for production).${baseHint}`
-        : "Cannot reach server. Ensure the backend is online and reachable. The app was built with a fixed API URL (set EXPO_PUBLIC_API_URL in EAS when building); rebuild the app to change it.";
-      setMsg(
-        backendMsg ||
-          (isNetwork
-            ? networkMsg
-            : isTimeout
-              ? "Request timed out. Check backend is running and EXPO_PUBLIC_API_URL in mobile/.env."
-              : "Failed to send OTP. Check backend logs and mobile/.env API URL.")
-      );
+      setMsg(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }

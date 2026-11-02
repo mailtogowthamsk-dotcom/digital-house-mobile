@@ -81,8 +81,8 @@ export async function createStory(payload: {
 }
 
 /**
- * PUT raw bytes to the API server disk (NOT R2).
- * Returns local key: local/stories/{userId}/...
+ * PUT raw bytes through the Stories API (server stores on private R2, or local
+ * disk when rolled back). Returns a storage key, not a public CDN URL.
  */
 export async function uploadStoryMediaToServer(
   localUri: string,
@@ -100,28 +100,35 @@ export async function uploadStoryMediaToServer(
 
   const uploadUrl = `${getApiBaseUrl()}/stories/upload?mime=${encodeURIComponent(mimeType)}`;
   onProgress?.(0.1);
-  const result = await FileSystem.uploadAsync(uploadUrl, localUri, {
-    httpMethod: "PUT",
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      "Content-Type": mimeType,
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json"
-    }
-  });
+  let result: Awaited<ReturnType<typeof FileSystem.uploadAsync>>;
+  try {
+    result = await FileSystem.uploadAsync(uploadUrl, localUri, {
+      httpMethod: "PUT",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        "Content-Type": mimeType,
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json"
+      }
+    });
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : "Upload failed";
+    if (__DEV__) console.warn("[DigitalHouse] story upload failed", raw);
+    throw new Error("Could not reach the server. Check your internet connection and try again.");
+  }
   onProgress?.(1);
   if (result.status < 200 || result.status >= 300) {
-    let message = `Upload failed (${result.status})`;
+    let message = "Could not upload this story. Please try again.";
     try {
       const parsed = JSON.parse(result.body || "{}") as { message?: string; code?: string };
       if (parsed.message) {
-        message = parsed.code ? `${parsed.message} [${parsed.code}]` : parsed.message;
+        message = parsed.message;
       } else if (result.body && /Request Entity Too Large|413|client intended to send|Payload Too Large/i.test(result.body)) {
-        message = "Upload failed (413) — video too large for the reverse proxy. Ask admin to raise body size limit.";
+        message = "This file is too large. Try a shorter clip or a smaller photo.";
       }
     } catch {
       if (result.body && /Request Entity Too Large|413|Payload Too Large/i.test(result.body)) {
-        message = "Upload failed (413) — video too large for the reverse proxy.";
+        message = "This file is too large. Try a shorter clip or a smaller photo.";
       }
     }
     const err = new Error(message) as Error & { status?: number };

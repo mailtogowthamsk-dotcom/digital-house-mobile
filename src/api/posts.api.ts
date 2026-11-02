@@ -77,6 +77,8 @@ export type PostDetailResponse = {
   is_repost?: boolean;
   original_post_id?: number | null;
   original_author?: PostAuthor | null;
+  reposted_by?: PostAuthor | null;
+  reposted_by_me?: boolean;
 };
 
 export type CommentItem = {

@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import type { MessageItem } from "../../api/messages.api";
+import { describeSharePreview } from "../../navigation/chatShare";
 import { hapticCopyMessage } from "../../utils/chatHaptics";
 import { appAlert } from "../../utils/appAlert";
 
@@ -53,6 +54,22 @@ function ChatMessageBubbleComponent({
   });
   const sharedPostId = item.sharedPostId != null ? Number(item.sharedPostId) : null;
   const sharedStoryId = item.sharedStoryId != null ? Number(item.sharedStoryId) : null;
+  const sharedPostView = item.sharedPost
+    ? describeSharePreview({
+        title: item.sharedPost.title,
+        postType: item.sharedPost.postType,
+        jobCompany: item.sharedPost.jobCompany,
+        jobLocation: item.sharedPost.jobLocation,
+        marketplaceIntent: item.sharedPost.marketplaceIntent,
+        marketplacePrice: item.sharedPost.marketplacePrice,
+        marketplaceNegotiable: item.sharedPost.marketplaceNegotiable,
+        marketplaceCategory: item.sharedPost.marketplaceCategory,
+        marketplaceDistrict: item.sharedPost.marketplaceDistrict,
+        helpCategory: item.sharedPost.helpCategory,
+        helpUrgency: item.sharedPost.helpUrgency,
+        helpLocation: item.sharedPost.helpLocation
+      })
+    : describeSharePreview({ title: "Shared post" });
   const showNote =
     (sharedPostId != null || sharedStoryId != null) &&
     item.body.trim() &&
@@ -205,21 +222,33 @@ function ChatMessageBubbleComponent({
           >
             <View style={styles.sharedCardHeader}>
               <Ionicons
-                name="document-text-outline"
+                name={sharedPostView.icon}
                 size={14}
                 color={mine ? "#fff" : colors.primary}
               />
               <Text style={[styles.sharedCardTitle, { color: mine ? "#fff" : colors.text }]}>
-                Shared post
+                {sharedPostView.kicker}
               </Text>
             </View>
+            {item.sharedPost?.title ? (
+              <Text
+                style={[
+                  styles.sharedCardTitle,
+                  { color: mine ? "#fff" : colors.text, marginTop: 2 }
+                ]}
+                numberOfLines={2}
+              >
+                {item.sharedPost.title}
+              </Text>
+            ) : null}
             <Text
               style={[
                 styles.sharedCardHint,
                 { color: mine ? "rgba(255,255,255,0.78)" : colors.textMuted }
               ]}
+              numberOfLines={2}
             >
-              Tap to open
+              {sharedPostView.meta || "Tap to open"}
             </Text>
           </Pressable>
         ) : null}

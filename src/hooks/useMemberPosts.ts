@@ -87,7 +87,7 @@ export function useMemberPosts(
       const { postId, patch } = event;
       setItems((prev) =>
         prev.map((p) => {
-          if (p.postId !== postId) return p;
+          if (p.postId !== postId && p.originalPostId !== postId) return p;
           return {
             ...p,
             counts: {
@@ -115,7 +115,7 @@ export function useMemberPosts(
       const id = Number(postId);
       setItems((prev) =>
         prev.map((p) => {
-          if (p.postId !== id) return p;
+          if (p.postId !== id && p.originalPostId !== id) return p;
           return {
             ...p,
             counts: {

@@ -60,6 +60,12 @@ export type RootStackParamList = {
     muted?: boolean;
     archived?: boolean;
     left?: boolean;
+    /** One-shot composer attachment — applied only when shareForUserId matches. */
+    sharePostId?: number;
+    shareForUserId?: number;
+    shareNonce?: number;
+    sharePreview?: import("./chatShare").ChatSharePreview;
+    initialMessage?: string;
   };
   JobsHome: { initialMode?: "browse" | "mine" | "applications" } | undefined;
   JobApplicants: { postId: number; jobTitle?: string };

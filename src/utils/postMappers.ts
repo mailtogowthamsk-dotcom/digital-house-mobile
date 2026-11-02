@@ -18,6 +18,14 @@ const POST_TYPE_LABELS: Record<string, string> = {
   ENTERTAINMENT: "Entertainment"
 };
 
+export function feedCardMatchesPostId(
+  card: { id: string; originalPostId?: number | null },
+  postId: string | number
+): boolean {
+  const id = String(postId);
+  return card.id === id || (card.originalPostId != null && String(card.originalPostId) === id);
+}
+
 export function formatPostType(postType: string): string {
   const key = postType.trim().toUpperCase();
   return POST_TYPE_LABELS[key] ?? postType;
@@ -71,10 +79,15 @@ export function memberPostToCardData(
   userName: string,
   userAvatarUri?: string | null
 ): PostCardData {
+  const isRepost = post.isRepost ?? false;
+  const originalName = post.originalAuthorName?.trim() || null;
   return {
     id: String(post.postId),
-    userName,
-    userAvatarUri: userAvatarUri ?? null,
+    userName: isRepost && originalName ? originalName : userName,
+    authorUserId: isRepost ? post.originalAuthorUserId ?? undefined : undefined,
+    userAvatarUri: isRepost
+      ? getImageUrl(post.originalAuthorProfileImage) ?? userAvatarUri ?? null
+      : userAvatarUri ?? null,
     timeAgo: timeAgo(post.createdAt),
     postType: formatPostType(post.postType),
     title: post.title,
@@ -94,9 +107,11 @@ export function memberPostToCardData(
     likedByMe: post.likedByMe,
     savedByMe: post.savedByMe,
     isTrending: false,
-    isRepost: post.isRepost ?? false,
-    originalAuthorName: post.originalAuthorName ?? null,
-    originalPostId: post.originalPostId ?? null
+    isRepost,
+    originalAuthorName: originalName,
+    originalPostId: post.originalPostId ?? null,
+    repostedByName: isRepost ? userName : null,
+    repostedByMe: post.repostedByMe ?? isRepost
   };
 }
 
@@ -149,6 +164,9 @@ export function feedItemToPostCard(item: FeedItem): PostCardData {
     isRepost: item.isRepost ?? false,
     originalAuthorName: item.originalAuthor?.name ?? null,
     originalPostId: item.originalPostId ?? null,
+    repostedByName: item.repostedBy?.name ?? null,
+    repostedByUserId: item.repostedBy?.userId ?? null,
+    repostedByMe: item.repostedByMe ?? false,
     jobCompany: item.jobCompany ?? null,
     jobLocation: item.jobLocation ?? null,
     jobEmploymentType: item.jobEmploymentType ?? null,

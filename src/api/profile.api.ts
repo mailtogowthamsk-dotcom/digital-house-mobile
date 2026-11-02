@@ -104,6 +104,10 @@ export type ProfilePostItem = {
   counts: { likes: number; comments: number; views: number };
   likedByMe: boolean;
   savedByMe: boolean;
+  isRepost?: boolean;
+  originalPostId?: number | null;
+  originalAuthorName?: string | null;
+  repostedByMe?: boolean;
 };
 
 export type ProfilePostsResponse = {

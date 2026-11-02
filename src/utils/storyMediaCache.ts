@@ -1,26 +1,79 @@
 /**
  * On-disk cache for Stories media (image + video).
- * Keyed by story id so refreshed signed query strings do not re-download.
+ *
+ * Cache key is viewer-scoped (`u{userId}-story-{id}-{kind}`) so one user's
+ * authorized download cannot be replayed by another account on the same device.
+ * Signed query strings are ignored — the HMAC gateway re-checks access on
+ * network fetch; disk hits still revalidate via `revalidateLive` in the viewer.
+ *
+ * Shared Cloudflare CDN is intentionally NOT used for Story bytes (private).
  */
 
 import * as FileSystem from "expo-file-system/legacy";
 import { getImageUrl } from "../api/client";
 import type { StoryGroup, StoryItem } from "../api/stories.api";
+import {
+  STORY_MEDIA_CACHE_MAX_AGE_MS,
+  STORY_MEDIA_CACHE_MAX_BYTES
+} from "../config/stories.constants";
 
 const DIR = `${FileSystem.cacheDirectory ?? ""}story-media-cache/`;
 const META = `${DIR}index.json`;
-/** Stories live ≤24h; keep a small buffer then evict. */
-const MAX_AGE_MS = 26 * 60 * 60 * 1000;
-const MAX_BYTES = 256 * 1024 * 1024;
+const MAX_AGE_MS = STORY_MEDIA_CACHE_MAX_AGE_MS;
+const MAX_BYTES = STORY_MEDIA_CACHE_MAX_BYTES;
 
-type MetaEntry = { file: string; bytes: number; at: number; expiresAt?: number };
+type MetaEntry = { file: string; bytes: number; at: number; expiresAt?: number; userId?: number };
 type MetaFile = Record<string, MetaEntry>;
 
 const memory = new Map<string, string>(); // cacheKey -> local file://
 const inflight = new Map<string, Promise<string>>();
 
-function cacheKeyForStory(storyId: number, kind: "file" | "thumbnail" = "file"): string {
-  return `story-${storyId}-${kind}`;
+let cacheUserId: number | null = null;
+
+export class StoryMediaUnauthorizedError extends Error {
+  constructor(message = "Story media is no longer authorized") {
+    super(message);
+    this.name = "StoryMediaUnauthorizedError";
+  }
+}
+
+export function setStoryMediaCacheUserId(userId: number | null | undefined): void {
+  const next = userId != null && Number.isFinite(userId) && userId > 0 ? userId : null;
+  if (next !== cacheUserId) {
+    const previous = cacheUserId;
+    memory.clear();
+    inflight.clear();
+    cacheUserId = next;
+    // Drop the previous viewer's disk files without wiping a download that
+    // the new viewer may already have started.
+    if (previous != null) {
+      void evictStoryMediaCacheForUser(previous);
+    }
+    return;
+  }
+  cacheUserId = next;
+}
+
+export function storyDiskCacheKey(
+  userId: number,
+  storyId: number,
+  kind: "file" | "thumbnail" = "file"
+): string {
+  return `u${userId}-story-${storyId}-${kind}`;
+}
+
+function cacheKeyForStory(storyId: number, kind: "file" | "thumbnail" = "file"): string | null {
+  if (cacheUserId == null) return null;
+  return storyDiskCacheKey(cacheUserId, storyId, kind);
+}
+
+export function isStoryCacheEntryFresh(
+  entry: { at?: number; expiresAt?: number },
+  now = Date.now()
+): boolean {
+  if (entry.expiresAt != null && entry.expiresAt <= now) return false;
+  if (now - (entry.at || 0) > MAX_AGE_MS) return false;
+  return true;
 }
 
 function hashKey(key: string): string {
@@ -69,9 +122,7 @@ async function evictStale(meta: MetaFile): Promise<MetaFile> {
   const now = Date.now();
   let changed = false;
   for (const [k, e] of Object.entries(meta)) {
-    const expiredByAge = now - (e.at || 0) > MAX_AGE_MS;
-    const expiredByStory = e.expiresAt != null && e.expiresAt <= now;
-    if (!expiredByAge && !expiredByStory) continue;
+    if (isStoryCacheEntryFresh(e, now)) continue;
     try {
       await FileSystem.deleteAsync(e.file, { idempotent: true });
     } catch {
@@ -105,21 +156,27 @@ async function evictIfNeeded(meta: MetaFile): Promise<MetaFile> {
   return meta;
 }
 
-/** Memory / existing file only — never downloads. */
+/** Memory / existing file only — never downloads. Honors expiry. */
 export async function getCachedStoryMediaUriIfExists(
   storyId: number,
   kind: "file" | "thumbnail" = "file"
 ): Promise<string | null> {
   if (!FileSystem.cacheDirectory) return null;
   const key = cacheKeyForStory(storyId, kind);
-  const mem = memory.get(key);
-  if (mem) return mem;
+  if (!key) return null;
 
   await ensureDir();
   let meta = await readMeta();
   meta = await evictStale(meta);
   const entry = meta[key];
-  if (!entry?.file) return null;
+  if (!entry?.file || !isStoryCacheEntryFresh(entry)) {
+    memory.delete(key);
+    return null;
+  }
+  if (entry.userId != null && cacheUserId != null && entry.userId !== cacheUserId) {
+    memory.delete(key);
+    return null;
+  }
   try {
     const info = await FileSystem.getInfoAsync(entry.file);
     if (info.exists && !info.isDirectory && (info.size ?? 0) > 0) {
@@ -129,6 +186,7 @@ export async function getCachedStoryMediaUriIfExists(
   } catch {
     /* miss */
   }
+  memory.delete(key);
   return null;
 }
 
@@ -137,10 +195,16 @@ export type ResolveStoryMediaOpts = {
   kind?: "file" | "thumbnail";
   /** Story expires_at ISO — used for cache eviction. */
   expiresAt?: string | null;
+  /**
+   * Live authorization check (e.g. GET /stories/:id). On failure the disk
+   * entry is dropped so a deleted/expired/unauthorized story is not replayed.
+   * Prefetch should omit this; the viewer must pass it.
+   */
+  revalidateLive?: () => Promise<void>;
 };
 
 /**
- * Download once to disk, then always return file:// for that story id.
+ * Download once to disk, then return file:// for that viewer+story id.
  * Falls back to remote URL if download fails.
  */
 export async function resolveCachedStoryMediaUri(
@@ -149,11 +213,42 @@ export async function resolveCachedStoryMediaUri(
   opts: ResolveStoryMediaOpts = {}
 ): Promise<string> {
   const kind = opts.kind ?? "file";
-  const key = cacheKeyForStory(storyId, kind);
   if (!remoteUri?.trim() || !FileSystem.cacheDirectory) return remoteUri;
+  if (cacheUserId == null) return remoteUri;
+
+  if (opts.expiresAt) {
+    const exp = Date.parse(opts.expiresAt);
+    if (Number.isFinite(exp) && exp <= Date.now()) {
+      await invalidateStoryMediaCache(storyId);
+      if (opts.revalidateLive) {
+        throw new StoryMediaUnauthorizedError("Story expired");
+      }
+      return remoteUri;
+    }
+  }
+
+  const key = cacheKeyForStory(storyId, kind);
+  if (!key) return remoteUri;
 
   const existing = await getCachedStoryMediaUriIfExists(storyId, kind);
-  if (existing) return existing;
+  if (existing) {
+    if (opts.revalidateLive) {
+      try {
+        await opts.revalidateLive();
+        return existing;
+      } catch (err) {
+        if (err instanceof StoryMediaUnauthorizedError) {
+          await invalidateStoryMediaCache(storyId);
+          throw err;
+        }
+        // Transient getStory failure (offline / 5xx): keep the disk hit.
+        // expires_at still bounds the file; HMAC gateway re-checks if we miss.
+        return existing;
+      }
+    } else {
+      return existing;
+    }
+  }
 
   const pending = inflight.get(key);
   if (pending) return pending;
@@ -162,7 +257,6 @@ export async function resolveCachedStoryMediaUri(
     await ensureDir();
     const file = localPathFor(key, remoteUri, opts.mediaType);
     try {
-      // Replace partial/corrupt leftovers.
       await FileSystem.deleteAsync(file, { idempotent: true });
       const result = await FileSystem.downloadAsync(remoteUri, file);
       if (result.status >= 200 && result.status < 300) {
@@ -175,6 +269,7 @@ export async function resolveCachedStoryMediaUri(
             file,
             bytes,
             at: Date.now(),
+            userId: cacheUserId ?? undefined,
             expiresAt: opts.expiresAt ? Date.parse(opts.expiresAt) || undefined : undefined
           };
           meta = await evictIfNeeded(meta);
@@ -197,7 +292,7 @@ export async function resolveCachedStoryMediaUri(
   }
 }
 
-/** Warm cache for a single story (fire-and-forget). */
+/** Warm cache for a single story (fire-and-forget). No live revalidate. */
 export function prefetchStoryMedia(story: StoryItem | null | undefined): void {
   if (!story?.media_url || story.media_type === "text") return;
   const remote = getImageUrl(story.media_url);
@@ -222,7 +317,6 @@ export function prefetchStoryGroups(
   outer: for (const g of groups) {
     for (const s of g.stories) {
       if (!s?.media_url || s.media_type === "text") continue;
-      // Skip clearly expired items if expires_at is present.
       if (s.expires_at) {
         const exp = Date.parse(s.expires_at);
         if (Number.isFinite(exp) && exp <= Date.now()) continue;
@@ -259,7 +353,6 @@ export function prefetchStoryGroups(
 /**
  * Prefetch upcoming stories while viewer is open.
  * Starts at the story AFTER the current one — current is already loaded by the viewer.
- * `ahead` = how many subsequent items to warm (use 1 for next-only).
  */
 export function prefetchNearbyStories(
   groups: StoryGroup[],
@@ -272,7 +365,6 @@ export function prefetchNearbyStories(
 
   for (let gi = groupIndex; gi < groups.length && remaining > 0; gi++) {
     const g = groups[gi]!;
-    // Same group: start after current; later groups: from first story.
     const start = gi === groupIndex ? storyIndex + 1 : 0;
     for (let si = start; si < g.stories.length && remaining > 0; si++) {
       prefetchStoryMedia(g.stories[si]);
@@ -281,10 +373,33 @@ export function prefetchNearbyStories(
   }
 }
 
+async function evictStoryMediaCacheForUser(userId: number): Promise<void> {
+  const prefix = `u${userId}-story-`;
+  try {
+    let meta = await readMeta();
+    let changed = false;
+    for (const [k, e] of Object.entries(meta)) {
+      if (!k.startsWith(prefix) && e.userId !== userId) continue;
+      try {
+        if (e.file) await FileSystem.deleteAsync(e.file, { idempotent: true });
+      } catch {
+        /* ignore */
+      }
+      delete meta[k];
+      memory.delete(k);
+      changed = true;
+    }
+    if (changed) await writeMeta(meta);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Drop a story's cached bytes (e.g. after owner deletes). */
 export async function invalidateStoryMediaCache(storyId: number): Promise<void> {
   for (const kind of ["file", "thumbnail"] as const) {
     const key = cacheKeyForStory(storyId, kind);
+    if (!key) continue;
     memory.delete(key);
     try {
       let meta = await readMeta();
@@ -299,5 +414,17 @@ export async function invalidateStoryMediaCache(storyId: number): Promise<void> 
     } catch {
       /* ignore */
     }
+  }
+}
+
+/** Wipe all Story media on this device (logout / account switch). */
+export async function clearAllStoryMediaCache(): Promise<void> {
+  memory.clear();
+  inflight.clear();
+  if (!FileSystem.cacheDirectory) return;
+  try {
+    await FileSystem.deleteAsync(DIR, { idempotent: true });
+  } catch {
+    /* ignore */
   }
 }

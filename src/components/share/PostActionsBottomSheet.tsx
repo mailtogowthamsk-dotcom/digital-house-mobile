@@ -19,7 +19,7 @@ import { textFieldCompact, textFieldMultiline } from "../../theme/textField";
 import { AvatarImage } from "../ui/AvatarImage";
 import { getImageUrl, getAuthErrorMessage } from "../../api/client";
 import { useShareTargets, type ShareTarget } from "../../hooks/useShareTargets";
-import { sharePostToConnections, repostPost } from "../../api/postShare.api";
+import { sharePostToConnections, repostPost, undoRepost } from "../../api/postShare.api";
 import { downloadPostMedia } from "../../services/postMediaDownload";
 import { appAlert } from "../../utils/appAlert";
 import { openAppSettings } from "../../permissions";
@@ -35,7 +35,33 @@ export type PostSharePayload = {
   mediaUrl?: string | null;
   mediaType?: "image" | "video" | "none" | string | null;
   thumbnailUrl?: string | null;
+  originalPostId?: number | null;
+  repostedByMe?: boolean;
 };
+
+export function postCardToSharePayload(item: {
+  id: string;
+  title: string;
+  userName: string;
+  authorUserId?: number;
+  imageUri?: string | null;
+  mediaType?: string | null;
+  thumbnailUrl?: string | null;
+  originalPostId?: number | null;
+  repostedByMe?: boolean;
+}): PostSharePayload {
+  return {
+    postId: Number(item.id),
+    title: item.title,
+    authorName: item.userName,
+    authorUserId: item.authorUserId,
+    mediaUrl: item.imageUri,
+    mediaType: item.mediaType,
+    thumbnailUrl: item.thumbnailUrl,
+    originalPostId: item.originalPostId ?? null,
+    repostedByMe: item.repostedByMe ?? false
+  };
+}
 
 type Panel = "menu" | "connections";
 
@@ -44,6 +70,7 @@ type Props = {
   post: PostSharePayload | null;
   onClose: () => void;
   onReposted?: () => void;
+  onUndoRepost?: () => void;
   onNavigateFindMembers?: () => void;
 };
 
@@ -92,6 +119,7 @@ function PostActionsBottomSheetInner({
   post,
   onClose,
   onReposted,
+  onUndoRepost,
   onNavigateFindMembers
 }: Props) {
   const { colors, mode } = useTheme();
@@ -208,12 +236,14 @@ function PostActionsBottomSheetInner({
         message: note.trim() || undefined
       });
       const failed = result.failed.length;
-      closeThenAlert(
-        "Sent",
-        failed > 0
-          ? `Shared with ${result.sent} member${result.sent === 1 ? "" : "s"}. ${failed} could not be reached.`
-          : `Shared with ${result.sent} person${result.sent === 1 ? "" : "s"}.`
-      );
+      if (failed > 0) {
+        closeThenAlert(
+          "Sent",
+          `Shared with ${result.sent} member${result.sent === 1 ? "" : "s"}. ${failed} could not be reached.`
+        );
+      } else {
+        handleClose();
+      }
     } catch (e) {
       // Reported inline: the recipient is usually no longer someone you can
       // message, and keeping the sheet open lets them change the selection.
@@ -226,7 +256,9 @@ function PostActionsBottomSheetInner({
     } finally {
       setSending(false);
     }
-  }, [post, selected, note, closeThenAlert, reload]);
+  }, [post, selected, note, closeThenAlert, handleClose, reload]);
+
+  const alreadyReposted = Boolean(post?.repostedByMe);
 
   const handleRepost = useCallback(async () => {
     if (!post) return;
@@ -246,6 +278,21 @@ function PostActionsBottomSheetInner({
       setReposting(false);
     }
   }, [post, isOwnPost, onReposted, closeThenAlert]);
+
+  const handleUndoRepost = useCallback(async () => {
+    if (!post) return;
+    setReposting(true);
+    setActionError(null);
+    try {
+      await undoRepost(post.originalPostId ?? post.postId);
+      onUndoRepost?.();
+      closeThenAlert("Repost removed", "This post is no longer on your profile timeline.");
+    } catch (e) {
+      setActionError(getAuthErrorMessage(e) || "Could not undo this repost. Please try again.");
+    } finally {
+      setReposting(false);
+    }
+  }, [post, onUndoRepost, closeThenAlert]);
 
   const handleDownload = useCallback(async () => {
     if (!post?.mediaUrl) {
@@ -413,14 +460,22 @@ function PostActionsBottomSheetInner({
               />
               <ActionRow
                 icon="repeat-outline"
-                label={isOwnPost ? "Repost unavailable" : "Repost"}
-                subtitle={
-                  isOwnPost
-                    ? "You can't repost your own post"
-                    : "Share on your profile with attribution"
+                label={
+                  alreadyReposted
+                    ? "Undo repost"
+                    : isOwnPost
+                      ? "Repost unavailable"
+                      : "Repost"
                 }
-                onPress={() => void handleRepost()}
-                disabled={reposting || isOwnPost}
+                subtitle={
+                  alreadyReposted
+                    ? "Remove this from your profile timeline"
+                    : isOwnPost
+                      ? "You can't repost your own post"
+                      : "Share on your profile with attribution"
+                }
+                onPress={() => void (alreadyReposted ? handleUndoRepost() : handleRepost())}
+                disabled={reposting || (!alreadyReposted && isOwnPost)}
               />
               <ActionRow
                 icon="download-outline"

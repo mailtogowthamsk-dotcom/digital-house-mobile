@@ -27,3 +27,9 @@ export const STORY_VIDEO_TARGET_BITRATE = 4_500_000;
 export const STORY_PREFETCH_MAX_ITEMS = 0;
 /** Max parallel story media downloads during prefetch (viewer nearby only). */
 export const STORY_PREFETCH_CONCURRENCY = 2;
+/**
+ * On-device Story media cache. Keyed by viewer user id + story id (not signed URL).
+ * Stories live ≤24h; keep a small buffer then evict. Shared CDN is not used.
+ */
+export const STORY_MEDIA_CACHE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
+export const STORY_MEDIA_CACHE_MAX_BYTES = 256 * 1024 * 1024;

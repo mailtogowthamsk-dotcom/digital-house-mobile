@@ -49,6 +49,9 @@ export type PostCardData = {
   isRepost?: boolean;
   originalAuthorName?: string | null;
   originalPostId?: number | null;
+  repostedByName?: string | null;
+  repostedByUserId?: number | null;
+  repostedByMe?: boolean;
   isVerified?: boolean;
   audience?: string | null;
   firstLikerName?: string | null;
@@ -433,10 +436,9 @@ function PostCardInner({
     <View style={[s.card, video && s.cardVideo]}>
       {post.isRepost ? (
         <View style={s.repost}>
-          <Ionicons name="repeat-outline" size={14} color={colors.textSecondary} />
+          <Ionicons name="repeat" size={14} color={colors.textSecondary} />
           <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textSecondary }}>
-            Reposted by {post.userName}
-            {post.originalAuthorName ? ` · original by ${post.originalAuthorName}` : ""}
+            {post.repostedByName ? `${post.repostedByName} reposted` : "Reposted"}
           </Text>
         </View>
       ) : null}

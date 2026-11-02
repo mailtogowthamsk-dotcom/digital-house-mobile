@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import { listThreads, type Thread } from "../../api/messages.api";
-import { getImageUrl } from "../../api/client";
+import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 
 export function MessagesScreen() {
   const navigation = useNavigation<any>();
@@ -36,7 +36,7 @@ export function MessagesScreen() {
         setLoading(true);
         await load();
       } catch (e: any) {
-        setError(e?.message ?? "Failed to load messages");
+        setError(getAuthErrorMessage(e));
       } finally {
         setLoading(false);
       }

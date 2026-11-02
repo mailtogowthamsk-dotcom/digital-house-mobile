@@ -37,6 +37,7 @@ import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
   PostActionsBottomSheet,
+  postCardToSharePayload,
   type PostSharePayload
 } from "../../components/share/PostActionsBottomSheet";
 import { MemberProfileStatsRow } from "../../components/members/MemberProfileStatsRow";
@@ -723,15 +724,7 @@ export function MemberProfileScreen() {
     onSavePress: (item) => toggleSave(item.id, item),
     onSharePress: (item) => {
       trackFeedAction("share", Number(item.id));
-      setSharePost({
-        postId: Number(item.id),
-        title: item.title,
-        authorName: item.userName,
-        authorUserId: item.authorUserId,
-        mediaUrl: item.imageUri,
-        mediaType: item.mediaType,
-        thumbnailUrl: item.thumbnailUrl
-      });
+      setSharePost(postCardToSharePayload(item));
     },
     onViewJob: (item) => {
       navigation.navigate("PostDetail", { postId: Number(item.id) });
@@ -829,6 +822,8 @@ export function MemberProfileScreen() {
         visible={sharePost != null}
         post={sharePost}
         onClose={() => setSharePost(null)}
+        onReposted={() => void reloadPosts()}
+        onUndoRepost={() => void reloadPosts()}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
 

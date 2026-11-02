@@ -8,14 +8,13 @@ import {
   ActivityIndicator,
   ScrollView,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
-  type NativeSyntheticEvent,
-  type TextInputFocusEventData
+  useWindowDimensions
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardComposerInset } from "../../hooks/useKeyboardHeight";
 import * as ImagePicker from "expo-image-picker";
 import { useVideoPlayer, VideoView } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -27,6 +26,7 @@ import {
   validateVideoSize
 } from "../../utils/mediaUpload";
 import { createStory, uploadStoryMediaToServer } from "../../api/stories.api";
+import { getAuthErrorMessage } from "../../api/client";
 import { optimizeImageForUpload } from "../../utils/imageOptimizer";
 import { optimizeVideoForUpload } from "../../utils/videoOptimizer";
 import { ensureMediaLibraryRead } from "../../permissions";
@@ -52,7 +52,7 @@ type StoryPickKind = "image" | "video" | "text";
 
 const TEXT_BG_PRESETS = ["#0F172A", "#7C2D12", "#1E3A5F", "#14532D", "#4C1D95", "#9F1239"] as const;
 
-function LocalVideoPreview({ uri, compact }: { uri: string; compact?: boolean }) {
+function LocalVideoPreview({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = false;
@@ -61,9 +61,10 @@ function LocalVideoPreview({ uri, compact }: { uri: string; compact?: boolean })
   return (
     <VideoView
       player={player}
-      style={[styles.media, compact && styles.mediaCompact]}
+      style={styles.mediaFill}
       contentFit="cover"
       nativeControls={false}
+      surfaceType="textureView"
     />
   );
 }
@@ -71,6 +72,7 @@ function LocalVideoPreview({ uri, compact }: { uri: string; compact?: boolean })
 export function CreateStoryScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [localUri, setLocalUri] = useState<string | null>(null);
@@ -83,9 +85,10 @@ export function CreateStoryScreen() {
   const [progress, setProgress] = useState(0);
   const [caption, setCaption] = useState("");
   const [captionFocused, setCaptionFocused] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const { inset: keyboardInset } = useKeyboardComposerInset(captionFocused);
   const postingRef = useRef(false);
   const tempTrimUriRef = useRef<string | null>(null);
+  const captionInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     return () => {
@@ -121,43 +124,16 @@ export function CreateStoryScreen() {
     }, [])
   );
 
-  useEffect(() => {
-    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = Keyboard.addListener(showEvt, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const onHide = Keyboard.addListener(hideEvt, () => {
-      setKeyboardHeight(0);
+  const onCaptionFocus = useCallback(() => {
+    setCaptionFocused(true);
+  }, []);
+
+  const onCaptionBlur = useCallback(() => {
+    setTimeout(() => {
+      if (captionInputRef.current?.isFocused()) return;
       setCaptionFocused(false);
-    });
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
+    }, 250);
   }, []);
-
-  const scrollCaptionIntoView = useCallback(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        scrollRef.current?.scrollToEnd({ animated: true });
-      }, Platform.OS === "ios" ? 80 : 120);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (captionFocused && keyboardHeight > 0) {
-      scrollCaptionIntoView();
-    }
-  }, [captionFocused, keyboardHeight, scrollCaptionIntoView]);
-
-  const onCaptionFocus = useCallback(
-    (_e: NativeSyntheticEvent<TextInputFocusEventData>) => {
-      setCaptionFocused(true);
-      scrollCaptionIntoView();
-    },
-    [scrollCaptionIntoView]
-  );
 
   const openPhotoCrop = useCallback(
     async (uri: string, mime: string, size: number | null, fileName?: string, width?: number | null, height?: number | null) => {
@@ -310,11 +286,8 @@ export function CreateStoryScreen() {
         });
         emitStoriesChanged({ reason: "created" });
         navigation.goBack();
-      } catch (e: any) {
-        appAlert(
-          "Could not post",
-          e?.response?.data?.message ?? e?.message ?? "Try again"
-        );
+      } catch (e: unknown) {
+        appAlert("Could not post", getAuthErrorMessage(e));
       } finally {
         postingRef.current = false;
         setPosting(false);
@@ -446,27 +419,25 @@ export function CreateStoryScreen() {
       }
       emitStoriesChanged({ reason: "created" });
       navigation.goBack();
-    } catch (e: any) {
-      const status = e?.response?.status ?? e?.status;
-      const raw = e?.response?.data?.message ?? e?.message ?? "Try again";
-      const msg = String(raw);
+    } catch (e: unknown) {
+      const raw = getAuthErrorMessage(e);
       let title = "Could not post";
-      let body = msg;
-      if (/too long|VIDEO_TOO_LONG|Trim/i.test(msg)) {
+      let body = raw;
+      if (/too long|VIDEO_TOO_LONG|Trim/i.test(raw)) {
         title = "Video too long";
         body = `Stories must be ${STORY_VIDEO_MAX_DURATION_SEC} seconds or less. Trim your clip and try again.`;
-      } else if (/too short|VIDEO_TOO_SHORT/i.test(msg)) {
+      } else if (/too short|VIDEO_TOO_SHORT/i.test(raw)) {
         title = "Video too short";
         body = `Videos must be at least ${STORY_VIDEO_MIN_DURATION_SEC} seconds.`;
-      } else if (/corrupt|INVALID_VIDEO|UNSUPPORTED|MIME/i.test(msg)) {
+      } else if (/corrupt|INVALID_VIDEO|UNSUPPORTED|MIME/i.test(raw)) {
         title = "Unsupported media";
         body = "This file could not be used as a story. Try another photo or video.";
-      } else if (/upload failed \(\d+\)/i.test(msg) || /Empty upload|IMAGE_TOO_LARGE|VIDEO_TOO_LARGE/i.test(msg)) {
+      } else if (/IMAGE_TOO_LARGE|VIDEO_TOO_LARGE/i.test(raw)) {
         title = "Upload failed";
-        body = status ? `${msg} (HTTP ${status})` : msg;
-      } else if (/network|timeout|connection|ENOTFOUND|ECONNREFUSED/i.test(msg)) {
+        body = "This file is too large. Try a shorter clip or a smaller photo.";
+      } else if (/upload failed/i.test(raw)) {
         title = "Upload failed";
-        body = "Could not reach the server. Check your connection and try again.";
+        body = "Could not upload this story. Check your internet and try again.";
       }
       appAlert(title, body);
     } finally {
@@ -476,17 +447,18 @@ export function CreateStoryScreen() {
     }
   }, [localUri, kind, durationSec, mimeType, fileSize, caption, navigation, openTrim]);
 
-  const compactPreview = captionFocused || keyboardHeight > 0;
+  const keyboardOpen = keyboardInset > 0 || captionFocused;
+  // Text stories shrink the card. Photo/video stay a fixed frame — resizing the
+  // native surface when the keyboard opens paints a full-screen white layer.
+  const compactPreview = kind === "text" && keyboardOpen;
   const canPost =
     kind === "text" ? caption.trim().length > 0 : Boolean(localUri && kind);
+  // Leftover keyboard overlap after any window resize. Chat uses the same inset.
+  const keyboardLift = Math.min(keyboardInset, Math.round(windowHeight * 0.5));
+  const composerPad = keyboardLift > 0 ? 8 : Math.max(insets.bottom, 12);
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={0}
-    >
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.top, { borderBottomColor: colors.border }]}>
           <HeaderBackButton onPress={() => navigation.goBack()} />
           <Text style={[styles.title, { color: colors.text }]}>Add Story</Text>
@@ -496,18 +468,10 @@ export function CreateStoryScreen() {
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
-          contentContainerStyle={[
-            styles.body,
-            {
-              paddingBottom:
-                24 +
-                (keyboardHeight > 0
-                  ? 120
-                  : Math.max(insets.bottom, 12) + 72)
-            }
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
+          removeClippedSubviews={false}
           showsVerticalScrollIndicator={false}
         >
           {!localUri && kind !== "text" ? (
@@ -547,60 +511,77 @@ export function CreateStoryScreen() {
             </View>
           ) : kind === "text" ? (
             <View style={styles.textComposer}>
-              <View style={[styles.textPreview, { backgroundColor: textBg }]}>
+              <View
+                style={[
+                  styles.textPreview,
+                  compactPreview && styles.textPreviewCompact,
+                  { backgroundColor: textBg }
+                ]}
+              >
                 <TextInput
+                  ref={captionInputRef}
                   value={caption}
                   onChangeText={(t) => setCaption(t.slice(0, STORY_CAPTION_MAX))}
                   placeholder="Type your story…"
                   placeholderTextColor="rgba(255,255,255,0.55)"
-                  style={styles.textStoryInput}
+                  style={[styles.textStoryInput, compactPreview && styles.textStoryInputCompact]}
                   maxLength={STORY_CAPTION_MAX}
                   multiline
                   textAlign="center"
                   textAlignVertical="center"
                   autoFocus
+                  blurOnSubmit={false}
+                  onFocus={onCaptionFocus}
+                  onBlur={onCaptionBlur}
                 />
               </View>
-              <View style={styles.bgRow}>
-                {TEXT_BG_PRESETS.map((c) => (
-                  <Pressable
-                    key={c}
-                    onPress={() => setTextBg(c)}
-                    style={[
-                      styles.bgDot,
-                      {
-                        backgroundColor: c,
-                        borderColor: textBg === c ? colors.primary : "transparent",
-                        borderWidth: textBg === c ? 3 : 0
-                      }
-                    ]}
-                  />
-                ))}
-              </View>
+              {!compactPreview ? (
+                <View style={styles.bgRow}>
+                  {TEXT_BG_PRESETS.map((c) => (
+                    <Pressable
+                      key={c}
+                      onPress={() => setTextBg(c)}
+                      style={[
+                        styles.bgDot,
+                        {
+                          backgroundColor: c,
+                          borderColor: textBg === c ? colors.primary : "transparent",
+                          borderWidth: textBg === c ? 3 : 0
+                        }
+                      ]}
+                    />
+                  ))}
+                </View>
+              ) : null}
               <Text style={[styles.textCount, { color: colors.textMuted }]}>
                 {caption.length}/{STORY_CAPTION_MAX}
               </Text>
-              <Pressable
-                onPress={() => {
-                  setKind(null);
-                  setCaption("");
-                }}
-                style={styles.change}
-              >
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>Choose different</Text>
-              </Pressable>
+              {!compactPreview ? (
+                <Pressable
+                  onPress={() => {
+                    setKind(null);
+                    setCaption("");
+                    setCaptionFocused(false);
+                  }}
+                  style={styles.change}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Choose different</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : localUri ? (
             <View style={styles.preview}>
-              {kind === "video" ? (
-                <LocalVideoPreview uri={localUri} compact={compactPreview} />
-              ) : (
-                <Image
-                  source={{ uri: localUri }}
-                  style={[styles.media, compactPreview && styles.mediaCompact]}
-                  resizeMode="cover"
-                />
-              )}
+              <View style={styles.mediaFrame} collapsable={false}>
+                {kind === "video" ? (
+                  <LocalVideoPreview uri={localUri} />
+                ) : (
+                  <Image
+                    source={{ uri: localUri }}
+                    style={styles.mediaFill}
+                    resizeMode="cover"
+                  />
+                )}
+              </View>
               {kind === "video" && durationSec != null ? (
                 <Text style={[styles.meta, { color: colors.textSecondary }]}>
                   {formatDuration(durationSec)}
@@ -636,22 +617,41 @@ export function CreateStoryScreen() {
                 </Pressable>
               ) : null}
               <Pressable
-                onPress={() => {
-                  Keyboard.dismiss();
-                  if (tempTrimUriRef.current) {
-                    void cleanupTempVideoUri(tempTrimUriRef.current);
-                    tempTrimUriRef.current = null;
-                  }
-                  setLocalUri(null);
-                  setKind(null);
-                  setDurationSec(null);
-                  setCaption("");
-                }}
-                style={styles.change}
-              >
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>Choose different</Text>
-              </Pressable>
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setCaptionFocused(false);
+                    if (tempTrimUriRef.current) {
+                      void cleanupTempVideoUri(tempTrimUriRef.current);
+                      tempTrimUriRef.current = null;
+                    }
+                    setLocalUri(null);
+                    setKind(null);
+                    setDurationSec(null);
+                    setCaption("");
+                  }}
+                  style={styles.change}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Choose different</Text>
+                </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <View
+          style={[
+            styles.composer,
+            {
+              marginBottom: keyboardLift,
+              paddingBottom: composerPad,
+              borderTopColor: colors.border,
+              backgroundColor: colors.background
+            }
+          ]}
+        >
+          {kind !== "text" && localUri ? (
+            <>
               <TextInput
+                ref={captionInputRef}
                 value={caption}
                 onChangeText={(t) => setCaption(t.slice(0, STORY_CAPTION_MAX))}
                 placeholder="Add a caption…"
@@ -666,27 +666,18 @@ export function CreateStoryScreen() {
                 ]}
                 maxLength={STORY_CAPTION_MAX}
                 multiline
+                scrollEnabled
+                blurOnSubmit={false}
                 onFocus={onCaptionFocus}
-                onBlur={() => setCaptionFocused(false)}
+                onBlur={onCaptionBlur}
                 textAlignVertical="top"
+                underlineColorAndroid="transparent"
               />
               <Text style={{ color: colors.textMuted, fontSize: 11, alignSelf: "flex-end" }}>
                 {caption.length}/{STORY_CAPTION_MAX}
               </Text>
-            </View>
+            </>
           ) : null}
-        </ScrollView>
-
-        <View
-          style={[
-            styles.footer,
-            {
-              paddingBottom: Math.max(insets.bottom, 12),
-              borderTopColor: colors.border,
-              backgroundColor: colors.background
-            }
-          ]}
-        >
           <Pressable
             disabled={!canPost || posting}
             onPress={() => void post()}
@@ -710,8 +701,7 @@ export function CreateStoryScreen() {
             )}
           </Pressable>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -726,7 +716,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth
   },
   title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
-  body: { padding: 16, gap: 16, flexGrow: 1 },
+  body: { padding: 16, gap: 16 },
   pickRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 24 },
   pickBtn: {
     flexGrow: 1,
@@ -758,6 +748,11 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     overflow: "hidden"
   },
+  textPreviewCompact: {
+    maxHeight: 180,
+    aspectRatio: 9 / 12,
+    paddingVertical: 12
+  },
   textStoryInput: {
     width: "100%",
     color: "#fff",
@@ -767,6 +762,11 @@ const styles = StyleSheet.create({
     minHeight: 140,
     textAlign: "center",
     paddingHorizontal: 4
+  },
+  textStoryInputCompact: {
+    fontSize: 20,
+    lineHeight: 26,
+    minHeight: 72
   },
   bgRow: {
     flexDirection: "row",
@@ -785,8 +785,17 @@ const styles = StyleSheet.create({
     textAlign: "right"
   },
   preview: { alignItems: "center", gap: 12 },
-  media: { width: "100%", aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 16 },
-  mediaCompact: { maxHeight: 180, aspectRatio: 9 / 12 },
+  mediaFrame: {
+    width: "100%",
+    maxWidth: 280,
+    aspectRatio: 9 / 16,
+    maxHeight: 420,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#111",
+    alignSelf: "center"
+  },
+  mediaFill: { width: "100%", height: "100%" },
   meta: { fontSize: 13, fontWeight: "600" },
   trimBtn: {
     flexDirection: "row",
@@ -800,19 +809,20 @@ const styles = StyleSheet.create({
   change: { padding: 8, alignSelf: "center" },
   captionInput: {
     width: "100%",
-    minHeight: 72,
-    maxHeight: 120,
+    height: 48,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 15,
-    marginTop: 8
+    fontSize: 15
   },
-  footer: {
+  composer: {
+    flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: 16,
     paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8
   },
   postBtn: {
     borderRadius: 14,

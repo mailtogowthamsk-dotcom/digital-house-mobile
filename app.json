@@ -73,7 +73,7 @@
       "backgroundColor": "#F5F6F8",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,

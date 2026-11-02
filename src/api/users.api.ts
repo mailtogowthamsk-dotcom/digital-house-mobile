@@ -83,6 +83,9 @@ export type MemberPostItem = {
   isRepost?: boolean;
   originalPostId?: number | null;
   originalAuthorName?: string | null;
+  originalAuthorUserId?: number | null;
+  originalAuthorProfileImage?: string | null;
+  repostedByMe?: boolean;
 };
 
 export type MemberPostsResponse = {

@@ -30,6 +30,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { AvatarImage } from "../../components/ui/AvatarImage";
 import {
   deleteStory,
+  getStory,
   getStoryViewers,
   markStoryViewed,
   replyToStory,
@@ -40,11 +41,12 @@ import {
 import type { RootStackParamList } from "../../navigation/types";
 import { timeAgo } from "../../utils/timeAgo";
 import { appAlert } from "../../context/AppAlertContext";
-import { getImageUrl } from "../../api/client";
+import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import {
   invalidateStoryMediaCache,
   prefetchNearbyStories,
-  resolveCachedStoryMediaUri
+  resolveCachedStoryMediaUri,
+  StoryMediaUnauthorizedError
 } from "../../utils/storyMediaCache";
 import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { emitStoriesChanged } from "../../utils/storiesEvents";
@@ -341,10 +343,7 @@ export function StoryViewerScreen() {
               setPaused(false);
             } catch (e: any) {
               setPaused(false);
-              appAlert(
-                "Error",
-                e?.response?.data?.message ?? e?.message ?? "Could not delete"
-              );
+              appAlert("Error", getAuthErrorMessage(e));
             } finally {
               deletingRef.current = false;
             }
@@ -379,7 +378,7 @@ export function StoryViewerScreen() {
     } catch (e: any) {
       setLiked(prevLiked);
       setLikeCount(prevCount);
-      appAlert("Could not like", e?.message ?? "Try again");
+      appAlert("Could not like", getAuthErrorMessage(e));
     } finally {
       likingRef.current = false;
     }
@@ -410,7 +409,7 @@ export function StoryViewerScreen() {
         }
       ]);
     } catch (e: any) {
-      appAlert("Could not send", e?.response?.data?.message ?? e?.message ?? "Try again");
+      appAlert("Could not send", getAuthErrorMessage(e));
     } finally {
       setReplySending(false);
     }
@@ -443,7 +442,25 @@ export function StoryViewerScreen() {
     setPlayUri(null);
     void resolveCachedStoryMediaUri(story.id, mediaUri, {
       mediaType: story.media_type === "video" ? "video" : "image",
-      expiresAt: story.expires_at
+      expiresAt: story.expires_at,
+      // Live check so a deleted/expired/unauthorized story is not replayed from disk.
+      revalidateLive: async () => {
+        try {
+          await getStory(story.id);
+        } catch (err) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          const msg = err instanceof Error ? err.message : "";
+          if (
+            status === 401 ||
+            status === 403 ||
+            status === 404 ||
+            /story not found/i.test(msg)
+          ) {
+            throw new StoryMediaUnauthorizedError();
+          }
+          throw err;
+        }
+      }
     })
       .then((uri) => {
         if (!cancelled) {
@@ -451,11 +468,18 @@ export function StoryViewerScreen() {
           setMediaReady(true);
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setPlayUri(mediaUri);
-          setMediaReady(true);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Live auth failed — do not fall back to a leftover HMAC URL.
+        const name = err instanceof Error ? err.name : "";
+        if (err instanceof StoryMediaUnauthorizedError || name === "StoryMediaUnauthorizedError") {
+          setPlayUri(null);
+          setMediaReady(false);
+          return;
         }
+        // Download/network failure: HMAC gateway still re-checks expiry + connection.
+        setPlayUri(mediaUri);
+        setMediaReady(true);
       });
     return () => {
       cancelled = true;

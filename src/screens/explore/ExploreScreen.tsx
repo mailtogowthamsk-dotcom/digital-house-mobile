@@ -22,6 +22,7 @@ import { CommentSheet } from "../../components/feed/CommentSheet";
 import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
 import {
   PostActionsBottomSheet,
+  postCardToSharePayload,
   type PostSharePayload
 } from "../../components/share/PostActionsBottomSheet";
 import { useExploreSearch } from "../../hooks/useExploreSearch";
@@ -191,15 +192,7 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
     onSavePress: (item) => toggleSave(item.id, item),
     onSharePress: (item) => {
       trackFeedAction("share", Number(item.id), { source: "explore" });
-      setSharePost({
-        postId: Number(item.id),
-        title: item.title,
-        authorName: item.userName,
-        authorUserId: item.authorUserId,
-        mediaUrl: item.imageUri,
-        mediaType: item.mediaType,
-        thumbnailUrl: item.thumbnailUrl
-      });
+      setSharePost(postCardToSharePayload(item));
     },
     onViewJob: (item) => {
       trackFeedAction("post_open", Number(item.id), { source: "explore_job_card" });
@@ -396,6 +389,12 @@ export function ExploreScreen({ bottomInset = 72, topInset = 0 }: Props) {
         visible={sharePost != null}
         post={sharePost}
         onClose={() => setSharePost(null)}
+        onReposted={() => {
+          if (sharePost) explore.updatePost(String(sharePost.postId), { repostedByMe: true });
+        }}
+        onUndoRepost={() => {
+          if (sharePost) explore.updatePost(String(sharePost.postId), { repostedByMe: false });
+        }}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
     </View>

@@ -49,16 +49,12 @@ import { appAlert } from "../../utils/appAlert";
 import { mergeChatMessages } from "../../utils/mergeChatMessages";
 import { openSharedStoryInViewer } from "../../utils/openSharedStory";
 import { useAuth } from "../../context/AuthContext";
+import type { RootStackParamList } from "../../navigation/types";
+import { sharedPostFromDraft, type ChatShareDraft } from "../../navigation/chatShare";
 
-type ChatParams = {
-  otherUserId: number;
-  name: string;
-  profileImage?: string | null;
-  online?: boolean;
-  muted?: boolean;
-  archived?: boolean;
-  left?: boolean;
-};
+type ChatParams = RootStackParamList["Chat"];
+
+const SHARED_POST_FALLBACK_BODY = "Shared a post with you";
 
 const HISTORY_LIMIT = 30;
 
@@ -85,6 +81,7 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [shareDraft, setShareDraft] = useState<ChatShareDraft | null>(null);
   const [otherOnline, setOtherOnline] = useState(
     () => !isPresenceHidden(otherUserId) && (!!route.params.online || isUserOnlineCached(otherUserId))
   );
@@ -96,6 +93,7 @@ export function ChatScreen() {
   const pendingClientIdsRef = useRef<Set<string>>(new Set());
   const forgottenMessageIdsRef = useRef<Set<number>>(new Set());
   const deletingMessageIdsRef = useRef<Set<number>>(new Set());
+  const handledShareNonceRef = useRef<number | null>(null);
   const [chatAccess, setChatAccess] = useState<MessageAccess | null>(null);
   const [threadMuted, setThreadMuted] = useState(() => !!route.params.muted);
   const [threadArchived, setThreadArchived] = useState(() => !!route.params.archived);
@@ -375,6 +373,58 @@ export function ChatScreen() {
     };
   }, [loadInitial, otherUserId, authUser?.id, route.params.muted, route.params.archived, route.params.left]);
 
+  useEffect(() => {
+    setShareDraft(null);
+  }, [otherUserId]);
+
+  const clearShareParams = useCallback(() => {
+    if (
+      route.params.sharePostId == null &&
+      route.params.shareForUserId == null &&
+      route.params.shareNonce == null &&
+      route.params.sharePreview == null &&
+      route.params.initialMessage == null
+    ) {
+      return;
+    }
+    navigation.setParams({
+      sharePostId: undefined,
+      shareForUserId: undefined,
+      shareNonce: undefined,
+      sharePreview: undefined,
+      initialMessage: undefined
+    });
+  }, [
+    navigation,
+    route.params.initialMessage,
+    route.params.shareForUserId,
+    route.params.shareNonce,
+    route.params.sharePostId,
+    route.params.sharePreview
+  ]);
+
+  useEffect(() => {
+    const postId = route.params.sharePostId;
+    const forUserId = route.params.shareForUserId;
+    const nonce = route.params.shareNonce;
+    if (postId == null || !Number.isFinite(Number(postId)) || Number(postId) < 1) return;
+    if (forUserId != null && Number(forUserId) !== Number(otherUserId)) return;
+    if (nonce != null && handledShareNonceRef.current === Number(nonce)) return;
+    setShareDraft({
+      postId: Number(postId),
+      preview: route.params.sharePreview ?? { title: "Shared post" }
+    });
+    const note = route.params.initialMessage?.trim();
+    if (note) setInput(note);
+  }, [
+    otherUserId,
+    route.params.initialMessage,
+    route.params.shareForUserId,
+    route.params.shareNonce,
+    route.params.sharePostId,
+    route.params.sharePreview
+  ]);
+
   const typing = useChatTyping(otherUserId, !chatLocked);
   const { onInputChange, stopTyping, applyPeerTyping } = typing;
 
@@ -454,11 +504,15 @@ export function ChatScreen() {
   });
 
   const send = useCallback(async () => {
-    const body = input.trim();
-    if (!body || !meId || sending || chatLocked) return;
+    const note = input.trim();
+    const pendingDraft = shareDraft;
+    const sharePostId = pendingDraft?.postId ?? null;
+    if ((!note && !sharePostId) || !meId || sending || chatLocked) return;
+    const body = note || (sharePostId ? SHARED_POST_FALLBACK_BODY : "");
     setSending(true);
     setSendError(null);
     setInput("");
+    setShareDraft(null);
     stopTyping();
 
     const clientId = `m_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -468,6 +522,8 @@ export function ChatScreen() {
       senderId: meId,
       recipientId: otherUserId,
       body,
+      sharedPostId: sharePostId,
+      sharedPost: pendingDraft ? sharedPostFromDraft(pendingDraft) : null,
       clientId,
       deliveredAt: null,
       readAt: null,
@@ -490,25 +546,49 @@ export function ChatScreen() {
         senderId: meId,
         recipientId: otherUserId,
         body,
-        clientId
+        clientId,
+        sharedPostId: sharePostId
       });
       pendingClientIdsRef.current.delete(clientId);
+      const withPreview: MessageItem =
+        sharePostId && !saved.sharedPost && optimistic.sharedPost
+          ? {
+              ...saved,
+              sharedPostId: saved.sharedPostId ?? sharePostId,
+              sharedPost: optimistic.sharedPost
+            }
+          : saved;
       setMessages((prev) =>
-        mergeChatMessages(prev, [saved], {
+        mergeChatMessages(prev, [withPreview], {
           forgottenIds: forgottenMessageIdsRef.current
         })
       );
       listRef.current?.scrollToBottom(true);
+      if (route.params.shareNonce != null) {
+        handledShareNonceRef.current = Number(route.params.shareNonce);
+      }
+      clearShareParams();
     } catch (e: unknown) {
       removeOptimistic();
-      setInput(body);
+      setInput(note);
+      setShareDraft(pendingDraft);
       setSendError(
         e instanceof Error
           ? e.message
           : "Could not send message. Check your connection and try again."
       );
     }
-  }, [chatLocked, input, meId, otherUserId, sending, stopTyping]);
+  }, [
+    chatLocked,
+    clearShareParams,
+    input,
+    meId,
+    otherUserId,
+    route.params.shareNonce,
+    sending,
+    shareDraft,
+    stopTyping
+  ]);
 
   const handleSharedPostPress = useCallback(
     (sharedPostId: number) => {
@@ -897,6 +977,14 @@ export function ChatScreen() {
         onSharedPostPress={handleSharedPostPress}
         onSharedStoryPress={handleSharedStoryPress}
         onDeleteMessage={handleDeleteMessage}
+        shareDraft={chatLocked ? null : shareDraft}
+        onDismissShareDraft={() => {
+          if (route.params.shareNonce != null) {
+            handledShareNonceRef.current = Number(route.params.shareNonce);
+          }
+          setShareDraft(null);
+          clearShareParams();
+        }}
       />
     </View>
   );

@@ -30,3 +30,8 @@ export async function repostPost(postId: number): Promise<PostDetailResponse> {
   const { ok: _ok, ...post } = res.data;
   return post as PostDetailResponse;
 }
+
+export async function undoRepost(postId: number): Promise<{ undone: true }> {
+  const res = await api.delete<{ ok: true; undone: true }>(`/posts/${postId}/repost`);
+  return { undone: res.data.undone ?? true };
+}

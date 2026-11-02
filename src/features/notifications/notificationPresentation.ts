@@ -87,6 +87,8 @@ export function getNotificationVisual(type: string, category: NotificationCatego
       return { icon: "at", accent: "#2563EB", accentSoft: "rgba(37, 99, 235, 0.12)" };
     case "POST_SHARE":
       return { icon: "paper-plane", accent: "#6366F1", accentSoft: "rgba(99, 102, 241, 0.12)" };
+    case "POST_REPOST":
+      return { icon: "repeat", accent: "#6366F1", accentSoft: "rgba(99, 102, 241, 0.12)" };
     case "USER_FOLLOW":
       return { icon: "person-add", accent: "#2563EB", accentSoft: "rgba(37, 99, 235, 0.12)" };
     case "COMMUNITY_ANNOUNCEMENT":

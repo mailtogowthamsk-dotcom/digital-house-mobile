@@ -36,6 +36,22 @@ export type Thread = {
   unreadCount: number;
 };
 
+export type SharedPostPreview = {
+  id: number;
+  title: string;
+  postType?: string | null;
+  jobCompany?: string | null;
+  jobLocation?: string | null;
+  marketplaceIntent?: string | null;
+  marketplacePrice?: number | null;
+  marketplaceNegotiable?: boolean | null;
+  marketplaceCategory?: string | null;
+  marketplaceDistrict?: string | null;
+  helpCategory?: string | null;
+  helpUrgency?: string | null;
+  helpLocation?: string | null;
+};
+
 export type MessageItem = {
   id: number;
   senderId: number;
@@ -43,6 +59,7 @@ export type MessageItem = {
   body: string;
   sharedPostId?: number | null;
   sharedStoryId?: number | null;
+  sharedPost?: SharedPostPreview | null;
   clientId: string | null;
   deliveredAt: string | null;
   readAt: string | null;
@@ -204,11 +221,17 @@ export async function getHistory(
   return { messages: res.data.messages ?? [], nextCursorId: res.data.nextCursorId ?? null };
 }
 
-export async function sendMessage(recipientId: number, body: string, clientId?: string) {
+export async function sendMessage(
+  recipientId: number,
+  body: string,
+  clientId?: string,
+  sharedPostId?: number | null
+) {
   const res = await api.post<{ ok: true; message: MessageItem }>("/messages", {
     recipientId,
     body,
-    clientId
+    clientId,
+    ...(sharedPostId != null ? { sharedPostId } : {})
   });
   // Hub list uses a 45s TTL — clear so back-navigation does not show a stale lastMessage.
   invalidateThreadsCache();

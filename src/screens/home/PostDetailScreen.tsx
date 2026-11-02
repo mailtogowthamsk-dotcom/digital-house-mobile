@@ -46,6 +46,7 @@ import { textField, textFieldMultiline } from "../../theme/textField";
 import { messages } from "../../theme/messages";
 import { appAlert } from "../../utils/appAlert";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
+import { chatParamsForShare, chatShareDraftFromPost } from "../../navigation/chatShare";
 import {
   formatEmploymentType,
   formatJobExperience,
@@ -270,7 +271,9 @@ export function PostDetailScreen() {
       authorUserId: post.author?.id ?? null,
       mediaUrl: post.media_url,
       mediaType: post.media_type,
-      thumbnailUrl: post.thumbnail_url
+      thumbnailUrl: post.thumbnail_url,
+      originalPostId: post.original_post_id ?? null,
+      repostedByMe: post.reposted_by_me ?? false
     });
   }, [post, postId]);
 
@@ -416,6 +419,14 @@ export function PostDetailScreen() {
     ]);
   }, [post, postId, updatingJob]);
 
+  const openChatSharingPost = useCallback(
+    (other: { userId: number; name: string; profileImage?: string | null }) => {
+      if (!post) return;
+      navigation.navigate("Chat", chatParamsForShare(other, chatShareDraftFromPost(post)));
+    },
+    [navigation, post]
+  );
+
   const handleContactSeller = useCallback(() => {
     if (!post || post.post_type !== "MARKETPLACE") return;
     if (post.marketplace_status !== "LIVE") {
@@ -430,15 +441,15 @@ export function PostDetailScreen() {
         {
           text: "Open chat",
           onPress: () =>
-            navigation.navigate("Chat", {
-              otherUserId: post.user_id,
+            openChatSharingPost({
+              userId: post.user_id,
               name: post.author.name,
               profileImage: post.author.profile_image
             })
         }
       ]
     );
-  }, [navigation, post]);
+  }, [openChatSharingPost, post]);
 
   const submitJobApplication = useCallback(
     async (contactMobile: string, message?: string) => {
@@ -482,8 +493,8 @@ export function PostDetailScreen() {
           alertButtons.unshift({
             text: "Message",
             onPress: () =>
-              navigation.navigate("Chat", {
-                otherUserId: post.user_id,
+              openChatSharingPost({
+                userId: post.user_id,
                 name: post.author.name,
                 profileImage: post.author.profile_image
               })
@@ -500,15 +511,15 @@ export function PostDetailScreen() {
         setInterestBusy(false);
       }
     },
-    [navigation, post, postId]
+    [navigation, openChatSharingPost, post, postId]
   );
 
   const handleExpressInterest = useCallback(() => {
     if (postId == null || !post || post.post_type !== "JOB" || interestBusy) return;
     if (post.job_interested_by_me) {
       if (post.job_can_message_poster) {
-        navigation.navigate("Chat", {
-          otherUserId: post.user_id,
+        openChatSharingPost({
+          userId: post.user_id,
           name: post.author.name,
           profileImage: post.author.profile_image
         });
@@ -530,7 +541,7 @@ export function PostDetailScreen() {
     }
     setApplyMobileError(null);
     setApplyModalOpen(true);
-  }, [interestBusy, navigation, post, postId]);
+  }, [interestBusy, openChatSharingPost, post, postId]);
 
   const handleConfirmApply = useCallback(() => {
     const normalized = normalizeIndianMobile(applyMobile);
@@ -588,8 +599,8 @@ export function PostDetailScreen() {
         {
           text: "Chat",
           onPress: () =>
-            navigation.navigate("Chat", {
-              otherUserId: requesterUserId,
+            openChatSharingPost({
+              userId: requesterUserId,
               name: post.author.name,
               profileImage: post.author.profile_image
             })
@@ -643,7 +654,7 @@ export function PostDetailScreen() {
         }
       }
     ]);
-  }, [helpBusy, loadHelpHelpersPage, navigation, post, postId]);
+  }, [helpBusy, loadHelpHelpersPage, openChatSharingPost, post, postId]);
 
   const hasHelpers =
     helpHelpersTotal > 0 || helpHelpers.length > 0 || (post?.help_helper_count ?? 0) > 0;
@@ -1038,16 +1049,11 @@ export function PostDetailScreen() {
         {post.is_repost ? (
           <View style={[s.repostBanner, { backgroundColor: colors.surfaceElevated }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="repeat-outline" size={14} color={colors.textSecondary} />
+              <Ionicons name="repeat" size={14} color={colors.textSecondary} />
               <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>
-                Reposted by {post.author.name}
+                {post.reposted_by?.name ? `${post.reposted_by.name} reposted` : "Reposted"}
               </Text>
             </View>
-            {post.original_author?.name ? (
-              <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 20, marginTop: 2 }}>
-                Original post by {post.original_author.name}
-              </Text>
-            ) : null}
           </View>
         ) : null}
 
@@ -1718,8 +1724,8 @@ export function PostDetailScreen() {
               <Pressable
                 key={item.id}
                 onPress={() =>
-                  navigation.navigate("Chat", {
-                    otherUserId: item.from_user_id,
+                  openChatSharingPost({
+                    userId: item.from_user_id,
                     name: item.author.name,
                     profileImage: item.author.profile_image
                   })
@@ -1967,6 +1973,14 @@ export function PostDetailScreen() {
         visible={shareOpen != null}
         post={shareOpen}
         onClose={() => setShareOpen(null)}
+        onReposted={() => {
+          setPost((p) => (p ? { ...p, reposted_by_me: true } : p));
+        }}
+        onUndoRepost={() => {
+          const wasWrapper = Boolean(post?.is_repost);
+          setPost((p) => (p ? { ...p, reposted_by_me: false } : p));
+          if (wasWrapper) navigation.goBack();
+        }}
         onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
       />
 

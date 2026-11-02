@@ -98,6 +98,8 @@ export type FeedItem = {
   isRepost?: boolean;
   originalPostId?: number | null;
   originalAuthor?: FeedAuthor | null;
+  repostedBy?: FeedAuthor | null;
+  repostedByMe?: boolean;
 };
 
 export type FeedQueryParams = {

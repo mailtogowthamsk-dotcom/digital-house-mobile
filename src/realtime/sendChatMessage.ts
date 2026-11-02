@@ -15,6 +15,7 @@ type SendArgs = {
   recipientId: number;
   body: string;
   clientId: string;
+  sharedPostId?: number | null;
 };
 
 type AckResp = {
@@ -27,9 +28,11 @@ type AckResp = {
 const ACK_MS = 6_000;
 
 export async function sendChatMessage(args: SendArgs): Promise<MessageItem> {
-  const { senderId, recipientId, body, clientId } = args;
+  const { senderId, recipientId, body, clientId, sharedPostId } = args;
+  const shareId =
+    sharedPostId != null && Number(sharedPostId) > 0 ? Number(sharedPostId) : null;
 
-  const restSend = () => sendMessageRest(recipientId, body, clientId);
+  const restSend = () => sendMessageRest(recipientId, body, clientId, shareId);
 
   try {
     const sock = await getSocket();
@@ -42,7 +45,7 @@ export async function sendChatMessage(args: SendArgs): Promise<MessageItem> {
 
       sock.emit(
         "message:send",
-        { recipientId, body, clientId },
+        { recipientId, body, clientId, ...(shareId ? { sharedPostId: shareId } : {}) },
         (resp: AckResp) => {
           clearTimeout(timer);
           if (resp?.ok && resp.message && typeof resp.message === "object" && resp.message.id) {
@@ -57,6 +60,7 @@ export async function sendChatMessage(args: SendArgs): Promise<MessageItem> {
               senderId,
               recipientId,
               body,
+              sharedPostId: shareId,
               clientId,
               deliveredAt: null,
               readAt: null,
