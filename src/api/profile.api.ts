@@ -98,6 +98,7 @@ export type ProfilePostItem = {
   title: string;
   description: string | null;
   mediaUrl: string | null;
+  thumbnailUrl?: string | null;
   createdAt: string;
   visibility: string;
   status: string;

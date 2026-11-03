@@ -18,6 +18,8 @@ type ProfilePostGridCardProps = {
 function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePostGridCardProps) {
   const { colors, mode } = useTheme();
   const tint = postTypeVisual(post.postType).color;
+  const isVideo = Boolean(post.mediaUrl && /\.(mp4|mov|m4v|webm)(\?|$)/i.test(post.mediaUrl));
+  const previewUri = (isVideo ? post.thumbnailUrl : post.mediaUrl) || null;
 
   const s = useMemo(
     () =>
@@ -52,6 +54,11 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
           height: 28,
           borderRadius: 14,
           backgroundColor: "rgba(15,23,42,0.55)",
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        playBadge: {
+          ...StyleSheet.absoluteFillObject,
           alignItems: "center",
           justifyContent: "center"
         },
@@ -94,14 +101,21 @@ function ProfilePostGridCardComponent({ post, onPress, onMenuPress }: ProfilePos
       onLongPress={onMenuPress}
     >
       <View style={s.thumbWrap}>
-        {post.mediaUrl && !/\.(mp4|mov)(\?|$)/i.test(post.mediaUrl) ? (
-          <Image
-            source={{ uri: post.mediaUrl }}
-            style={s.thumb}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            recyclingKey={post.mediaUrl}
-          />
+        {previewUri ? (
+          <>
+            <Image
+              source={{ uri: previewUri }}
+              style={s.thumb}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={previewUri}
+            />
+            {isVideo ? (
+              <View style={s.playBadge} pointerEvents="none">
+                <Ionicons name="play-circle" size={40} color="#fff" />
+              </View>
+            ) : null}
+          </>
         ) : post.mediaUrl ? (
           <View style={[s.thumb, s.thumbPlaceholder, { backgroundColor: "#0f172a" }]}>
             <Ionicons name="play-circle" size={40} color="#fff" />
