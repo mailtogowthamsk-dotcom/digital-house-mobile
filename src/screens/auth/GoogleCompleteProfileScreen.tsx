@@ -144,6 +144,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
   const canSubmit =
     usernameOk &&
     !!normalizedMobile &&
+    fatherName.trim().length > 0 &&
+    address.trim().length > 0 &&
     !!gender &&
     !!dob &&
     !!district &&
@@ -158,6 +160,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
     if (!normalizedMobile) {
       return "Please enter a valid 10-digit Indian mobile number.";
     }
+    if (!fatherName.trim()) return "Please enter your father's name.";
+    if (!address.trim()) return "Please enter your address.";
     if (!gender) return "Please select gender.";
     if (!dob) return "Please select date of birth.";
     if (!district) return "Please select district.";
@@ -199,8 +203,8 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
         location: district,
         mobile: normalizedMobile,
         occupation: occupation.trim() || null,
-        fatherName: fatherName.trim() || null,
-        address: address.trim() || null,
+        fatherName: fatherName.trim(),
+        address: address.trim(),
         workStudyDetails: workStudyDetails.trim() || null,
         ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
@@ -288,23 +292,25 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               placeholder="Select kulam *"
               required
             />
-
-            <Text style={[styles.sectionLabel, { marginTop: spacing.sm }]}>Optional</Text>
             <Input
-              placeholder="Father's name (optional)"
+              placeholder="Father's name *"
               value={fatherName}
               onChangeText={setFatherName}
+              maxLength={120}
               variant="onWhite"
             />
             <Input
-              placeholder="Address (optional)"
+              placeholder="Address *"
               value={address}
               onChangeText={setAddress}
+              maxLength={1000}
               variant="onWhite"
               multiline
               numberOfLines={3}
               style={{ minHeight: 88 }}
             />
+
+            <Text style={[styles.sectionLabel, { marginTop: spacing.sm }]}>Optional</Text>
             {occupationOptions.length > 0 ? (
               <Dropdown
                 label="Occupation"
@@ -390,7 +396,7 @@ export function GoogleCompleteProfileScreen({ navigation }: any) {
               disabled={!canSubmit}
             />
             <Text style={styles.hint}>
-              Username, mobile, gender, date of birth, district, and kulam are mandatory. After
+              Username, mobile number, father's name, address, gender, date of birth, district, and kulam are mandatory. After
               submit, admin approval is still required before full access.
             </Text>
           </View>

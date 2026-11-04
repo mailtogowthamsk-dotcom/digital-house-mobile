@@ -27,6 +27,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
 import { ensureMediaLibraryRead } from "../../permissions";
+import { normalizeMobile } from "../../utils/registrationFields";
 import {
   LEGAL_FALLBACK_LINKS,
   LEGAL_REGISTRATION_KEYS,
@@ -188,19 +189,28 @@ export function RegistrationScreen({ navigation }: any) {
     setMsg(null);
   }, []);
 
-  const canNextStep0 = fullName.trim().length > 0 && username.trim().length >= 3;
+  const normalizedMobile = normalizeMobile(mobile);
+  const canNextStep0 =
+    fullName.trim().length > 0 && username.trim().length >= 3 && fatherName.trim().length > 0;
   const canNextStep1 =
-    email.trim().length > 0 &&
-    EMAIL_REGEX.test(email.trim()) &&
-    mobile.trim().length >= 10;
-  const canNextStep2 = location.trim().length > 0 && kulam.trim().length > 0;
+    email.trim().length > 0 && EMAIL_REGEX.test(email.trim()) && !!normalizedMobile;
+  const canNextStep2 =
+    location.trim().length > 0 && kulam.trim().length > 0 && address.trim().length > 0;
   const canNext =
     step === 0 ? canNextStep0 : step === 1 ? canNextStep1 : step === 2 ? canNextStep2 : true;
 
   const onNext = () => {
     Keyboard.dismiss();
     setMsg(null);
+    if (step === 0 && !fatherName.trim()) {
+      setMsg("Please enter your father's name.");
+      return;
+    }
     if (step === 2) {
+      if (!address.trim()) {
+        setMsg("Please enter your address.");
+        return;
+      }
       if (!location.trim()) {
         setMsg("Please select your location.");
         return;
@@ -235,8 +245,16 @@ export function RegistrationScreen({ navigation }: any) {
       setMsg("Please enter a valid email.");
       return;
     }
-    if (!mobile.trim() || mobile.trim().length < 10) {
-      setMsg("Please enter a valid mobile number (at least 10 digits).");
+    if (!normalizedMobile) {
+      setMsg("Please enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+    if (!fatherName.trim()) {
+      setMsg("Please enter your father's name.");
+      return;
+    }
+    if (!address.trim()) {
+      setMsg("Please enter your address.");
       return;
     }
     if (!location.trim()) {
@@ -270,10 +288,10 @@ export function RegistrationScreen({ navigation }: any) {
         email: email.trim().toLowerCase(),
         gender: gender.trim() || null,
         dob: dob ? formatDate(dob) : null,
-        mobile: mobile.trim(),
+        mobile: normalizedMobile,
         occupation: occupation.trim() || null,
-        fatherName: fatherName.trim() || null,
-        address: address.trim() || null,
+        fatherName: fatherName.trim(),
+        address: address.trim(),
         workStudyDetails: workStudyDetails.trim() || null,
         location: location.trim(),
         kulam: kulam.trim(),
@@ -419,9 +437,10 @@ export function RegistrationScreen({ navigation }: any) {
                   maximumDate={new Date()}
                 />
                 <Input
-                  placeholder="Father's name (optional)"
+                  placeholder="Father's name *"
                   value={fatherName}
                   onChangeText={setFatherName}
+                  maxLength={120}
                   variant="onWhite"
                   leftIcon={<Ionicons name="people-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
@@ -439,7 +458,7 @@ export function RegistrationScreen({ navigation }: any) {
                   leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
                 />
                 <Input
-                  placeholder="Mobile number * (min 10 digits)"
+                  placeholder="Mobile number * (10 digits)"
                   value={mobile}
                   onChangeText={setMobile}
                   keyboardType="phone-pad"
@@ -451,9 +470,10 @@ export function RegistrationScreen({ navigation }: any) {
             {step === 2 && (
               <>
                 <Input
-                  placeholder="Enter your address (optional)"
+                  placeholder="Address *"
                   value={address}
                   onChangeText={setAddress}
+                  maxLength={1000}
                   variant="onWhite"
                   multiline
                   numberOfLines={3}
