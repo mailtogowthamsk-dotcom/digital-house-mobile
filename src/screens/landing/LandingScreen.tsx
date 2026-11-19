@@ -54,11 +54,19 @@ const FALLBACK_HEADLINE =
 function headlineLines(text: string): string[] {
   const normalized = text.replace(/\s+/g, " ").trim();
   const ellipsis = normalized.includes("...") ? "..." : normalized.includes("…") ? "…" : null;
-  if (!ellipsis) return [normalized];
-  const index = normalized.indexOf(ellipsis);
-  const first = normalized.slice(0, index + ellipsis.length).trim();
-  const second = normalized.slice(index + ellipsis.length).trim();
-  return first && second ? [first, second] : [normalized];
+  if (ellipsis) {
+    const split = normalized.indexOf(ellipsis) + ellipsis.length;
+    const first = normalized.slice(0, split).trim();
+    const second = normalized.slice(split).trim();
+    if (first && second) return [first, second];
+  }
+  const midpoint = normalized.length / 2;
+  const spaces = [...normalized.matchAll(/ /g)].map((match) => match.index);
+  const split = spaces.reduce(
+    (closest, space) => Math.abs(space - midpoint) < Math.abs(closest - midpoint) ? space : closest,
+    0
+  );
+  return split ? [normalized.slice(0, split), normalized.slice(split + 1)] : [normalized];
 }
 
 const FEATURES: {
@@ -84,9 +92,11 @@ export function LandingScreen({ navigation }: any) {
   const [contactOpen, setContactOpen] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
   const [contact, setContact] = useState<LandingContact | null>(null);
-  const logoSize = Math.round(Math.min(width * 0.36, height * 0.16, 148));
+  const availableHeight = height - insets.top - insets.bottom;
+  const tight = availableHeight < 720;
+  const logoSize = Math.round(Math.min(width * 0.30, availableHeight * 0.14, tight ? 82 : 118));
+  const artworkHeight = Math.round(Math.max(54, Math.min(120, availableHeight * (tight ? 0.10 : 0.15))));
   const cardWidth = Math.floor((Math.min(width, BODY_MAX_WIDTH) - H_PAD * 2 - CARD_GAP * 2) / 3);
-  const tight = height < 780;
   const topPad =
     Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0) + 4;
   const contactBtnTop = topPad;
@@ -265,7 +275,7 @@ export function LandingScreen({ navigation }: any) {
           s.body,
           {
             paddingTop: topPad,
-            paddingBottom: Math.max(insets.bottom, 16) + 8
+            paddingBottom: Math.max(insets.bottom, 8) + 4
           }
         ]}
         showsVerticalScrollIndicator={false}
@@ -292,10 +302,13 @@ export function LandingScreen({ navigation }: any) {
           </Text>
 
           <View style={s.headlineBlock}>
-            {headlineLines(headline).map((line) => (
+            {headlineLines(headline).map((line, index) => (
               <Text
-                key={line}
+                key={index}
                 style={[s.headline, tight && s.headlineTight]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.65}
               >
                 {line}
               </Text>
@@ -310,7 +323,7 @@ export function LandingScreen({ navigation }: any) {
           </Text>
         </View>
 
-        <View style={[s.artwork, tight && s.artworkTight]}>
+        <View style={[s.artwork, { height: artworkHeight }]}>
           <ExpoImage
             source={COMMUNITY_ART}
             style={StyleSheet.absoluteFill}
@@ -468,16 +481,14 @@ const s = StyleSheet.create({
   scriptTight: { fontSize: 13, marginBottom: 2 },
   artwork: {
     width: "100%",
-    height: 136,
-    marginTop: 16,
+    marginTop: 10,
     borderRadius: 18,
     overflow: "hidden",
     backgroundColor: "#F5EBD7"
   },
-  artworkTight: { height: 100, marginTop: 12 },
   grid: {
-    marginTop: 12,
-    marginBottom: 18,
+    marginTop: 8,
+    marginBottom: 10,
     width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
@@ -537,7 +548,7 @@ const s = StyleSheet.create({
     elevation: 4
   },
   primaryBtn: {
-    minHeight: 52,
+    minHeight: 48,
     borderRadius: 28,
     flexDirection: "row",
     alignItems: "center",
@@ -553,8 +564,8 @@ const s = StyleSheet.create({
   },
   secondaryBtn: {
     width: "100%",
-    minHeight: 46,
-    marginTop: 8,
+    minHeight: 44,
+    marginTop: 6,
     borderRadius: 28,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,

@@ -20,20 +20,29 @@ import { getAuthErrorMessage } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image as ExpoImage } from "expo-image";
+import { fonts } from "../../theme/fonts";
 import { spacing } from "../../theme/spacing";
 
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
+const SCENERY = require("../../../assets/landing_scenery.jpg");
+const BRAND_PRIMARY = "#14563F";
+const BRAND_DEEP = "#163E31";
+const LANDING_GRADIENT = [
+  "rgba(255,248,233,0.48)",
+  "rgba(252,248,239,0.84)",
+  "rgba(228,240,229,0.62)"
+] as const;
 const OTP_LENGTH = 6;
 
 /** Fit 6 OTP cells + gaps inside the white card on any phone width. */
 function computeOtpLayout(screenWidth: number) {
   const screenPad = spacing.xl * 2;
-  const cardPad = spacing.lg * 2; // modest horizontal card padding for narrow Androids
-  const available = Math.max(240, screenWidth - screenPad - cardPad);
+  const cardPad = spacing.lg * 2 + 2;
+  const available = Math.min(440, screenWidth - screenPad) - cardPad;
   const gaps = OTP_LENGTH - 1;
   const maxBox = 52;
-  const minBox = 36;
+  const minBox = 28;
   let gap = 10;
   let box = Math.floor((available - gaps * gap) / OTP_LENGTH);
 
@@ -52,7 +61,8 @@ function computeOtpLayout(screenWidth: number) {
 
 export function OtpVerifyScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height } = useWindowDimensions();
+  const logoSize = Math.min(screenWidth * 0.22, height * 0.10, 76);
   const otpLayout = useMemo(() => computeOtpLayout(screenWidth), [screenWidth]);
   const { signIn } = useAuth();
   const email = route.params.email as string;
@@ -99,13 +109,13 @@ export function OtpVerifyScreen({ route, navigation }: any) {
   const focusInput = () => inputRef.current?.focus();
 
   // Same as Login: Android resize already shrinks the window — extra androidPad
-  // creates the blank navy gap above the keyboard. UI unchanged.
+  // creates a blank gap above the keyboard.
   const scroll = (
     <ScrollView
       style={s.keyboard}
       contentContainerStyle={[
         s.scrollContent,
-        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+        { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl }
       ]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -115,38 +125,23 @@ export function OtpVerifyScreen({ route, navigation }: any) {
       <Pressable
         style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
         onPress={() => navigation.goBack()}
+        accessibilityRole="button"
       >
-        <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+        <Ionicons name="chevron-back-outline" size={22} color={BRAND_DEEP} />
         <Text style={s.backText}>Back</Text>
       </Pressable>
 
       <View style={s.header}>
-        <Image
-          source={LOGO}
-          style={{
-            width: Math.min(screenWidth * 0.3, 120),
-            height: Math.min(screenWidth * 0.3, 120),
-            marginBottom: spacing.sm
-          }}
-          resizeMode="contain"
-        />
-        <View style={s.brandRow}>
-          <Text style={s.brandDigital}>Digital</Text>
-          <Text style={s.brandHouse}> House</Text>
-        </View>
-        <View style={s.taglineRow}>
-          <View style={s.line} />
-          <Text style={s.tagline}>Verify your email</Text>
-          <View style={s.line} />
-        </View>
+        <Image source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
+        <Text style={s.brandTitle}>Digital House</Text>
       </View>
 
       <View style={s.card}>
-        <Text style={s.cardTitle}>Enter verification code</Text>
+        <Text style={s.cardTitle} accessibilityRole="header">Verify your email</Text>
         <Text style={s.cardSubtitle}>We sent a 6-digit code to</Text>
         <View style={s.emailRow}>
-          <Ionicons name="mail-outline" size={18} color="#2563EB" />
-          <Text style={s.emailText} numberOfLines={1}>
+          <Ionicons name="mail-outline" size={18} color={BRAND_PRIMARY} />
+          <Text style={s.emailText}>
             {email}
           </Text>
         </View>
@@ -199,22 +194,20 @@ export function OtpVerifyScreen({ route, navigation }: any) {
 
         {(loading || signedIn) && !msg ? (
           <View style={s.loadingWrap}>
-            <ActivityIndicator size="small" color="#2563EB" />
+            <ActivityIndicator size="small" color={BRAND_PRIMARY} />
           </View>
         ) : null}
 
-        <View style={s.messageWrap}>
-          {msg ? <Text style={s.messageError}>{msg}</Text> : null}
-        </View>
+        {msg ? <Text style={s.messageError} accessibilityLiveRegion="polite">{msg}</Text> : null}
 
         <Text style={s.expiryHint}>Code expires in 5 minutes.</Text>
         <Pressable
           style={({ pressed }) => [s.resendWrap, pressed && { opacity: 0.8 }]}
           onPress={() => navigation.goBack()}
+          accessibilityRole="button"
           disabled={loading || signedIn}
         >
-          <Text style={s.resendText}>Didn’t get the code? </Text>
-          <Text style={s.resendLink}>Go back & request again</Text>
+          <Text style={s.resendLink}>Go back to request a new code</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -222,9 +215,16 @@ export function OtpVerifyScreen({ route, navigation }: any) {
 
   return (
     <View style={s.background}>
-      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <View style={s.overlay} />
+      <ExpoImage
+        source={SCENERY}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        contentPosition="top center"
+        accessible={false}
+        pointerEvents="none"
+      />
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       {Platform.OS === "ios" ? (
         <KeyboardAvoidingView style={s.keyboard} behavior="padding" keyboardVerticalOffset={0}>
           {scroll}
@@ -237,68 +237,29 @@ export function OtpVerifyScreen({ route, navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  background: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.2)"
-  },
+  background: { flex: 1, backgroundColor: "#FCF8EF" },
   keyboard: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl
-  },
+  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
   backWrap: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    paddingVertical: spacing.sm,
-    paddingRight: spacing.md,
-    marginBottom: spacing.sm
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    backgroundColor: "#FFFFFF"
   },
-  backText: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    marginLeft: spacing.xs
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: spacing.xl
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: spacing.md
-  },
-  brandDigital: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#2563EB"
-  },
-  brandHouse: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#F97316"
-  },
-  taglineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(107,114,128,0.4)",
-    marginHorizontal: spacing.sm
-  },
-  tagline: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "400"
-  },
+  backText: { fontSize: 14, color: BRAND_DEEP, marginRight: spacing.xs },
+  header: { alignItems: "center", marginBottom: spacing.md },
+  brandTitle: { marginTop: spacing.xs, fontSize: 24, fontFamily: fonts.bold, color: BRAND_DEEP },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    paddingVertical: spacing.xxl,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     width: "100%",
     maxWidth: 440,
@@ -325,7 +286,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
     minWidth: 0
   },
   emailText: {
@@ -333,7 +294,7 @@ const s = StyleSheet.create({
     minWidth: 0,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2563EB"
+    color: BRAND_PRIMARY
   },
   hiddenInput: {
     position: "absolute",
@@ -357,8 +318,8 @@ const s = StyleSheet.create({
     justifyContent: "center"
   },
   otpBoxFocused: {
-    borderColor: "#2563EB",
-    backgroundColor: "#EFF6FF"
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: "#EDF6EF"
   },
   otpBoxFilled: {
     borderColor: "#D1D5DB",
@@ -374,11 +335,11 @@ const s = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#2563EB"
+    backgroundColor: BRAND_PRIMARY
   },
   otpHint: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: "#52645B",
     textAlign: "center",
     marginBottom: spacing.md
   },
@@ -386,14 +347,10 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.sm
   },
-  messageWrap: {
-    minHeight: 28,
-    marginBottom: spacing.sm,
-    justifyContent: "center"
-  },
   messageError: {
     fontSize: 14,
-    color: "#EF4444",
+    color: "#B42318",
+    marginBottom: spacing.sm,
     textAlign: "center"
   },
   expiryHint: {
@@ -406,15 +363,11 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    flexWrap: "wrap"
-  },
-  resendText: {
-    fontSize: 14,
-    color: "#6B7280"
+    minHeight: 44
   },
   resendLink: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2563EB"
+    color: BRAND_PRIMARY
   }
 });

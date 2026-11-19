@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   Pressable,
   ScrollView,
   Image,
-  Dimensions,
+  useWindowDimensions,
+  StatusBar,
   ActivityIndicator,
   Keyboard
 } from "react-native";
@@ -23,6 +24,8 @@ import { useAuth } from "../../context/AuthContext";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image as ExpoImage } from "expo-image";
+import { fonts } from "../../theme/fonts";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing } from "../../theme/spacing";
 import { GENDER_OPTIONS, LOCATION_OPTIONS, KULAM_OPTIONS } from "./registrationOptions";
@@ -36,9 +39,15 @@ import {
   type LegalCatalogItem
 } from "../../api/legal.api";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
+const SCENERY = require("../../../assets/landing_scenery.jpg");
+const BRAND_DEEP = "#163E31";
+const BRAND_PRIMARY = "#14563F";
+const LANDING_GRADIENT = [
+  "rgba(255,248,233,0.48)",
+  "rgba(252,248,239,0.84)",
+  "rgba(228,240,229,0.62)"
+] as const;
 const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
 const STEPS = ["Personal", "Contact", "Community", "Review"];
@@ -54,6 +63,8 @@ function formatDate(d: Date | null): string {
 
 export function RegistrationScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const logoSize = Math.min(width * 0.22, height * 0.10, 76);
   const { signIn } = useAuth();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -75,6 +86,8 @@ export function RegistrationScreen({ navigation }: any) {
   const [referralCode, setReferralCode] = useState("");
   const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const registrationRef = useRef<Awaited<ReturnType<typeof registerApi>> | null>(null);
+  const uploadedPhotoRef = useRef<{ uri: string; storageKey: string } | null>(null);
   const [locationOptions, setLocationOptions] = useState<{ label: string; value: string }[]>(LOCATION_OPTIONS);
   const [kulamOptions, setKulamOptions] = useState<{ label: string; value: string }[]>(KULAM_OPTIONS);
   const [occupationOptions, setOccupationOptions] = useState<{ label: string; value: string }[]>([]);
@@ -191,7 +204,7 @@ export function RegistrationScreen({ navigation }: any) {
 
   const normalizedMobile = normalizeMobile(mobile);
   const canNextStep0 =
-    fullName.trim().length > 0 && username.trim().length >= 3 && fatherName.trim().length > 0;
+    !!photoLocalUri && fullName.trim().length > 0 && username.trim().length >= 3 && fatherName.trim().length > 0;
   const canNextStep1 =
     email.trim().length > 0 && EMAIL_REGEX.test(email.trim()) && !!normalizedMobile;
   const canNextStep2 =
@@ -202,6 +215,10 @@ export function RegistrationScreen({ navigation }: any) {
   const onNext = () => {
     Keyboard.dismiss();
     setMsg(null);
+    if (step === 0 && !photoLocalUri) {
+      setMsg("Please add a profile photo.");
+      return;
+    }
     if (step === 0 && !fatherName.trim()) {
       setMsg("Please enter your father's name.");
       return;
@@ -231,8 +248,14 @@ export function RegistrationScreen({ navigation }: any) {
   };
 
   const onSubmit = async () => {
+    if (loading || uploadingPhoto) return;
     Keyboard.dismiss();
     setMsg(null);
+    if (!photoLocalUri) {
+      setStep(0);
+      setMsg("Please add a profile photo.");
+      return;
+    }
     if (!fullName.trim()) {
       setMsg("Please enter your full name.");
       return;
@@ -298,30 +321,26 @@ export function RegistrationScreen({ navigation }: any) {
         ...(referralCode.trim() ? { referralCode: referralCode.trim().toUpperCase() } : {}),
         ...(legalAcceptances.length ? { legalAcceptances } : {})
       };
-      const registered = await registerApi(payload);
-      let sessionUser = registered.user;
+      const registered = registrationRef.current ?? await registerApi(payload);
+      registrationRef.current = registered;
 
-      if (photoLocalUri) {
-        setUploadingPhoto(true);
-        await setToken(registered.accessToken);
-        try {
-          const uploaded = await uploadOptimizedImage(photoLocalUri, "profile");
-          sessionUser = await setRegistrationPhoto(uploaded.storageKey || uploaded.publicUrl);
-        } catch (photoErr) {
-          // Account is created — don't fail registration if optional photo upload fails.
-          console.warn("[register] optional photo upload failed", photoErr);
-          setMsg(
-            "Account created. Profile photo could not be uploaded — you can add it later after approval."
-          );
-        } finally {
-          setUploadingPhoto(false);
-        }
+      setUploadingPhoto(true);
+      await setToken(registered.accessToken);
+
+      let uploadedPhoto = uploadedPhotoRef.current;
+      if (uploadedPhoto?.uri !== photoLocalUri) {
+        const uploaded = await uploadOptimizedImage(photoLocalUri, "profile");
+        uploadedPhoto = { uri: photoLocalUri, storageKey: uploaded.storageKey || uploaded.publicUrl };
+        uploadedPhotoRef.current = uploadedPhoto;
       }
 
+      const sessionUser = await setRegistrationPhoto(uploadedPhoto.storageKey);
       await signIn(registered.accessToken, sessionUser);
       // Auth gate routes PENDING → PendingApproval
     } catch (e: any) {
-      setMsg(getAuthErrorMessage(e));
+      setMsg(registrationRef.current
+        ? "Could not finish saving your profile photo. Tap Submit registration to retry."
+        : getAuthErrorMessage(e));
     } finally {
       setLoading(false);
       setUploadingPhoto(false);
@@ -330,8 +349,16 @@ export function RegistrationScreen({ navigation }: any) {
 
   return (
     <View style={s.background}>
-      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
-      <View style={s.overlay} />
+      <ExpoImage
+        source={SCENERY}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        contentPosition="top center"
+        accessible={false}
+        pointerEvents="none"
+      />
+      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       <AppKeyboardAvoidingView
         style={s.keyboard}
         keyboardVerticalOffset={0}
@@ -339,23 +366,20 @@ export function RegistrationScreen({ navigation }: any) {
         <ScrollView
           contentContainerStyle={[
             s.scrollContent,
-            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl }
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]} onPress={onBack}>
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+          <Pressable style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]} onPress={onBack} accessibilityRole="button">
+            <Ionicons name="chevron-back-outline" size={22} color={BRAND_DEEP} />
             <Text style={s.backText}>{step === 0 ? "Back" : "Previous"}</Text>
           </Pressable>
 
           <View style={s.header}>
-            <Image source={LOGO} style={s.logo} resizeMode="contain" />
-            <View style={s.brandRow}>
-              <Text style={s.brandDigital}>Digital</Text>
-              <Text style={s.brandHouse}> House</Text>
-            </View>
+            <Image source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
+            <Text style={s.brandTitle} accessibilityRole="header">Create your account</Text>
             <View style={s.progressRow}>
               {STEPS.map((_, i) => (
                 <View
@@ -364,13 +388,13 @@ export function RegistrationScreen({ navigation }: any) {
                 />
               ))}
             </View>
-            <Text style={s.stepTitle}>{STEPS[step]}</Text>
+            <Text style={s.stepTitle}>Step {step + 1} of {STEPS.length} · {STEPS[step]}</Text>
           </View>
 
           <View style={s.card}>
             {step === 0 && (
               <>
-                <Text style={s.photoLabel}>Profile photo (optional)</Text>
+                <Text style={s.photoLabel}>Profile photo *</Text>
                 <View style={s.photoRow}>
                   <View style={s.photoCircle}>
                     {photoLocalUri ? (
@@ -396,7 +420,7 @@ export function RegistrationScreen({ navigation }: any) {
                         <Text style={s.photoRemoveText}>Remove</Text>
                       </Pressable>
                     ) : (
-                      <Text style={s.photoHint}>You can skip this and add a photo later.</Text>
+                      <Text style={s.photoHint}>Add a profile photo to continue.</Text>
                     )}
                   </View>
                 </View>
@@ -535,7 +559,7 @@ export function RegistrationScreen({ navigation }: any) {
             {step === 3 && (
               <>
                 <Text style={s.reviewLabel}>Profile photo</Text>
-                <Text style={s.reviewValue}>{photoLocalUri ? "Selected" : "Not added (optional)"}</Text>
+                <Text style={s.reviewValue}>{photoLocalUri ? "Selected" : "Required"}</Text>
                 <Text style={s.reviewLabel}>Full name</Text>
                 <Text style={s.reviewValue}>{fullName || "—"}</Text>
                 <Text style={s.reviewLabel}>Email</Text>
@@ -612,9 +636,7 @@ export function RegistrationScreen({ navigation }: any) {
               </>
             )}
 
-            <View style={s.messageWrap}>
-              {msg ? <Text style={s.messageError}>{msg}</Text> : null}
-            </View>
+            {msg ? <Text style={s.messageError} accessibilityLiveRegion="polite">{msg}</Text> : null}
 
             {step < STEPS.length - 1 ? (
               <Pressable
@@ -623,7 +645,7 @@ export function RegistrationScreen({ navigation }: any) {
                 disabled={!canNext}
               >
                 <LinearGradient
-                  colors={["#2563EB", "#F97316"]}
+                  colors={["#1C6C50", BRAND_PRIMARY]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={s.btn}
@@ -642,7 +664,7 @@ export function RegistrationScreen({ navigation }: any) {
                 disabled={loading || uploadingPhoto}
               >
                 <LinearGradient
-                  colors={["#2563EB", "#F97316"]}
+                  colors={["#1C6C50", BRAND_PRIMARY]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={s.btn}
@@ -661,7 +683,7 @@ export function RegistrationScreen({ navigation }: any) {
               onPress={() => navigation.navigate("Login")}
             >
               <Text style={s.loginText}>Already have an account? </Text>
-              <Text style={s.loginLink}>Login</Text>
+              <Text style={s.loginLink}>Sign in</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -671,47 +693,54 @@ export function RegistrationScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  background: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.2)" },
+  background: { flex: 1, backgroundColor: "#FCF8EF" },
   keyboard: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
   backWrap: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    paddingVertical: spacing.sm,
-    paddingRight: spacing.md,
-    marginBottom: spacing.sm
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    backgroundColor: "#FFFFFF"
   },
-  backText: { fontSize: 16, color: "#FFFFFF", marginLeft: spacing.xs },
-  header: { alignItems: "center", marginBottom: spacing.xl },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.3, 120),
-    height: Math.min(SCREEN_WIDTH * 0.3, 120),
-    marginBottom: spacing.sm
+  backText: { fontSize: 14, color: BRAND_DEEP, marginRight: spacing.xs },
+  header: { alignItems: "center", marginBottom: spacing.md },
+  brandTitle: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontFamily: fonts.bold,
+    fontSize: 24,
+    color: BRAND_DEEP,
+    textAlign: "center"
   },
-  brandRow: { flexDirection: "row", alignItems: "baseline", marginBottom: spacing.md },
-  brandDigital: { fontSize: 20, fontWeight: "600", color: "#2563EB" },
-  brandHouse: { fontSize: 20, fontWeight: "600", color: "#F97316" },
-  progressRow: { flexDirection: "row", gap: 8, marginBottom: spacing.sm },
+  progressRow: { flexDirection: "row", gap: 6, marginBottom: spacing.xs },
   progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.5)"
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CBDCD2"
   },
-  progressDotActive: { backgroundColor: "#2563EB" },
-  progressDotDone: { backgroundColor: "#22C55E" },
-  stepTitle: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
+  progressDotActive: { backgroundColor: BRAND_DEEP },
+  progressDotDone: { backgroundColor: "#529477" },
+  stepTitle: { fontSize: 13, fontFamily: fonts.semiBold, color: BRAND_DEEP },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: spacing.xxl,
-    shadowColor: "#000",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 480,
+    padding: spacing.lg,
+    shadowColor: BRAND_DEEP,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 6
+    elevation: 4
   },
   photoLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 10 },
   photoRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg, gap: 14 },
@@ -733,11 +762,11 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#EDF6EF",
     borderWidth: 1,
-    borderColor: "#BFDBFE"
+    borderColor: "#DCE7DF"
   },
-  photoBtnText: { fontSize: 14, fontWeight: "600", color: "#2563EB" },
+  photoBtnText: { fontSize: 14, fontWeight: "600", color: BRAND_PRIMARY },
   photoRemove: { marginTop: 8, alignSelf: "flex-start", paddingVertical: 4 },
   photoRemoveText: { fontSize: 13, color: "#EF4444", fontWeight: "500" },
   photoHint: { marginTop: 8, fontSize: 12, color: "#9CA3AF", lineHeight: 16 },
@@ -772,20 +801,20 @@ const s = StyleSheet.create({
   },
   legalCheck: { paddingTop: 2 },
   legalText: { flex: 1, fontSize: 14, color: "#111827", lineHeight: 20 },
-  legalLink: { color: "#2563EB", fontWeight: "700", textDecorationLine: "underline" },
-  messageWrap: { minHeight: 24, marginBottom: spacing.sm },
+  legalLink: { color: BRAND_PRIMARY, fontWeight: "700", textDecorationLine: "underline" },
   messageError: { fontSize: 14, color: "#EF4444" },
   btnWrap: { width: "100%", marginTop: spacing.sm, marginBottom: spacing.lg },
   btnPressed: { opacity: 0.9 },
   btnDisabled: { opacity: 0.7 },
   btn: {
-    paddingVertical: 16,
+    minHeight: 48,
+    paddingVertical: 10,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center"
   },
   btnText: { fontSize: 17, fontWeight: "600", color: "#FFFFFF" },
-  loginWrap: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  loginWrap: { flexDirection: "row", flexWrap: "wrap", minHeight: 44, alignItems: "center", justifyContent: "center" },
   loginText: { fontSize: 15, color: "#6B7280" },
-  loginLink: { fontSize: 15, fontWeight: "600", color: "#2563EB" }
+  loginLink: { fontSize: 15, fontWeight: "600", color: BRAND_PRIMARY }
 });

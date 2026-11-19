@@ -7,7 +7,7 @@ import {
   Platform,
   ScrollView,
   Image,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Keyboard,
   StatusBar,
@@ -24,17 +24,22 @@ import {
 } from "../../hooks/useGoogleSignIn";
 import { Input } from "../../components/ui/Input";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image as ExpoImage } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, radius } from "../../theme/spacing";
 import { fonts } from "../../theme/fonts";
 import { elevatedShadow } from "../../theme/shadows";
 
-const BRAND_PRIMARY = "#16803C";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const BRAND_PRIMARY = "#14563F";
+const BRAND_DEEP = "#163E31";
 
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_GRADIENT = ["#0B1220", "#1a2744", "#0d1829"] as const;
+const SCENERY = require("../../../assets/landing_scenery.jpg");
+const LANDING_GRADIENT = [
+  "rgba(255,248,233,0.48)",
+  "rgba(252,248,239,0.84)",
+  "rgba(228,240,229,0.62)"
+] as const;
 
 const ICON_COLOR = "#6B7280";
 const ICON_SIZE = 20;
@@ -174,6 +179,8 @@ function LoginScreenBody({
   externalMsg?: string | null;
 }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const logoSize = Math.min(width * 0.24, height * 0.12, 88);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -222,7 +229,7 @@ function LoginScreenBody({
   /**
    * Android already uses softwareKeyboardLayoutMode:"resize". Extra keyboard
    * padding (AppKeyboardAvoidingView androidPad) double-shrinks the viewport and
-   * leaves a blank navy band above the IME — especially in Expo Go. Keep the
+   * leaves a blank band above the IME — especially in Expo Go. Keep the
    * same visible Login UI; only avoid double inset. iOS still needs KAV padding.
    */
   const scroll = (
@@ -230,7 +237,7 @@ function LoginScreenBody({
       style={s.keyboard}
       contentContainerStyle={[
         s.scrollContent,
-        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+        { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl }
       ]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -244,18 +251,16 @@ function LoginScreenBody({
         accessibilityRole="button"
         accessibilityLabel="Go back"
       >
-        <Ionicons name="chevron-back-outline" size={24} color="#FFFFFF" />
+        <Ionicons name="chevron-back-outline" size={23} color={BRAND_DEEP} />
       </Pressable>
 
       <View style={s.header}>
-        <Image source={LOGO} style={s.logo} resizeMode="contain" />
+        <Image source={LOGO} style={{ width: logoSize, height: logoSize }} resizeMode="contain" />
         <Text style={s.brandTitle}>Digital House</Text>
-        <Text style={s.tagline}>Sign in to your account</Text>
       </View>
 
       <View style={s.card}>
-        <Text style={s.cardTitle}>Login</Text>
-        <Text style={s.cardSubtitle}>Choose how you want to sign in</Text>
+        <Text style={s.cardTitle} accessibilityRole="header">Sign in</Text>
 
         <Pressable
           style={({ pressed }) => [
@@ -300,13 +305,14 @@ function LoginScreenBody({
           leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
         />
 
-        <View style={s.messageWrap}>
-          {shownMsg ? (
-            <Text style={shownMsg.includes("sent") ? s.messageSuccess : s.messageError}>
-              {shownMsg}
-            </Text>
-          ) : null}
-        </View>
+        {shownMsg ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[s.message, shownMsg.includes("sent") ? s.messageSuccess : s.messageError]}
+          >
+            {shownMsg}
+          </Text>
+        ) : null}
 
         <Pressable
           style={({ pressed }) => [s.loginBtn, pressed && s.btnPressed, loading && s.btnDisabled]}
@@ -321,9 +327,6 @@ function LoginScreenBody({
             <Text style={s.loginBtnText}>Send OTP</Text>
           )}
         </Pressable>
-        <Text style={s.loginHint}>
-          After OTP, you'll be routed by your registration status (Home, Waiting, or Corrections).
-        </Text>
 
         <Pressable
           style={({ pressed }) => [s.registerWrap, pressed && { opacity: 0.8 }]}
@@ -339,9 +342,16 @@ function LoginScreenBody({
 
   return (
     <View style={s.background}>
+      <ExpoImage
+        source={SCENERY}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        contentPosition="top center"
+        accessible={false}
+        pointerEvents="none"
+      />
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <View style={s.overlay} pointerEvents="none" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       {Platform.OS === "ios" ? (
         <KeyboardAvoidingView style={s.keyboard} behavior="padding" keyboardVerticalOffset={0}>
           {scroll}
@@ -354,11 +364,7 @@ function LoginScreenBody({
 }
 
 const s = StyleSheet.create({
-  background: { flex: 1 },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.2)"
-  },
+  background: { flex: 1, backgroundColor: "#FCF8EF" },
   keyboard: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
@@ -370,54 +376,37 @@ const s = StyleSheet.create({
   backWrap: {
     width: 44,
     height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "flex-start",
-    marginBottom: spacing.sm,
-    marginLeft: -8
+    alignSelf: "flex-start"
   },
-  header: { alignItems: "center", marginBottom: spacing.xl },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.3, 120),
-    height: Math.min(SCREEN_WIDTH * 0.3, 120)
-  },
+  header: { alignItems: "center", marginBottom: spacing.lg },
   brandTitle: {
-    marginTop: spacing.md,
-    fontFamily: fonts.semiBold,
+    marginTop: spacing.xs,
+    fontFamily: fonts.bold,
     fontSize: 24,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    letterSpacing: 0.2
-  },
-  tagline: {
-    marginTop: spacing.sm,
-    fontFamily: fonts.regular,
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 14,
-    fontWeight: "400"
+    color: BRAND_DEEP
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: spacing.xxl,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#DCE7DF",
+    padding: spacing.lg,
     maxWidth: 440,
     width: "100%",
     alignSelf: "center",
     ...elevatedShadow("light")
   },
   cardTitle: {
-    fontFamily: fonts.semiBold,
+    marginBottom: spacing.md,
+    fontFamily: fonts.bold,
     fontSize: 24,
-    fontWeight: "600",
-    color: "#111827"
-  },
-  cardSubtitle: {
-    marginTop: 6,
-    marginBottom: spacing.lg,
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: "#6B7280",
-    lineHeight: 20
+    color: BRAND_DEEP
   },
   googleBtn: {
     flexDirection: "row",
@@ -428,7 +417,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: radius.button,
-    minHeight: 54
+    minHeight: 48
   },
   googleBtnText: {
     fontFamily: fonts.semiBold,
@@ -446,7 +435,7 @@ const s = StyleSheet.create({
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: spacing.lg,
+    marginVertical: spacing.md,
     gap: 12
   },
   dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "#E5E7EB" },
@@ -470,7 +459,7 @@ const s = StyleSheet.create({
     lineHeight: 18,
     marginBottom: spacing.md
   },
-  messageWrap: { minHeight: 22, marginTop: spacing.sm, marginBottom: spacing.sm },
+  message: { marginTop: spacing.sm },
   messageError: {
     fontFamily: fonts.medium,
     fontSize: 13,
@@ -488,24 +477,17 @@ const s = StyleSheet.create({
   loginBtn: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 54,
+    minHeight: 48,
     borderRadius: radius.button,
     backgroundColor: BRAND_PRIMARY,
-    paddingVertical: 14
+    marginTop: spacing.md,
+    paddingVertical: 10
   },
   loginBtnText: {
     fontFamily: fonts.semiBold,
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600"
-  },
-  loginHint: {
-    marginTop: spacing.sm,
-    fontFamily: fonts.regular,
-    fontSize: 12,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 17
   },
   registerWrap: {
     flexDirection: "row",
