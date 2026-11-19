@@ -8,6 +8,7 @@
       "expo-video",
       "react-native-compressor",
       "./plugins/withGoogleModularHeaders",
+      "./plugins/withOptionalPortraitFeature",
       [
         "expo-notifications",
         {
@@ -49,7 +50,7 @@
     "owner": "thisisgowtham",
     "slug": "digital-house",
     "scheme": "digitalhouse",
-    "version": "1.0.1",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
