@@ -9,6 +9,7 @@ import {
   Inter_700Bold
 } from "@expo-google-fonts/inter";
 import { configurePushNotifications } from "./src/services/pushNotifications";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { initFeedVideoDiskCache } from "./src/media/initVideoCache";
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
@@ -370,6 +371,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => undefined);
     void configurePushNotifications();
   }, []);
 

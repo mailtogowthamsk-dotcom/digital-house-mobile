@@ -1,5 +1,6 @@
 export { ProfileHeader } from "./ProfileHeader";
 export { PersonalInfoSection } from "./PersonalInfoSection";
+export { CommunityInfoSection } from "./CommunityInfoSection";
 export { ProfessionalInfoSection } from "./ProfessionalInfoSection";
 export { BusinessProfileSection, BusinessProfileCard } from "./BusinessProfileSection";
 export { ProfileContentLinks } from "./ProfileContentLinks";

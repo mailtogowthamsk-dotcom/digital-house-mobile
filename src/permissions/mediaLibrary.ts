@@ -88,6 +88,7 @@ export async function ensureMediaLibraryRead(opts?: {
   rationaleTitle?: string;
   rationaleMessage?: string;
   showDeniedUi?: boolean;
+  showRationale?: boolean;
 }): Promise<EnsurePermissionResult> {
   const rationale = {
     ...READ_RATIONALE,
@@ -100,7 +101,7 @@ export async function ensureMediaLibraryRead(opts?: {
       mapImagePickerResponse(await ImagePicker.getMediaLibraryPermissionsAsync()),
     request: async () =>
       mapImagePickerResponse(await ImagePicker.requestMediaLibraryPermissionsAsync()),
-    rationale,
+    rationale: opts?.showRationale === true ? rationale : undefined,
     guidance: READ_GUIDANCE,
     showDeniedUi: opts?.showDeniedUi
   });

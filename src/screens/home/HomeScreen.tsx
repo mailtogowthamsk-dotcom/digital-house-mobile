@@ -631,12 +631,8 @@ export function HomeScreen() {
               : null
           }
           onAddStory={() => navigation.navigate("CreateStory")}
-          onOpenGroup={(group) => {
-            const idx = storyGroups.findIndex((g) => g.user.id === group.user.id);
-            navigation.navigate("StoryViewer", {
-              groups: storyGroups,
-              initialGroupIndex: Math.max(0, idx)
-            });
+          onOpenGroup={(groups, index) => {
+            navigation.navigate("StoryViewer", { groups, initialGroupIndex: index });
           }}
         />
 

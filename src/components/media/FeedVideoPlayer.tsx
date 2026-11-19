@@ -25,6 +25,7 @@ import {
   peekCachedVideoUri,
   getLocalVideoUriIfExists,
   resolveCachedVideoUri,
+  invalidateCachedVideoUri,
   isVideoFileCached,
   isLocalFileUri
 } from "../../utils/feedVideoFileCache";
@@ -933,10 +934,12 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
     }
 
     if (Platform.OS === "android") {
+      const remote = stickySignedMediaUrl(uri) ?? uri;
       return (
         <AndroidFeedVideo
           key={stableBootKey(uri)}
           uri={bootUri}
+          remoteUri={remote}
           thumbnailUrl={thumbnailUrl}
           height={height}
           isActive={isActive}
@@ -945,6 +948,10 @@ const FeedVideoPlayerInner = React.forwardRef<FeedVideoPlayerHandle, FeedVideoPl
           style={style}
           onTogglePlayRef={togglePlayRef}
           onDoubleTapLike={onDoubleTapLike}
+          onLocalCacheFailed={() => {
+            void invalidateCachedVideoUri(remote);
+            setBootUri(remote);
+          }}
         />
       );
     }

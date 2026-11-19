@@ -32,11 +32,14 @@ export const VIDEO_MIN_DURATION_SEC = 3;
  */
 export const VIDEO_PICKER_MAX_DURATION_SEC = 10 * 60;
 
-/** Longest edge after compression (720p). */
-export const VIDEO_MAX_DIMENSION = 720;
+/**
+ * Longest edge after compression (1080p).
+ * Was 720p @ 2 Mbps — looked muddy after a second server re-encode.
+ */
+export const VIDEO_MAX_DIMENSION = 1080;
 
-/** Target bitrate for mobile-friendly 720p (~2 Mbps). */
-export const VIDEO_TARGET_BITRATE = 2_000_000;
+/** Target bitrate for clear 1080p (~3.5 Mbps). Stays under VIDEO_MAX_BYTES for ≤60s. */
+export const VIDEO_TARGET_BITRATE = 3_500_000;
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",

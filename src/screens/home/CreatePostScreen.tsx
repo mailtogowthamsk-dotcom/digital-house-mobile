@@ -104,12 +104,12 @@ function postTypeToModule(postType: string): MediaModule {
 }
 
 function resolveInitialPostType(value: string | undefined): string {
-  if (!value) return "ANNOUNCEMENT";
+  if (!value) return "ENTERTAINMENT";
   const upper = String(value).toUpperCase();
   if (FEED_POST_TYPES.some((t) => t.value === upper) || LOCKED_MODULE_TYPES.has(upper)) {
     return upper;
   }
-  return "ANNOUNCEMENT";
+  return "ENTERTAINMENT";
 }
 
 function creationSourceForType(postType: string): "feed" | "jobs" | "marketplace" | "helping_hands" {
@@ -149,7 +149,7 @@ export function CreatePostScreen() {
     (Boolean(initialTypeParam) && LOCKED_MODULE_TYPES.has(String(initialTypeParam).toUpperCase()));
 
   const [postType, setPostType] = useState(() =>
-    resolveInitialPostType(initialTypeParam)
+    isTypeLocked ? resolveInitialPostType(initialTypeParam) : "ENTERTAINMENT"
   );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -213,7 +213,6 @@ export function CreatePostScreen() {
   const [uploadStage, setUploadStage] = useState<VideoUploadStage | null>(null);
   const [uploadFailed, setUploadFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showTypePicker, setShowTypePicker] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [mpStatus, setMpStatus] = useState<string | null>(null);
 
@@ -230,7 +229,6 @@ export function CreatePostScreen() {
   useEffect(() => {
     if (!isTypeLocked || !initialTypeParam) return;
     setPostType(resolveInitialPostType(initialTypeParam));
-    setShowTypePicker(false);
   }, [initialTypeParam, isTypeLocked]);
 
   // Abandon cleanup: leave Create Post without saving → delete session R2 uploads.
@@ -439,11 +437,10 @@ export function CreatePostScreen() {
       setError("Title is required");
       return;
     }
-    // Never allow switching type when opened from a module (Jobs / Marketplace / …)
-    const submitType =
-      isTypeLocked && initialTypeParam
-        ? resolveInitialPostType(initialTypeParam)
-        : postType;
+    // Feed Create Post is always Entertainment. Module screens lock their own type.
+    const submitType = isTypeLocked
+      ? resolveInitialPostType(initialTypeParam ?? postType)
+      : "ENTERTAINMENT";
     if (
       !isEditing &&
       !isTypeLocked &&
@@ -960,90 +957,131 @@ export function CreatePostScreen() {
         contentContainerStyle={s.content}
         keyboardShouldPersistTaps="handled"
       >
-        {!isEditing && !isTypeLocked ? (
-          <>
-            <Text style={s.label}>Post type</Text>
-            <Pressable
-              style={s.picker}
-              onPress={() => setShowTypePicker(!showTypePicker)}
-            >
-              <Text style={s.pickerText}>
-                {postTypeLabel(postType)}
+        <View style={s.section}>
+          <Text style={s.label}>
+            {postType === "MARKETPLACE"
+              ? `Photos * (up to ${MARKETPLACE_MAX_PHOTOS})`
+              : "Photo or video"}
+          </Text>
+          <Pressable
+            style={[s.mediaBtn, (uploading || saving) && s.mediaBtnDisabled]}
+            onPress={pickMedia}
+            disabled={uploading || saving}
+          >
+            <View style={[s.mediaBtnIcon, { backgroundColor: colors.primary + "14" }]}>
+              <Ionicons name="images-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={s.mediaBtnCopy}>
+              <Text style={s.mediaBtnText}>
+                {uploading
+                  ? "Uploading…"
+                  : postType === "MARKETPLACE"
+                    ? galleryUrls.length + pendingGallery.length
+                      ? "Add more photos"
+                      : "Add photos"
+                    : mediaPreviewUri || pendingUpload
+                      ? "Replace media"
+                      : "Add photo or video"}
               </Text>
-              <Ionicons
-                name={showTypePicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showTypePicker && (
-              <View style={s.pickerOptions}>
-                {FEED_POST_TYPES.map((p) => (
-                  <Pressable
-                    key={p.value}
-                    style={[s.pickerOption, p.value === postType && s.pickerOptionActive]}
-                    onPress={() => {
-                      setPostType(p.value);
-                      setShowTypePicker(false);
+              <Text style={[s.mediaBtnSub, { color: colors.textMuted }]}>
+                {postType === "MARKETPLACE"
+                  ? "First photo becomes the cover"
+                  : "Optional · up to 1 minute for video"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        {(uploading || uploadFailed) && (
+          <UploadProgress
+            progress={uploadProgress}
+            label={
+              uploading
+                ? uploadStage
+                  ? videoUploadStageLabel(uploadStage)
+                  : mediaKind === "video" || uploadProgress > 0.3
+                    ? "Uploading…"
+                    : "Preparing…"
+                : "Upload failed"
+            }
+            failed={uploadFailed && !uploading}
+          />
+        )}
+        {uploadFailed && !uploading ? (
+          <Pressable style={[s.mediaBtn, { marginTop: spacing.sm }]} onPress={pickMedia}>
+            <Ionicons name="refresh" size={20} color={colors.primary} />
+            <Text style={s.mediaBtnText}>Retry</Text>
+          </Pressable>
+        ) : null}
+        {postType === "MARKETPLACE" && galleryPreviews.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+            {galleryPreviews.map((uri, i) => (
+              <View key={`${uri}-${i}`} style={{ marginRight: 8, position: "relative" }}>
+                <Image
+                  source={{ uri }}
+                  style={{ width: 88, height: 88, borderRadius: 8, backgroundColor: colors.surfaceElevated }}
+                  resizeMode="cover"
+                />
+                {i === 0 ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: 4,
+                      bottom: 4,
+                      backgroundColor: "rgba(0,0,0,0.55)",
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4
                     }}
                   >
-                    <Text style={[s.pickerOptionText, p.value === postType && s.pickerOptionTextActive]}>
-                      {p.label}
-                    </Text>
-                  </Pressable>
-                ))}
+                    <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>Cover</Text>
+                  </View>
+                ) : null}
+                <Pressable
+                  style={{ position: "absolute", top: -6, right: -6 }}
+                  onPress={() => removeGalleryAt(i)}
+                >
+                  <Ionicons name="close-circle" size={22} color={colors.error} />
+                </Pressable>
               </View>
-            )}
-          </>
-        ) : (
-          <>
-            <Text style={s.label}>
-              {isEditing ? "Editing marketplace listing" : "Posting as"}
+            ))}
+          </ScrollView>
+        ) : mediaPreviewUri && mediaKind ? (
+          <MediaPreview
+            kind={mediaKind}
+            previewUri={mediaPreviewUri}
+            fileName={
+              mediaFileName ||
+              (fileSize != null ? `${formatBytes(fileSize)}` : null)
+            }
+            durationSec={mediaDurationSec}
+            height={previewHeight}
+            onReplace={pickMedia}
+            onRemove={clearMedia}
+            disabled={uploading || saving}
+          />
+        ) : mediaUrl ? (
+          <View style={s.mediaUrlRow}>
+            <Text style={s.mediaUrlLabel} numberOfLines={1}>
+              {mediaKind === "video" ? "Video uploaded" : "Uploaded"}
             </Text>
-            <View style={s.lockedType}>
-              <Ionicons
-                name={
-                  postType === "JOB"
-                    ? "briefcase-outline"
-                    : postType === "MARKETPLACE"
-                      ? "cart-outline"
-                      : postType === "HELP_REQUEST"
-                        ? "hand-left-outline"
-                        : "pricetag-outline"
-                }
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={s.lockedTypeText}>{postTypeLabel(postType)}</Text>
-            </View>
-            {isEditing && mpStatus === "CHANGES_REQUESTED" ? (
-              <Text style={{ color: colors.textSecondary, marginBottom: spacing.sm, fontSize: 13 }}>
-                Update the details below, then save to resubmit for admin review.
-              </Text>
-            ) : !isEditing && isTypeLocked ? (
-              <Text style={s.lockedHint}>
-                This form is for {postTypeLabel(postType).toLowerCase()} only. To create a different
-                type, use Create Post from Home or Menu.
-              </Text>
-            ) : null}
-          </>
-        )}
+            <Pressable onPress={clearMedia}>
+              <Text style={s.removeMediaText}>Remove</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        </View>
 
-        <Text style={s.label}>Title *</Text>
-        <TextInput
-          style={s.input}
-          placeholder={postType === "JOB" ? "Job title (e.g. Sales Executive)" : "Enter title"}
-          placeholderTextColor={colors.textMuted}
-          value={title}
-          onChangeText={setTitle}
-          editable={!saving}
-        />
-
-        <PostVisibilitySelector
-          value={visibility}
-          onChange={setVisibility}
-          disabled={saving}
-        />
+        <View style={s.section}>
+          <Text style={s.label}>Title *</Text>
+          <TextInput
+            style={s.input}
+            placeholder={postType === "JOB" ? "Job title (e.g. Sales Executive)" : "Add a clear title"}
+            placeholderTextColor={colors.textMuted}
+            value={title}
+            onChangeText={setTitle}
+            editable={!saving}
+          />
+        </View>
 
         {postType === "JOB" ? (
           <>
@@ -1441,161 +1479,91 @@ export function CreatePostScreen() {
           </>
         ) : null}
 
-        <Text style={s.label}>
-          Description{postType === "MARKETPLACE" ? " * (min 20 chars)" : ""}
-        </Text>
-        <TextInput
-          style={[s.input, s.textArea]}
-          placeholder={
-            postType === "JOB"
-              ? "Role details, requirements, how to apply…"
-              : postType === "MARKETPLACE"
-                ? "Describe the item, meetup preference, and any defects…"
-                : "What's on your mind?"
-          }
-          placeholderTextColor={colors.textMuted}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-          editable={!saving}
-        />
-
-        <Text style={s.label}>Hashtags (optional)</Text>
-        <TextInput
-          style={s.input}
-          placeholder="#Temple #Community #Festival"
-          placeholderTextColor={colors.textMuted}
-          value={hashtagsInput}
-          onChangeText={setHashtagsInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!saving}
-        />
-        {previewHashtags.length > 0 ? (
-          <View style={s.hashtagChipWrap}>
-            {previewHashtags.map((tag) => (
-              <View
-                key={tag}
-                style={[s.hashtagChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-              >
-                <Text style={[s.hashtagChipText, { color: colors.primary }]}>
-                  {formatHashtagDisplay(tag)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={[s.hashtagHint, { color: colors.textMuted }]}>
-            Tip: type #tags in the description or add them here. Duplicates are merged.
+        <View style={s.section}>
+          <Text style={s.label}>
+            Description{postType === "MARKETPLACE" ? " * (min 20 chars)" : ""}
           </Text>
-        )}
-
-        <Text style={s.label}>
-          {postType === "MARKETPLACE"
-            ? `Photos * (up to ${MARKETPLACE_MAX_PHOTOS})`
-            : "Media (optional)"}
-        </Text>
-        <Pressable
-          style={[s.mediaBtn, (uploading || saving) && s.mediaBtnDisabled]}
-          onPress={pickMedia}
-          disabled={uploading || saving}
-        >
-          <Ionicons
-            name={postType === "MARKETPLACE" ? "images-outline" : "images-outline"}
-            size={22}
-            color={colors.primary}
-          />
-          <Text style={s.mediaBtnText}>
-            {uploading
-              ? "Uploading…"
-              : postType === "MARKETPLACE"
-                ? galleryUrls.length + pendingGallery.length
-                  ? "Add more photos"
-                  : "Pick photos from gallery"
-                : mediaPreviewUri || pendingUpload
-                  ? "Replace photo or video"
-                  : "Choose Photo or Video"}
-          </Text>
-        </Pressable>
-        {(uploading || uploadFailed) && (
-          <UploadProgress
-            progress={uploadProgress}
-            label={
-              uploading
-                ? uploadStage
-                  ? videoUploadStageLabel(uploadStage)
-                  : mediaKind === "video" || uploadProgress > 0.3
-                    ? "Uploading…"
-                    : "Preparing…"
-                : "Upload failed"
+          <TextInput
+            style={[s.input, s.textArea]}
+            placeholder={
+              postType === "JOB"
+                ? "Role details, requirements, how to apply…"
+                : postType === "MARKETPLACE"
+                  ? "Describe the item, meetup preference, and any defects…"
+                  : "Write a short caption…"
             }
-            failed={uploadFailed && !uploading}
+            placeholderTextColor={colors.textMuted}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+            editable={!saving}
           />
-        )}
-        {uploadFailed && !uploading ? (
-          <Pressable style={[s.mediaBtn, { marginTop: spacing.sm }]} onPress={pickMedia}>
-            <Ionicons name="refresh" size={20} color={colors.primary} />
-            <Text style={s.mediaBtnText}>Retry</Text>
-          </Pressable>
-        ) : null}
-        {postType === "MARKETPLACE" && galleryPreviews.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-            {galleryPreviews.map((uri, i) => (
-              <View key={`${uri}-${i}`} style={{ marginRight: 8, position: "relative" }}>
-                <Image
-                  source={{ uri }}
-                  style={{ width: 88, height: 88, borderRadius: 8, backgroundColor: colors.surfaceElevated }}
-                  resizeMode="cover"
-                />
-                {i === 0 ? (
-                  <View
-                    style={{
-                      position: "absolute",
-                      left: 4,
-                      bottom: 4,
-                      backgroundColor: "rgba(0,0,0,0.55)",
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                      borderRadius: 4
-                    }}
-                  >
-                    <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>Cover</Text>
-                  </View>
-                ) : null}
-                <Pressable
-                  style={{ position: "absolute", top: -6, right: -6 }}
-                  onPress={() => removeGalleryAt(i)}
+
+          <Text style={s.label}>Hashtags</Text>
+          <TextInput
+            style={s.input}
+            placeholder="#Temple #Community"
+            placeholderTextColor={colors.textMuted}
+            value={hashtagsInput}
+            onChangeText={setHashtagsInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!saving}
+          />
+          {previewHashtags.length > 0 ? (
+            <View style={s.hashtagChipWrap}>
+              {previewHashtags.map((tag) => (
+                <View
+                  key={tag}
+                  style={[
+                    s.hashtagChip,
+                    { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" }
+                  ]}
                 >
-                  <Ionicons name="close-circle" size={22} color={colors.error} />
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
-        ) : mediaPreviewUri && mediaKind ? (
-          <MediaPreview
-            kind={mediaKind}
-            previewUri={mediaPreviewUri}
-            fileName={
-              mediaFileName ||
-              (fileSize != null ? `${formatBytes(fileSize)}` : null)
-            }
-            durationSec={mediaDurationSec}
-            height={previewHeight}
-            onReplace={pickMedia}
-            onRemove={clearMedia}
-            disabled={uploading || saving}
-          />
-        ) : mediaUrl ? (
-          <View style={s.mediaUrlRow}>
-            <Text style={s.mediaUrlLabel} numberOfLines={1}>
-              {mediaKind === "video" ? "Video uploaded" : "Uploaded"}
+                  <Text style={[s.hashtagChipText, { color: colors.primary }]}>
+                    {formatHashtagDisplay(tag)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        {isTypeLocked ? (
+          <View style={s.section}>
+            <Text style={s.label}>
+              {isEditing ? "Editing listing" : "Posting as"}
             </Text>
-            <Pressable onPress={clearMedia}>
-              <Text style={s.removeMediaText}>Remove</Text>
-            </Pressable>
+            <View style={s.lockedType}>
+              <Ionicons
+                name={
+                  postType === "JOB"
+                    ? "briefcase-outline"
+                    : postType === "MARKETPLACE"
+                      ? "cart-outline"
+                      : postType === "HELP_REQUEST"
+                        ? "hand-left-outline"
+                        : "pricetag-outline"
+                }
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={s.lockedTypeText}>{postTypeLabel(postType)}</Text>
+            </View>
+            {isEditing && mpStatus === "CHANGES_REQUESTED" ? (
+              <Text style={s.lockedHint}>
+                Update details below, then save to resubmit for review.
+              </Text>
+            ) : null}
           </View>
         ) : null}
+
+        <PostVisibilitySelector
+          value={visibility}
+          onChange={setVisibility}
+          disabled={saving}
+        />
 
         {error ? <Text style={s.errorText}>{error}</Text> : null}
 
@@ -1633,13 +1601,14 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         scroll: { flex: 1 },
-        content: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
+        content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: 2 },
+        section: { marginBottom: spacing.sm },
         label: {
           ...typography.caption,
           fontWeight: "600",
           color: colors.text,
           marginBottom: spacing.xs,
-          marginTop: spacing.sm
+          marginTop: spacing.xs
         },
         input: {
           ...textField,
@@ -1651,7 +1620,7 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
           paddingHorizontal: spacing.md,
           marginBottom: spacing.sm
         },
-        textArea: { minHeight: 100, ...textFieldMultiline },
+        textArea: { minHeight: 110, ...textFieldMultiline },
         hashtagHint: { ...typography.caption, marginBottom: spacing.sm, lineHeight: 18 },
         hashtagChipWrap: {
           flexDirection: "row",
@@ -1717,18 +1686,26 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
         mediaBtn: {
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          gap: spacing.xs,
-          paddingVertical: spacing.sm,
+          gap: spacing.sm,
+          paddingVertical: spacing.md,
           paddingHorizontal: spacing.md,
           marginBottom: spacing.sm,
           backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: radius.md
+          borderRadius: radius.lg
         },
         mediaBtnDisabled: { opacity: 0.6 },
-        mediaBtnText: { ...typography.caption, fontWeight: "600", color: colors.primary },
+        mediaBtnIcon: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        mediaBtnCopy: { flex: 1, minWidth: 0 },
+        mediaBtnText: { ...typography.caption, fontWeight: "700", color: colors.text },
+        mediaBtnSub: { ...typography.caption, marginTop: 2, fontSize: 12 },
         progressWrap: { marginBottom: spacing.sm },
         progressBar: {
           height: 6,

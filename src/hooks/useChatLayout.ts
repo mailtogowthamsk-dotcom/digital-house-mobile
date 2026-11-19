@@ -1,7 +1,6 @@
-import { useEffect, useRef } from "react";
 import { Platform, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useKeyboardHeight } from "./useKeyboardHeight";
+import { useKeyboardHeight, useKeyboardScreenHeight } from "./useKeyboardHeight";
 
 /** Phone < 768 | Tablet split 768–1023 | Desktop split 1024+ */
 const TABLET_MIN = 768;
@@ -11,6 +10,8 @@ export function useChatLayout() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
+  /** Visibility must use full IME signal — Android leftover is often 0 after resize. */
+  const imeHeight = useKeyboardScreenHeight();
 
   const isPhone = width < TABLET_MIN;
   const isTablet = width >= TABLET_MIN && width < DESKTOP_MIN;
@@ -23,31 +24,19 @@ export function useChatLayout() {
   const fontSize = width < 360 ? 13 : 14;
   const titleSize = isPhone ? 17 : 18;
 
-  const keyboardVisible = keyboardHeight > 0;
-  const windowHeightBeforeKeyboardRef = useRef(height);
-
-  useEffect(() => {
-    if (!keyboardVisible) {
-      windowHeightBeforeKeyboardRef.current = height;
-    }
-  }, [height, keyboardVisible]);
-
-  /** How many px the root window already shrank when adjustResize is active. */
-  const windowShrunkBy = keyboardVisible
-    ? Math.max(0, windowHeightBeforeKeyboardRef.current - height)
-    : 0;
+  const keyboardVisible = Platform.OS === "ios" ? keyboardHeight > 0 : imeHeight > 0;
 
   /**
    * Lift the composer above the keyboard without moving the header.
-   * iOS: keyboard overlays the window.
-   * Android: subtract any height adjustResize already reclaimed.
+   *
+   * Android: app.json has softwareKeyboardLayoutMode "resize". The window
+   * already shrinks under the IME, so the composer at the bottom of the
+   * flex column is already above the keyboard. Any marginBottom here
+   * double-counts and creates the blank gap. Always 0 on Android.
+   *
+   * iOS: keyboard overlays — pad by full keyboard height.
    */
-  const chatKeyboardInset =
-    Platform.OS === "ios"
-      ? keyboardHeight
-      : keyboardVisible
-        ? Math.max(0, keyboardHeight - windowShrunkBy)
-        : 0;
+  const chatKeyboardInset = Platform.OS === "ios" ? keyboardHeight : 0;
 
   const composerPaddingBottom = keyboardVisible
     ? 8

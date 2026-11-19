@@ -6,16 +6,16 @@ import {
   FlatList,
   ActivityIndicator,
   Pressable,
-  RefreshControl
+  RefreshControl,
+  useWindowDimensions
 } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { pauseAllFeedVideos } from "../../media/feedVideoPlayback";
-import { pickActiveAndPreloadVideoIds } from "../../utils/feedVideoVisibility";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
 import {
   getMemberProfile,
+  type MemberPostItem,
   type MemberProfile,
   blockMember,
   reportMember,
@@ -31,34 +31,23 @@ import {
 } from "../../api/connections.api";
 import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import { AvatarImage } from "../../components/ui/AvatarImage";
-import { FeedPostCardRow, type PostCardData } from "../../components/home";
-import type { FeedPostCardActions } from "../../components/home/FeedPostCardRow";
-import { CommentSheet } from "../../components/feed/CommentSheet";
-import { LikesBottomSheet } from "../../components/likes/LikesBottomSheet";
-import {
-  PostActionsBottomSheet,
-  postCardToSharePayload,
-  type PostSharePayload
-} from "../../components/share/PostActionsBottomSheet";
 import { MemberProfileStatsRow } from "../../components/members/MemberProfileStatsRow";
-import { BusinessProfileCard } from "../../components/profile";
+import { BusinessProfileCard, ProfilePostGridCard } from "../../components/profile";
 import { BusinessEnquiryModal } from "../../components/profile/BusinessEnquiryModal";
 import { MemberBenefitsProfileSection } from "../../components/profile/MemberBenefitsProfileSection";
 import { Shimmer } from "../../components/ui/Shimmer";
 import { formatUsername } from "../../utils/username";
 import { relationshipLabel } from "../../utils/relationshipStatus";
-import { memberPostToCardData } from "../../utils/postMappers";
-import { trackFeedAction } from "../../utils/feedAnalytics";
 import { appAlert } from "../../utils/appAlert";
 import { promptReportPost } from "../../utils/promptReportPost";
 import { useMemberPosts } from "../../hooks/useMemberPosts";
-import { useFeedInteractions } from "../../hooks/useFeedInteractions";
-import type { PostLiker } from "../../api/posts.api";
-import { useAuth } from "../../context/AuthContext";
 
 type Params = { MemberProfile: { userId?: number; username?: string } };
 
-const PREVIEW_LIMIT = 6;
+const PAGE_SIZE = 18;
+const GRID_COLS = 3;
+const GRID_GAP = 3;
+const GRID_PAD = spacing.sm;
 
 function InfoRow({ label, value, colors }: { label: string; value: string; colors: any }) {
   return (
@@ -74,7 +63,7 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
 export function MemberProfileScreen() {
   const navigation = useNavigation<any>();
   const { colors, mode } = useTheme();
-  const { user: authUser } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
   const route = useRoute<RouteProp<Params, "MemberProfile">>();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,42 +73,23 @@ export function MemberProfileScreen() {
   const memberLastFetchRef = useRef(0);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [commentPost, setCommentPost] = useState<PostCardData | null>(null);
-  const [likesPost, setLikesPost] = useState<PostCardData | null>(null);
-  const [sharePost, setSharePost] = useState<PostSharePayload | null>(null);
-  const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
-  const [preloadMediaId, setPreloadMediaId] = useState<string | null>(null);
-  const cardPostsRef = useRef<PostCardData[]>([]);
 
   const identifier = route.params.username ?? route.params.userId;
   const canLoadPosts = Boolean(profile && profile.canViewPosts !== false && !profile.isPrivatePreview);
+  const cardWidth =
+    (windowWidth - GRID_PAD * 2 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
 
   const {
     items: postItems,
     total: postsTotal,
+    hasMore: postsHasMore,
     loading: postsLoading,
+    loadingMore: postsLoadingMore,
     error: postsError,
     reload: reloadPosts,
-    updatePost,
+    loadMore: loadMorePosts,
     connectionsOnlyHiddenCount
-  } = useMemberPosts(identifier, canLoadPosts, PREVIEW_LIMIT);
-
-  const { toggleLike, addLike, toggleSave } = useFeedInteractions(updatePost);
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60,
-    minimumViewTime: 120
-  }).current;
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
-      const { activeId, preloadId } = pickActiveAndPreloadVideoIds(
-        viewableItems,
-        cardPostsRef.current
-      );
-      setActiveMediaId(activeId);
-      setPreloadMediaId(preloadId);
-    }
-  ).current;
+  } = useMemberPosts(identifier, canLoadPosts, PAGE_SIZE);
 
   const load = useCallback(async () => {
     if (!identifier) {
@@ -152,9 +122,6 @@ export function MemberProfileScreen() {
         memberLastFetchRef.current = now;
         void load();
       }
-      return () => {
-        pauseAllFeedVideos();
-      };
     }, [load])
   );
 
@@ -368,14 +335,6 @@ export function MemberProfileScreen() {
     ]);
   };
 
-  const cardPosts: PostCardData[] = useMemo(() => {
-    if (!profile) return [];
-    return postItems.map((p) =>
-      memberPostToCardData(p, profile.fullName, getImageUrl(profile.profileImage))
-    );
-  }, [postItems, profile]);
-  cardPostsRef.current = cardPosts;
-
   const listHeader = useMemo(() => {
     if (!profile) return null;
     const location = [profile.city, profile.district].filter(Boolean).join(", ");
@@ -400,7 +359,7 @@ export function MemberProfileScreen() {
             <AvatarImage
               uri={getImageUrl(profile.profileImage)}
               name={profile.fullName}
-              size={88}
+              size={72}
               placeholderColor={colors.surfaceElevated}
               textColor={colors.textMuted}
             />
@@ -590,9 +549,7 @@ export function MemberProfileScreen() {
 
         {canLoadPosts ? (
           <View style={styles.postsHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
-              Recent Posts
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Posts</Text>
             {postsTotal > 0 ? (
               <Text style={{ color: colors.textMuted, fontSize: 13 }}>{postsTotal} total</Text>
             ) : null}
@@ -619,14 +576,22 @@ export function MemberProfileScreen() {
           </View>
         ) : null}
 
-        {canLoadPosts && postsLoading && cardPosts.length === 0 ? (
-          <View style={{ gap: spacing.md, marginBottom: spacing.lg }}>
-            <Shimmer height={180} borderRadius={0} />
-            <Shimmer height={180} borderRadius={0} />
+        {canLoadPosts && postsLoading && postItems.length === 0 ? (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: GRID_GAP,
+              marginBottom: spacing.sm
+            }}
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Shimmer key={i} width={cardWidth} height={cardWidth} borderRadius={radius.sm} />
+            ))}
           </View>
         ) : null}
 
-        {canLoadPosts && postsError && cardPosts.length === 0 ? (
+        {canLoadPosts && postsError && postItems.length === 0 ? (
           <View style={styles.emptyPosts}>
             <Text style={{ color: colors.error, textAlign: "center" }}>{postsError}</Text>
             <Pressable onPress={() => void reloadPosts()} style={{ marginTop: spacing.sm }}>
@@ -645,7 +610,8 @@ export function MemberProfileScreen() {
     postsLoading,
     postsError,
     postsTotal,
-    cardPosts.length,
+    postItems.length,
+    cardWidth,
     acting
   ]);
 
@@ -670,83 +636,44 @@ export function MemberProfileScreen() {
   }, [canLoadPosts, postsLoading, postsError, colors, mode]);
 
   const listFooter = useMemo(() => {
-    if (!canLoadPosts || cardPosts.length === 0) return null;
-    if (postsTotal <= PREVIEW_LIMIT && cardPosts.length >= postsTotal) return null;
+    if (!canLoadPosts || !postsLoadingMore) return null;
     return (
-      <Pressable
-        style={[styles.viewAll, { borderColor: colors.border, backgroundColor: colors.surface }]}
-        onPress={() =>
-          navigation.navigate("MemberPosts", {
-            userId: profile!.id,
-            username: profile!.username || undefined,
-            name: profile!.fullName,
-            profileImage: profile!.profileImage
-          })
-        }
-      >
-        <Text style={[styles.viewAllText, { color: colors.primary }]}>View All Posts</Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-      </Pressable>
+      <View style={{ paddingVertical: spacing.lg, alignItems: "center" }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
     );
-  }, [canLoadPosts, cardPosts.length, postsTotal, colors, navigation, profile]);
+  }, [canLoadPosts, postsLoadingMore, colors.primary]);
 
-  const feedActionsRef = useRef<FeedPostCardActions>({
-    onAuthorPress: () => {},
-    onDoubleTap: () => {},
-    onLikePress: () => {},
-    onLikeCountPress: () => {},
-    onCommentPress: () => {},
-    onSavePress: () => {},
-    onSharePress: () => {}
-  });
-  feedActionsRef.current = {
-    onAuthorPress: () => {},
-    shouldShowMenu: (item) =>
-      !(authUser?.id != null && item.authorUserId === authUser.id),
-    onMenuPress: (item) => {
-      trackFeedAction("post_report", Number(item.id), { source: "member_profile" });
-      promptReportPost(Number(item.id));
+  const openPost = useCallback(
+    (postId: number) => {
+      navigation.navigate("PostDetail", { postId });
     },
-    onActivateMedia: (postId) => {
-      setActiveMediaId(postId);
-      setPreloadMediaId((prev) => (prev === postId ? null : prev));
-    },
-    onDoubleTap: (item) => addLike(item.id, item),
-    onLikePress: (item) => toggleLike(item.id, item),
-    onLikeCountPress: (item) => {
-      trackFeedAction("likes_sheet_open", Number(item.id));
-      setLikesPost(item);
-    },
-    onCommentPress: (item) => {
-      trackFeedAction("comment_sheet_open", Number(item.id));
-      setCommentPost(item);
-    },
-    onSavePress: (item) => toggleSave(item.id, item),
-    onSharePress: (item) => {
-      trackFeedAction("share", Number(item.id));
-      setSharePost(postCardToSharePayload(item));
-    },
-    onViewJob: (item) => {
-      navigation.navigate("PostDetail", { postId: Number(item.id) });
-    },
-    onViewMarketplace: (item) => {
-      navigation.navigate("PostDetail", { postId: Number(item.id) });
-    },
-    onViewHelp: (item) => {
-      navigation.navigate("PostDetail", { postId: Number(item.id) });
-    }
-  };
+    [navigation]
+  );
 
-  const renderFeedItem = useCallback(
-    ({ item }: { item: PostCardData }) => (
-      <FeedPostCardRow
-        post={item}
-        isMediaActive={item.id === activeMediaId}
-        isMediaPreload={item.id === preloadMediaId}
-        actionsRef={feedActionsRef}
-      />
+  const openPostMenu = useCallback((postId: number) => {
+    appAlert("Post options", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Report post",
+        style: "destructive",
+        onPress: () => promptReportPost(postId)
+      }
+    ]);
+  }, []);
+
+  const renderGridItem = useCallback(
+    ({ item }: { item: MemberPostItem }) => (
+      <View style={{ width: cardWidth }}>
+        <ProfilePostGridCard
+          post={item}
+          variant="compact"
+          onPress={() => openPost(item.postId)}
+          onMenuPress={profile?.isSelf ? undefined : () => openPostMenu(item.postId)}
+        />
+      </View>
     ),
-    [activeMediaId, preloadMediaId]
+    [cardWidth, openPost, openPostMenu, profile?.isSelf]
   );
 
   if (loading) {
@@ -773,58 +700,35 @@ export function MemberProfileScreen() {
   return (
     <>
       <FlatList
+        key={`member-posts-${GRID_COLS}`}
         style={{ flex: 1, backgroundColor: colors.background }}
-        data={canLoadPosts ? cardPosts : []}
-        keyExtractor={(item) => item.id}
+        data={canLoadPosts ? postItems : []}
+        keyExtractor={(item) => String(item.postId)}
+        numColumns={GRID_COLS}
+        columnWrapperStyle={
+          canLoadPosts && postItems.length > 0
+            ? {
+                paddingHorizontal: GRID_PAD,
+                gap: GRID_GAP,
+                marginBottom: GRID_GAP
+              }
+            : undefined
+        }
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmpty}
         ListFooterComponent={listFooter}
-        renderItem={renderFeedItem}
-        extraData={`${activeMediaId}:${preloadMediaId}`}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        removeClippedSubviews
-        maxToRenderPerBatch={6}
-        windowSize={7}
-        updateCellsBatchingPeriod={50}
-        initialNumToRender={4}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-        contentContainerStyle={{ paddingBottom: spacing.xxxl }}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {commentPost ? (
-        <CommentSheet
-          visible
-          postId={Number(commentPost.id)}
-          postTitle={commentPost.title}
-          onClose={() => setCommentPost(null)}
-          onCommentCountChange={(count) => updatePost(commentPost.id, { commentCount: count })}
-        />
-      ) : null}
-
-      <LikesBottomSheet
-        visible={likesPost != null}
-        target={likesPost ? { type: "post", id: Number(likesPost.id) } : null}
-        title="Likes"
-        onClose={() => setLikesPost(null)}
-        onUserPress={(liker: PostLiker) => {
-          setLikesPost(null);
-          if (liker.isCurrentUser) {
-            navigation.navigate("Profile");
-            return;
-          }
-          navigation.navigate("MemberProfile", { userId: liker.userId });
+        renderItem={renderGridItem}
+        onEndReached={() => {
+          if (canLoadPosts && postsHasMore && !postsLoadingMore) void loadMorePosts();
         }}
-      />
-
-      <PostActionsBottomSheet
-        visible={sharePost != null}
-        post={sharePost}
-        onClose={() => setSharePost(null)}
-        onReposted={() => void reloadPosts()}
-        onUndoRepost={() => void reloadPosts()}
-        onNavigateFindMembers={() => navigation.navigate("SearchMembers")}
+        onEndReachedThreshold={0.4}
+        removeClippedSubviews
+        maxToRenderPerBatch={12}
+        windowSize={9}
+        initialNumToRender={9}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        showsVerticalScrollIndicator={false}
       />
 
       {profile?.business && !profile.isSelf ? (
@@ -848,52 +752,52 @@ export function MemberProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerBlock: { padding: spacing.lg, paddingBottom: spacing.sm },
+  headerBlock: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
   card: {
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     alignItems: "center"
   },
   communityCard: { alignItems: "stretch" },
   avatarRing: {
-    padding: 3,
-    borderRadius: 50,
+    padding: 2,
+    borderRadius: 42,
     borderWidth: 2
   },
-  name: { marginTop: spacing.md, fontSize: 22, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
-  username: { marginTop: 4, fontSize: 15, fontWeight: "700" },
+  name: { marginTop: spacing.sm, fontSize: 20, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
+  username: { marginTop: 2, fontSize: 14, fontWeight: "700" },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 8
+    marginTop: 6
   },
-  location: { fontSize: 14 },
+  location: { fontSize: 13 },
   statusBadge: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     borderRadius: radius.full,
     alignSelf: "center"
   },
-  statusText: { fontSize: 12, fontWeight: "700" },
-  heroActions: { width: "100%", marginTop: spacing.sm },
+  statusText: { fontSize: 11, fontWeight: "700" },
+  heroActions: { width: "100%", marginTop: spacing.xs },
   banner: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     flexDirection: "row",
     gap: 8,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: radius.md,
     width: "100%"
   },
-  bannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  bannerText: { flex: 1, fontSize: 12, lineHeight: 17 },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     letterSpacing: 0.4,
     textTransform: "uppercase"
   },
@@ -970,38 +874,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.md,
-    marginTop: spacing.xs
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+    paddingHorizontal: 2
   },
   emptyPosts: {
     alignItems: "center",
-    paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs
   },
   emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.sm
+    marginBottom: spacing.xs
   },
-  emptyTitle: { fontSize: 17, fontWeight: "800" },
-  emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 20 },
-  viewAll: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6
-  },
-  viewAllText: { fontSize: 15, fontWeight: "800" },
+  emptyTitle: { fontSize: 16, fontWeight: "800" },
+  emptyBody: { fontSize: 13, textAlign: "center", lineHeight: 18 },
   errorTitle: { marginTop: spacing.md, fontSize: 17, fontWeight: "800" },
   errorSub: { marginTop: spacing.sm, textAlign: "center", lineHeight: 20 },
   menuBtn: { padding: spacing.sm, marginBottom: spacing.xs },

@@ -49,7 +49,7 @@ export async function getPushPermissionStatus(): Promise<{
 
 /**
  * User-initiated push permission (Settings toggle, soft prompt, etc.).
- * Shows an in-app rationale before the system dialog when undetermined.
+ * Requests system permission when needed.
  */
 export async function ensurePushNotifications(opts?: {
   showDeniedUi?: boolean;
@@ -64,13 +64,6 @@ export async function ensurePushNotifications(opts?: {
       const granted = await requestOsPushPermission();
       if (granted) return { outcome: "granted" as const, canAskAgain: true };
       return getPushPermissionStatus();
-    },
-    rationale: {
-      title: "Stay in the loop",
-      message:
-        "Turn on notifications to get alerts for messages, matrimony interests, likes, and important account updates. You can change this anytime in Settings.",
-      confirmLabel: "Enable notifications",
-      cancelLabel: "Not now"
     },
     guidance: {
       title: "Notifications are off",

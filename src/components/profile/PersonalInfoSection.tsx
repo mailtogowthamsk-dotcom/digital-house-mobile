@@ -20,6 +20,14 @@ export type PersonalInfo = {
 type PersonalInfoSectionProps = {
   fullName: string;
   personal: PersonalInfo;
+  currentLocation?: string | null;
+  maritalStatus?: string | null;
+  fatherName?: string | null;
+  address?: string | null;
+  hobbies?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  linkedin?: string | null;
 };
 
 function Row({
@@ -54,7 +62,18 @@ function Row({
   );
 }
 
-export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionProps) {
+export function PersonalInfoSection({
+  fullName,
+  personal,
+  currentLocation,
+  maritalStatus,
+  fatherName,
+  address,
+  hobbies,
+  instagram,
+  facebook,
+  linkedin
+}: PersonalInfoSectionProps) {
   const { colors } = useTheme();
   const s = useMemo(
     () =>
@@ -117,7 +136,17 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
     city: null,
     district: null
   };
-  const address = [p.city, p.district].filter(Boolean).join(", ") || null;
+  const place = [p.city, p.district].filter(Boolean).join(", ") || null;
+  const location = currentLocation?.trim() || place;
+  const optional = [
+    maritalStatus?.trim() ? { label: "Marital status", value: maritalStatus.trim() } : null,
+    fatherName?.trim() ? { label: "Father's name", value: fatherName.trim() } : null,
+    address?.trim() ? { label: "Address", value: address.trim() } : null,
+    hobbies?.trim() ? { label: "Hobbies", value: hobbies.trim() } : null,
+    instagram?.trim() ? { label: "Instagram", value: instagram.trim() } : null,
+    facebook?.trim() ? { label: "Facebook", value: facebook.trim() } : null,
+    linkedin?.trim() ? { label: "LinkedIn", value: linkedin.trim() } : null
+  ].filter((row): row is { label: string; value: string } => row != null);
   const rows: { label: string; value: string; isProtected?: boolean }[] = [
     { label: "Full name", value: fullName ?? "—" },
     { label: "Mobile", value: p.masked_mobile, isProtected: true },
@@ -125,7 +154,8 @@ export function PersonalInfoSection({ fullName, personal }: PersonalInfoSectionP
     { label: "Gender", value: p.gender ?? "—" },
     { label: "Date of birth", value: p.dob ?? "—" },
     ...(p.blood_group ? [{ label: "Blood group", value: p.blood_group }] : []),
-    ...(address ? [{ label: "Location", value: address }] : [])
+    ...(location ? [{ label: "Location", value: location }] : []),
+    ...optional
   ];
 
   return (

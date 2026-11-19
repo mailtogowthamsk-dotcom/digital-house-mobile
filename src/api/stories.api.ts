@@ -32,6 +32,8 @@ export type StoryGroup = {
   has_unseen: boolean;
   latest_at: string;
   is_own: boolean;
+  /** Admin-published VettuvaGounder stories visible to all signed-in members. */
+  is_official?: boolean;
   stories: StoryItem[];
 };
 

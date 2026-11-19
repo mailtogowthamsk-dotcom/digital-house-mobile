@@ -10,9 +10,9 @@ import {
   Dimensions,
   ActivityIndicator,
   Keyboard,
-  StatusBar
+  StatusBar,
+  KeyboardAvoidingView
 } from "react-native";
-import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { googleAuth, loginRequest } from "../../api/auth.api";
 import { getAuthErrorMessage, sanitizeUserFacingError } from "../../api/client";
@@ -219,123 +219,136 @@ function LoginScreenBody({
     }
   };
 
+  /**
+   * Android already uses softwareKeyboardLayoutMode:"resize". Extra keyboard
+   * padding (AppKeyboardAvoidingView androidPad) double-shrinks the viewport and
+   * leaves a blank navy band above the IME — especially in Expo Go. Keep the
+   * same visible Login UI; only avoid double inset. iOS still needs KAV padding.
+   */
+  const scroll = (
+    <ScrollView
+      style={s.keyboard}
+      contentContainerStyle={[
+        s.scrollContent,
+        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+      ]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+    >
+      <Pressable
+        style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
+        onPress={() => navigation.goBack()}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
+        <Ionicons name="chevron-back-outline" size={24} color="#FFFFFF" />
+      </Pressable>
+
+      <View style={s.header}>
+        <Image source={LOGO} style={s.logo} resizeMode="contain" />
+        <Text style={s.brandTitle}>Digital House</Text>
+        <Text style={s.tagline}>Sign in to your account</Text>
+      </View>
+
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Login</Text>
+        <Text style={s.cardSubtitle}>Choose how you want to sign in</Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            s.googleBtn,
+            pressed && s.btnPressed,
+            (google.googleLoading || loading || !google.available) && s.btnDisabled
+          ]}
+          onPress={() => void google.onGoogleSignIn()}
+          disabled={google.googleLoading || loading || !google.available}
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Google"
+        >
+          {google.googleLoading ? (
+            <ActivityIndicator size="small" color="#111827" />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={20} color="#EA4335" />
+              <Text style={s.googleBtnText}>Continue with Google</Text>
+            </>
+          )}
+        </Pressable>
+        {google.hint ? <Text style={s.googleHint}>{google.hint}</Text> : null}
+
+        <View style={s.dividerRow}>
+          <View style={s.dividerLine} />
+          <Text style={s.dividerText}>OR</Text>
+          <View style={s.dividerLine} />
+        </View>
+
+        <Text style={s.existingLabel}>Sign in with email</Text>
+        <Text style={s.emailHelper}>Enter your email to receive a one-time password.</Text>
+
+        <Input
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoCorrect={false}
+          variant="onWhite"
+          editable={!loading}
+          leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
+        />
+
+        <View style={s.messageWrap}>
+          {shownMsg ? (
+            <Text style={shownMsg.includes("sent") ? s.messageSuccess : s.messageError}>
+              {shownMsg}
+            </Text>
+          ) : null}
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [s.loginBtn, pressed && s.btnPressed, loading && s.btnDisabled]}
+          onPress={onSend}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Send OTP"
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={s.loginBtnText}>Send OTP</Text>
+          )}
+        </Pressable>
+        <Text style={s.loginHint}>
+          After OTP, you'll be routed by your registration status (Home, Waiting, or Corrections).
+        </Text>
+
+        <Pressable
+          style={({ pressed }) => [s.registerWrap, pressed && { opacity: 0.8 }]}
+          onPress={() => navigation.navigate("Registration")}
+          accessibilityRole="button"
+        >
+          <Text style={s.registerText}>Don't have an account? </Text>
+          <Text style={s.registerLink}>Register</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={s.background}>
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={s.overlay} pointerEvents="none" />
-      <AppKeyboardAvoidingView
-        style={s.keyboard}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          contentContainerStyle={[
-            s.scrollContent,
-            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          <Pressable
-            style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
-            onPress={() => navigation.goBack()}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="chevron-back-outline" size={24} color="#FFFFFF" />
-          </Pressable>
-
-          <View style={s.header}>
-            <Image source={LOGO} style={s.logo} resizeMode="contain" />
-            <Text style={s.brandTitle}>Digital House</Text>
-            <Text style={s.tagline}>Sign in to your account</Text>
-          </View>
-
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Login</Text>
-            <Text style={s.cardSubtitle}>Choose how you want to sign in</Text>
-
-            <Pressable
-              style={({ pressed }) => [
-                s.googleBtn,
-                pressed && s.btnPressed,
-                (google.googleLoading || loading || !google.available) && s.btnDisabled
-              ]}
-              onPress={() => void google.onGoogleSignIn()}
-              disabled={google.googleLoading || loading || !google.available}
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Google"
-            >
-              {google.googleLoading ? (
-                <ActivityIndicator size="small" color="#111827" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={20} color="#EA4335" />
-                  <Text style={s.googleBtnText}>Continue with Google</Text>
-                </>
-              )}
-            </Pressable>
-            {google.hint ? <Text style={s.googleHint}>{google.hint}</Text> : null}
-
-            <View style={s.dividerRow}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>OR</Text>
-              <View style={s.dividerLine} />
-            </View>
-
-            <Text style={s.existingLabel}>Sign in with email</Text>
-            <Text style={s.emailHelper}>Enter your email to receive a one-time password.</Text>
-
-            <Input
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-              variant="onWhite"
-              editable={!loading}
-              leftIcon={<Ionicons name="mail-outline" size={ICON_SIZE} color={ICON_COLOR} />}
-            />
-
-            <View style={s.messageWrap}>
-              {shownMsg ? (
-                <Text style={shownMsg.includes("sent") ? s.messageSuccess : s.messageError}>
-                  {shownMsg}
-                </Text>
-              ) : null}
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [s.loginBtn, pressed && s.btnPressed, loading && s.btnDisabled]}
-              onPress={onSend}
-              disabled={loading}
-              accessibilityRole="button"
-              accessibilityLabel="Send OTP"
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={s.loginBtnText}>Send OTP</Text>
-              )}
-            </Pressable>
-            <Text style={s.loginHint}>
-              After OTP, you'll be routed by your registration status (Home, Waiting, or Corrections).
-            </Text>
-
-            <Pressable
-              style={({ pressed }) => [s.registerWrap, pressed && { opacity: 0.8 }]}
-              onPress={() => navigation.navigate("Registration")}
-              accessibilityRole="button"
-            >
-              <Text style={s.registerText}>Don't have an account? </Text>
-              <Text style={s.registerLink}>Register</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </AppKeyboardAvoidingView>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView style={s.keyboard} behavior="padding" keyboardVerticalOffset={0}>
+          {scroll}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={s.keyboard}>{scroll}</View>
+      )}
     </View>
   );
 }

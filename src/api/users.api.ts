@@ -139,7 +139,8 @@ export async function getMemberPosts(
     limit: res.data.limit ?? limit,
     offset: res.data.offset ?? offset,
     hasMore: Boolean(res.data.hasMore),
-    canViewPosts: res.data.canViewPosts !== false
+    canViewPosts: res.data.canViewPosts !== false,
+    connectionsOnlyHiddenCount: res.data.connectionsOnlyHiddenCount ?? 0
   };
 }
 

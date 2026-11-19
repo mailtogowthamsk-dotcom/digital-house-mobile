@@ -15,6 +15,8 @@ export type ProfessionalInfo = {
 
 type ProfessionalInfoSectionProps = {
   professional: ProfessionalInfo | null | undefined;
+  occupation?: string | null;
+  workStudyDetails?: string | null;
 };
 
 function Row({
@@ -53,7 +55,11 @@ const emptyProfessional: ProfessionalInfo = {
   skills: null
 };
 
-export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectionProps) {
+export function ProfessionalInfoSection({
+  professional,
+  occupation,
+  workStudyDetails
+}: ProfessionalInfoSectionProps) {
   const { colors } = useTheme();
   const s = useMemo(
     () =>
@@ -80,7 +86,19 @@ export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectio
   );
 
   const pro = professional ?? emptyProfessional;
-  const hasAny = ROWS.some(({ key }) => Boolean(pro[key]?.trim()));
+  const study = workStudyDetails?.trim() || "";
+  const rows = [
+    { label: "Occupation", value: occupation?.trim() || "—" },
+    ...ROWS.map(({ key, label }) => ({
+      label,
+      value: pro[key]?.trim() || "—"
+    })),
+    ...(study ? [{ label: "Work / study details", value: study }] : [])
+  ];
+  const hasAny =
+    Boolean(occupation?.trim()) ||
+    Boolean(workStudyDetails?.trim()) ||
+    ROWS.some(({ key }) => Boolean(pro[key]?.trim()));
 
   return (
     <AccordionSection
@@ -88,12 +106,12 @@ export function ProfessionalInfoSection({ professional }: ProfessionalInfoSectio
       icon="briefcase-outline"
       defaultExpanded={hasAny}
     >
-      {ROWS.map(({ key, label }, i) => (
+      {rows.map((row, i) => (
         <Row
-          key={key}
-          label={label}
-          value={pro[key]?.trim() || "—"}
-          isLast={i === ROWS.length - 1}
+          key={row.label}
+          label={row.label}
+          value={row.value}
+          isLast={i === rows.length - 1}
           s={s}
         />
       ))}

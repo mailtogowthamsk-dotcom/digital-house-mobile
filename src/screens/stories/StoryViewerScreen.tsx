@@ -13,6 +13,7 @@ import {
   Keyboard
 } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -355,7 +356,7 @@ export function StoryViewerScreen() {
 
   const likingRef = useRef(false);
   const onToggleLike = useCallback(async () => {
-    if (!story || likingRef.current) return;
+    if (!story || likingRef.current || group?.is_official) return;
     likingRef.current = true;
     const prevLiked = liked;
     const prevCount = likeCount;
@@ -382,10 +383,10 @@ export function StoryViewerScreen() {
     } finally {
       likingRef.current = false;
     }
-  }, [story, liked, likeCount]);
+  }, [story, liked, likeCount, group?.is_official]);
 
   const onSendReply = useCallback(async () => {
-    if (!story || !group || group.is_own || replySending) return;
+    if (!story || !group || group.is_own || group.is_official || replySending) return;
     const body = replyText.trim();
     if (!body) return;
     setReplySending(true);
@@ -592,6 +593,9 @@ export function StoryViewerScreen() {
       </View>
 
       <View style={[styles.overlay, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+        <View pointerEvents="none" style={[styles.headerScrim, { height: insets.top + 110 }]}>
+          <LinearGradient colors={["rgba(0,0,0,0.72)", "transparent"]} style={StyleSheet.absoluteFill} />
+        </View>
         <View style={styles.progressRow}>
           {group.stories.map((s, i) => (
             <ProgressSegment
@@ -603,19 +607,27 @@ export function StoryViewerScreen() {
         </View>
 
         <View style={styles.header}>
-          <AvatarImage uri={group.user.profile_image} name={group.user.name} size={36} />
-          <View style={{ flex: 1, marginLeft: 10 }}>
+          {group.is_official ? (
+            <Image
+              source={require("../../../assets/logo_digital_house.png")}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#fff" }}
+              resizeMode="cover"
+            />
+          ) : (
+            <AvatarImage uri={group.user.profile_image} name={group.user.name} size={36} />
+          )}
+          <View style={{ flex: 1, marginLeft: 4 }}>
             <Text style={styles.name} numberOfLines={1}>
-              {group.user.name}
+              {group.is_official ? "VettuvaGounder" : group.user.name}
             </Text>
             <Text style={styles.time}>{timeAgo(story.created_at)}</Text>
           </View>
-          {group.is_own ? (
-            <Pressable onPress={onDelete} hitSlop={10} style={{ padding: 6 }}>
+          {group.is_own && !group.is_official ? (
+            <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete status" style={styles.headerButton}>
               <Ionicons name="trash-outline" size={22} color="#fff" />
             </Pressable>
           ) : null}
-          <Pressable onPress={close} hitSlop={10} style={{ padding: 6 }}>
+          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close status" style={styles.headerButton}>
             <Ionicons name="close" size={26} color="#fff" />
           </Pressable>
         </View>
@@ -636,7 +648,7 @@ export function StoryViewerScreen() {
             </Text>
           ) : null}
 
-          {!replyOpen ? (
+          {!replyOpen && !group.is_official ? (
             <View style={styles.actionsRow}>
               <Pressable onPress={() => void onToggleLike()} style={styles.actionBtn} hitSlop={8}>
                 <Ionicons
@@ -667,7 +679,7 @@ export function StoryViewerScreen() {
             </View>
           ) : null}
 
-          {replyOpen && !group.is_own ? (
+          {replyOpen && !group.is_own && !group.is_official ? (
             <View style={styles.replyRow}>
               <TextInput
                 value={replyText}
@@ -771,10 +783,11 @@ const styles = StyleSheet.create({
   tapLeft: { flex: 1 },
   tapRight: { flex: 1 },
   overlay: { ...StyleSheet.absoluteFill, zIndex: 2 },
-  progressRow: { flexDirection: "row", gap: 4, paddingHorizontal: 10 },
+  headerScrim: { position: "absolute", top: 0, left: 0, right: 0 },
+  progressRow: { flexDirection: "row", gap: 4, paddingHorizontal: 14 },
   progressTrack: {
     flex: 1,
-    height: 2.5,
+    height: 3,
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.35)",
     overflow: "hidden"
@@ -786,8 +799,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingTop: 10
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    gap: 6
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.28)"
   },
   name: { color: "#fff", fontWeight: "800", fontSize: 14 },
   time: { color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 1 },

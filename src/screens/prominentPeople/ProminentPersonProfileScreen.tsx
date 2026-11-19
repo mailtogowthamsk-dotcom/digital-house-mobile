@@ -73,6 +73,7 @@ export function ProminentPersonProfileScreen() {
   const [person, setPerson] = useState<ProminentPersonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const galleryGap = spacing.sm;
@@ -83,6 +84,7 @@ export function ProminentPersonProfileScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
+      setUnavailable(false);
       const data = await getProminentPerson(personId);
       setPerson(data);
     } catch (e) {
@@ -90,7 +92,11 @@ export function ProminentPersonProfileScreen() {
       if (status === 401) navigation.reset({ index: 0, routes: [{ name: "Login" }] });
       else if (status === 403)
         navigation.reset({ index: 0, routes: [{ name: "PendingApproval" }] });
-      else setError(e instanceof Error ? e.message : "Failed to load profile");
+      else if (status === 404) {
+        setPerson(null);
+        setUnavailable(true);
+        setError("This profile is no longer available.");
+      } else setError(e instanceof Error ? e.message : "Failed to load profile");
     }
   }, [navigation, personId]);
 
@@ -278,8 +284,9 @@ export function ProminentPersonProfileScreen() {
         />
         <Text style={s.errorText}>{error}</Text>
         <PrimaryButton
-          title="Retry"
+          title={unavailable ? "View Prominent People" : "Retry"}
           onPress={() => {
+            if (unavailable) return navigation.replace("ProminentPeopleHome");
             setLoading(true);
             void load().finally(() => setLoading(false));
           }}

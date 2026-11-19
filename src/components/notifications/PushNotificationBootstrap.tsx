@@ -12,16 +12,17 @@ import { markNotificationRead } from "../../api/notifications.api";
 function handleNotificationTap(
   response: import("expo-notifications").NotificationResponse | null
 ) {
-  if (!response) return;
+  if (!response) return false;
   const item = notificationItemFromPushData(
     response.notification.request.content.data as Record<string, unknown>
   );
-  if (!item || !navigationRef.isReady()) return;
+  if (!item || !navigationRef.isReady()) return false;
 
   if (item.id > 0) {
     void markNotificationRead(item.id).catch(() => {});
   }
   navigateFromNotification(navigationRef as never, item);
+  return true;
 }
 
 /**
@@ -49,22 +50,31 @@ export function PushNotificationBootstrap() {
     if (status !== "home" || !pushSupported) return;
 
     let subTap: { remove: () => void } | undefined;
+    let unsubscribeReady: (() => void) | undefined;
     let cancelled = false;
 
     void (async () => {
       const Notifications = await import("expo-notifications");
       if (cancelled) return;
 
-      const last = await Notifications.getLastNotificationResponseAsync();
-      if (cancelled) return;
-      if (last) handleNotificationTap(last);
-
-      if (cancelled) return;
-      subTap = Notifications.addNotificationResponseReceivedListener(handleNotificationTap);
+      let handledId: string | undefined;
+      function consume(response: import("expo-notifications").NotificationResponse | null) {
+        if (!response || cancelled) return;
+        const id = response.notification.request.identifier;
+        if (id === handledId || !handleNotificationTap(response)) return;
+        handledId = id;
+        Notifications.clearLastNotificationResponse();
+      }
+      // A cold-start tap can arrive before the signed-in navigator mounts.
+      const consumeLast = () => consume(Notifications.getLastNotificationResponse());
+      unsubscribeReady = navigationRef.addListener("ready", consumeLast);
+      subTap = Notifications.addNotificationResponseReceivedListener(consume);
+      consumeLast();
     })();
 
     return () => {
       cancelled = true;
+      unsubscribeReady?.();
       subTap?.remove();
     };
   }, [status, pushSupported]);

@@ -30,6 +30,8 @@ import { FeedMediaLoader } from "./FeedMediaLoader";
 
 type Props = {
   uri: string;
+  /** HTTPS/CDN original — used when file:// cache fails in WebView (common in Expo Go). */
+  remoteUri?: string | null;
   thumbnailUrl?: string | null;
   height: number;
   isActive: boolean;
@@ -38,6 +40,7 @@ type Props = {
   style?: object;
   onTogglePlayRef?: React.MutableRefObject<(() => void) | null>;
   onDoubleTapLike?: () => void;
+  onLocalCacheFailed?: (localUri: string) => void;
 };
 
 function mediaBaseUrl(uri: string): string {
@@ -131,6 +134,7 @@ function buildHtml(uri: string, muted: boolean, autoplay: boolean): string {
 
 function AndroidFeedVideoInner({
   uri,
+  remoteUri,
   thumbnailUrl,
   height,
   isActive,
@@ -138,13 +142,16 @@ function AndroidFeedVideoInner({
   isRetain,
   style,
   onTogglePlayRef,
-  onDoubleTapLike
+  onDoubleTapLike,
+  onLocalCacheFailed
 }: Props) {
   const playbackAllowed = usePlaybackAllowed();
   const { muted, toggleMute } = useFeedAudioControls();
   const insets = useSafeAreaInsets();
   const webRef = useRef<WebView>(null);
-  const pauseKeyRef = useRef({ uri });
+  const [playUri, setPlayUri] = useState(uri);
+  const fellBackRef = useRef(false);
+  const pauseKeyRef = useRef({ uri: playUri });
   const [windowSize, setWindowSize] = useState(() => Dimensions.get("window"));
   const [playing, setPlaying] = useState(false);
   const [ready, setReady] = useState(false);
@@ -157,14 +164,29 @@ function AndroidFeedVideoInner({
   const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const posterOpacity = useRef(new Animated.Value(1)).current;
 
+  useEffect(() => {
+    setPlayUri(uri);
+    fellBackRef.current = false;
+    setErrored(false);
+    setReady(false);
+    setPlaying(false);
+    hasPaintedFrameRef.current = false;
+    setPosterMounted(true);
+    posterOpacity.setValue(1);
+  }, [uri, posterOpacity]);
+
+  useEffect(() => {
+    pauseKeyRef.current = { uri: playUri };
+  }, [playUri]);
+
   const shouldPlay =
     playbackAllowed && ((isActive && !isPreload && !isRetain) || fullscreen) && !userPausedRef.current;
 
   const html = useMemo(
-    () => buildHtml(uri, muted, shouldPlay),
+    () => buildHtml(playUri, muted, shouldPlay),
     // Recreate document only when the clip identity changes — mute/play via JS.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [uri]
+    [playUri]
   );
 
   const hidePosterSmoothly = useCallback(() => {
@@ -172,7 +194,7 @@ function AndroidFeedVideoInner({
     setErrored(false);
     if (hasPaintedFrameRef.current) return;
     hasPaintedFrameRef.current = true;
-    markVideoUriWarmed(uri);
+    markVideoUriWarmed(playUri);
     Animated.timing(posterOpacity, {
       toValue: 0,
       duration: 160,
@@ -181,7 +203,7 @@ function AndroidFeedVideoInner({
     }).start(({ finished }) => {
       if (finished) setPosterMounted(false);
     });
-  }, [posterOpacity, uri]);
+  }, [posterOpacity, playUri]);
 
   const inject = useCallback((js: string) => {
     try {
@@ -274,13 +296,28 @@ function AndroidFeedVideoInner({
         setPlaying(false);
         setReady(true);
       } else if (msg === "error") {
-        if (__DEV__) console.warn("[AndroidFeedVideo] error", uri.slice(0, 120));
+        if (__DEV__) console.warn("[AndroidFeedVideo] error", playUri.slice(0, 120));
+        const isLocal = playUri.startsWith("file://") || playUri.startsWith("/");
+        const remote =
+          remoteUri && !remoteUri.startsWith("file://") && remoteUri !== playUri ? remoteUri : null;
+        if (isLocal && remote && !fellBackRef.current) {
+          fellBackRef.current = true;
+          onLocalCacheFailed?.(playUri);
+          setPlayUri(remote);
+          setErrored(false);
+          setReady(false);
+          setPlaying(false);
+          hasPaintedFrameRef.current = false;
+          setPosterMounted(true);
+          posterOpacity.setValue(1);
+          return;
+        }
         setErrored(true);
         setReady(true);
         setPlaying(false);
       }
     },
-    [hidePosterSmoothly, muted, uri]
+    [hidePosterSmoothly, muted, playUri, remoteUri, onLocalCacheFailed, posterOpacity]
   );
 
   const togglePlay = useCallback(() => {
@@ -446,11 +483,12 @@ function AndroidFeedVideoInner({
 
   const web = (
     <WebView
+      key={playUri}
       ref={webRef}
       style={s.video}
       containerStyle={{ backgroundColor: "#0B1220", flex: 1 }}
       originWhitelist={["*"]}
-      source={{ html, baseUrl: mediaBaseUrl(uri) }}
+      source={{ html, baseUrl: mediaBaseUrl(playUri) }}
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       javaScriptEnabled

@@ -1,30 +1,21 @@
 import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
+import { fonts } from "../../theme/fonts";
 
 export type PostVisibilityChoice = "PUBLIC" | "CONNECTIONS";
 
 type Option = {
   value: PostVisibilityChoice;
   title: string;
-  subtitle: string;
-  emoji: string;
+  icon: keyof typeof Ionicons.glyphMap;
 };
 
 const OPTIONS: Option[] = [
-  {
-    value: "PUBLIC",
-    title: "Community",
-    subtitle: "Visible to all community members",
-    emoji: "🌍"
-  },
-  {
-    value: "CONNECTIONS",
-    title: "Connections Only",
-    subtitle: "Only your accepted connections",
-    emoji: "🤝"
-  }
+  { value: "PUBLIC", title: "Community", icon: "people-outline" },
+  { value: "CONNECTIONS", title: "Connections", icon: "link-outline" }
 ];
 
 type Props = {
@@ -33,17 +24,19 @@ type Props = {
   disabled?: boolean;
 };
 
-/**
- * Minimal segmented visibility picker for Create Post.
- * Default: Community (PUBLIC).
- */
+/** Compact segmented visibility picker for Create Post. */
 function PostVisibilitySelectorInner({ value, onChange, disabled }: Props) {
-  const { colors, mode } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { color: colors.text }]}>Who can see this post?</Text>
-      <View style={styles.row}>
+      <Text style={[styles.label, { color: colors.text }]}>Who can see this?</Text>
+      <View
+        style={[
+          styles.track,
+          { backgroundColor: colors.surfaceElevated, borderColor: colors.border }
+        ]}
+      >
         {OPTIONS.map((opt) => {
           const selected = value === opt.value;
           return (
@@ -52,33 +45,35 @@ function PostVisibilitySelectorInner({ value, onChange, disabled }: Props) {
               disabled={disabled}
               onPress={() => onChange(opt.value)}
               style={({ pressed }) => [
-                styles.option,
-                {
-                  borderColor: selected ? colors.primary : colors.border,
-                  backgroundColor: selected
-                    ? mode === "dark"
-                      ? "rgba(59,130,246,0.16)"
-                      : "rgba(37,99,235,0.06)"
-                    : colors.surface,
-                  opacity: disabled ? 0.5 : pressed ? 0.85 : 1
-                }
+                styles.segment,
+                selected && {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.primary + "55",
+                  shadowColor: colors.primary,
+                  shadowOpacity: 0.12,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2
+                },
+                { opacity: disabled ? 0.5 : pressed ? 0.88 : 1 }
               ]}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${opt.title}. ${opt.subtitle}`}
+              accessibilityLabel={opt.title}
             >
-              <Text style={styles.emoji}>{opt.emoji}</Text>
+              <Ionicons
+                name={opt.icon}
+                size={16}
+                color={selected ? colors.primary : colors.textSecondary}
+              />
               <Text
                 style={[
                   styles.title,
-                  { color: selected ? colors.primary : colors.text }
+                  { color: selected ? colors.primary : colors.textSecondary }
                 ]}
                 numberOfLines={1}
               >
                 {opt.title}
-              </Text>
-              <Text style={[styles.sub, { color: colors.textSecondary }]} numberOfLines={2}>
-                {opt.subtitle}
               </Text>
             </Pressable>
           );
@@ -89,28 +84,37 @@ function PostVisibilitySelectorInner({ value, onChange, disabled }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: spacing.md },
+  wrap: { marginBottom: spacing.md, marginTop: spacing.xs },
   label: {
-    fontSize: 14,
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
     fontWeight: "600",
     marginBottom: spacing.sm
   },
-  row: {
+  track: {
     flexDirection: "row",
-    gap: spacing.sm
+    gap: 4,
+    padding: 4,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth
   },
-  option: {
+  segment: {
     flex: 1,
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 4
+    justifyContent: "center",
+    gap: 6,
+    minHeight: 40,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+    paddingHorizontal: spacing.sm
   },
-  emoji: { fontSize: 22, marginBottom: 2 },
-  title: { fontSize: 13, fontWeight: "700", textAlign: "center" },
-  sub: { fontSize: 11, textAlign: "center", lineHeight: 15 }
+  title: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    fontWeight: "600"
+  }
 });
 
 export const PostVisibilitySelector = memo(PostVisibilitySelectorInner);

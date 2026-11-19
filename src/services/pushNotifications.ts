@@ -323,7 +323,8 @@ export function notificationItemFromPushData(
   data: Record<string, unknown> | undefined
 ): NotificationItem | null {
   if (!data) return null;
-  const id = Number(data.notificationId ?? 0);
+  const publication = data.actionType === "OPEN_PROMINENT_PERSON";
+  const id = Number((publication ? data.publicationNotificationId : null) ?? data.notificationId ?? 0);
   if (!Number.isFinite(id)) return null;
 
   const category = String(data.category ?? "SYSTEM") as NotificationItem["category"];
@@ -337,6 +338,7 @@ export function notificationItemFromPushData(
     body: null,
     image: null,
     actionType: data.actionType ? String(data.actionType) : null,
+    ...(publication && data.prominentPersonId ? { prominentPersonId: String(data.prominentPersonId) } : {}),
     actionTargetId: data.actionTargetId ? String(data.actionTargetId) : null,
     actorUserId: Number.isFinite(actorUserIdRaw) ? actorUserIdRaw : null,
     actorName: data.actorName ? String(data.actorName) : null,

@@ -126,10 +126,17 @@ export async function resolveCachedVideoUri(remoteUri: string): Promise<string> 
     await ensureDir();
     const file = localPathFor(pathKey, sticky);
     try {
+      // Drop any previous partial/corrupt file before download.
+      await FileSystem.deleteAsync(file, { idempotent: true }).catch(() => undefined);
       const result = await FileSystem.downloadAsync(sticky, file);
       if (result.status >= 200 && result.status < 300) {
         const sizeInfo = await FileSystem.getInfoAsync(file);
         const bytes = sizeInfo.exists && !sizeInfo.isDirectory ? sizeInfo.size ?? 0 : 0;
+        // Tiny/empty bodies are not playable MP4s (often HTML error pages).
+        if (bytes < 8_192) {
+          await FileSystem.deleteAsync(file, { idempotent: true }).catch(() => undefined);
+          return sticky;
+        }
         let meta = await readMeta();
         meta[pathKey] = { file, bytes, at: Date.now() };
         meta = await evictIfNeeded(meta);
@@ -157,6 +164,27 @@ export function peekCachedVideoUri(remoteUri: string | null | undefined): string
   const sticky = stickySignedMediaUrl(remoteUri) ?? remoteUri;
   const pathKey = stableMediaCacheKey(sticky);
   return pathKey ? memory.get(pathKey) ?? null : null;
+}
+
+/** Drop a bad local cache entry so the next resolve re-downloads or uses remote. */
+export async function invalidateCachedVideoUri(remoteOrLocal: string): Promise<void> {
+  const sticky = stickySignedMediaUrl(remoteOrLocal) ?? remoteOrLocal;
+  const pathKey = stableMediaCacheKey(sticky);
+  if (!pathKey) return;
+  const mem = memory.get(pathKey);
+  memory.delete(pathKey);
+  try {
+    const meta = await readMeta();
+    const entry = meta[pathKey];
+    const file = entry?.file ?? mem ?? localPathFor(pathKey, sticky);
+    if (file) await FileSystem.deleteAsync(file, { idempotent: true }).catch(() => undefined);
+    if (meta[pathKey]) {
+      delete meta[pathKey];
+      await writeMeta(meta);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isVideoFileCached(remoteUri: string | null | undefined): boolean {

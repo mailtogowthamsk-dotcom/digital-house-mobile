@@ -18,6 +18,7 @@ export type NotificationItem = {
   image: string | null;
   actionType: string | null;
   actionTargetId: string | null;
+  prominentPersonId?: string;
   actorUserId: number | null;
   actorName: string | null;
   groupCount: number;

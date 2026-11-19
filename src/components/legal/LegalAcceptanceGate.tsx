@@ -37,12 +37,15 @@ export function LegalAcceptanceGate({ visible, status, onAccepted }: Props) {
   const { colors } = useTheme();
   const [accepting, setAccepting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     if (!visible) {
       setReviewing(false);
+      setAgreed(false);
       return;
     }
+    setAgreed(false);
     const unsub = navigationRef.addListener("state", () => {
       const route = navigationRef.getCurrentRoute();
       setReviewing(route?.name === "LegalDocument");
@@ -52,6 +55,11 @@ export function LegalAcceptanceGate({ visible, status, onAccepted }: Props) {
 
   const pending: LegalStatusItem[] = status?.pending ?? [];
   const show = visible && pending.length > 0 && !reviewing;
+  const linkKeys = ["terms", "privacy_policy", "disclaimer", "community_guidelines"] as const;
+  const byKey = new Map((status?.items ?? []).map((item) => [item.documentKey, item]));
+  const readLinks = linkKeys
+    .map((key) => byKey.get(key))
+    .filter((item): item is LegalStatusItem => !!item && !!item.slug);
 
   const openReview = (item: LegalStatusItem) => {
     if (!navigationRef.isReady()) return;
@@ -105,9 +113,9 @@ export function LegalAcceptanceGate({ visible, status, onAccepted }: Props) {
           <View style={[styles.iconWrap, { backgroundColor: colors.surfaceElevated }]}>
             <Ionicons name="document-text-outline" size={28} color={colors.primary} />
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>Updated legal terms</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Welcome to VettuvaGounder</Text>
           <Text style={[styles.body, { color: colors.textSecondary }]}>
-            Please review and accept the updated documents to continue using Digital House.
+            Before continuing, please review and accept our Terms & Conditions and acknowledge our Privacy Policy.
           </Text>
 
           {!status ? (
@@ -154,11 +162,37 @@ export function LegalAcceptanceGate({ visible, status, onAccepted }: Props) {
             </ScrollView>
           )}
 
+          {readLinks.length > 0 ? (
+            <View style={styles.linkRow}>
+              {readLinks.map((item) => (
+                <Pressable key={item.documentKey} onPress={() => openReview(item)} accessibilityRole="link">
+                  <Text style={[styles.linkText, { color: colors.primary }]}>{item.title}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          <Pressable
+            style={styles.checkRow}
+            onPress={() => setAgreed((value) => !value)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+          >
+            <Ionicons
+              name={agreed ? "checkbox" : "square-outline"}
+              size={22}
+              color={agreed ? colors.primary : colors.textMuted}
+            />
+            <Text style={[styles.checkText, { color: colors.text }]}>
+              I agree to the Terms & Conditions and acknowledge that I have read the Privacy Policy.
+            </Text>
+          </Pressable>
+
           <PrimaryButton
-            title={accepting ? "Accepting…" : "Accept all"}
+            title={accepting ? "Accepting…" : "Accept & Continue"}
             onPress={() => void onAcceptAll()}
             loading={accepting}
-            disabled={accepting || pending.length === 0}
+            disabled={!agreed || accepting || pending.length === 0}
             style={{ marginTop: spacing.lg }}
           />
           <Text style={[styles.footnote, { color: colors.textMuted }]}>
@@ -215,5 +249,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     textAlign: "center"
-  }
+  },
+  linkRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: spacing.md },
+  linkText: { fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+  checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: spacing.md },
+  checkText: { flex: 1, fontSize: 14, lineHeight: 20 }
 });

@@ -29,7 +29,8 @@ import type {
   PersonalSectionForm,
   MatrimonySectionForm,
   BusinessSectionForm,
-  FamilySectionForm
+  FamilySectionForm,
+  ProfessionalDetailsForm
 } from "../../types/profile.types";
 import { appAlert } from "../../utils/appAlert";
 import {
@@ -100,6 +101,14 @@ const emptyBusiness = (): BusinessSectionForm => ({
   businessAddress: null,
   businessPhone: null,
   businessWebsite: null
+});
+
+const emptyProfessional = (): ProfessionalDetailsForm => ({
+  education: null,
+  job_title: null,
+  company_name: null,
+  work_location: null,
+  skills: null
 });
 
 const emptyFamily = (): FamilySectionForm => ({
@@ -186,6 +195,14 @@ function mapProfileToForm(profile: ProfileMeResponse) {
       }
     : emptyBusiness();
 
+  const professional: ProfessionalDetailsForm = {
+    education: profile.professional_info?.education ?? null,
+    job_title: profile.professional_info?.job_title ?? null,
+    company_name: profile.professional_info?.company_name ?? null,
+    work_location: profile.professional_info?.work_location ?? null,
+    skills: profile.professional_info?.skills ?? null
+  };
+
   const family: FamilySectionForm = sections?.family
     ? {
         familyMemberId1: (sections.family as any).familyMemberId1 ?? null,
@@ -196,7 +213,7 @@ function mapProfileToForm(profile: ProfileMeResponse) {
       }
     : emptyFamily();
 
-  return { basic, community, personal, matrimony, business, family };
+  return { basic, community, personal, professional, matrimony, business, family };
 }
 
 export function EditProfileScreen() {
@@ -216,6 +233,7 @@ export function EditProfileScreen() {
   const [basic, setBasic] = useState<BasicSectionForm>(emptyBasic());
   const [community, setCommunity] = useState<CommunitySectionForm>(emptyCommunity());
   const [personal, setPersonal] = useState<PersonalSectionForm>(emptyPersonal());
+  const [professional, setProfessional] = useState<ProfessionalDetailsForm>(emptyProfessional());
   const [business, setBusiness] = useState<BusinessSectionForm>(emptyBusiness());
   const [family, setFamily] = useState<FamilySectionForm>(emptyFamily());
   const [districtOptions, setDistrictOptions] = useState<{ label: string; value: string }[]>([]);
@@ -279,6 +297,7 @@ export function EditProfileScreen() {
       setBasic(form.basic);
       setCommunity(form.community);
       setPersonal(form.personal);
+      setProfessional(form.professional);
       setBusiness(form.business);
       setFamily(form.family);
     } catch (e) {
@@ -316,6 +335,12 @@ export function EditProfileScreen() {
     );
   }, [basic, initialFormRef.current]);
 
+  const isProfessionalDirty = useMemo(() => {
+    const init = initialFormRef.current?.professional;
+    if (!init) return false;
+    return JSON.stringify(professional) !== JSON.stringify(init);
+  }, [professional]);
+
   const isSectionDirty = useCallback(
     (
       section: "community" | "personal" | "business" | "family",
@@ -334,6 +359,29 @@ export function EditProfileScreen() {
     setError(null);
     try {
       const sectionsToUpdate: { section: ProfileSectionName; payload: Record<string, unknown> }[] = [];
+
+      if (isBasicDirty && !String(basic.native_district ?? "").trim()) {
+        setError("Please select your native district.");
+        setSaving(false);
+        return;
+      }
+      if (isSectionDirty("personal", personal)) {
+        if (!String(personal.occupation ?? "").trim()) {
+          setError("Please select your occupation.");
+          setSaving(false);
+          return;
+        }
+        if (!String(personal.maritalStatus ?? "").trim()) {
+          setError("Please select your marital status.");
+          setSaving(false);
+          return;
+        }
+        if (!String(personal.currentLocation ?? "").trim()) {
+          setError("Please enter your current location.");
+          setSaving(false);
+          return;
+        }
+      }
 
       if (isBasicDirty) {
         sectionsToUpdate.push({
@@ -424,7 +472,7 @@ export function EditProfileScreen() {
         });
       }
 
-      if (sectionsToUpdate.length === 0) {
+      if (sectionsToUpdate.length === 0 && !isProfessionalDirty) {
         appAlert("No changes", "You haven't made any changes to save.", [{ text: "OK" }]);
         setSaving(false);
         return;
@@ -432,6 +480,18 @@ export function EditProfileScreen() {
 
       for (const { section, payload } of sectionsToUpdate) {
         const updated = await putProfileSection(section, payload);
+        setProfile(updated);
+        initialFormRef.current = mapProfileToForm(updated);
+      }
+
+      if (isProfessionalDirty) {
+        const updated = await updateProfile({
+          education: professional.education?.trim() || null,
+          job_title: professional.job_title?.trim() || null,
+          company_name: professional.company_name?.trim() || null,
+          work_location: professional.work_location?.trim() || null,
+          skills: professional.skills?.trim() || null
+        });
         setProfile(updated);
         initialFormRef.current = mapProfileToForm(updated);
       }
@@ -471,6 +531,8 @@ export function EditProfileScreen() {
     basic,
     community,
     personal,
+    professional,
+    isProfessionalDirty,
     business,
     family,
     familyConnectionOptions,
@@ -1012,6 +1074,44 @@ export function EditProfileScreen() {
             required
             options={maritalOptions}
             onSelect={(v) => setPersonal((p) => ({ ...p, maritalStatus: v || null }))}
+            variant="light"
+          />
+        </AccordionSection>
+
+        <AccordionSection title="Professional Details" icon="briefcase-outline">
+          <Input
+            label="Education"
+            value={professional.education ?? ""}
+            onChangeText={(t) => setProfessional((p) => ({ ...p, education: t || null }))}
+            placeholder="Education"
+            variant="light"
+          />
+          <Input
+            label="Job title"
+            value={professional.job_title ?? ""}
+            onChangeText={(t) => setProfessional((p) => ({ ...p, job_title: t || null }))}
+            placeholder="Job title"
+            variant="light"
+          />
+          <Input
+            label="Company"
+            value={professional.company_name ?? ""}
+            onChangeText={(t) => setProfessional((p) => ({ ...p, company_name: t || null }))}
+            placeholder="Company"
+            variant="light"
+          />
+          <Input
+            label="Work location"
+            value={professional.work_location ?? ""}
+            onChangeText={(t) => setProfessional((p) => ({ ...p, work_location: t || null }))}
+            placeholder="Work location"
+            variant="light"
+          />
+          <Input
+            label="Skills"
+            value={professional.skills ?? ""}
+            onChangeText={(t) => setProfessional((p) => ({ ...p, skills: t || null }))}
+            placeholder="Skills"
             variant="light"
           />
         </AccordionSection>

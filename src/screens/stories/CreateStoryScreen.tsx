@@ -189,9 +189,7 @@ export function CreateStoryScreen() {
       setCaption("");
       return;
     }
-    const permission = await ensureMediaLibraryRead({
-      rationaleMessage: "Digital House needs photo library access to post a story."
-    });
+    const permission = await ensureMediaLibraryRead();
     if (!permission.ok) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: want === "image" ? ["images"] : ["videos"],

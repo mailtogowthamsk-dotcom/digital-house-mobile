@@ -20,6 +20,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   ProfileHeader,
   PersonalInfoSection,
+  CommunityInfoSection,
   ProfessionalInfoSection,
   BusinessProfileSection,
   ProfileContentLinks,
@@ -151,6 +152,14 @@ export function ProfileScreen() {
   const listHeader = useMemo(() => {
     if (!profile) return null;
     const username = profile.username?.trim() || user?.username?.trim() || null;
+    const personalSection = (profile.sections?.personal ?? null) as Record<string, unknown> | null;
+    const communitySection = (profile.sections?.community ?? null) as Record<string, unknown> | null;
+    const textValue = (value: unknown) => (typeof value === "string" ? value : null);
+    const currentLocation = textValue(personalSection?.currentLocation)?.trim() || null;
+    const headerLocation =
+      currentLocation ||
+      [profile.personal_info?.city, profile.personal_info?.district].filter(Boolean).join(", ") ||
+      null;
     return (
       <>
         <ProfileHeader
@@ -159,7 +168,7 @@ export function ProfileScreen() {
           profile_image={profile.profile_image}
           verified={profile.verified}
           member_since={profile.member_since}
-          location={[profile.personal_info?.city, profile.personal_info?.district].filter(Boolean).join(", ") || null}
+          location={headerLocation}
           completion_percentage={profile.completion_percentage}
           stats={{
             posts: profile.stats?.total_posts ?? 0,
@@ -177,8 +186,32 @@ export function ProfileScreen() {
           onMemberBenefitsPress={() => navigation.navigate("MemberBenefitsBrowse")}
           onMyClaimsPress={() => navigation.navigate("MyBenefitClaims")}
         />
-        <PersonalInfoSection fullName={profile.name} personal={profile.personal_info} />
-        <ProfessionalInfoSection professional={profile.professional_info} />
+        <PersonalInfoSection
+          fullName={profile.name}
+          personal={profile.personal_info}
+          currentLocation={currentLocation}
+          maritalStatus={textValue(personalSection?.maritalStatus)}
+          fatherName={textValue(personalSection?.fatherName)}
+          address={textValue(personalSection?.address)}
+          hobbies={textValue(personalSection?.hobbies)}
+          instagram={textValue(personalSection?.instagram)}
+          facebook={textValue(personalSection?.facebook)}
+          linkedin={textValue(personalSection?.linkedin)}
+        />
+        <CommunityInfoSection
+          community={{
+            kulam: textValue(communitySection?.kulam),
+            kulaDeivam: textValue(communitySection?.kulaDeivam),
+            nativeVillage: textValue(communitySection?.nativeVillage),
+            nativeTaluk: textValue(communitySection?.nativeTaluk),
+            nativeDistrict: profile.sections?.basic?.native_district ?? profile.personal_info?.district
+          }}
+        />
+        <ProfessionalInfoSection
+          professional={profile.professional_info}
+          occupation={textValue(personalSection?.occupation)}
+          workStudyDetails={textValue(personalSection?.workStudyDetails)}
+        />
         <BusinessProfileSection
           visible={profile.show_business === true}
           business={

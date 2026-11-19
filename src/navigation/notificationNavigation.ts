@@ -13,6 +13,15 @@ export function navigateFromNotification(navigation: Nav, item: NotificationItem
   const actorId = item.actorUserId ?? targetId;
 
   switch (item.actionType) {
+    case "OPEN_PROMINENT_PERSON": {
+      const personId = Number(item.prominentPersonId ?? item.actionTargetId);
+      if (Number.isSafeInteger(personId) && personId > 0) {
+        navigation.navigate("ProminentPersonProfile", { id: personId });
+      } else {
+        navigation.navigate("ProminentPeopleHome");
+      }
+      break;
+    }
     case "OPEN_POST":
     case "OPEN_POST_COMMENT":
       if (targetId) navigation.navigate("PostDetail", { postId: targetId });

@@ -9,11 +9,11 @@ import {
   Image,
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
   TextInput,
   StatusBar,
   useWindowDimensions
 } from "react-native";
-import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoidingView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp } from "../../api/auth.api";
 import { getAuthErrorMessage } from "../../api/client";
@@ -63,25 +63,15 @@ export function OtpVerifyScreen({ route, navigation }: any) {
   const inputRef = useRef<TextInput>(null);
   const verifyingRef = useRef(false);
 
-  const setOtpValue = (value: string) => {
-    if (verifyingRef.current || signedIn) return;
-    const digits = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
-    setOtp(digits);
-    setMsg(null);
-  };
-
-  const onVerify = async () => {
+  const onVerify = async (code: string) => {
+    if (verifyingRef.current || signedIn || loading) return;
+    if (code.length < OTP_LENGTH) return;
+    verifyingRef.current = true;
     Keyboard.dismiss();
     setMsg(null);
-    if (verifyingRef.current || signedIn || loading) return;
-    if (otp.length < OTP_LENGTH) {
-      setMsg("Please enter the 6-digit code from your email.");
-      return;
-    }
-    verifyingRef.current = true;
     setLoading(true);
     try {
-      const res = await verifyOtp(email, otp);
+      const res = await verifyOtp(email, code);
       await signIn(res.accessToken, {
         ...res.user,
         createdAt: res.user.createdAt ?? new Date().toISOString()
@@ -90,152 +80,158 @@ export function OtpVerifyScreen({ route, navigation }: any) {
     } catch (e: unknown) {
       verifyingRef.current = false;
       setLoading(false);
+      setOtp("");
       setMsg(getAuthErrorMessage(e));
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  };
+
+  const setOtpValue = (value: string) => {
+    if (verifyingRef.current || signedIn) return;
+    const digits = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
+    setOtp(digits);
+    setMsg(null);
+    if (digits.length === OTP_LENGTH) {
+      void onVerify(digits);
     }
   };
 
   const focusInput = () => inputRef.current?.focus();
+
+  // Same as Login: Android resize already shrinks the window — extra androidPad
+  // creates the blank navy gap above the keyboard. UI unchanged.
+  const scroll = (
+    <ScrollView
+      style={s.keyboard}
+      contentContainerStyle={[
+        s.scrollContent,
+        { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
+      ]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsVerticalScrollIndicator={false}
+      automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+    >
+      <Pressable
+        style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+        <Text style={s.backText}>Back</Text>
+      </Pressable>
+
+      <View style={s.header}>
+        <Image
+          source={LOGO}
+          style={{
+            width: Math.min(screenWidth * 0.3, 120),
+            height: Math.min(screenWidth * 0.3, 120),
+            marginBottom: spacing.sm
+          }}
+          resizeMode="contain"
+        />
+        <View style={s.brandRow}>
+          <Text style={s.brandDigital}>Digital</Text>
+          <Text style={s.brandHouse}> House</Text>
+        </View>
+        <View style={s.taglineRow}>
+          <View style={s.line} />
+          <Text style={s.tagline}>Verify your email</Text>
+          <View style={s.line} />
+        </View>
+      </View>
+
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Enter verification code</Text>
+        <Text style={s.cardSubtitle}>We sent a 6-digit code to</Text>
+        <View style={s.emailRow}>
+          <Ionicons name="mail-outline" size={18} color="#2563EB" />
+          <Text style={s.emailText} numberOfLines={1}>
+            {email}
+          </Text>
+        </View>
+
+        <TextInput
+          ref={inputRef}
+          value={otp}
+          onChangeText={setOtpValue}
+          keyboardType="number-pad"
+          maxLength={OTP_LENGTH}
+          editable={!loading && !signedIn}
+          autoFocus
+          style={s.hiddenInput}
+          accessibilityLabel="OTP code input"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+        />
+
+        <Pressable
+          style={[s.otpBoxRow, { gap: otpLayout.gap }]}
+          onPress={focusInput}
+          disabled={loading || signedIn}
+        >
+          {Array.from({ length: OTP_LENGTH }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                s.otpBox,
+                {
+                  width: otpLayout.box,
+                  height: otpLayout.box,
+                  borderRadius: Math.max(10, Math.round(otpLayout.box * 0.28))
+                },
+                otp.length === i && s.otpBoxFocused,
+                otp.length > i && s.otpBoxFilled
+              ]}
+            >
+              <Text style={[s.otpBoxDigit, { fontSize: otpLayout.digitSize }]}>
+                {otp[i] ?? ""}
+              </Text>
+              {otp.length === i && !loading && !signedIn ? <View style={s.otpCursor} /> : null}
+            </View>
+          ))}
+        </Pressable>
+        <Text style={s.otpHint}>
+          {signedIn || loading
+            ? "Signing you in…"
+            : "Enter the 6-digit code — it submits automatically"}
+        </Text>
+
+        {(loading || signedIn) && !msg ? (
+          <View style={s.loadingWrap}>
+            <ActivityIndicator size="small" color="#2563EB" />
+          </View>
+        ) : null}
+
+        <View style={s.messageWrap}>
+          {msg ? <Text style={s.messageError}>{msg}</Text> : null}
+        </View>
+
+        <Text style={s.expiryHint}>Code expires in 5 minutes.</Text>
+        <Pressable
+          style={({ pressed }) => [s.resendWrap, pressed && { opacity: 0.8 }]}
+          onPress={() => navigation.goBack()}
+          disabled={loading || signedIn}
+        >
+          <Text style={s.resendText}>Didn’t get the code? </Text>
+          <Text style={s.resendLink}>Go back & request again</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
 
   return (
     <View style={s.background}>
       <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <View style={s.overlay} />
-      <AppKeyboardAvoidingView
-        style={s.keyboard}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          contentContainerStyle={[
-            s.scrollContent,
-            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxxl }
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
-          <Pressable
-            style={({ pressed }) => [s.backWrap, pressed && { opacity: 0.7 }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-            <Text style={s.backText}>Back</Text>
-          </Pressable>
-
-          <View style={s.header}>
-            <Image
-              source={LOGO}
-              style={{
-                width: Math.min(screenWidth * 0.3, 120),
-                height: Math.min(screenWidth * 0.3, 120),
-                marginBottom: spacing.sm
-              }}
-              resizeMode="contain"
-            />
-            <View style={s.brandRow}>
-              <Text style={s.brandDigital}>Digital</Text>
-              <Text style={s.brandHouse}> House</Text>
-            </View>
-            <View style={s.taglineRow}>
-              <View style={s.line} />
-              <Text style={s.tagline}>Verify your email</Text>
-              <View style={s.line} />
-            </View>
-          </View>
-
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Enter verification code</Text>
-            <Text style={s.cardSubtitle}>We sent a 6-digit code to</Text>
-            <View style={s.emailRow}>
-              <Ionicons name="mail-outline" size={18} color="#2563EB" />
-              <Text style={s.emailText} numberOfLines={1}>
-                {email}
-              </Text>
-            </View>
-
-            <TextInput
-              ref={inputRef}
-              value={otp}
-              onChangeText={setOtpValue}
-              keyboardType="number-pad"
-              maxLength={OTP_LENGTH}
-              editable={!loading && !signedIn}
-              autoFocus
-              style={s.hiddenInput}
-              accessibilityLabel="OTP code input"
-              textContentType="oneTimeCode"
-              autoComplete="sms-otp"
-            />
-
-            <Pressable
-              style={[s.otpBoxRow, { gap: otpLayout.gap }]}
-              onPress={focusInput}
-              disabled={loading || signedIn}
-            >
-              {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    s.otpBox,
-                    {
-                      width: otpLayout.box,
-                      height: otpLayout.box,
-                      borderRadius: Math.max(10, Math.round(otpLayout.box * 0.28))
-                    },
-                    otp.length === i && s.otpBoxFocused,
-                    otp.length > i && s.otpBoxFilled
-                  ]}
-                >
-                  <Text style={[s.otpBoxDigit, { fontSize: otpLayout.digitSize }]}>
-                    {otp[i] ?? ""}
-                  </Text>
-                  {otp.length === i && !loading && !signedIn ? <View style={s.otpCursor} /> : null}
-                </View>
-              ))}
-            </Pressable>
-            <Text style={s.otpHint}>
-              {signedIn ? "Signing you in…" : "Tap to enter code"}
-            </Text>
-
-            <View style={s.messageWrap}>
-              {msg ? <Text style={s.messageError}>{msg}</Text> : null}
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                s.btnWrap,
-                pressed && !loading && !signedIn && s.btnPressed,
-                (loading || signedIn) && s.btnDisabled
-              ]}
-              onPress={onVerify}
-              disabled={loading || signedIn}
-            >
-              <LinearGradient
-                colors={["#2563EB", "#F97316"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={s.btn}
-              >
-                {loading || signedIn ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={s.btnText}>Verify & continue</Text>
-                )}
-              </LinearGradient>
-            </Pressable>
-
-            <Text style={s.expiryHint}>Code expires in 5 minutes.</Text>
-            <Pressable
-              style={({ pressed }) => [s.resendWrap, pressed && { opacity: 0.8 }]}
-              onPress={() => navigation.goBack()}
-              disabled={loading || signedIn}
-            >
-              <Text style={s.resendText}>Didn’t get the code? </Text>
-              <Text style={s.resendLink}>Go back & request again</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </AppKeyboardAvoidingView>
+      {Platform.OS === "ios" ? (
+        <KeyboardAvoidingView style={s.keyboard} behavior="padding" keyboardVerticalOffset={0}>
+          {scroll}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={s.keyboard}>{scroll}</View>
+      )}
     </View>
   );
 }
@@ -384,7 +380,11 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: "#9CA3AF",
     textAlign: "center",
-    marginBottom: spacing.xl
+    marginBottom: spacing.md
+  },
+  loadingWrap: {
+    alignItems: "center",
+    marginBottom: spacing.sm
   },
   messageWrap: {
     minHeight: 28,
@@ -395,30 +395,6 @@ const s = StyleSheet.create({
     fontSize: 14,
     color: "#EF4444",
     textAlign: "center"
-  },
-  btnWrap: {
-    width: "100%",
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4
-  },
-  btnPressed: { opacity: 0.9 },
-  btnDisabled: { opacity: 0.85 },
-  btn: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  btnText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#FFFFFF"
   },
   expiryHint: {
     fontSize: 13,

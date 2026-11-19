@@ -65,7 +65,7 @@ export type ProfileMeResponse = {
   pending_business?: { status: "PENDING" | "APPROVED" | "REJECTED"; admin_remarks?: string | null } | null;
 };
 
-/** Editable fields for PUT /api/profile/me (on update → PENDING_REVIEW) */
+/** Editable columns for PUT /api/profile/me. Applied immediately; not the approval queue. */
 export type ProfileUpdatePayload = {
   profile_image?: string | null;
   city?: string | null;

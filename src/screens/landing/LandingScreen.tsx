@@ -1,426 +1,574 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   View,
   Text,
   StyleSheet,
   Pressable,
+  ScrollView,
   Image,
-  ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   Platform,
   StatusBar,
-  Animated,
-  Easing
+  BackHandler
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image as ExpoImage } from "expo-image";
+import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { getLandingContent } from "../../api/landing.api";
-import { spacing, radius } from "../../theme/spacing";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { getLandingContact, getLandingContent, type LandingContact } from "../../api/landing.api";
+import { LandingContactPopup } from "../../components/landing/LandingContactPopup";
 import { fonts } from "../../theme/fonts";
 import { appAlert } from "../../utils/appAlert";
 import { consumeApprovalReauthMessage } from "../../auth/approvalReauth";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const STATUS_BAR = Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 44;
+const H_PAD = 16;
+const CARD_GAP = 10;
+const BODY_MAX_WIDTH = 560;
 
 const LOGO = require("../../../assets/logo_digital_house.png");
-const LANDING_BG = require("../../../assets/landing_background.png");
-const LANDING_GRADIENT = ["#070B14", "#0B1220", "#111827", "#0B1220"] as const;
-const BRAND_PRIMARY = "#16803C";
+const SCENERY = require("../../../assets/landing_scenery.jpg");
+const COMMUNITY_ART = require("../../../assets/landing_background.png");
 
-const FEATURES = [
-  { icon: "people-outline" as const, label: "Verified community" },
-  { icon: "heart-outline" as const, label: "Matrimony" },
-  { icon: "chatbubbles-outline" as const, label: "Private messaging" }
-];
-
-function useLandingEntrance() {
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.9)).current;
-  const logoY = useRef(new Animated.Value(-12)).current;
-  const heroOpacity = useRef(new Animated.Value(0)).current;
-  const heroY = useRef(new Animated.Value(28)).current;
-  const actionsOpacity = useRef(new Animated.Value(0)).current;
-  const actionsY = useRef(new Animated.Value(22)).current;
-  const bgScale = useRef(new Animated.Value(1.06)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(bgScale, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      }),
-      Animated.stagger(110, [
-        Animated.parallel([
-          Animated.timing(logoOpacity, {
-            toValue: 1,
-            duration: 520,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          }),
-          Animated.spring(logoScale, {
-            toValue: 1,
-            friction: 7,
-            tension: 90,
-            useNativeDriver: true
-          }),
-          Animated.timing(logoY, {
-            toValue: 0,
-            duration: 520,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          })
-        ]),
-        Animated.parallel([
-          Animated.timing(heroOpacity, {
-            toValue: 1,
-            duration: 480,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          }),
-          Animated.timing(heroY, {
-            toValue: 0,
-            duration: 480,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          })
-        ]),
-        Animated.parallel([
-          Animated.timing(actionsOpacity, {
-            toValue: 1,
-            duration: 420,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          }),
-          Animated.timing(actionsY, {
-            toValue: 0,
-            duration: 420,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true
-          })
-        ])
-      ])
-    ]).start();
-  }, [
-    actionsOpacity,
-    actionsY,
-    bgScale,
-    heroOpacity,
-    heroY,
-    logoOpacity,
-    logoScale,
-    logoY
-  ]);
-
+function entranceStyle(progress: Animated.Value) {
   return {
-    logoOpacity,
-    logoScale,
-    logoY,
-    heroOpacity,
-    heroY,
-    actionsOpacity,
-    actionsY,
-    bgScale
+    opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.15, 1] }),
+    transform: [
+      { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }
+    ]
   };
 }
 
+const GREEN = "#14563F";
+const GREEN_BRIGHT = "#1C6C50";
+const GREEN_DEEP = "#163E31";
+const CARD_SHADOW = "#0B3D1E";
+
+const FALLBACK_HEADLINE =
+  "கல்வெட்டுகளில் நின்ற வீரம்... இனி கணிப்பொறி உலகிலும் வெல்லும்!";
+
+function headlineLines(text: string): string[] {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const ellipsis = normalized.includes("...") ? "..." : normalized.includes("…") ? "…" : null;
+  if (!ellipsis) return [normalized];
+  const index = normalized.indexOf(ellipsis);
+  const first = normalized.slice(0, index + ellipsis.length).trim();
+  const second = normalized.slice(index + ellipsis.length).trim();
+  return first && second ? [first, second] : [normalized];
+}
+
+const FEATURES: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+  tint: string;
+  title: string;
+  subtitle: string;
+}[] = [
+  { icon: "account-group", color: "#0E6B32", tint: "#DDF3E6", title: "Matrimony", subtitle: "Find your life partner" },
+  { icon: "briefcase", color: "#0A4FA0", tint: "#DCEBFA", title: "Job Portal", subtitle: "Explore career opportunities" },
+  { icon: "storefront", color: "#C44700", tint: "#FFE6D4", title: "Marketplace", subtitle: "Buy & Sell locally" },
+  { icon: "handshake", color: "#5B2FB0", tint: "#EBE1FF", title: "Helping Hand", subtitle: "Get help, Offer help" },
+  { icon: "bullhorn", color: "#D62828", tint: "#FCDDDA", title: "Community Updates", subtitle: "Stay informed" },
+  { icon: "store", color: "#145C32", tint: "#DDF3E6", title: "Business Directory", subtitle: "Discover local business" }
+];
+
 export function LandingScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
-  const [headline, setHeadline] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { width, height } = useWindowDimensions();
   const [logoError, setLogoError] = useState(false);
-  const anim = useLandingEntrance();
+  const [headline, setHeadline] = useState(FALLBACK_HEADLINE);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contact, setContact] = useState<LandingContact | null>(null);
+  const logoSize = Math.round(Math.min(width * 0.36, height * 0.16, 148));
+  const cardWidth = Math.floor((Math.min(width, BODY_MAX_WIDTH) - H_PAD * 2 - CARD_GAP * 2) / 3);
+  const tight = height < 780;
+  const topPad =
+    Math.max(insets.top, Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0) + 4;
+  const contactBtnTop = topPad;
+  const popupTop = contactBtnTop + 52;
+  const popupRight = H_PAD;
+  const popupMaxWidth = Math.min(300, width - H_PAD * 2);
+
+  const cardsProgress = useRef(new Animated.Value(1)).current;
+  const actionsProgress = useRef(new Animated.Value(1)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const timing = {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web"
+      };
+      const entrance = Animated.stagger(130, [
+        Animated.timing(cardsProgress, timing),
+        Animated.timing(actionsProgress, timing)
+      ]);
+      const showImmediately = () => {
+        entrance.stop();
+        cardsProgress.setValue(1);
+        actionsProgress.setValue(1);
+      };
+
+      void AccessibilityInfo.isReduceMotionEnabled()
+        .then((reducedMotion) => {
+          if (!active || reducedMotion) return;
+          cardsProgress.setValue(0);
+          actionsProgress.setValue(0);
+          entrance.start();
+        })
+        .catch(() => undefined);
+      const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) => {
+        if (enabled) showImmediately();
+      });
+
+      return () => {
+        active = false;
+        subscription.remove();
+        showImmediately();
+      };
+    }, [actionsProgress, cardsProgress])
+  );
+
+  const closeContact = useCallback(() => setContactOpen(false), []);
+
+  const toggleContact = useCallback(() => {
+    setContactOpen((open) => !open);
+  }, []);
 
   useEffect(() => {
     const message = consumeApprovalReauthMessage();
-    if (message) {
-      appAlert("Account approved", message);
-    }
+    if (message) appAlert("Account approved", message);
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     getLandingContent()
-      .then((res) => setHeadline(res.headline))
-      .catch(() => setHeadline("Connecting Our Community"))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        const next = res.headline?.trim();
+        if (!cancelled && next) setHeadline(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Prefetch once on mount — cached; failures leave landing intact.
+  useEffect(() => {
+    let cancelled = false;
+    setContactLoading(true);
+    getLandingContact()
+      .then((data) => {
+        if (!cancelled) setContact(data);
+      })
+      .finally(() => {
+        if (!cancelled) setContactLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!contactOpen) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeContact();
+      return true;
+    });
+    const onKey =
+      Platform.OS === "web"
+        ? (e: KeyboardEvent) => {
+            if (e.key === "Escape") closeContact();
+          }
+        : null;
+    if (onKey && typeof window !== "undefined") {
+      window.addEventListener("keydown", onKey);
+    }
+    return () => {
+      sub.remove();
+      if (onKey && typeof window !== "undefined") {
+        window.removeEventListener("keydown", onKey);
+      }
+    };
+  }, [contactOpen, closeContact]);
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <LinearGradient colors={LANDING_GRADIENT} style={StyleSheet.absoluteFill} />
-      <Animated.View
-        style={[StyleSheet.absoluteFill, { transform: [{ scale: anim.bgScale }] }]}
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <ExpoImage
+        source={SCENERY}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        contentPosition="top center"
+        accessible={false}
         pointerEvents="none"
-      >
-        <Image source={LANDING_BG} style={s.bgImage} resizeMode="cover" />
-      </Animated.View>
+      />
       <LinearGradient
-        colors={["rgba(7,11,20,0.5)", "rgba(7,11,20,0.28)", "rgba(7,11,20,0.88)"]}
+        colors={[
+          "rgba(255,248,233,0.04)",
+          "rgba(255,252,245,0.70)",
+          "rgba(255,252,245,0.70)",
+          "rgba(228,240,229,0.28)"
+        ]}
+        locations={[0, 0.34, 0.54, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
-      <View
+      {contactOpen ? (
+        <Pressable
+          style={s.dismissOverlay}
+          onPress={closeContact}
+          accessibilityLabel="Dismiss contact popup"
+        />
+      ) : null}
+
+      <Pressable
         style={[
-          s.content,
+          s.contactBtn,
+          contactOpen && s.contactBtnActive,
+          { top: contactBtnTop, right: H_PAD }
+        ]}
+        onPress={toggleContact}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Contact us"
+        accessibilityState={{ expanded: contactOpen }}
+      >
+        <Ionicons
+          name={contactOpen ? "headset" : "headset-outline"}
+          size={20}
+          color={contactOpen ? "#FFFFFF" : GREEN_DEEP}
+        />
+      </Pressable>
+
+      <LandingContactPopup
+        visible={contactOpen}
+        contact={contact}
+        loading={contactLoading}
+        top={popupTop}
+        right={popupRight}
+        maxWidth={popupMaxWidth}
+        onClose={closeContact}
+      />
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={[
+          s.body,
           {
-            paddingTop: Math.max(STATUS_BAR + 8, insets.top + 4),
-            paddingBottom: Math.max(insets.bottom, 16) + spacing.xl
+            paddingTop: topPad,
+            paddingBottom: Math.max(insets.bottom, 16) + 8
           }
         ]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={s.upperBlock}>
-          <Animated.View
-            style={[
-              s.brandBlock,
-              {
-                opacity: anim.logoOpacity,
-                transform: [{ translateY: anim.logoY }, { scale: anim.logoScale }]
-              }
-            ]}
-          >
-            {!logoError ? (
-              <Image
-                source={LOGO}
-                style={s.logo}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <Text style={s.logoFallback}>Digital House</Text>
-            )}
-            <Text style={s.wordmark}>Digital House</Text>
-            <Text style={s.tagline}>Private community for verified members</Text>
-          </Animated.View>
+        {!logoError ? (
+          <Image
+            source={LOGO}
+            style={[s.logo, { width: logoSize, height: logoSize }]}
+            resizeMode="contain"
+            onError={() => setLogoError(true)}
+          />
+        ) : (
+          <Text style={s.logoFallback}>Digital House</Text>
+        )}
 
-          <Animated.View
-            style={[
-              s.heroCard,
-              {
-                opacity: anim.heroOpacity,
-                transform: [{ translateY: anim.heroY }]
-              }
-            ]}
+        <View style={s.intro}>
+          <Text
+            style={[s.titleSecond, tight && s.titleTight]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            allowFontScaling={false}
           >
-            <Text style={s.label}>Welcome</Text>
-            <View style={s.headlineBlock}>
-              {loading ? (
-                <ActivityIndicator size="small" color="rgba(255,255,255,0.9)" />
-              ) : (
-                <Text style={s.headline} numberOfLines={2}>
-                  {headline ?? "Connecting Our Community"}
-                </Text>
-              )}
-            </View>
-            <Text style={s.subline}>
-              Share updates, connect with members, and explore matrimony — all in one trusted space.
-            </Text>
+            Digital House
+          </Text>
 
-            <View style={s.featureRow}>
-              {FEATURES.map((f) => (
-                <View key={f.label} style={s.featureChip}>
-                  <Ionicons name={f.icon} size={14} color="rgba(255,255,255,0.92)" />
-                  <Text style={s.featureText}>{f.label}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
+          <View style={s.headlineBlock}>
+            {headlineLines(headline).map((line) => (
+              <Text
+                key={line}
+                style={[s.headline, tight && s.headlineTight]}
+              >
+                {line}
+              </Text>
+            ))}
+          </View>
+
+          <Text style={s.subtitle} allowFontScaling={false}>
+            Private community for verified members
+          </Text>
+          <Text style={[s.script, tight && s.scriptTight]} allowFontScaling={false}>
+            Connect  •  Share  •  Grow Together
+          </Text>
         </View>
 
-        <Animated.View
-          style={[
-            s.actions,
-            {
-              opacity: anim.actionsOpacity,
-              transform: [{ translateY: anim.actionsY }]
-            }
-          ]}
-        >
+        <View style={[s.artwork, tight && s.artworkTight]}>
+          <ExpoImage
+            source={COMMUNITY_ART}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            contentPosition={{ left: "50%", top: "59%" }}
+            accessible={false}
+          />
+        </View>
+
+        <Animated.View style={[s.grid, entranceStyle(cardsProgress)]}>
+          {FEATURES.map((item) => (
+            <View key={item.title} style={[s.card, { width: cardWidth }, tight && s.cardTight]}>
+              <View style={[s.iconBubble, tight && s.iconTight, { backgroundColor: item.tint }]}>
+                <MaterialCommunityIcons name={item.icon} size={tight ? 18 : 20} color={item.color} />
+              </View>
+              <Text style={s.cardTitle} numberOfLines={2} allowFontScaling={false}>
+                {item.title}
+              </Text>
+              <Text style={s.cardSub} numberOfLines={2} allowFontScaling={false}>
+                {item.subtitle}
+              </Text>
+            </View>
+          ))}
+        </Animated.View>
+
+        <Animated.View style={[s.actions, entranceStyle(actionsProgress)]}>
           <Pressable
-            style={({ pressed }) => [s.primaryBtn, pressed && s.btnPressed]}
+            style={({ pressed }) => [s.primaryBtnWrap, pressed && s.pressed]}
             onPress={() => navigation.navigate("Registration")}
             accessibilityRole="button"
             accessibilityLabel="Get Started"
           >
-            <Text style={s.primaryBtnText}>Get Started</Text>
+            <LinearGradient
+              colors={[GREEN_BRIGHT, GREEN]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={s.primaryBtn}
+            >
+              <Text style={s.primaryBtnText} allowFontScaling={false}>
+                Get Started
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </LinearGradient>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
+            style={({ pressed }) => [s.secondaryBtn, pressed && s.pressed]}
             onPress={() => navigation.navigate("Login")}
             accessibilityRole="button"
             accessibilityLabel="Sign in to your account"
           >
-            <Text style={s.secondaryBtnText}>Sign in to your account</Text>
+            <Ionicons name="person" size={16} color={GREEN_DEEP} />
+            <Text style={s.secondaryBtnText} allowFontScaling={false}>
+              Sign in to your account
+            </Text>
           </Pressable>
         </Animated.View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    minHeight: SCREEN_HEIGHT,
-    backgroundColor: "#070B14"
-  },
-  bgImage: {
+  root: { flex: 1, backgroundColor: "#FCF8EF" },
+  dismissOverlay: {
     ...StyleSheet.absoluteFill,
-    opacity: 0.42
+    zIndex: 30
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.xxl,
-    justifyContent: "space-between"
-  },
-  upperBlock: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 360,
-    alignSelf: "center",
-    paddingBottom: spacing.lg
-  },
-  brandBlock: {
-    alignItems: "center",
-    width: "100%"
-  },
-  logo: {
-    width: Math.min(SCREEN_WIDTH * 0.48, 220),
-    height: Math.min(SCREEN_WIDTH * 0.48, 220)
-  },
-  logoFallback: {
-    fontFamily: fonts.bold,
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.4
-  },
-  wordmark: {
-    marginTop: spacing.md,
-    fontFamily: fonts.semiBold,
-    fontSize: 18,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.95)",
-    letterSpacing: 1.2
-  },
-  tagline: {
-    marginTop: spacing.sm,
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: "rgba(255,255,255,0.62)",
-    letterSpacing: 0.2,
-    textAlign: "center",
-    lineHeight: 20
-  },
-  heroCard: {
-    alignItems: "center",
-    marginTop: spacing.xxl,
-    width: "100%"
-  },
-  label: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.55)",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    marginBottom: spacing.sm
-  },
-  headlineBlock: {
-    minHeight: 56,
-    justifyContent: "center",
-    marginBottom: spacing.md
-  },
-  headline: {
-    fontFamily: fonts.semiBold,
-    fontSize: 28,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    textAlign: "center",
-    lineHeight: 34,
-    letterSpacing: -0.2,
-    maxWidth: 320
-  },
-  subline: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: "rgba(255,255,255,0.78)",
-    textAlign: "center",
-    lineHeight: 23,
-    maxWidth: 300
-  },
-  featureRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xl
-  },
-  featureChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    height: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    backgroundColor: "rgba(255,255,255,0.1)",
+  contactBtn: {
+    position: "absolute",
+    zIndex: 35,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)"
+    borderColor: "rgba(0,77,44,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: CARD_SHADOW,
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3
   },
-  featureText: {
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.9)"
+  contactBtnActive: {
+    backgroundColor: GREEN_DEEP,
+    borderColor: GREEN_DEEP,
+    shadowOpacity: 0.28
   },
-  actions: {
-    width: "100%",
-    maxWidth: 360,
+  scroll: { flex: 1 },
+  body: {
+    flexGrow: 1,
     alignSelf: "center",
-    alignItems: "stretch",
-    paddingTop: spacing.md,
-    gap: spacing.md
-  },
-  btnPressed: { opacity: 0.9 },
-  primaryBtn: {
-    minHeight: 54,
-    borderRadius: radius.button,
-    backgroundColor: BRAND_PRIMARY,
-    paddingVertical: 16,
-    paddingHorizontal: spacing.xxxl,
+    width: "100%",
+    maxWidth: BODY_MAX_WIDTH,
+    paddingHorizontal: H_PAD,
     alignItems: "center",
     justifyContent: "center"
   },
-  primaryBtnText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    letterSpacing: 0.2
+  logo: {
+    marginTop: 0
   },
-  secondaryBtn: {
-    minHeight: 54,
-    paddingVertical: 16,
-    paddingHorizontal: spacing.xl,
+  logoFallback: {
+    marginTop: 24,
+    fontFamily: fonts.bold,
+    fontSize: 22,
+    color: GREEN_DEEP,
+    fontWeight: "700"
+  },
+  intro: {
+    width: "100%",
+    maxWidth: 420,
+    paddingHorizontal: 12,
+    paddingTop: 2
+  },
+  titleSecond: {
+    marginTop: 2,
+    fontFamily: fonts.bold,
+    fontSize: 32,
+    lineHeight: 38,
+    color: GREEN_DEEP,
+    fontWeight: "700",
+    textAlign: "center"
+  },
+  titleTight: { fontSize: 26, lineHeight: 32 },
+  headlineBlock: { width: "100%", marginTop: 8, paddingHorizontal: 4 },
+  headline: {
+    fontFamily: fonts.semiBold,
+    fontSize: 15,
+    lineHeight: 22,
+    color: GREEN_DEEP,
+    textAlign: "center",
+    fontWeight: "600"
+  },
+  headlineTight: { fontSize: 13, lineHeight: 19 },
+  subtitle: {
+    marginTop: 4,
+    fontFamily: fonts.semiBold,
+    fontSize: 14,
+    color: "#263B34",
+    textAlign: "center",
+    fontWeight: "600"
+  },
+  script: {
+    marginTop: 2,
+    marginBottom: 4,
+    fontFamily: fonts.semiBold,
+    fontSize: 15,
+    fontStyle: "italic",
+    color: GREEN_DEEP,
+    textAlign: "center",
+    fontWeight: "600"
+  },
+  scriptTight: { fontSize: 13, marginBottom: 2 },
+  artwork: {
+    width: "100%",
+    height: 136,
+    marginTop: 16,
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "#F5EBD7"
+  },
+  artworkTight: { height: 100, marginTop: 12 },
+  grid: {
+    marginTop: 12,
+    marginBottom: 18,
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: CARD_GAP,
+    justifyContent: "center"
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    shadowColor: CARD_SHADOW,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "rgba(0,77,44,0.1)"
+  },
+  cardTight: { paddingVertical: 6 },
+  iconBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.button,
+    marginBottom: 5
+  },
+  iconTight: { width: 28, height: 28, marginBottom: 2 },
+  cardTitle: {
+    fontFamily: fonts.semiBold,
+    fontSize: 12,
+    lineHeight: 15,
+    color: "#0F172A",
+    textAlign: "center",
+    fontWeight: "700"
+  },
+  cardSub: {
+    marginTop: 3,
+    fontFamily: fonts.medium,
+    fontSize: 10,
+    lineHeight: 13,
+    color: "#4B5563",
+    textAlign: "center",
+    fontWeight: "500"
+  },
+  actions: { width: "100%" },
+  primaryBtnWrap: {
+    width: "100%",
+    borderRadius: 28,
+    overflow: "hidden",
+    shadowColor: GREEN_DEEP,
+    shadowOpacity: 0.32,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4
+  },
+  primaryBtn: {
+    minHeight: 52,
+    borderRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 18
+  },
+  primaryBtnText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 17,
+    color: "#FFFFFF",
+    fontWeight: "700"
+  },
+  secondaryBtn: {
+    width: "100%",
+    minHeight: 46,
+    marginTop: 8,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: "rgba(0,0,0,0.28)"
+    borderColor: "rgba(0,77,44,0.25)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
   },
   secondaryBtnText: {
     fontFamily: fonts.semiBold,
     fontSize: 15,
-    color: "rgba(255,255,255,0.95)",
-    fontWeight: "600"
-  }
+    color: GREEN_DEEP,
+    fontWeight: "700"
+  },
+  pressed: { opacity: 0.85 }
 });

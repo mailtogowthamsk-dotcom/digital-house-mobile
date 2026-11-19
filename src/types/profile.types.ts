@@ -25,6 +25,15 @@ export type CommunitySectionForm = {
   nativeTaluk: string | null;
 };
 
+/** users columns saved with PUT /api/profile/me. Separate from personal.occupation. */
+export type ProfessionalDetailsForm = {
+  education: string | null;
+  job_title: string | null;
+  company_name: string | null;
+  work_location: string | null;
+  skills: string | null;
+};
+
 export type PersonalSectionForm = {
   currentLocation: string | null;
   occupation: string | null;
