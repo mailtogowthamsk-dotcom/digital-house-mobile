@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   headerBlock: { paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   discoveryPad: { marginTop: spacing.lg },
-  resultMeta: { marginTop: spacing.sm, fontSize: 13, fontWeight: "600" },
+  resultMeta: { marginTop: spacing.sm, fontSize: 12, fontWeight: "600" },
   empty: {
     paddingVertical: 48,
     paddingHorizontal: spacing.xl,
@@ -420,9 +420,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8
   },
-  emptyTitle: { fontSize: 16, fontWeight: "700", textAlign: "center" },
-  emptySub: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  emptyTitle: { fontSize: 15, fontWeight: "700", textAlign: "center" },
+  emptySub: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   retryBtn: { marginTop: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
-  retryText: { fontSize: 14, fontWeight: "600" },
+  retryText: { fontSize: 13, fontWeight: "600" },
   footer: { paddingVertical: 16, alignItems: "center" }
 });

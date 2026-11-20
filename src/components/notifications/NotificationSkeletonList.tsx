@@ -48,18 +48,17 @@ function SkeletonRow() {
     <View
       style={{
         flexDirection: "row",
-        gap: spacing.md,
-        padding: spacing.md,
-        marginHorizontal: spacing.lg,
-        marginBottom: spacing.sm,
-        borderRadius: radius.lg,
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 8,
+        minHeight: 58,
         backgroundColor: colors.surface,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.border
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: colors.border
       }}
     >
-      <ShimmerBlock width={48} height={48} style={{ borderRadius: 24 }} />
-      <View style={{ flex: 1, gap: 8 }}>
+      <ShimmerBlock width={38} height={38} style={{ borderRadius: 12 }} />
+      <View style={{ flex: 1, gap: 6 }}>
         <ShimmerBlock width="72%" height={14} />
         <ShimmerBlock width="92%" height={12} />
         <ShimmerBlock width="28%" height={10} />

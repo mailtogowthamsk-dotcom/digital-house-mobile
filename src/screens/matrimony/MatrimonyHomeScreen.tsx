@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getMatrimonyHub, type MatrimonyHub, type MatrimonyHubStatus, type MatrimonyPlanCode, pauseMatrimonyProfile, resumeMatrimonyProfile, closeMatrimonyProfile, reactivateMatrimonyProfile } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
+import { LinearGradient } from "expo-linear-gradient";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -339,14 +341,9 @@ export function MatrimonyHomeScreen() {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom },
-        intro: {
-          fontSize: 13,
-          lineHeight: 20,
-          color: colors.textSecondary,
-          marginBottom: spacing.lg
-        },
+        scrollContent: { ...matrimonyLayout.content, paddingBottom: spacing.xl + insets.bottom },
         statusCard: {
+          overflow: "hidden",
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
           borderWidth: 1,
@@ -372,19 +369,20 @@ export function MatrimonyHomeScreen() {
           borderRadius: radius.full
         },
         chipText: { fontSize: 12, fontWeight: "700" },
-        statusTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        statusTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         statusMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-        statusBody: { fontSize: 13, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.md },
+        discoveryNote: { fontSize: 11, lineHeight: 16, color: colors.textSecondary, marginTop: 4 },
+        statusBody: { fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.md },
         progressRow: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginTop: spacing.lg
+          marginTop: spacing.sm
         },
         progressLabel: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
-        pct: { fontSize: 13, fontWeight: "800", color: colors.primary },
+        pct: { fontSize: 12, fontWeight: "800", color: colors.primary },
         progressBg: {
-          height: 8,
+          height: 5,
           borderRadius: 4,
           backgroundColor: mode === "dark" ? colors.surfaceElevated : "#E2E8F0",
           marginTop: spacing.sm,
@@ -403,7 +401,7 @@ export function MatrimonyHomeScreen() {
         planTitle: {
           flex: 1,
           fontWeight: "800",
-          fontSize: 14,
+          fontSize: 13,
           color: mode === "dark" ? colors.text : "#1D4ED8"
         },
         planSub: {
@@ -435,9 +433,9 @@ export function MatrimonyHomeScreen() {
           marginBottom: spacing.lg
         },
         upsellPressed: { opacity: 0.85 },
-        upsellTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+        upsellTitle: { fontSize: 13, fontWeight: "800", color: colors.text },
         upsellSub: { fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: 2 },
-        section: { marginBottom: spacing.xxl },
+        section: { marginBottom: spacing.lg },
         sectionTitle: {
           fontSize: 12,
           fontWeight: "700",
@@ -467,8 +465,8 @@ export function MatrimonyHomeScreen() {
         row: {
           flexDirection: "row",
           alignItems: "center",
-          minHeight: 64,
-          paddingVertical: spacing.md,
+          minHeight: 52,
+          paddingVertical: spacing.xs,
           paddingHorizontal: spacing.md,
           gap: spacing.md,
           borderBottomWidth: StyleSheet.hairlineWidth,
@@ -484,15 +482,15 @@ export function MatrimonyHomeScreen() {
         },
         rowLast: { borderBottomWidth: 0 },
         iconBox: {
-          width: 40,
-          height: 40,
+          width: 34,
+          height: 34,
           borderRadius: 12,
           alignItems: "center",
           justifyContent: "center"
         },
         iconBoxPrimary: { backgroundColor: colors.primary },
         rowBody: { flex: 1, minWidth: 0 },
-        rowLabel: { fontSize: 15, fontWeight: "600", color: colors.text },
+        rowLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
         rowLabelPrimary: { fontWeight: "800", color: colors.primary },
         rowSub: { fontSize: 12, lineHeight: 16, color: colors.textSecondary, marginTop: 2 },
         rowRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
@@ -509,15 +507,15 @@ export function MatrimonyHomeScreen() {
         badgeTextPremium: { color: "#B45309" },
         centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.lg },
         errorTitle: {
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "700",
           color: colors.text,
           marginTop: spacing.md,
           textAlign: "center"
         },
         errorBody: {
-          fontSize: 13,
-          lineHeight: 19,
+          fontSize: 12,
+          lineHeight: 18,
           color: colors.textSecondary,
           textAlign: "center",
           marginTop: 6,
@@ -532,7 +530,7 @@ export function MatrimonyHomeScreen() {
           borderRadius: radius.md,
           backgroundColor: colors.primary
         },
-        retryText: { fontSize: 14, fontWeight: "700", color: colors.white },
+        retryText: { fontSize: 13, fontWeight: "700", color: colors.white },
         setupWrap: { marginTop: spacing.xs, marginBottom: spacing.xl }
       }),
     [colors, mode, insets.bottom]
@@ -605,8 +603,6 @@ export function MatrimonyHomeScreen() {
   const chip = hubStatusChip(hub.status);
   const chipBg = mode === "dark" ? `${chip.fg}26` : chip.bg;
   const completion = Math.max(0, Math.min(100, hub.completion_percentage));
-  const heroPhoto =
-    hub.matrimony_candidate_photo ?? hub.account_profile_photo ?? hub.user_context.profile_image;
   const heroName =
     hub.matrimony_candidate_name?.trim() ||
     hub.draft?.candidateName?.trim() ||
@@ -646,13 +642,14 @@ export function MatrimonyHomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
         }
       >
-        <Text style={s.intro}>
-          Verified profiles with admin approval. Same-kulam matches are excluded.
-        </Text>
-
         <View style={s.statusCard}>
+          <LinearGradient
+            colors={[mode === "dark" ? "#372331" : "#FCECF1", colors.surface]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           <View style={s.statusTop}>
-            <AvatarImage uri={heroPhoto} name={heroName} size={56} />
+            <AvatarImage uri={hub.matrimony_candidate_photo} name={heroName} size={46} />
             <View style={s.statusIdentity}>
               <Text style={s.statusTitle} numberOfLines={1}>
                 {heroName}
@@ -670,6 +667,7 @@ export function MatrimonyHomeScreen() {
           <Text style={s.statusBody}>
             {hubStatusDescription(hub.status, hub.can_browse, hub.completion_percentage)}
           </Text>
+          {hub.can_browse ? <Text style={s.discoveryNote}>Browse verified profiles. Same-kulam matches are excluded.</Text> : null}
           <View style={s.progressRow}>
             <Text style={s.progressLabel}>Profile completion</Text>
             <Text style={[s.pct, completion >= 100 && { color: colors.success }]}>
@@ -739,7 +737,7 @@ export function MatrimonyHomeScreen() {
 
         {needsSetup ? (
           <View style={s.setupWrap}>
-            <PrimaryButton title={setupLabel} onPress={() => navigation.navigate("MatrimonySetup")} />
+            <PrimaryButton style={matrimonyLayout.button} title={setupLabel} onPress={() => navigation.navigate("MatrimonySetup")} />
           </View>
         ) : null}
 

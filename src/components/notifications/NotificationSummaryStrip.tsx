@@ -33,9 +33,9 @@ export function NotificationSummaryStrip({ lines, onSelectCategory }: Props) {
     () =>
       StyleSheet.create({
         wrap: {
-          marginHorizontal: spacing.lg,
-          marginBottom: spacing.md,
-          padding: spacing.md,
+          marginHorizontal: spacing.md,
+          marginTop: spacing.xs,
+          padding: spacing.sm,
           borderRadius: radius.lg,
           backgroundColor: colors.surface,
           borderWidth: StyleSheet.hairlineWidth,
@@ -47,14 +47,14 @@ export function NotificationSummaryStrip({ lines, onSelectCategory }: Props) {
           letterSpacing: 0.8,
           textTransform: "uppercase",
           color: colors.textMuted,
-          marginBottom: spacing.sm
+          marginBottom: spacing.xs
         },
         chip: {
           flexDirection: "row",
           alignItems: "center",
           gap: 8,
           paddingHorizontal: 12,
-          paddingVertical: 8,
+          minHeight: 42,
           borderRadius: radius.full,
           backgroundColor: colors.surfaceElevated,
           marginRight: spacing.sm
@@ -68,7 +68,7 @@ export function NotificationSummaryStrip({ lines, onSelectCategory }: Props) {
           backgroundColor: colors.primary
         },
         chipCountText: { fontSize: 11, fontWeight: "800", color: colors.white },
-        chipLabel: { fontSize: 13, fontWeight: "600", color: colors.text }
+        chipLabel: { fontSize: 12, fontWeight: "600", color: colors.text }
       }),
     [colors]
   );
@@ -84,13 +84,15 @@ export function NotificationSummaryStrip({ lines, onSelectCategory }: Props) {
             key={line.category}
             style={s.chip}
             onPress={() => onSelectCategory?.(line.category)}
+            accessibilityRole="button"
+            accessibilityLabel={`${line.count} ${line.label}`}
           >
             <View style={s.chipCount}>
               <Text style={s.chipCountText}>{line.count > 9 ? "9+" : line.count}</Text>
             </View>
             <Ionicons name={lineIcon(line.category)} size={16} color={colors.primary} />
             <Text style={s.chipLabel}>
-              {line.count} {line.label}
+              {line.label}
             </Text>
           </Pressable>
         ))}

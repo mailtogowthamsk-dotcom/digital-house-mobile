@@ -15,11 +15,11 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import type { RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   Header,
   FLOATING_HEADER_HEIGHT,
   FLOATING_TAB_BAR_HEIGHT,
+  BOTTOM_TAB_BAR_HEIGHT,
   DismissibleWelcomeCard,
   FeedPostCardRow,
   BottomTabBar,
@@ -84,12 +84,24 @@ const HEADER_HIDE_DELTA = 8;
  * Home Screen – community feed, welcome card, bottom tabs.
  * Data from useHome(); no inline API calls. Handles 401 → Login, 403 → PendingApproval.
  */
+function applyViewedStories(groups: StoryGroup[], viewedIds: ReadonlySet<number>): StoryGroup[] {
+  return groups.map((group) => {
+    if (group.is_own || !group.stories.some((story) => !story.viewed_by_me && viewedIds.has(story.id))) {
+      return group;
+    }
+    const stories = group.stories.map((story) =>
+      viewedIds.has(story.id) ? { ...story, viewed_by_me: true } : story
+    );
+    return { ...group, stories, has_unseen: stories.some((story) => !story.viewed_by_me) };
+  });
+}
+
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RootStackParamList, "Home">>();
   const { signOut, user: authUser } = useAuth();
-  const { colors, mode } = useTheme();
+  const { colors } = useTheme();
   const welcomeCardVisible = useWelcomeCardVisible();
   const {
     state,
@@ -125,6 +137,7 @@ export function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [adRefreshKey, setAdRefreshKey] = useState(0);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
+  const viewedStoryIds = useRef(new Set<number>());
   const [storiesLoading, setStoriesLoading] = useState(true);
   const [commentPost, setCommentPost] = useState<{ id: string; title: string } | null>(null);
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
@@ -170,13 +183,15 @@ export function HomeScreen() {
     }, 180);
   }).current;
   const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean }> }) => {
+    ({ viewableItems }: { viewableItems: Array<{ item: PostCardData; isViewable: boolean; index: number | null }> }) => {
       const { activeId } = pickActiveAndPreloadPostIds(viewableItems, feedItemsRef.current);
       queueMediaWindow(activeId);
       const visibleIds = viewableItems
         .filter((v) => v.isViewable && v.item?.id)
         .map((v) => String(v.item.id));
       syncFeedImpressions(visibleIds);
+      const sponsorRowIndex = Math.min(2, feedItemsRef.current.length - 1);
+      setFeedAdSlotVisible(viewableItems.some((row) => row.isViewable && row.index === sponsorRowIndex));
     }
   ).current;
 
@@ -225,7 +240,6 @@ export function HomeScreen() {
 
   const showWelcomeCard = Boolean(welcomeCardVisible && welcomeUser);
   const showSummaryError = Boolean(summaryError && !summary);
-  const hasScrollHeader = true;
 
   /** 401 → sign out (app returns to Landing); 403 → Approval Pending */
   const handleAuthError = useCallback(
@@ -244,7 +258,7 @@ export function HomeScreen() {
     try {
       setStoriesLoading(true);
       const groups = await getStoryTray({ force: opts?.force });
-      setStoryGroups(groups);
+      setStoryGroups(applyViewedStories(groups, viewedStoryIds.current));
       // Do not prefetch story media on home — download only when the viewer opens.
     } catch {
       /* keep previous tray */
@@ -257,7 +271,7 @@ export function HomeScreen() {
     let gotSeed = false;
     const unsub = subscribeStartupStoryGroups((groups) => {
       gotSeed = true;
-      setStoryGroups(groups);
+      setStoryGroups(applyViewedStories(groups, viewedStoryIds.current));
       setStoriesLoading(false);
     });
     const t = setTimeout(() => {
@@ -271,6 +285,12 @@ export function HomeScreen() {
 
   useEffect(() => {
     const sub = subscribeStoriesChanged((payload) => {
+      if (payload.viewedId != null) {
+        viewedStoryIds.current.add(payload.viewedId);
+        setStoryGroups((prev) => applyViewedStories(prev, viewedStoryIds.current));
+        invalidateStoriesTray();
+        return;
+      }
       if (payload.deletedId != null) {
         setStoryGroups((prev) =>
           prev
@@ -322,7 +342,7 @@ export function HomeScreen() {
     if (refreshing) return;
     setRefreshing(true);
     setAdRefreshKey((k) => k + 1);
-    setFeedAdSlotVisible(true);
+    setFeedAdSlotVisible(false);
     try {
       // P4B: single /home/bootstrap (stories seeded from response — no parallel tray GET).
       await refetchAll({ force: true });
@@ -337,7 +357,7 @@ export function HomeScreen() {
       return;
     }
     if (tab === "home" && activeTab === "home") {
-      setFeedAdSlotVisible(true);
+      setFeedAdSlotVisible(false);
       void onRefresh();
       listRef.current?.scrollToOffset({ offset: 0, animated: true });
       return;
@@ -376,7 +396,6 @@ export function HomeScreen() {
       const y = e.nativeEvent.contentOffset.y;
       const dy = y - lastScrollY.current;
       lastScrollY.current = y;
-      setFeedAdSlotVisible(y < 240);
       if (y <= 12) {
         // The first card sits under the list header at offset 0, so it never reaches the
         // viewability threshold. Viewability alone would leave the old (off-screen) post active.
@@ -485,9 +504,28 @@ export function HomeScreen() {
     }
   };
 
+  const sponsorRowIndex = Math.min(2, feedItems.length - 1);
   const renderFeedItem = useCallback(
-    ({ item }: { item: PostCardData }) => <FeedPostCardRow post={item} actionsRef={feedActionsRef} />,
-    []
+    ({ item, index }: { item: PostCardData; index: number }) => (
+      <>
+        <FeedPostCardRow post={item} actionsRef={feedActionsRef} fullWidth />
+        {index === 0 ? (
+          <>
+            <PlatformAnnouncementCard />
+            {showWelcomeCard && welcomeUser ? (
+              <DismissibleWelcomeCard userName={welcomeUser.name} avatarUri={welcomeUser.profileImage} />
+            ) : null}
+          </>
+        ) : null}
+        {index === sponsorRowIndex ? (
+          <View collapsable={false}>
+            <PaidFeedAd placement="home" refreshKey={adRefreshKey} />
+            <PlatformHomeAd />
+          </View>
+        ) : null}
+      </>
+    ),
+    [sponsorRowIndex, adRefreshKey, showWelcomeCard, welcomeUser]
   );
 
   const keyExtractor = useCallback((item: PostCardData) => item.id, []);
@@ -515,28 +553,36 @@ export function HomeScreen() {
     [navigation]
   );
 
-  const listTopPad = insets.top + FLOATING_HEADER_HEIGHT + 8;
-  const listBottomPad = Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
+  const headerClearance = insets.top + FLOATING_HEADER_HEIGHT;
+  const listTopPad = headerClearance + 8;
+  const feedBottomPad = Math.max(insets.bottom, 10) + BOTTOM_TAB_BAR_HEIGHT + 4;
+  const exploreBottomPad = Math.max(insets.bottom, 8) + FLOATING_TAB_BAR_HEIGHT + 16;
 
   const feedContentStyle = useMemo(
     () => ({
-      paddingTop: listTopPad + (hasScrollHeader ? 8 : 0),
-      paddingBottom: listBottomPad
+      paddingTop: headerClearance,
+      paddingBottom: feedBottomPad
     }),
-    [listTopPad, listBottomPad, hasScrollHeader]
+    [headerClearance, feedBottomPad]
   );
 
   const s = useMemo(
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        feedBackdrop: {
-          ...StyleSheet.absoluteFill
-        },
         feedList: { flex: 1, backgroundColor: "transparent" },
         headerPad: { paddingHorizontal: PADDING },
         section: { marginBottom: SECTION_MARGIN },
         feedSkeleton: { marginBottom: 0 },
+        paginationFooter: { paddingVertical: 8 },
+        feedIntro: {
+          backgroundColor: colors.surface,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border
+        },
+        emptyActions: { marginTop: 16, gap: 8, alignItems: "stretch" },
+        exploreButton: { minHeight: 44, justifyContent: "center", alignItems: "center" },
+        exploreText: { fontSize: 13, fontWeight: "600", color: colors.primary },
         errorCard: {
           marginHorizontal: 8,
           paddingVertical: 28,
@@ -546,14 +592,14 @@ export function HomeScreen() {
           borderRadius: 22,
           gap: 12
         },
-        errorText: { fontSize: 14, color: colors.textSecondary },
+        errorText: { fontSize: 13, color: colors.textSecondary },
         retryBtn: {
           paddingHorizontal: 16,
           paddingVertical: 10,
           backgroundColor: colors.primary,
           borderRadius: 12
         },
-        retryBtnText: { fontSize: 14, fontWeight: "600", color: colors.white },
+        retryBtnText: { fontSize: 13, fontWeight: "600", color: colors.white },
         emptyFeed: {
           marginHorizontal: 8,
           paddingVertical: 48,
@@ -572,27 +618,19 @@ export function HomeScreen() {
           marginBottom: 16
         },
         emptyTitle: {
-          fontSize: 17,
+          fontSize: 16,
           fontWeight: "600",
           color: colors.text,
           marginBottom: 8
         },
         emptySubtitle: {
-          fontSize: 14,
+          fontSize: 13,
           color: colors.textSecondary,
           textAlign: "center",
-          lineHeight: 22
+          lineHeight: 21
         }
       }),
     [colors]
-  );
-
-  const feedBackdropColors = useMemo(
-    () =>
-      mode === "dark"
-        ? (["#14532D", "#0B1220", "#7F1D1D"] as const)
-        : (["#166534", "#FFFFFF", "#991B1B"] as const),
-    [mode]
   );
 
   const listHeader = useMemo(
@@ -609,44 +647,33 @@ export function HomeScreen() {
           </View>
         ) : null}
 
-        {showWelcomeCard && welcomeUser ? (
-          <View style={s.headerPad}>
-            <DismissibleWelcomeCard
-              userName={welcomeUser.name}
-              avatarUri={welcomeUser.profileImage}
-            />
-          </View>
-        ) : null}
-
-        <StoryTray
-          groups={storyGroups}
-          loading={storiesLoading}
-          currentUser={
-            authUser
-              ? {
-                  id: authUser.id,
-                  name: authUser.fullName,
-                  profileImage: authUser.profilePhoto ?? null
-                }
-              : null
-          }
-          onAddStory={() => navigation.navigate("CreateStory")}
-          onOpenGroup={(groups, index) => {
-            navigation.navigate("StoryViewer", { groups, initialGroupIndex: index });
-          }}
-        />
-
-        <View collapsable={false}>
-          <PaidFeedAd placement="home" refreshKey={adRefreshKey} />
+        <View style={s.feedIntro}>
+          <StoryTray
+            groups={storyGroups}
+            loading={storiesLoading}
+            currentUser={
+              authUser
+                ? {
+                    id: authUser.id,
+                    name: authUser.fullName,
+                    profileImage: authUser.profilePhoto ?? null
+                  }
+                : null
+            }
+            onAddStory={() => navigation.navigate("CreateStory")}
+            onOpenGroup={(groups, index) => {
+              navigation.navigate("StoryViewer", { groups, initialGroupIndex: index });
+            }}
+          />
         </View>
+
+        {feedItems.length === 0 ? <PlatformAnnouncementCard /> : null}
       </>
     ),
     [
-      welcomeUser,
+      feedItems.length,
       showSummaryError,
-      showWelcomeCard,
       retrySummary,
-      adRefreshKey,
       s,
       storyGroups,
       storiesLoading,
@@ -659,6 +686,7 @@ export function HomeScreen() {
     () => (
       <PaginationFooter
         loading={feedLoadingMore}
+        style={s.paginationFooter}
         endReached={
           !feedLoading &&
           !feedError &&
@@ -668,7 +696,7 @@ export function HomeScreen() {
         }
       />
     ),
-    [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal]
+    [feedLoadingMore, feedLoading, feedError, feedItems.length, feedTotal, s.paginationFooter]
   );
 
   const ListEmptyComponent = useCallback(() => {
@@ -698,21 +726,28 @@ export function HomeScreen() {
         </View>
         <Text style={s.emptyTitle}>No posts yet</Text>
         <Text style={s.emptySubtitle}>{messages.empty.feed}</Text>
+        <View style={s.emptyActions}>
+          <Pressable
+            style={s.retryBtn}
+            onPress={() => navigation.navigate("CreatePost")}
+            accessibilityRole="button"
+          >
+            <Text style={s.retryBtnText}>Create a post</Text>
+          </Pressable>
+          <Pressable
+            style={s.exploreButton}
+            onPress={() => setActiveTab("explore")}
+            accessibilityRole="button"
+          >
+            <Text style={s.exploreText}>Explore</Text>
+          </Pressable>
+        </View>
       </View>
     );
-  }, [feedLoading, feedError, retryFeed, messages.empty.feed, s, colors]);
+  }, [feedLoading, feedError, retryFeed, messages.empty.feed, s, colors, navigation]);
 
   return (
     <View style={s.container}>
-      <LinearGradient
-        colors={[...feedBackdropColors]}
-        locations={[0, 0.48, 1]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={s.feedBackdrop}
-        pointerEvents="none"
-      />
-
       <Header
         communityName={
           summary?.user?.community?.trim() ||
@@ -731,11 +766,9 @@ export function HomeScreen() {
       />
 
       <PlatformBannerStrip />
-      <PlatformAnnouncementCard />
-      <PlatformHomeAd />
 
       {activeTab === "explore" ? (
-        <ExploreScreen bottomInset={listBottomPad} topInset={listTopPad} />
+        <ExploreScreen bottomInset={exploreBottomPad} topInset={listTopPad} />
       ) : (
         <FlatList
           ref={listRef}

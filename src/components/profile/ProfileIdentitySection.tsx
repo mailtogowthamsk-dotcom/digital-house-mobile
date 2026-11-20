@@ -93,7 +93,7 @@ export function ProfileIdentitySection({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Identity & privacy</Text>
+      <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Identity & privacy</Text>
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>Current username</Text>
       <Text style={[styles.username, { color: colors.primary }]}>
@@ -119,6 +119,7 @@ export function ProfileIdentitySection({
       {eligibility?.canChange ? (
         <View style={{ marginTop: spacing.md }}>
           <Input
+            variant="compact"
             placeholder="New @username"
             value={nextUsername}
             onChangeText={setNextUsername}
@@ -132,7 +133,9 @@ export function ProfileIdentitySection({
             title={savingUsername ? "Saving…" : "Change username"}
             onPress={() => void onChangeUsername()}
             disabled={savingUsername || !nextUsername.trim()}
-            style={{ marginTop: spacing.sm }}
+            variant="secondary"
+            style={styles.changeButton}
+            textStyle={styles.changeButtonText}
           />
         </View>
       ) : eligibility ? (
@@ -146,14 +149,23 @@ export function ProfileIdentitySection({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.lg,
-    marginBottom: spacing.lg
+    padding: spacing.md,
+    marginBottom: spacing.md
   },
-  title: { fontSize: 16, fontWeight: "800", marginBottom: spacing.md },
-  label: { fontSize: 13, fontWeight: "600" },
-  username: { fontSize: 18, fontWeight: "800", marginTop: 4, marginBottom: spacing.md },
+  title: { fontSize: 14, fontWeight: "700", marginBottom: spacing.sm },
+  label: { fontSize: 12, fontWeight: "600" },
+  username: { fontSize: 14, fontWeight: "700", marginTop: 3, marginBottom: spacing.sm },
   switchRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  hint: { fontSize: 12, lineHeight: 17, marginTop: 4 }
+  hint: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+  changeButton: {
+    alignSelf: "flex-start",
+    marginTop: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md
+  },
+  changeButtonText: { fontSize: 13 }
 });

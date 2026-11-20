@@ -4,6 +4,7 @@
 
 import React, { memo, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { feedVideoControlStyles } from "../media/feedVideoControlStyles";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { AvatarImage } from "../ui/AvatarImage";
 import { PostTypeIconBadge } from "./PostTypeIconBadge";
@@ -78,6 +79,8 @@ function PostHeaderInner({
         },
         name: {
           ...typography.feedUsername,
+          fontSize: 13,
+          lineHeight: 18,
           color: overlay ? "#FFFFFF" : colors.text,
           flexShrink: 1,
           textShadowColor: overlay ? "rgba(0,0,0,0.45)" : "transparent",
@@ -92,6 +95,8 @@ function PostHeaderInner({
         },
         time: {
           ...typography.feedMeta,
+          fontSize: 12,
+          lineHeight: 17,
           color: overlay ? "rgba(255,255,255,0.85)" : colors.textMuted,
           fontWeight: "500",
           textShadowColor: overlay ? "rgba(0,0,0,0.4)" : "transparent",
@@ -127,14 +132,10 @@ function PostHeaderInner({
           borderRadius: 20,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: overlay ? "rgba(15,23,42,0.28)" : "transparent"
+          backgroundColor: "transparent"
         },
         menuBtnPressed: {
-          backgroundColor: overlay
-            ? "rgba(15,23,42,0.45)"
-            : mode === "dark"
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(15,23,42,0.05)"
+          backgroundColor: mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)"
         },
         trending: {
           flexDirection: "row",
@@ -225,7 +226,11 @@ function PostHeaderInner({
 
       {onMenuPress ? (
         <Pressable
-          style={({ pressed }) => [s.menuBtn, pressed && s.menuBtnPressed]}
+          style={({ pressed }) =>
+            overlay
+              ? [feedVideoControlStyles.button, pressed && feedVideoControlStyles.pressed]
+              : [s.menuBtn, pressed && s.menuBtnPressed]
+          }
           onPress={(e) => {
             e?.stopPropagation?.();
             onMenuPress();

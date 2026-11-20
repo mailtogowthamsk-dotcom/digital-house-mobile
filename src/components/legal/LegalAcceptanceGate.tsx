@@ -153,7 +153,7 @@ export function LegalAcceptanceGate({ visible, status, onAccepted }: Props) {
                     accessibilityRole="button"
                     accessibilityLabel={`Review ${item.title}`}
                   >
-                    <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                    <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
                       Review
                     </Text>
                   </Pressable>
@@ -225,8 +225,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.md
   },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: spacing.sm },
-  body: { fontSize: 15, lineHeight: 22, marginBottom: spacing.lg },
+  title: { fontSize: 20, fontWeight: "700", marginBottom: spacing.sm },
+  body: { fontSize: 14, lineHeight: 21, marginBottom: spacing.lg },
   list: { maxHeight: 280 },
   pendingRow: {
     flexDirection: "row",
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md
   },
-  pendingTitle: { fontSize: 15, fontWeight: "600" },
+  pendingTitle: { fontSize: 14, fontWeight: "600" },
   reviewBtn: {
     borderWidth: 1.5,
     borderRadius: radius.sm,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   linkRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: spacing.md },
-  linkText: { fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+  linkText: { fontSize: 12, fontWeight: "700", textDecorationLine: "underline" },
   checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: spacing.md },
-  checkText: { flex: 1, fontSize: 14, lineHeight: 20 }
+  checkText: { flex: 1, fontSize: 13, lineHeight: 19 }
 });

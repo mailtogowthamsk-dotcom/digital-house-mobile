@@ -227,7 +227,7 @@ const contactRowStyles = StyleSheet.create({
   },
   copy: { flex: 1, minWidth: 0, gap: 2 },
   label: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
-  value: { fontSize: 14, fontWeight: "600", lineHeight: 20 }
+  value: { fontSize: 13, fontWeight: "600", lineHeight: 19 }
 });
 
 export function AdvertisementViewerSheet({
@@ -375,7 +375,7 @@ export function AdvertisementViewerSheet({
         },
         titleBlock: { gap: 8 },
         title: { ...typography.h2, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
-        subtitle: { fontSize: 14, fontWeight: "600", color: colors.textSecondary },
+        subtitle: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
         categoryChip: {
           alignSelf: "flex-start",
           backgroundColor: mode === "dark" ? "#1E293B" : "#F1F5F9",
@@ -436,7 +436,7 @@ export function AdvertisementViewerSheet({
           justifyContent: "center",
           gap: 8
         },
-        primaryLabel: { fontSize: 16, fontWeight: "800", color: colors.white },
+        primaryLabel: { fontSize: 15, fontWeight: "800", color: colors.white },
         secondaryRow: { flexDirection: "row", gap: 8 },
         secondaryBtn: {
           flex: 1,

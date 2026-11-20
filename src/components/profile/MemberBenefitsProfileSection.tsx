@@ -51,7 +51,7 @@ export function MemberBenefitsProfileSection({ businessOwnerId, isOwner }: Props
           padding: spacing.lg,
           marginTop: spacing.md
         },
-        title: { fontSize: 15, fontWeight: "800", color: colors.text, marginBottom: spacing.sm },
+        title: { fontSize: 14, fontWeight: "800", color: colors.text, marginBottom: spacing.sm },
         linkRow: {
           flexDirection: "row",
           alignItems: "center",
@@ -60,7 +60,7 @@ export function MemberBenefitsProfileSection({ businessOwnerId, isOwner }: Props
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border
         },
-        link: { fontSize: 14, fontWeight: "700", color: colors.primary, flex: 1 },
+        link: { fontSize: 13, fontWeight: "700", color: colors.primary, flex: 1 },
         hint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm }
       }),
     [colors]

@@ -81,7 +81,7 @@ function ProfilePostGridCardComponent({
           justifyContent: "center"
         },
         playBadge: {
-          ...StyleSheet.absoluteFillObject,
+          ...StyleSheet.absoluteFill,
           alignItems: "center",
           justifyContent: "center"
         },

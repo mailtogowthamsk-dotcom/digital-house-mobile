@@ -56,7 +56,7 @@ function computeOtpLayout(screenWidth: number) {
 
   gap = Math.max(4, Math.min(12, gap));
   box = Math.max(minBox, Math.min(maxBox, box));
-  return { box, gap, digitSize: box >= 44 ? 22 : box >= 40 ? 20 : 18 };
+  return { box, gap, digitSize: box >= 44 ? 20 : box >= 40 ? 19 : 17 };
 }
 
 export function OtpVerifyScreen({ route, navigation }: any) {
@@ -251,9 +251,9 @@ const s = StyleSheet.create({
     borderColor: "#DCE7DF",
     backgroundColor: "#FFFFFF"
   },
-  backText: { fontSize: 14, color: BRAND_DEEP, marginRight: spacing.xs },
+  backText: { fontSize: 13, color: BRAND_DEEP, marginRight: spacing.xs },
   header: { alignItems: "center", marginBottom: spacing.md },
-  brandTitle: { marginTop: spacing.xs, fontSize: 24, fontFamily: fonts.bold, color: BRAND_DEEP },
+  brandTitle: { marginTop: spacing.xs, fontSize: 22, fontFamily: fonts.bold, color: BRAND_DEEP },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -272,13 +272,13 @@ const s = StyleSheet.create({
     overflow: "hidden"
   },
   cardTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: "#111827",
     marginBottom: spacing.xs
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280",
     marginBottom: spacing.xs
   },
@@ -292,7 +292,7 @@ const s = StyleSheet.create({
   emailText: {
     flex: 1,
     minWidth: 0,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: BRAND_PRIMARY
   },
@@ -338,7 +338,7 @@ const s = StyleSheet.create({
     backgroundColor: BRAND_PRIMARY
   },
   otpHint: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#52645B",
     textAlign: "center",
     marginBottom: spacing.md
@@ -348,13 +348,13 @@ const s = StyleSheet.create({
     marginBottom: spacing.sm
   },
   messageError: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#B42318",
     marginBottom: spacing.sm,
     textAlign: "center"
   },
   expiryHint: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#6B7280",
     textAlign: "center",
     marginBottom: spacing.xs
@@ -366,7 +366,7 @@ const s = StyleSheet.create({
     minHeight: 44
   },
   resendLink: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: BRAND_PRIMARY
   }

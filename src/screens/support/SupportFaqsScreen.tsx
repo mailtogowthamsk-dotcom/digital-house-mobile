@@ -25,6 +25,7 @@ export function SupportFaqsScreen() {
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
+      setError(null);
       listSupportFaqs()
         .then((data) => {
           if (!cancelled) setFaqs(data);
@@ -73,13 +74,18 @@ export function SupportFaqsScreen() {
       }
       renderItem={({ item: [category, items] }) => (
         <View style={{ marginBottom: spacing.lg }}>
-          <Text style={[styles.cat, { color: colors.textMuted }]}>{category.toUpperCase()}</Text>
+          <Text style={[styles.cat, { color: colors.text }]} accessibilityRole="header">{category}</Text>
           {items.map((f) => {
             const open = openId === f.id;
             return (
               <Pressable
                 key={f.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                style={({ pressed }) => [styles.card, {
+                  backgroundColor: open || pressed ? colors.surfaceElevated : colors.surface,
+                  borderColor: open ? colors.primary + "45" : colors.border
+                }]}
                 onPress={() => {
                   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                   setOpenId(open ? null : f.id);
@@ -89,7 +95,7 @@ export function SupportFaqsScreen() {
                   <Text style={[styles.q, { color: colors.text }]}>{f.question}</Text>
                   <Ionicons
                     name={open ? "chevron-up" : "chevron-down"}
-                    size={18}
+                    size={16}
                     color={colors.textMuted}
                   />
                 </View>
@@ -107,15 +113,20 @@ export function SupportFaqsScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  cat: { fontSize: 12, fontWeight: "700", marginBottom: 8, letterSpacing: 0.6 },
+  content: {
+    width: "100%", maxWidth: 640, alignSelf: "center",
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xxl
+  },
+  cat: { fontSize: 14, fontWeight: "700", marginBottom: 8 },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
-    padding: 14,
-    marginBottom: 8
+    padding: spacing.sm + 2,
+    minHeight: 48,
+    justifyContent: "center",
+    marginBottom: 6
   },
-  qRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  q: { flex: 1, fontSize: 15, fontWeight: "700", lineHeight: 21 },
-  a: { marginTop: 10, fontSize: 14, lineHeight: 21 }
+  qRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  q: { flex: 1, fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  a: { marginTop: 10, fontSize: 13, lineHeight: 20 }
 });

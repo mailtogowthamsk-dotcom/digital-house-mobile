@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import {
   View,
   TextInput,
@@ -12,7 +12,7 @@ import { textFieldCompactPad } from "../../theme/textField";
 
 const MIN_INPUT_HEIGHT = 44;
 const MAX_INPUT_HEIGHT = 120;
-const SEND_SIZE = 40;
+const SEND_SIZE = 44;
 
 type Props = {
   value: string;
@@ -45,6 +45,7 @@ function ChatComposerComponent({
   placeholder = "Message",
   colors
 }: Props) {
+  const [focused, setFocused] = useState(false);
   const canSend = (value.trim().length > 0 || hasAttachment) && !sending;
 
   return (
@@ -66,10 +67,13 @@ function ChatComposerComponent({
             {
               backgroundColor: colors.surfaceElevated,
               color: colors.text,
-              borderColor: colors.border
+              borderColor: focused ? colors.primary : colors.border
             }
           ]}
           value={value}
+          accessibilityLabel="Message"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
@@ -83,20 +87,21 @@ function ChatComposerComponent({
           {...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : {})}
         />
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.sendBtn,
-            { backgroundColor: colors.primary },
-            !canSend && styles.sendDisabled
+            { backgroundColor: canSend || sending ? "#163E31" : colors.surfaceElevated },
+            pressed && styles.sendPressed
           ]}
           onPress={onSend}
           disabled={!canSend}
           accessibilityRole="button"
           accessibilityLabel="Send message"
+          accessibilityState={{ disabled: !canSend, busy: sending }}
         >
           {sending ? (
             <ActivityIndicator size="small" color={colors.white} />
           ) : (
-            <Ionicons name="send" size={17} color={colors.white} />
+            <Ionicons name="send-outline" size={18} color={canSend ? "#FFFFFF" : colors.textMuted} />
           )}
         </Pressable>
       </View>
@@ -107,7 +112,7 @@ function ChatComposerComponent({
 const styles = StyleSheet.create({
   wrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 8,
+    paddingTop: 6,
     flexShrink: 0,
     flexGrow: 0
   },
@@ -121,23 +126,24 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: MIN_INPUT_HEIGHT,
     maxHeight: MAX_INPUT_HEIGHT,
-    borderRadius: 22,
+    borderRadius: 15,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     ...textFieldCompactPad,
-    fontSize: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    fontSize: 14,
     ...(Platform.OS === "android" ? { textAlignVertical: "top" } : {})
   },
   sendBtn: {
     width: SEND_SIZE,
     height: SEND_SIZE,
-    borderRadius: SEND_SIZE / 2,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
-    marginBottom: 2
+    flexShrink: 0
   },
-  sendDisabled: { opacity: 0.45 }
+  sendPressed: { opacity: 0.78 }
 });
 
 export const ChatComposer = memo(ChatComposerComponent);

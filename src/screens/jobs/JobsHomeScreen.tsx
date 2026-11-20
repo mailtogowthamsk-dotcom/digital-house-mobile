@@ -142,11 +142,6 @@ export function JobsHomeScreen() {
     return () => clearTimeout(t);
   }, [searchDraft]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setLocationQ(locationDraft.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [locationDraft]);
-
   const queryKey = `${mode}|${filter}|${searchQ}|${locationQ}|${employmentType ?? ""}|${workMode ?? ""}|${categoryQ}|${experienceQ}|${salaryMinQ ?? ""}|${salaryMaxQ ?? ""}`;
 
   const loadFeed = useCallback(
@@ -329,6 +324,7 @@ export function JobsHomeScreen() {
   );
 
   const openFilterModal = useCallback(() => {
+    setLocationDraft(locationQ);
     setFilterDraftStatus(filter);
     setFilterDraftEmployment(employmentType);
     setFilterDraftWorkMode(workMode);
@@ -342,12 +338,14 @@ export function JobsHomeScreen() {
     employmentType,
     experienceQ,
     filter,
+    locationQ,
     salaryMaxQ,
     salaryMinQ,
     workMode
   ]);
 
   const applyFilterModal = useCallback(() => {
+    setLocationQ(locationDraft.trim());
     const min = filterDraftSalaryMin.trim() ? Math.floor(Number(filterDraftSalaryMin.trim())) : null;
     const max = filterDraftSalaryMax.trim() ? Math.floor(Number(filterDraftSalaryMax.trim())) : null;
     setFilter(filterDraftStatus);
@@ -365,7 +363,8 @@ export function JobsHomeScreen() {
     filterDraftSalaryMax,
     filterDraftSalaryMin,
     filterDraftStatus,
-    filterDraftWorkMode
+    filterDraftWorkMode,
+    locationDraft
   ]);
 
   const clearFilters = useCallback(() => {
@@ -437,7 +436,7 @@ export function JobsHomeScreen() {
     if (mode === "mine") {
       return {
         title: "No job posts yet",
-        body: "Post your first opening for the community. Tap Post a job below."
+        body: "Post your first opening for the community. Tap Post job at the top."
       };
     }
     if (mode === "applications") {
@@ -494,20 +493,28 @@ export function JobsHomeScreen() {
           gap: 8
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         toolbar: {
           backgroundColor: colors.surface,
           paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
+          paddingTop: spacing.xs,
           paddingBottom: spacing.sm,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
           gap: spacing.sm,
-          zIndex: 30,
-          elevation: 6
+          zIndex: 30
         },
+        postJob: {
+          minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4,
+          paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.primary + "15"
+        },
+        postJobText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+        compactButton: { minHeight: 44, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+        searchRow: { flexDirection: "row", alignItems: "center", gap: 6 },
         searchWrap: {
+          flex: 1,
+          minWidth: 0,
           flexDirection: "row",
           alignItems: "center",
           backgroundColor: colors.surfaceElevated,
@@ -520,6 +527,8 @@ export function JobsHomeScreen() {
         searchInput: {
           flex: 1,
           ...textFieldCompact,
+          minHeight: 44,
+          paddingVertical: 5,
           color: colors.text
         },
         segment: {
@@ -531,7 +540,8 @@ export function JobsHomeScreen() {
         },
         segmentBtn: {
           flex: 1,
-          paddingVertical: 8,
+          minHeight: 44,
+          justifyContent: "center",
           borderRadius: radius.sm,
           alignItems: "center"
         },
@@ -551,8 +561,9 @@ export function JobsHomeScreen() {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingVertical: 10,
-          paddingHorizontal: spacing.md,
+          minHeight: 44,
+          paddingVertical: 5,
+          paddingHorizontal: spacing.sm,
           borderRadius: radius.md,
           borderWidth: 1,
           borderColor: colors.border,
@@ -586,21 +597,21 @@ export function JobsHomeScreen() {
           borderRadius: radius.lg,
           borderWidth: 1,
           borderColor: colors.border,
-          padding: spacing.lg,
-          marginBottom: spacing.md
+          padding: spacing.sm + 2,
+          marginBottom: spacing.sm
         },
         cardPressed: { opacity: 0.92, borderColor: colors.primary + "66" },
         cardTop: { flexDirection: "row", gap: spacing.md },
         avatar: {
-          width: 48,
-          height: 48,
+          width: 38,
+          height: 38,
           borderRadius: 14,
           backgroundColor: themeMode === "dark" ? "#134E4A" : "#CCFBF1",
           alignItems: "center",
           justifyContent: "center"
         },
         avatarText: {
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "800",
           color: themeMode === "dark" ? "#5EEAD4" : "#0F766E"
         },
@@ -610,7 +621,7 @@ export function JobsHomeScreen() {
           alignItems: "flex-start",
           gap: 8
         },
-        title: { flex: 1, fontSize: 16, fontWeight: "700", color: colors.text, lineHeight: 22 },
+        title: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text, lineHeight: 21 },
         badge: {
           paddingHorizontal: 8,
           paddingVertical: 3,
@@ -639,7 +650,7 @@ export function JobsHomeScreen() {
         appliedText: { fontSize: 11, fontWeight: "700", color: "#15803D" },
         company: {
           marginTop: 4,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.textSecondary
         },
@@ -690,7 +701,7 @@ export function JobsHomeScreen() {
           borderRadius: radius.md,
           backgroundColor: themeMode === "dark" ? "#134E4A" : "#F0FDFA"
         },
-        applicantsBtnText: { fontSize: 13, fontWeight: "700", color: "#0F766E" },
+        applicantsBtnText: { fontSize: 12, fontWeight: "700", color: "#0F766E" },
         appActions: {
           marginTop: spacing.sm,
           flexDirection: "row",
@@ -706,20 +717,13 @@ export function JobsHomeScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
-        },
-        footer: {
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          backgroundColor: colors.surface
         },
         center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
         errorText: { color: colors.error, textAlign: "center", marginBottom: spacing.md },
@@ -730,7 +734,7 @@ export function JobsHomeScreen() {
           padding: spacing.lg,
           maxHeight: "85%"
         },
-        modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text, marginBottom: spacing.md },
+        modalTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginBottom: spacing.md },
         modalLabel: {
           fontSize: 12,
           fontWeight: "700",
@@ -740,11 +744,12 @@ export function JobsHomeScreen() {
         },
         modalInput: {
           ...textFieldCompact,
-          borderWidth: 1,
+          minHeight: 44,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           borderRadius: radius.md,
           paddingHorizontal: spacing.md,
-          paddingVertical: 10,
+          paddingVertical: 6,
           color: colors.text,
           backgroundColor: colors.surfaceElevated
         },
@@ -925,7 +930,7 @@ export function JobsHomeScreen() {
           <View style={s.appActions}>
             <View style={{ flex: 1 }}>
               <PrimaryButton
-                title="View Job"
+                title="View Job" style={s.compactButton}
                 variant="secondary"
                 onPress={() => navigation.navigate("PostDetail", { postId: item.job.id })}
               />
@@ -933,7 +938,7 @@ export function JobsHomeScreen() {
             {canWithdraw ? (
               <View style={{ flex: 1 }}>
                 <PrimaryButton
-                  title="Withdraw"
+                  title="Withdraw" style={s.compactButton}
                   variant="secondary"
                   onPress={() => handleWithdraw(item)}
                 />
@@ -955,8 +960,16 @@ export function JobsHomeScreen() {
         <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>Jobs</Text>
-          <Text style={s.headerSub}>{headerSubtitle}</Text>
+          <Text style={s.headerSub} numberOfLines={1}>{headerSubtitle}</Text>
         </View>
+        <Pressable
+          style={s.postJob}
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("CreatePost", { initialPostType: "JOB" })}
+        >
+          <Ionicons name="add" size={17} color={colors.primary} />
+          <Text style={s.postJobText}>Post job</Text>
+        </Pressable>
       </View>
 
       <View style={s.toolbar}>
@@ -988,53 +1001,45 @@ export function JobsHomeScreen() {
 
         {mode !== "applications" ? (
           <>
-            <View style={s.searchWrap}>
-              <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-              <TextInput
-                style={s.searchInput}
-                placeholder={mode === "mine" ? "Search your jobs" : "Search title or company"}
-                placeholderTextColor={colors.textMuted}
-                value={searchDraft}
-                onChangeText={setSearchDraft}
-                returnKeyType="search"
-              />
-              {searchDraft.length > 0 ? (
-                <Pressable
-                  onPress={() => {
-                    setSearchDraft("");
-                    setSearchQ("");
-                  }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            <View style={s.searchRow}>
+              <View style={s.searchWrap}>
+                <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+                <TextInput
+                  style={s.searchInput}
+                  placeholder={mode === "mine" ? "Search your jobs" : "Search title or company"}
+                  placeholderTextColor={colors.textMuted}
+                  value={searchDraft}
+                  onChangeText={setSearchDraft}
+                  returnKeyType="search"
+                />
+                {searchDraft.length > 0 ? (
+                  <Pressable
+                    onPress={() => {
+                      setSearchDraft("");
+                      setSearchQ("");
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View style={s.filterRow}>
+                <Pressable style={s.filterBtn} onPress={openFilterModal}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="options-outline" size={18} color={colors.text} />
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.text }}>Filters</Text>
+                    {activeFilterCount > 0 ? (
+                      <View style={s.filterBadge}>
+                        <Text style={s.filterBadgeText}>{activeFilterCount}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </Pressable>
-              ) : null}
-            </View>
+              </View>
 
-            <MasterDataSuggestInput
-              value={locationDraft}
-              onChangeText={setLocationDraft}
-              placeholder="Location (district / town)"
-              types={["DISTRICT", "TOWN", "TALUK"]}
-              onSelect={(label) => {
-                setLocationDraft(label);
-                setLocationQ(label);
-              }}
-            />
-
-            <View style={s.filterRow}>
-              <Pressable style={s.filterBtn} onPress={openFilterModal}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="options-outline" size={18} color={colors.text} />
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>Filters</Text>
-                  {activeFilterCount > 0 ? (
-                    <View style={s.filterBadge}>
-                      <Text style={s.filterBadgeText}>{activeFilterCount}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
             </View>
 
             {hasActiveFilters ? (
@@ -1118,13 +1123,6 @@ export function JobsHomeScreen() {
         />
       )}
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-        <PrimaryButton
-          title="Post a job"
-          onPress={() => navigation.navigate("CreatePost", { initialPostType: "JOB" })}
-        />
-      </View>
-
       <Modal
         visible={filterModalOpen}
         transparent
@@ -1138,6 +1136,16 @@ export function JobsHomeScreen() {
           <Pressable style={{ flex: 1 }} onPress={() => setFilterModalOpen(false)} />
           <ScrollView style={s.modalSheet} keyboardShouldPersistTaps="handled">
             <Text style={s.modalTitle}>Filter jobs</Text>
+
+            <MasterDataSuggestInput
+              compact
+              value={locationDraft}
+              onChangeText={setLocationDraft}
+              placeholder="Location (district / town)"
+              types={["DISTRICT", "TOWN", "TALUK"]}
+              onSelect={setLocationDraft}
+            />
+
 
             <Text style={s.modalLabel}>Listing status</Text>
             <View style={s.modalChipRow}>
@@ -1250,11 +1258,12 @@ export function JobsHomeScreen() {
             </View>
 
             <View style={{ marginTop: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl }}>
-              <PrimaryButton title="Apply filters" onPress={applyFilterModal} />
+              <PrimaryButton title="Apply filters" style={s.compactButton} onPress={applyFilterModal} />
               <PrimaryButton
-                title="Clear filters"
+                title="Clear filters" style={s.compactButton}
                 variant="secondary"
                 onPress={() => {
+                  setLocationDraft("");
                   setFilterDraftStatus(defaultStatus);
                   setFilterDraftEmployment(null);
                   setFilterDraftWorkMode(null);

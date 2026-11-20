@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Swipeable } from "react-native-gesture-handler";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -28,7 +28,6 @@ export type NotificationListItemProps = {
 function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: NotificationListItemProps) {
   const { colors } = useTheme();
   const swipeRef = useRef<Swipeable>(null);
-  const pressScale = useRef(new Animated.Value(1)).current;
 
   const unread = !item.isRead;
   const highlight = isMatrimonyHighlight(item);
@@ -63,7 +62,7 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
   };
 
   const renderRightActions = () => (
-    <View style={{ flexDirection: "row", marginBottom: spacing.sm }}>
+    <View style={{ flexDirection: "row" }}>
       {unread ? (
         <Pressable
           onPress={() => {
@@ -109,33 +108,22 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
   const s = useMemo(
     () =>
       StyleSheet.create({
-        outer: {
-          marginHorizontal: spacing.lg,
-          marginBottom: spacing.sm
-        },
         card: {
           flexDirection: "row",
           alignItems: "flex-start",
-          gap: spacing.md,
-          padding: spacing.md,
-          borderRadius: radius.lg,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: highlight ? "rgba(124, 58, 237, 0.35)" : colors.border,
-          backgroundColor: unread
-            ? highlight
-              ? "rgba(124, 58, 237, 0.06)"
-              : colors.surface
-            : colors.surface,
-          borderLeftWidth: highlight ? 3 : StyleSheet.hairlineWidth,
-          borderLeftColor: highlight ? "#7C3AED" : colors.border
+          minHeight: 58,
+          gap: spacing.sm,
+          paddingVertical: 8,
+          paddingHorizontal: spacing.md,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+          backgroundColor: unread ? (highlight ? "#7C3AED10" : colors.primary + "08") : colors.surface,
+          borderLeftWidth: 2,
+          borderLeftColor: unread ? (highlight ? "#7C3AED" : colors.primary) : "transparent"
         },
-        unreadWash: {
-          ...StyleSheet.absoluteFill,
-          borderRadius: radius.lg,
-          backgroundColor: unread ? "rgba(37, 99, 235, 0.04)" : "transparent"
-        },
+        pressed: { backgroundColor: colors.surfaceElevated },
         avatarWrap: { position: "relative" },
-        avatar: { width: 48, height: 48, borderRadius: 24 },
+        avatar: { width: 38, height: 38, borderRadius: 19 },
         iconBadge: {
           position: "absolute",
           right: -2,
@@ -151,38 +139,37 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
         },
         content: { flex: 1, minWidth: 0 },
         title: {
-          fontSize: 15,
-          lineHeight: 20,
+          fontSize: 14,
+          lineHeight: 19,
           color: colors.text,
           fontWeight: unread ? "800" : "600"
         },
         body: {
-          marginTop: 4,
-          fontSize: 13,
-          lineHeight: 18,
+          marginTop: 2,
+          fontSize: 12,
+          lineHeight: 17,
           color: colors.textSecondary
         },
         preview: {
           marginTop: 2,
-          fontSize: 13,
-          lineHeight: 18,
+          fontSize: 12,
+          lineHeight: 17,
           color: colors.textMuted,
           fontWeight: "500"
         },
         meta: {
-          marginTop: 8,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8
+          alignItems: "flex-end",
+          maxWidth: "28%",
+          gap: 4
         },
-        time: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+        time: { fontSize: 11, fontWeight: "600", textAlign: "right", color: colors.textMuted },
         groupPill: {
           paddingHorizontal: 8,
           paddingVertical: 2,
           borderRadius: radius.full,
           backgroundColor: visual.accentSoft
         },
-        groupText: { fontSize: 10, fontWeight: "700", color: visual.accent },
+        groupText: { fontSize: 10, fontWeight: "700", color: visual.accent, textAlign: "center" },
         countBadge: {
           minWidth: 22,
           height: 22,
@@ -197,17 +184,10 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
           fontWeight: "800",
           color: "#fff"
         },
-        dot: {
-          width: 9,
-          height: 9,
-          borderRadius: 5,
-          backgroundColor: colors.primary,
-          marginTop: 6
-        },
         iconCircle: {
-          width: 48,
-          height: 48,
-          borderRadius: 24,
+          width: 38,
+          height: 38,
+          borderRadius: 12,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: visual.accentSoft
@@ -217,78 +197,69 @@ function NotificationListItemInner({ item, onPress, onMarkRead, onDelete }: Noti
   );
 
   return (
-    <View style={s.outer}>
-      <Swipeable
-        ref={swipeRef}
-        renderRightActions={renderRightActions}
-        overshootRight={false}
-        friction={2}
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+      friction={2}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityHint={unread ? "Unread notification" : undefined}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [s.card, pressed && s.pressed]}
       >
-        <Pressable
-          onPress={onPress}
-          onLongPress={onLongPress}
-          onPressIn={() =>
-            Animated.spring(pressScale, { toValue: 0.98, useNativeDriver: true, speed: 80 }).start()
-          }
-          onPressOut={() =>
-            Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 80 }).start()
-          }
-        >
-          <Animated.View style={[s.card, { transform: [{ scale: pressScale }] }]}>
-            <View style={s.unreadWash} pointerEvents="none" />
-            <View style={s.avatarWrap}>
-              {avatarUri ? (
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={s.avatar}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  recyclingKey={avatarUri}
-                />
-              ) : (
-                <View style={s.iconCircle}>
-                  <Ionicons name={visual.icon as any} size={22} color={visual.accent} />
-                </View>
-              )}
-              {avatarUri ? (
-                <View style={s.iconBadge}>
-                  <Ionicons name={visual.icon as any} size={11} color="#fff" />
-                </View>
-              ) : null}
+        <View style={s.avatarWrap}>
+          {avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={s.avatar}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={avatarUri}
+            />
+          ) : (
+            <View style={s.iconCircle}>
+              <Ionicons name={visual.icon as any} size={22} color={visual.accent} />
             </View>
-            <View style={s.content}>
-              <Text style={s.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-              {summary ? (
-                <Text style={s.body} numberOfLines={2}>
-                  {summary}
-                </Text>
-              ) : null}
-              {preview && isMessage ? (
-                <Text style={s.preview} numberOfLines={1}>
-                  {preview}
-                </Text>
-              ) : null}
-              <View style={s.meta}>
-                <Text style={s.time}>{timeLabel}</Text>
-                {countLabel && !isMessage ? (
-                  <View style={s.groupPill}>
-                    <Text style={s.groupText}>{countLabel}</Text>
-                  </View>
-                ) : null}
-                {countLabel && isMessage ? (
-                  <View style={s.countBadge}>
-                    <Text style={s.countBadgeText}>{countLabel}</Text>
-                  </View>
-                ) : null}
-              </View>
+          )}
+          {avatarUri ? (
+            <View style={s.iconBadge}>
+              <Ionicons name={visual.icon as any} size={11} color="#fff" />
             </View>
-            {unread ? <View style={s.dot} /> : null}
-          </Animated.View>
-        </Pressable>
-      </Swipeable>
-    </View>
+          ) : null}
+        </View>
+        <View style={s.content}>
+          <Text style={s.title} numberOfLines={2}>
+            {item.title}
+          </Text>
+          {summary ? (
+            <Text style={s.body} numberOfLines={2}>
+              {summary}
+            </Text>
+          ) : null}
+          {preview && isMessage ? (
+            <Text style={s.preview} numberOfLines={1}>
+              {preview}
+            </Text>
+          ) : null}
+        </View>
+        <View style={s.meta}>
+          <Text style={s.time}>{timeLabel}</Text>
+          {countLabel && !isMessage ? (
+            <View style={s.groupPill}>
+              <Text style={s.groupText}>{countLabel}</Text>
+            </View>
+          ) : null}
+          {countLabel && isMessage ? (
+            <View style={s.countBadge}>
+              <Text style={s.countBadgeText}>{countLabel}</Text>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+    </Swipeable>
   );
 }
 

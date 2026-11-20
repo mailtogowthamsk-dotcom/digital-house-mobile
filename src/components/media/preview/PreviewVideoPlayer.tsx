@@ -305,6 +305,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm
   },
-  metaText: { fontSize: 13, fontWeight: "600" },
+  metaText: { fontSize: 12, fontWeight: "600" },
   metaHint: { fontSize: 12, marginTop: 4 }
 });

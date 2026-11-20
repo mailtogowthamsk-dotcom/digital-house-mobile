@@ -145,104 +145,118 @@ export function SupportCreateTicketScreen() {
 
   return (
     <AppKeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }}>
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-    >
-      <Text style={[styles.heading, { color: colors.text }]}>{screenTitle}</Text>
-      <Text style={[styles.hint, { color: colors.textSecondary }]}>
-        We auto-collect app version and device info to help resolve this faster.
-      </Text>
-
-      {type === "BUG" ? (
-        <Dropdown
-          label="Category"
-          placeholder="Select category"
-          value={category}
-          options={categoryOptions}
-          onSelect={(v) => setCategory(v as SupportBugCategory)}
-          required
-        />
-      ) : null}
-
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Title</Text>
-      <TextInput
-        value={title}
-        onChangeText={setTitle}
-        placeholder="Short summary"
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-      />
-
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="What happened? What did you expect?"
-        placeholderTextColor={colors.textMuted}
-        multiline
-        numberOfLines={5}
-        textAlignVertical="top"
-        style={[
-          styles.input,
-          styles.area,
-          { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }
-        ]}
-      />
-
-      <Pressable
-        style={[styles.attach, { borderColor: colors.border, backgroundColor: colors.surface }]}
-        onPress={() => void pickScreenshot()}
-        disabled={uploading}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        <Ionicons name="image-outline" size={20} color={colors.primary} />
-        <Text style={{ color: colors.text, fontWeight: "600" }}>
-          {uploading ? "Uploading…" : screenshotUrl ? "Change screenshot" : "Add screenshot (optional)"}
+        <Text style={[styles.heading, { color: colors.text }]}>{screenTitle}</Text>
+        <Text style={[styles.hint, { color: colors.textSecondary }]}>
+          We auto-collect app version and device info to help resolve this faster.
         </Text>
-      </Pressable>
-      {screenshotUri ? (
-        <Image source={{ uri: screenshotUri }} style={styles.preview} resizeMode="cover" />
-      ) : null}
 
-      {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
+        {type === "BUG" ? (
+          <Dropdown
+            variant="compact"
+            label="Category"
+            placeholder="Select category"
+            value={category}
+            options={categoryOptions}
+            onSelect={(v) => setCategory(v as SupportBugCategory)}
+            required
+          />
+        ) : null}
 
-      <PrimaryButton
-        title={saving ? "Submitting…" : "Submit"}
-        onPress={() => void onSubmit()}
-        disabled={saving || uploading}
-      />
-      {(saving || uploading) && (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
-      )}
-    </ScrollView>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Title</Text>
+        <TextInput
+          accessibilityLabel="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Short summary"
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+        />
+
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
+        <TextInput
+          accessibilityLabel="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="What happened? What did you expect?"
+          placeholderTextColor={colors.textMuted}
+          multiline
+          numberOfLines={5}
+          textAlignVertical="top"
+          style={[
+            styles.input,
+            styles.area,
+            { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }
+          ]}
+        />
+
+        <Pressable
+          style={[styles.attach, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityRole="button"
+          onPress={() => void pickScreenshot()}
+          disabled={uploading}
+        >
+          <Ionicons name="image-outline" size={20} color={colors.primary} />
+          <Text style={{ color: colors.text, fontWeight: "600" }}>
+            {uploading ? "Uploading…" : screenshotUrl ? "Change screenshot" : "Add screenshot (optional)"}
+          </Text>
+        </Pressable>
+        {screenshotUri ? (
+          <Image source={{ uri: screenshotUri }} style={styles.preview} resizeMode="cover" />
+        ) : null}
+
+        {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
+
+        <PrimaryButton
+          title="Submit request"
+          loading={saving}
+          style={styles.submit}
+          onPress={() => void onSubmit()}
+          disabled={saving || uploading}
+        />
+        {uploading && (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
+        )}
+      </ScrollView>
     </AppKeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  heading: { fontSize: 22, fontWeight: "800", marginBottom: 6 },
-  hint: { fontSize: 13, lineHeight: 19, marginBottom: spacing.lg },
-  label: { fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 8 },
+  content: {
+    width: "100%", maxWidth: 640, alignSelf: "center",
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xxl
+  },
+  heading: { fontSize: 17, fontWeight: "700", marginBottom: 6 },
+  hint: { fontSize: 12, lineHeight: 18, marginBottom: spacing.lg },
+  label: { fontSize: 12, fontWeight: "600", marginBottom: 6, marginTop: 8 },
   input: {
-    borderWidth: 1,
-    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     ...textField,
+    fontSize: 14,
+    minHeight: 44,
+    paddingVertical: 8,
     marginBottom: 8
   },
-  area: { minHeight: 120, ...textFieldMultiline },
+  area: { ...textFieldMultiline, minHeight: 96, paddingVertical: 10, fontSize: 14 },
   attach: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    minHeight: 44,
     marginTop: 8,
     marginBottom: 8
   },
+  submit: { alignSelf: "flex-end", minWidth: 144, minHeight: 44, paddingVertical: spacing.xs },
   preview: { width: "100%", height: 160, borderRadius: 12, marginBottom: 12 }
 });

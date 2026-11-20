@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md
   },
   doneText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600"
   }
 });

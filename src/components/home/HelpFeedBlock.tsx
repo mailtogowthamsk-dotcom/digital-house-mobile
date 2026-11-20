@@ -68,7 +68,7 @@ function HelpFeedBlockInner({ help, onViewHelp, compact }: Props) {
           gap: 6
         },
         badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 2 },
-        title: { fontSize: 16, fontWeight: "800", color: colors.text, lineHeight: 21 },
+        title: { fontSize: 13, fontWeight: "700", color: colors.text, lineHeight: 19 },
         metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
         metaText: { fontSize: 12, color: colors.textMuted, flex: 1 },
         helpers: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
@@ -86,12 +86,11 @@ function HelpFeedBlockInner({ help, onViewHelp, compact }: Props) {
           gap: 4,
           backgroundColor: colors.primary,
           paddingHorizontal: 12,
-          paddingVertical: 7,
+          minHeight: 44,
           borderRadius: radius.md
         },
         viewBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
-        posted: { fontSize: 11, color: colors.textMuted },
-        neutralChipBg: mode === "dark" ? colors.surfaceElevated : "#F1F5F9"
+        posted: { fontSize: 11, color: colors.textMuted }
       }),
     [colors, mode]
   );
@@ -119,7 +118,7 @@ function HelpFeedBlockInner({ help, onViewHelp, compact }: Props) {
       ) : null}
 
       <View style={s.chips}>
-        <Chip label={category} bg={s.neutralChipBg} fg={colors.textSecondary} />
+        <Chip label={category} bg={mode === "dark" ? colors.surfaceElevated : "#F1F5F9"} fg={colors.textSecondary} />
         {helpers > 0 ? (
           <Text style={s.helpers}>
             {helpers} {helpers === 1 ? "helper" : "helpers"}

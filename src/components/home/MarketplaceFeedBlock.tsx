@@ -62,10 +62,17 @@ function MarketplaceFeedBlockInner({ listing, onViewListing, compact }: Props) {
           paddingBottom: spacing.sm,
           gap: 6
         },
-        title: { fontSize: 16, fontWeight: "800", color: colors.text, lineHeight: 21 },
-        price: { fontSize: 15, fontWeight: "800", color: colors.primary },
+        listingHeading: { flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap", gap: 8 },
+        title: { flexGrow: 1, flexShrink: 1, fontSize: 13, fontWeight: "700", color: colors.text, lineHeight: 19 },
+        priceBadge: {
+          paddingHorizontal: 9,
+          paddingVertical: 4,
+          borderRadius: radius.md,
+          backgroundColor: colors.surfaceElevated
+        },
+        price: { fontSize: 13, fontWeight: "700", color: colors.primary },
         metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-        metaText: { fontSize: 12, color: colors.textMuted, flex: 1 },
+        metaText: { fontSize: 12, color: colors.textSecondary, flex: 1 },
         chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
         desc: { fontSize: 13, lineHeight: 18, color: colors.textSecondary },
         actions: {
@@ -80,7 +87,7 @@ function MarketplaceFeedBlockInner({ listing, onViewListing, compact }: Props) {
           gap: 4,
           backgroundColor: colors.primary,
           paddingHorizontal: 12,
-          paddingVertical: 7,
+          minHeight: 44,
           borderRadius: radius.md
         },
         viewBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
@@ -91,10 +98,14 @@ function MarketplaceFeedBlockInner({ listing, onViewListing, compact }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.title} numberOfLines={2}>
-        {listing.title}
-      </Text>
-      {price ? <Text style={s.price}>{price}</Text> : null}
+      <View style={s.listingHeading}>
+        <Text style={s.title} numberOfLines={2}>{listing.title}</Text>
+        {price ? (
+          <View style={s.priceBadge}>
+            <Text style={s.price}>{price}</Text>
+          </View>
+        ) : null}
+      </View>
       {listing.marketplaceDistrict ? (
         <View style={s.metaRow}>
           <Ionicons name="location-outline" size={13} color={colors.textMuted} />
@@ -103,10 +114,12 @@ function MarketplaceFeedBlockInner({ listing, onViewListing, compact }: Props) {
           </Text>
         </View>
       ) : null}
-      <View style={s.chips}>
-        {category ? <Chip label={category} /> : null}
-        {condition ? <Chip label={condition} /> : null}
-      </View>
+      {category || condition ? (
+        <View style={s.chips}>
+          {category ? <Chip label={category} /> : null}
+          {condition ? <Chip label={condition} /> : null}
+        </View>
+      ) : null}
       {listing.description && !compact ? (
         <Text style={s.desc} numberOfLines={2}>
           {listing.description}

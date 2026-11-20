@@ -21,8 +21,8 @@ export function useChatLayout() {
   const sidebarWidth = Math.round(Math.min(Math.max(width * 0.34, 280), isDesktop ? 420 : 380));
   const bubbleMaxWidth = Math.min(width * (isPhone ? 0.78 : 0.68), 440);
   const horizontalPadding = isPhone ? 10 : 14;
-  const fontSize = width < 360 ? 13 : 14;
-  const titleSize = isPhone ? 17 : 18;
+  const fontSize = width < 360 ? 12 : 13;
+  const titleSize = isPhone ? 16 : 17;
 
   const keyboardVisible = Platform.OS === "ios" ? keyboardHeight > 0 : imeHeight > 0;
 

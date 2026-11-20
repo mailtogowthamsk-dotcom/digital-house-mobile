@@ -58,17 +58,19 @@ export function SupportContactScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={styles.content}
     >
-      <Text style={[styles.hero, { color: colors.text }]}>Need help?</Text>
       {contact.supportNote ? (
         <Text style={[styles.note, { color: colors.textSecondary }]}>{contact.supportNote}</Text>
       ) : null}
 
       {contact.emailEnabled && contact.email ? (
         <Pressable
-          style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
           onPress={() => openUrl(`mailto:${contact.email}`)}
         >
-          <Ionicons name="mail-outline" size={22} color={colors.primary} />
+          <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
+            <Ionicons name="mail-outline" size={18} color={colors.primary} />
+          </View>
           <View style={styles.textCol}>
             <Text style={[styles.title, { color: colors.text }]}>Email</Text>
             <Text style={[styles.sub, { color: colors.textSecondary }]}>{contact.email}</Text>
@@ -78,10 +80,13 @@ export function SupportContactScreen() {
 
       {contact.chatEnabled ? (
         <Pressable
-          style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
           onPress={() => navigation.navigate("SupportCreateTicket", { type: "CONTACT" })}
         >
-          <Ionicons name="chatbubbles-outline" size={22} color={colors.primary} />
+          <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
+            <Ionicons name="chatbubbles-outline" size={18} color={colors.primary} />
+          </View>
           <View style={styles.textCol}>
             <Text style={[styles.title, { color: colors.text }]}>Chat with Support</Text>
             <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -93,13 +98,16 @@ export function SupportContactScreen() {
 
       {contact.whatsappEnabled && contact.whatsappNumber ? (
         <Pressable
-          style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
           onPress={() => {
             const n = contact.whatsappNumber!.replace(/[^\d+]/g, "");
             openUrl(`https://wa.me/${n.replace(/^\+/, "")}`);
           }}
         >
-          <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+          <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
+            <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+          </View>
           <View style={styles.textCol}>
             <Text style={[styles.title, { color: colors.text }]}>WhatsApp</Text>
             <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -111,10 +119,13 @@ export function SupportContactScreen() {
 
       {contact.callEnabled && contact.phoneNumber ? (
         <Pressable
-          style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
           onPress={() => openUrl(`tel:${contact.phoneNumber}`)}
         >
-          <Ionicons name="call-outline" size={22} color={colors.primary} />
+          <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
+            <Ionicons name="call-outline" size={18} color={colors.primary} />
+          </View>
           <View style={styles.textCol}>
             <Text style={[styles.title, { color: colors.text }]}>Call Support</Text>
             <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -125,10 +136,13 @@ export function SupportContactScreen() {
       ) : null}
 
       <Pressable
-        style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
         onPress={() => navigation.navigate("SupportCreateTicket", { type: "CONTACT" })}
       >
-        <Ionicons name="person-outline" size={22} color={colors.primary} />
+        <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}>
+          <Ionicons name="person-outline" size={18} color={colors.primary} />
+        </View>
         <View style={styles.textCol}>
           <Text style={[styles.title, { color: colors.text }]}>Contact Admin</Text>
           <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -142,19 +156,23 @@ export function SupportContactScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  hero: { fontSize: 22, fontWeight: "800", marginBottom: 8 },
-  note: { fontSize: 14, lineHeight: 20, marginBottom: spacing.lg },
+  content: {
+    width: "100%", maxWidth: 640, alignSelf: "center",
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xxl
+  },
+  note: { fontSize: 13, lineHeight: 19, marginBottom: spacing.lg },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    padding: 14,
+    gap: spacing.sm,
+    minHeight: 54,
+    padding: spacing.sm + 2,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 10
+    marginBottom: spacing.sm
   },
+  icon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   textCol: { flex: 1, minWidth: 0 },
-  title: { fontSize: 16, fontWeight: "700" },
-  sub: { fontSize: 13, marginTop: 2 }
+  title: { fontSize: 13, fontWeight: "700" },
+  sub: { fontSize: 12, marginTop: 2 }
 });

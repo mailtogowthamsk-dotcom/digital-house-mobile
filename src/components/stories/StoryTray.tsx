@@ -30,11 +30,13 @@ const RING = 64;
 const AVATAR = 54;
 const OFFICIAL_LOGO = require("../../../assets/logo_digital_house.png");
 
-function OfficialStoryRing({ stories, unseenColor, seenColor }: {
+function StoryRing({ stories, unseenColor, seenColor }: {
   stories: StoryGroup["stories"];
   unseenColor: string;
   seenColor: string;
 }) {
+  if (stories.length === 0) return null;
+
   const center = RING / 2;
   const radius = center - 1.5;
   const segmentAngle = (2 * Math.PI) / stories.length;
@@ -89,9 +91,9 @@ function StoryTrayInner({
     () =>
       StyleSheet.create({
         wrap: {
-          paddingTop: 8,
+          paddingTop: 4,
           paddingBottom: 4,
-          minHeight: 98
+          minHeight: 94
         },
         item: { width: 76, alignItems: "center", gap: 6 },
         ring: {
@@ -99,19 +101,16 @@ function StoryTrayInner({
           height: RING,
           borderRadius: RING / 2,
           alignItems: "center",
-          justifyContent: "center",
-          borderWidth: 2.5
+          justifyContent: "center"
         },
         ringUnseen: { borderColor: colors.primary },
         ringSeen: {
           borderColor: mode === "dark" ? "rgba(148,163,184,0.45)" : "rgba(148,163,184,0.7)"
         },
         ringEmpty: {
+          borderWidth: 2.5,
           borderColor: mode === "dark" ? "rgba(148,163,184,0.35)" : "rgba(148,163,184,0.55)",
           borderStyle: "dashed" as const
-        },
-        ringOfficial: {
-          borderWidth: 0
         },
         officialLogo: {
           width: AVATAR,
@@ -157,12 +156,6 @@ function StoryTrayInner({
 
   const renderHeader = useCallback(() => {
     const hasOwnStories = (ownGroup?.stories.length ?? 0) > 0;
-    const ownRingStyle = hasOwnStories
-      ? ownGroup?.has_unseen
-        ? s.ringUnseen
-        : s.ringSeen
-      : s.ringEmpty;
-
     return (
       <View style={{ flexDirection: "row", gap: 4 }}>
         <Pressable
@@ -172,14 +165,22 @@ function StoryTrayInner({
             else onAddStory();
           }}
           onLongPress={onAddStory}
-          accessibilityLabel="Your story"
+          accessibilityRole="button"
+          accessibilityLabel={hasOwnStories ? `Your story, ${ownGroup?.stories.length} updates` : "Add to your story"}
         >
-          <View style={[s.ring, ownRingStyle]}>
+          <View style={[s.ring, !hasOwnStories && s.ringEmpty]}>
             <AvatarImage
               uri={currentUser?.profileImage ?? ownGroup?.user.profile_image}
               name={currentUser?.name ?? "You"}
               size={AVATAR}
             />
+            {hasOwnStories && ownGroup ? (
+              <StoryRing
+                stories={ownGroup.stories}
+                unseenColor={s.ringUnseen.borderColor}
+                seenColor={s.ringSeen.borderColor}
+              />
+            ) : null}
             <View style={s.addBadge}>
               <Ionicons name="add" size={14} color="#fff" />
             </View>
@@ -195,9 +196,9 @@ function StoryTrayInner({
             accessibilityRole="button"
             accessibilityLabel={`VettuvaGounder status, ${officialGroup.stories.length} updates`}
           >
-            <View style={[s.ring, s.ringOfficial]}>
+            <View style={s.ring}>
               <Image source={OFFICIAL_LOGO} style={s.officialLogo} resizeMode="cover" />
-              <OfficialStoryRing
+              <StoryRing
                 stories={officialGroup.stories}
                 unseenColor={s.ringUnseen.borderColor}
                 seenColor={s.ringSeen.borderColor}
@@ -239,13 +240,19 @@ function StoryTrayInner({
           <Pressable
             style={s.item}
             onPress={() => onOpenGroup(viewerGroups, index + othersOffset)}
-            accessibilityLabel={`${item.user.name}'s story`}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.user.name}'s story, ${item.stories.length} updates`}
           >
-            <View style={[s.ring, item.has_unseen ? s.ringUnseen : s.ringSeen]}>
+            <View style={s.ring}>
               <AvatarImage
                 uri={item.user.profile_image}
                 name={item.user.name}
                 size={AVATAR}
+              />
+              <StoryRing
+                stories={item.stories}
+                unseenColor={s.ringUnseen.borderColor}
+                seenColor={s.ringSeen.borderColor}
               />
             </View>
             <Text style={s.label} numberOfLines={1}>

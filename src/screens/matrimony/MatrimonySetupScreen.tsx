@@ -24,6 +24,7 @@ import {
 } from "../../utils/mediaUpload";
 import * as FileSystem from "expo-file-system/legacy";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
@@ -387,12 +388,12 @@ export function MatrimonySetupScreen() {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom },
+        scroll: { ...matrimonyLayout.content, paddingBottom: spacing.xl + insets.bottom },
         section: {
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
+          padding: spacing.sm + 2,
+          marginBottom: spacing.sm,
           borderWidth: 1,
           borderColor: colors.border
         },
@@ -400,8 +401,7 @@ export function MatrimonySetupScreen() {
           fontSize: 12,
           fontWeight: "700",
           color: colors.textSecondary,
-          textTransform: "uppercase",
-          letterSpacing: 0.8,
+
           marginBottom: spacing.md
         },
         label: { fontSize: 12, fontWeight: "600", color: colors.textSecondary, marginBottom: 6, marginTop: 8 },
@@ -478,8 +478,8 @@ export function MatrimonySetupScreen() {
   return (
     <AppKeyboardAvoidingView style={s.container}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text, marginBottom: 4 }}>Matrimony Profile</Text>
-        <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
+        <Text style={{ fontSize: 19, fontWeight: "800", color: colors.text, marginBottom: 4 }}>Matrimony Profile</Text>
+        <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md }}>
           {userName} · {completion}% complete
         </Text>
         <View style={s.progressBg}>
@@ -488,7 +488,7 @@ export function MatrimonySetupScreen() {
 
         {hubStatus === "CHANGES_REQUESTED" && changeRequest?.change_request && (
           <View style={s.correctionBanner}>
-            <Text style={{ fontWeight: "800", color: "#9A3412", fontSize: 15 }}>Admin requested corrections</Text>
+            <Text style={{ fontWeight: "800", color: "#9A3412", fontSize: 14 }}>Admin requested corrections</Text>
             <Text style={{ color: "#9A3412", marginTop: 8, lineHeight: 20 }}>
               {changeRequest.change_request.comment}
             </Text>
@@ -514,7 +514,7 @@ export function MatrimonySetupScreen() {
           <>
             <View style={[s.section, needsCorrection("aboutMe") ? s.correctionField : null]}>
               <Text style={s.sectionTitle}>Personal details</Text>
-              <Dropdown
+              <Dropdown variant="compact"
                 label="Who is this matrimony profile for? *"
                 placeholder="Select"
                 value={form.lookingFor ?? ""}
@@ -543,13 +543,13 @@ export function MatrimonySetupScreen() {
               {form.lookingFor && form.lookingFor !== "SELF" && (
                 <>
                   <Text style={s.label}>Bride/groom name *</Text>
-                  <Input
+                  <Input variant="compact"
                     value={form.candidateName ?? ""}
                     onChangeText={(t) => patch({ candidateName: t || null })}
                     placeholder="Candidate full name"
                   />
                   <Text style={s.label}>Bride/groom age *</Text>
-                  <Input
+                  <Input variant="compact"
                     value={form.candidateAge != null ? String(form.candidateAge) : ""}
                     onChangeText={(t) => {
                       const n = parseInt(t, 10);
@@ -582,7 +582,7 @@ export function MatrimonySetupScreen() {
               {needsCorrection("aboutMe") && (
                 <Text style={s.fieldNote}>⚠ Please improve your About me section</Text>
               )}
-              <Input
+              <Input variant="compact"
                 value={form.aboutMe ?? ""}
                 onChangeText={(t) => patch({ aboutMe: t || null })}
                 placeholder="Describe yourself (max 300 chars)"
@@ -601,7 +601,7 @@ export function MatrimonySetupScreen() {
                   marginBottom: 6
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>
                   {form.partnerGenderPreference === "FEMALE"
                     ? "Female"
                     : form.partnerGenderPreference === "MALE"
@@ -617,21 +617,21 @@ export function MatrimonySetupScreen() {
                   ? " Set your account gender in Edit Profile if this stays empty."
                   : ""}
               </Text>
-              <Dropdown
+              <Dropdown variant="compact"
                 label="Height *"
                 placeholder="Select height"
                 value={form.height ?? ""}
                 options={formOptions.heights}
                 onSelect={(v) => patch({ height: v || null })}
               />
-              <Dropdown
+              <Dropdown variant="compact"
                 label="Complexion *"
                 placeholder="Select"
                 value={form.complexion ?? ""}
                 options={formOptions.complexions}
                 onSelect={(v) => patch({ complexion: v || null })}
               />
-              <Dropdown
+              <Dropdown variant="compact"
                 label="Marital status *"
                 placeholder="Select"
                 value={form.maritalStatus ?? ""}
@@ -648,19 +648,19 @@ export function MatrimonySetupScreen() {
               <Text style={s.label}>Your kulam (from profile)</Text>
               <Text style={{ fontWeight: "600", color: colors.text, marginBottom: 8 }}>{userKulam ?? "Not set — update in Edit Profile"}</Text>
               <Text style={s.label}>Gotra *</Text>
-              <Input value={form.gotra ?? ""} onChangeText={(t) => patch({ gotra: t || null })} placeholder="Enter gotra" />
-              <Dropdown label="Rashi *" placeholder="Select" value={form.rashi ?? ""} options={RASHI_OPTIONS} onSelect={(v) => patch({ rashi: v || null })} />
-              <Dropdown
+              <Input variant="compact" value={form.gotra ?? ""} onChangeText={(t) => patch({ gotra: t || null })} placeholder="Enter gotra" />
+              <Dropdown variant="compact" label="Rashi *" placeholder="Select" value={form.rashi ?? ""} options={RASHI_OPTIONS} onSelect={(v) => patch({ rashi: v || null })} />
+              <Dropdown variant="compact"
                 label="Nakshatram *"
                 placeholder="Select"
                 value={form.nakshatram ?? ""}
                 options={NAKSHATRAM_OPTIONS}
                 onSelect={(v) => patch({ nakshatram: v || null })}
               />
-              <Dropdown label="Dosham *" placeholder="Select" value={form.dosham ?? ""} options={DOSHAM_OPTIONS} onSelect={(v) => patch({ dosham: v || null })} />
+              <Dropdown variant="compact" label="Dosham *" placeholder="Select" value={form.dosham ?? ""} options={DOSHAM_OPTIONS} onSelect={(v) => patch({ dosham: v || null })} />
             </View>
 
-            <PrimaryButton title={saving ? "Saving…" : "Save & continue"} onPress={onNext} disabled={saving} loading={saving} />
+            <PrimaryButton style={matrimonyLayout.button} title={saving ? "Saving…" : "Save & continue"} onPress={onNext} disabled={saving} loading={saving} />
           </>
         )}
 
@@ -668,10 +668,10 @@ export function MatrimonySetupScreen() {
           <>
             <View style={s.section}>
               <Text style={s.sectionTitle}>Education & career</Text>
-              <Input value={form.education ?? ""} onChangeText={(t) => patch({ education: t || null })} placeholder="Highest education *" />
-              <Input value={form.occupation ?? ""} onChangeText={(t) => patch({ occupation: t || null })} placeholder="Occupation *" />
-              <Input value={form.employer ?? ""} onChangeText={(t) => patch({ employer: t || null })} placeholder="Employer *" />
-              <Dropdown
+              <Input variant="compact" value={form.education ?? ""} onChangeText={(t) => patch({ education: t || null })} placeholder="Highest education *" />
+              <Input variant="compact" value={form.occupation ?? ""} onChangeText={(t) => patch({ occupation: t || null })} placeholder="Occupation *" />
+              <Input variant="compact" value={form.employer ?? ""} onChangeText={(t) => patch({ employer: t || null })} placeholder="Employer *" />
+              <Dropdown variant="compact"
                 label="Annual income *"
                 placeholder="Select range"
                 value={form.annualIncome ?? ""}
@@ -682,25 +682,25 @@ export function MatrimonySetupScreen() {
 
             <View style={s.section}>
               <Text style={s.sectionTitle}>Family</Text>
-              <Input
+              <Input variant="compact"
                 label="Mother's name *"
                 value={form.motherName ?? ""}
                 onChangeText={(t) => patch({ motherName: t || null })}
                 placeholder="Enter mother's full name"
               />
-              <Input
+              <Input variant="compact"
                 label="Father's name *"
                 value={form.fatherName ?? ""}
                 onChangeText={(t) => patch({ fatherName: t || null })}
                 placeholder="Enter father's full name"
               />
-              <Input
+              <Input variant="compact"
                 label="Father's occupation *"
                 value={form.fatherOccupation ?? ""}
                 onChangeText={(t) => patch({ fatherOccupation: t || null })}
                 placeholder="e.g. Business, Farmer, Teacher"
               />
-              <Input
+              <Input variant="compact"
                 label="Number of brothers *"
                 value={String(form.brothersCount ?? 0)}
                 onChangeText={(t) => {
@@ -715,7 +715,7 @@ export function MatrimonySetupScreen() {
               <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -10, marginBottom: 12 }}>
                 How many brothers? Enter 0 if none.
               </Text>
-              <Input
+              <Input variant="compact"
                 label="Number of sisters *"
                 value={String(form.sistersCount ?? 0)}
                 onChangeText={(t) => {
@@ -730,7 +730,7 @@ export function MatrimonySetupScreen() {
               <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: -10, marginBottom: 12 }}>
                 How many sisters? Enter 0 if none.
               </Text>
-              <Dropdown
+              <Dropdown variant="compact"
                 label="Family type *"
                 placeholder="Select"
                 value={form.familyType ?? ""}
@@ -741,13 +741,13 @@ export function MatrimonySetupScreen() {
 
             <View style={s.section}>
               <Text style={s.sectionTitle}>Partner preferences</Text>
-              <Input
+              <Input variant="compact"
                 value={String(form.partnerAgeMin ?? "")}
                 onChangeText={(t) => patch({ partnerAgeMin: parseInt(t, 10) || null })}
                 placeholder="Min age *"
                 keyboardType="number-pad"
               />
-              <Input
+              <Input variant="compact"
                 value={String(form.partnerAgeMax ?? "")}
                 onChangeText={(t) => patch({ partnerAgeMax: parseInt(t, 10) || null })}
                 placeholder="Max age *"
@@ -790,6 +790,7 @@ export function MatrimonySetupScreen() {
                       ? "Horoscope on file ✓ (tap to replace)"
                       : "Upload horoscope (PDF/image)"
                 }
+                style={matrimonyLayout.button}
                 onPress={uploadHoroscope}
                 variant="outline"
                 disabled={horoscopeUploading}
@@ -805,6 +806,7 @@ export function MatrimonySetupScreen() {
                     ? "Resubmit for review"
                     : "Submit for approval"
               }
+              style={matrimonyLayout.button}
               onPress={onSubmit}
               disabled={saving}
               loading={saving}
@@ -823,7 +825,7 @@ export function MatrimonySetupScreen() {
                 }
               }}
               variant="outline"
-              style={{ marginTop: 8 }}
+              style={{ ...matrimonyLayout.button, marginTop: 8 }}
             />
           </>
         )}

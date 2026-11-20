@@ -125,18 +125,18 @@ export function CreateHelpRequestScreen() {
         root: { flex: 1, backgroundColor: colors.background },
         body: { padding: spacing.lg, paddingBottom: 40 },
         stepLabel: {
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.primary,
           marginBottom: 6
         },
         heading: {
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: "700",
           color: colors.text,
           marginBottom: 8
         },
-        sub: { fontSize: 14, color: colors.textMuted, marginBottom: spacing.lg, lineHeight: 20 },
+        sub: { fontSize: 13, color: colors.textMuted, marginBottom: spacing.lg, lineHeight: 19 },
         grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
         cat: {
           width: "47%",
@@ -153,7 +153,7 @@ export function CreateHelpRequestScreen() {
           backgroundColor: colors.primary + "14"
         },
         label: {
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.text,
           marginBottom: 8,

@@ -68,7 +68,7 @@ export function BenefitClaimDetailScreen() {
           textTransform: "uppercase"
         },
         code: {
-          fontSize: 28,
+          fontSize: 26,
           fontWeight: "800",
           letterSpacing: 1.5,
           color: colors.text,

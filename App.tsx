@@ -117,6 +117,7 @@ function StackNavigator({ initialRoute }: { initialRoute: RootAuthRoute }) {
       ({ navigation }: { navigation: { goBack: () => void; canGoBack: () => boolean } }) => ({
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
+        headerTitleStyle: { fontSize: 16 },
         headerShadowVisible: true,
         contentStyle: { backgroundColor: colors.background },
         headerBackVisible: false,

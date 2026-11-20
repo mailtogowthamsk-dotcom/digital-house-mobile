@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth
   },
-  title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
+  title: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700" },
   body: { padding: 16, gap: 16 },
   pickRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 24 },
   pickBtn: {
@@ -754,16 +754,16 @@ const styles = StyleSheet.create({
   textStoryInput: {
     width: "100%",
     color: "#fff",
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "700",
-    lineHeight: 34,
+    lineHeight: 32,
     minHeight: 140,
     textAlign: "center",
     paddingHorizontal: 4
   },
   textStoryInputCompact: {
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 19,
+    lineHeight: 25,
     minHeight: 72
   },
   bgRow: {
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     alignSelf: "center"
   },
   mediaFill: { width: "100%", height: "100%" },
-  meta: { fontSize: 13, fontWeight: "600" },
+  meta: { fontSize: 12, fontWeight: "600" },
   trimBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 15
+    fontSize: 14
   },
   composer: {
     flexGrow: 0,
@@ -827,5 +827,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center"
   },
-  postText: { color: "#fff", fontWeight: "800", fontSize: 15 }
+  postText: { color: "#fff", fontWeight: "800", fontSize: 14 }
 });

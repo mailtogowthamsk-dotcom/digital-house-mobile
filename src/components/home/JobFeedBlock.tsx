@@ -96,7 +96,7 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
           borderRadius: radius.full
         },
         appliedText: { fontSize: 11, fontWeight: "700", color: "#15803D" },
-        title: { fontSize: 16, fontWeight: "800", color: colors.text, lineHeight: 21 },
+        title: { fontSize: 13, fontWeight: "700", color: colors.text, lineHeight: 19 },
         companyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
         logo: {
           width: 28,
@@ -126,7 +126,7 @@ function JobFeedBlockInner({ job, onViewJob, compact }: Props) {
           gap: 4,
           backgroundColor: colors.primary,
           paddingHorizontal: 12,
-          paddingVertical: 7,
+          minHeight: 44,
           borderRadius: radius.md
         },
         viewBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },

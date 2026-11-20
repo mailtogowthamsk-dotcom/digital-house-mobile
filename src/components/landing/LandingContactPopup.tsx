@@ -256,7 +256,7 @@ const s = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: fonts.semiBold,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: GREEN_DEEP
   },
@@ -290,7 +290,7 @@ const s = StyleSheet.create({
   },
   muted: {
     fontFamily: fonts.regular,
-    fontSize: 13,
+    fontSize: 12,
     color: "#6B7280",
     paddingVertical: 8,
     paddingHorizontal: 4
@@ -328,7 +328,7 @@ const s = StyleSheet.create({
   },
   value: {
     fontFamily: fonts.semiBold,
-    fontSize: 13,
+    fontSize: 12,
     color: "#0F172A",
     fontWeight: "600"
   }

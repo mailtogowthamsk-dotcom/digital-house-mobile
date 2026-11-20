@@ -53,13 +53,13 @@ const s = StyleSheet.create({
     backgroundColor: "#0B1220"
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
     color: "#fff",
     marginBottom: 12
   },
   message: {
-    fontSize: 15,
+    fontSize: 14,
     color: "rgba(255,255,255,0.8)",
     textAlign: "center",
     marginBottom: 16
@@ -87,7 +87,7 @@ const s = StyleSheet.create({
   },
   buttonPressed: { opacity: 0.9 },
   buttonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#fff"
   }

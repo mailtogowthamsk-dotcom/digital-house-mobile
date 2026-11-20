@@ -26,7 +26,7 @@ export const textFieldCompactPad: TextStyle = {
 
 /** Standard single-line field (login, forms). */
 export const textField: TextStyle = {
-  fontSize: 16,
+  fontSize: 15,
   fontWeight: "400",
   minHeight: TEXT_FIELD_MIN_HEIGHT,
   ...textFieldPad
@@ -34,7 +34,7 @@ export const textField: TextStyle = {
 
 /** Search bars and compact filters. */
 export const textFieldCompact: TextStyle = {
-  fontSize: 15,
+  fontSize: 14,
   fontWeight: "400",
   minHeight: TEXT_FIELD_COMPACT_MIN_HEIGHT,
   ...textFieldCompactPad
@@ -42,10 +42,17 @@ export const textFieldCompact: TextStyle = {
 
 /** Multiline areas — keep extra top padding, align text to the top. */
 export const textFieldMultiline: TextStyle = {
-  fontSize: 16,
+  fontSize: 15,
   fontWeight: "400",
   paddingTop: 14,
   paddingBottom: 14,
   textAlignVertical: "top",
   ...androidPad
 };
+
+/** Dense settings forms, with a full-size touch target. */
+export const settingsField = {
+  minHeight: 44,
+  borderRadius: 10,
+  paddingHorizontal: 12
+} as const;

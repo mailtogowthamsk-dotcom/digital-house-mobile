@@ -42,7 +42,7 @@ function MatrimonyMatchCardInner({ item, chips, onPress }: Props) {
             </>
           ) : (
             <View style={[styles.photo, styles.photoPh, { backgroundColor: colors.border }]}>
-              <Text style={{ fontSize: 28 }}>👤</Text>
+              <Text style={{ fontSize: 26 }}>👤</Text>
             </View>
           )}
         </View>
@@ -94,16 +94,11 @@ export const MatrimonyMatchCard = memo(MatrimonyMatchCardInner);
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: spacing.sm,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2
+    overflow: "hidden"
   },
-  top: { flexDirection: "row", padding: spacing.md, gap: spacing.sm },
+  top: { flexDirection: "row", padding: spacing.sm + 2, gap: spacing.sm },
   photoWrap: { width: 72, height: 88, borderRadius: radius.md, overflow: "hidden" },
   photo: { width: 72, height: 88, borderRadius: radius.md },
   photoLockOverlay: {
@@ -113,7 +108,7 @@ const styles = StyleSheet.create({
   photoPh: { alignItems: "center", justifyContent: "center" },
   body: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  name: { fontSize: 15, fontWeight: "800", flex: 1 },
+  name: { fontSize: 14, fontWeight: "800", flex: 1 },
   starBadge: {
     backgroundColor: "#FEF3C7",
     paddingHorizontal: 8,
@@ -129,7 +124,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth
   },
   footerNote: { fontSize: 11 }

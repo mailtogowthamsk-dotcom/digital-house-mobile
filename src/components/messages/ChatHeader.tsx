@@ -48,7 +48,7 @@ function ChatHeaderComponent({
       <AvatarImage
         uri={avatarUri}
         name={title}
-        size={40}
+        size={36}
         placeholderColor={placeholderColor}
         textColor={textSecondary}
       />
@@ -67,32 +67,32 @@ function ChatHeaderComponent({
       <View style={{ paddingTop: resolvedTopInset }}>
         {banner ? <View style={styles.bannerSlot}>{banner}</View> : null}
         <View style={styles.row}>
-        {left}
-        {avatar ? (
-          onAvatarPress ? (
-            <Pressable
-              onPress={onAvatarPress}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${title}'s profile`}
-            >
-              {avatar}
-            </Pressable>
-          ) : (
-            avatar
-          )
-        ) : null}
-        <View style={styles.textCol}>
-          <Text style={[styles.title, { color: textColor, fontSize: titleFontSize }]} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle !== undefined ? (
-            <Text style={[styles.subtitle, { color: textSecondary }]} numberOfLines={1}>
-              {subtitle || " "}
-            </Text>
+          {left}
+          {avatar ? (
+            onAvatarPress ? (
+              <Pressable
+                onPress={onAvatarPress}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${title}'s profile`}
+              >
+                {avatar}
+              </Pressable>
+            ) : (
+              avatar
+            )
           ) : null}
-        </View>
-        {right ? <View style={styles.rightSlot}>{right}</View> : null}
+          <View style={styles.textCol}>
+            <Text style={[styles.title, { color: textColor, fontSize: titleFontSize }]} numberOfLines={1}>
+              {title}
+            </Text>
+            {subtitle?.trim() ? (
+              <Text style={[styles.subtitle, { color: textSecondary }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          {right ? <View style={styles.rightSlot}>{right}</View> : null}
         </View>
       </View>
     </View>
@@ -112,19 +112,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingBottom: 10,
-    gap: 10
+    minHeight: 52,
+    paddingVertical: 4,
+    gap: 8
   },
   textCol: {
     flex: 1,
     minWidth: 0
   },
   title: {
-    fontWeight: "800"
+    fontWeight: "700"
   },
   subtitle: {
     marginTop: 2,
-    fontSize: 12
+    fontSize: 11
   },
   rightSlot: {
     flexShrink: 0

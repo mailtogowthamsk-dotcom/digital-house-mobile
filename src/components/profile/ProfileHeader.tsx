@@ -6,7 +6,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
-import { cardShadow } from "../../theme/shadows";
+import { LinearGradient } from "expo-linear-gradient";
 import { formatUsername } from "../../utils/username";
 
 export type ProfileHeaderProps = {
@@ -44,7 +44,7 @@ function StatCell({
       <Text
         style={{
           fontFamily: fonts.semiBold,
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: "600",
           color: colors.text,
           letterSpacing: -0.2
@@ -54,7 +54,7 @@ function StatCell({
       </Text>
       <Text
         style={{
-          marginTop: 4,
+          marginTop: 2,
           fontFamily: fonts.regular,
           fontSize: 12,
           fontWeight: "400",
@@ -105,9 +105,8 @@ export function ProfileHeader({
           borderRadius: radius.xl,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          padding: spacing.xl,
-          overflow: "hidden",
-          ...cardShadow(mode)
+          padding: spacing.md,
+          overflow: "hidden"
         },
         topRow: {
           flexDirection: "row",
@@ -116,9 +115,9 @@ export function ProfileHeader({
         },
         avatarRing: {
           padding: 2,
-          borderRadius: 52,
+          borderRadius: 38,
           borderWidth: 1.5,
-          borderColor: colors.border,
+          borderColor: colors.primary + "55",
           backgroundColor: colors.surface
         },
         identity: { flex: 1, minWidth: 0 },
@@ -129,15 +128,15 @@ export function ProfileHeader({
         },
         name: {
           fontFamily: fonts.semiBold,
-          fontSize: 22,
+          fontSize: 17,
           fontWeight: "600",
-          lineHeight: 28,
+          lineHeight: 22,
           color: colors.text,
           flexShrink: 1
         },
         username: {
           fontFamily: fonts.medium,
-          fontSize: 14,
+          fontSize: 13,
           color: colors.primary,
           fontWeight: "500",
           marginTop: 4
@@ -146,7 +145,7 @@ export function ProfileHeader({
           flexDirection: "row",
           alignItems: "center",
           gap: 5,
-          marginTop: 6
+          marginTop: 3
         },
         metaText: {
           ...typography.caption,
@@ -156,8 +155,8 @@ export function ProfileHeader({
         statsRow: {
           flexDirection: "row",
           alignItems: "center",
-          marginTop: spacing.lg,
-          paddingTop: spacing.md,
+          marginTop: spacing.md,
+          paddingTop: spacing.sm,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border
         },
@@ -170,7 +169,7 @@ export function ProfileHeader({
         actions: {
           flexDirection: "row",
           gap: spacing.sm,
-          marginTop: spacing.lg
+          marginTop: spacing.sm
         },
         editBtn: {
           flex: 1,
@@ -178,8 +177,8 @@ export function ProfileHeader({
           alignItems: "center",
           justifyContent: "center",
           gap: 8,
-          minHeight: 52,
-          paddingVertical: 12,
+          minHeight: 44,
+          paddingVertical: 7,
           borderRadius: radius.button,
           backgroundColor: colors.primary
         },
@@ -191,7 +190,7 @@ export function ProfileHeader({
         },
         completion: {
           marginTop: spacing.md,
-          padding: spacing.md,
+          padding: spacing.sm,
           borderRadius: radius.lg,
           backgroundColor: mode === "dark" ? colors.surfaceElevated : colors.primary + "12"
         },
@@ -199,22 +198,22 @@ export function ProfileHeader({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 10
+          marginBottom: 6
         },
         completionLabel: {
           fontFamily: fonts.semiBold,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.text
         },
         completionPct: {
           fontFamily: fonts.semiBold,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.primary
         },
         completionBar: {
-          height: 8,
+          height: 5,
           backgroundColor: colors.border,
           borderRadius: 4,
           overflow: "hidden"
@@ -223,13 +222,6 @@ export function ProfileHeader({
           height: "100%",
           backgroundColor: colors.primary,
           borderRadius: 4
-        },
-        completionHint: {
-          fontFamily: fonts.regular,
-          fontSize: 12,
-          color: colors.textSecondary,
-          marginTop: 10,
-          lineHeight: 17
         }
       }),
     [colors, mode]
@@ -238,12 +230,17 @@ export function ProfileHeader({
   return (
     <View style={s.section}>
       <View style={s.hero}>
+        <LinearGradient
+          colors={[mode === "dark" ? "#173329" : "#E8F5EC", colors.surface]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         <View style={s.topRow}>
           <View style={s.avatarRing}>
             <AvatarImage
               uri={profile_image}
               name={name}
-              size={84}
+              size={66}
               placeholderColor={colors.primary}
               textColor={colors.white}
             />
@@ -324,11 +321,10 @@ export function ProfileHeader({
               <View
                 style={[
                   s.completionFill,
-                  { width: `${Math.min(100, completion_percentage!)}%` }
+                  { width: `${Math.max(0, Math.min(100, completion_percentage!))}%` }
                 ]}
               />
             </View>
-            <Text style={s.completionHint}>Add missing details so members can find you more easily.</Text>
           </View>
         ) : null}
       </View>

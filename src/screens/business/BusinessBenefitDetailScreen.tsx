@@ -134,7 +134,7 @@ export function BusinessBenefitDetailScreen() {
           backgroundColor: colors.surface
         },
         code: {
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: "800",
           letterSpacing: 1,
           color: colors.text,

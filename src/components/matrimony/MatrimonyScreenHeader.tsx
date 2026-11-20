@@ -84,9 +84,7 @@ export function MatrimonyScreenHeader({
         >
           <Ionicons name={rightIcon} size={20} color={colors.text} />
         </Pressable>
-      ) : (
-        <View style={styles.placeholder} />
-      )}
+      ) : null}
     </View>
   );
 }
@@ -96,28 +94,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: spacing.sm
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center"
   },
   pressed: { opacity: 0.7 },
   titleWrap: { flex: 1, minWidth: 0 },
-  title: { fontSize: 18, fontWeight: "800" },
+  title: { fontSize: 16, fontWeight: "700" },
   subtitle: { fontSize: 12, marginTop: 1 },
   labelBtn: {
-    height: 34,
+    minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
+    borderRadius: radius.md,
     maxWidth: 140
   },
-  rightLabel: { fontSize: 13, fontWeight: "700" },
-  placeholder: { width: 40 }
+  rightLabel: { fontSize: 12, fontWeight: "700" }
 });

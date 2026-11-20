@@ -298,7 +298,7 @@ export function LegalDocumentScreen() {
         {refreshing ? (
           <ActivityIndicator color={colors.primary} size="small" />
         ) : (
-          <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
+          <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 12 }}>
             Pull or tap to refresh latest version
           </Text>
         )}
@@ -308,7 +308,7 @@ export function LegalDocumentScreen() {
           style={[styles.banner, { backgroundColor: colors.surfaceElevated }]}
           onPress={() => void load({ soft: true })}
         >
-          <Text style={{ color: colors.error, fontSize: 13 }}>{error} · Tap to retry</Text>
+          <Text style={{ color: colors.error, fontSize: 12 }}>{error} · Tap to retry</Text>
         </Pressable>
       ) : null}
     </View>
@@ -324,15 +324,15 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md
   },
-  hint: { fontSize: 14, marginTop: spacing.sm },
-  errorText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
+  hint: { fontSize: 13, marginTop: spacing.sm },
+  errorText: { fontSize: 14, textAlign: "center", lineHeight: 21 },
   retryBtn: {
     marginTop: spacing.md,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radius.md
   },
-  retryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   metaBar: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

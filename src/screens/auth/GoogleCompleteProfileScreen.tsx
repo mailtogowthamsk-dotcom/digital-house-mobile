@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   header: { alignItems: "center", marginBottom: spacing.lg },
   logo: { width: 112, height: 112, marginBottom: spacing.md },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  title: { color: "#fff", fontSize: 20, fontWeight: "800" },
   subtitle: { color: "rgba(255,255,255,0.8)", textAlign: "center", marginTop: 8, lineHeight: 20 },
   card: {
     backgroundColor: "#fff",
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     gap: spacing.md
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
     color: "#374151",
     textTransform: "uppercase",
@@ -432,12 +432,12 @@ const styles = StyleSheet.create({
     padding: spacing.md
   },
   dobLabel: { fontSize: 12, color: "#6B7280", marginBottom: 4 },
-  dobValue: { fontSize: 16, color: "#111827", fontWeight: "600" },
-  error: { color: "#EF4444", fontSize: 14 },
-  legalHeading: { fontSize: 14, fontWeight: "800", color: "#111827", marginTop: spacing.sm },
+  dobValue: { fontSize: 15, color: "#111827", fontWeight: "600" },
+  error: { color: "#EF4444", fontSize: 13 },
+  legalHeading: { fontSize: 13, fontWeight: "800", color: "#111827", marginTop: spacing.sm },
   legalHint: { fontSize: 12, color: "#6B7280", lineHeight: 18 },
   legalRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  legalText: { flex: 1, fontSize: 14, color: "#111827", lineHeight: 20 },
+  legalText: { flex: 1, fontSize: 13, color: "#111827", lineHeight: 19 },
   legalLink: { color: "#2563EB", fontWeight: "700", textDecorationLine: "underline" },
   hint: { fontSize: 12, color: "#6B7280", textAlign: "center", lineHeight: 18 }
 });

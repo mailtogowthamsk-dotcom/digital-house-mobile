@@ -54,10 +54,10 @@ function SectionBlock({
         marginBottom: spacing.md
       }}
     >
-      <Text style={{ fontSize: 14, fontWeight: "800", color: colors.text, marginBottom: 8 }}>
+      <Text style={{ fontSize: 13, fontWeight: "800", color: colors.text, marginBottom: 8 }}>
         {title}
       </Text>
-      <Text style={{ fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>{body}</Text>
+      <Text style={{ fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{body}</Text>
     </View>
   );
 }
@@ -161,7 +161,7 @@ export function ProminentPersonProfileScreen() {
           marginTop: spacing.md
         },
         name: {
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: "800",
           color: colors.text,
           textAlign: "center"
@@ -176,14 +176,14 @@ export function ProminentPersonProfileScreen() {
         },
         designation: {
           marginTop: 6,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "700",
           color: ACCENT,
           textAlign: "center"
         },
         occupation: {
           marginTop: 4,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.textSecondary,
           textAlign: "center"
@@ -200,7 +200,7 @@ export function ProminentPersonProfileScreen() {
           paddingBottom: spacing.xxxl + insets.bottom
         },
         sectionTitle: {
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "800",
           color: colors.text,
           marginBottom: spacing.md
@@ -235,11 +235,11 @@ export function ProminentPersonProfileScreen() {
           minHeight: 24
         },
         timelineBody: { flex: 1, paddingBottom: spacing.md },
-        timelineTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+        timelineTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
         timelineDesc: {
           marginTop: 4,
-          fontSize: 13,
-          lineHeight: 19,
+          fontSize: 12,
+          lineHeight: 18,
           color: colors.textSecondary
         },
         galleryGrid: {

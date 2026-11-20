@@ -430,7 +430,7 @@ const s = StyleSheet.create({
   logoFallback: {
     marginTop: 24,
     fontFamily: fonts.bold,
-    fontSize: 22,
+    fontSize: 20,
     color: GREEN_DEEP,
     fontWeight: "700"
   },
@@ -443,27 +443,27 @@ const s = StyleSheet.create({
   titleSecond: {
     marginTop: 2,
     fontFamily: fonts.bold,
-    fontSize: 32,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 36,
     color: GREEN_DEEP,
     fontWeight: "700",
     textAlign: "center"
   },
-  titleTight: { fontSize: 26, lineHeight: 32 },
+  titleTight: { fontSize: 24, lineHeight: 30 },
   headlineBlock: { width: "100%", marginTop: 8, paddingHorizontal: 4 },
   headline: {
     fontFamily: fonts.semiBold,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
     color: GREEN_DEEP,
     textAlign: "center",
     fontWeight: "600"
   },
-  headlineTight: { fontSize: 13, lineHeight: 19 },
+  headlineTight: { fontSize: 12, lineHeight: 18 },
   subtitle: {
     marginTop: 4,
     fontFamily: fonts.semiBold,
-    fontSize: 14,
+    fontSize: 13,
     color: "#263B34",
     textAlign: "center",
     fontWeight: "600"
@@ -472,13 +472,13 @@ const s = StyleSheet.create({
     marginTop: 2,
     marginBottom: 4,
     fontFamily: fonts.semiBold,
-    fontSize: 15,
+    fontSize: 14,
     fontStyle: "italic",
     color: GREEN_DEEP,
     textAlign: "center",
     fontWeight: "600"
   },
-  scriptTight: { fontSize: 13, marginBottom: 2 },
+  scriptTight: { fontSize: 12, marginBottom: 2 },
   artwork: {
     width: "100%",
     marginTop: 10,
@@ -558,7 +558,7 @@ const s = StyleSheet.create({
   },
   primaryBtnText: {
     fontFamily: fonts.semiBold,
-    fontSize: 17,
+    fontSize: 16,
     color: "#FFFFFF",
     fontWeight: "700"
   },
@@ -577,7 +577,7 @@ const s = StyleSheet.create({
   },
   secondaryBtnText: {
     fontFamily: fonts.semiBold,
-    fontSize: 15,
+    fontSize: 14,
     color: GREEN_DEEP,
     fontWeight: "700"
   },

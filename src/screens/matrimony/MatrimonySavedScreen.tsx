@@ -15,6 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getMatrimonySavedProfiles, unsaveMatrimonyProfile, type SavedProfileItem } from "../../api/matrimony.api";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
 import { HeaderBackButton } from "../../components/ui/HeaderBackButton";
@@ -65,7 +66,7 @@ export function MatrimonySavedScreen() {
           data={items}
           keyExtractor={(i, index) => `saved-${i.userId}-${index}`}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl }}
+          contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl }]}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", color: colors.textSecondary, marginTop: 32 }}>
               No saved profiles yet. Tap the bookmark on a candidate profile to save.
@@ -89,7 +90,7 @@ export function MatrimonySavedScreen() {
                     {item.age != null ? `, ${item.age}` : ""}
                   </Text>
                   {item.district ? (
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{item.district}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{item.district}</Text>
                   ) : null}
                 </View>
                 <Pressable
@@ -118,18 +119,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md
   },
-  title: { fontSize: 18, fontWeight: "800" },
+  title: { fontSize: 17, fontWeight: "800" },
   card: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: spacing.sm,
     padding: spacing.sm,
     gap: spacing.sm
   },
   photo: { width: 56, height: 56, borderRadius: radius.md },
   body: { flex: 1 },
-  name: { fontSize: 16, fontWeight: "700" },
+  name: { fontSize: 15, fontWeight: "700" },
   unsaveBtn: { padding: 6 }
 });

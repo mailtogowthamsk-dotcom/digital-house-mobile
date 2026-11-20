@@ -61,8 +61,8 @@ export function MessagesScreen() {
           paddingTop: spacing.lg,
           paddingBottom: spacing.md
         },
-        title: { fontSize: 22, fontWeight: "700", color: colors.text },
-        subtitle: { marginTop: 6, fontSize: 13, color: colors.textSecondary },
+        title: { fontSize: 20, fontWeight: "700", color: colors.text },
+        subtitle: { marginTop: 6, fontSize: 12, color: colors.textSecondary },
         card: {
           backgroundColor: colors.surface,
           borderRadius: radius.md,
@@ -100,10 +100,10 @@ export function MessagesScreen() {
         },
         center: { flex: 1, minWidth: 0 },
         nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-        name: { fontSize: 16, fontWeight: "700", color: colors.text, flex: 1 },
+        name: { fontSize: 15, fontWeight: "700", color: colors.text, flex: 1 },
         time: { fontSize: 12, color: colors.textMuted, marginLeft: spacing.md },
         previewRow: { marginTop: 4, flexDirection: "row", alignItems: "center" },
-        preview: { flex: 1, fontSize: 13, color: colors.textSecondary },
+        preview: { flex: 1, fontSize: 12, color: colors.textSecondary },
         badge: {
           minWidth: 22,
           height: 22,
@@ -116,8 +116,8 @@ export function MessagesScreen() {
         },
         badgeText: { fontSize: 12, fontWeight: "800", color: colors.white },
         empty: { padding: spacing.xxl, alignItems: "center" },
-        emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 10 },
-        emptySub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, textAlign: "center" }
+        emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: 10 },
+        emptySub: { fontSize: 12, color: colors.textSecondary, marginTop: 6, textAlign: "center" }
       }),
     [colors]
   );

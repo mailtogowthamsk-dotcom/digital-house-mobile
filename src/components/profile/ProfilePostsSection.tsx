@@ -81,11 +81,11 @@ export function ProfilePostsSection({
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
-          fontSize: 13,
-          lineHeight: 19,
+          fontSize: 12,
+          lineHeight: 18,
           color: colors.textSecondary,
           textAlign: "center"
         },
@@ -99,9 +99,9 @@ export function ProfilePostsSection({
           paddingHorizontal: spacing.lg,
           borderRadius: radius.md
         },
-        createBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
+        createBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
         errorText: {
-          fontSize: 13,
+          fontSize: 12,
           color: colors.error,
           textAlign: "center",
           marginBottom: spacing.md
@@ -112,7 +112,7 @@ export function ProfilePostsSection({
           backgroundColor: colors.primary,
           borderRadius: radius.md
         },
-        retryText: { fontSize: 13, fontWeight: "700", color: colors.white },
+        retryText: { fontSize: 12, fontWeight: "700", color: colors.white },
         deleteError: {
           fontSize: 12,
           color: colors.error,

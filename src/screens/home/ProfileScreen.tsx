@@ -62,8 +62,11 @@ export function ProfileScreen() {
         },
         listContent: {
           flexGrow: 1,
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing.lg,
+          width: "100%",
+          maxWidth: 640,
+          alignSelf: "center",
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.sm,
           paddingBottom: tabBottomPad
         },
         errorIconWrap: {

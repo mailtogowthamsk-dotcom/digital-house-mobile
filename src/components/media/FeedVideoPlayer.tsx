@@ -13,6 +13,7 @@ import {
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { feedVideoControlStyles } from "./feedVideoControlStyles";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { usePlaybackAllowed } from "../../hooks/usePlaybackAllowed";
@@ -107,16 +108,6 @@ function VideoPosterShell({
           alignItems: "center",
           justifyContent: "center"
         },
-        playGlyph: {
-          width: 72,
-          height: 72,
-          borderRadius: 36,
-          backgroundColor: "rgba(15,23,42,0.4)",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.3)",
-          alignItems: "center",
-          justifyContent: "center"
-        }
       }),
     [height]
   );
@@ -140,14 +131,14 @@ function VideoPosterShell({
           accessibilityRole="button"
           accessibilityLabel="Play video"
         >
-          <View style={s.playGlyph}>
-            <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+          <View style={feedVideoControlStyles.play}>
+            <Ionicons name="play" size={23} color="#15251F" style={feedVideoControlStyles.playIcon} />
           </View>
         </Pressable>
       ) : showPlayIcon ? (
         <View style={s.center} pointerEvents="none">
-          <View style={s.playGlyph}>
-            <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+          <View style={feedVideoControlStyles.play}>
+            <Ionicons name="play" size={23} color="#15251F" style={feedVideoControlStyles.playIcon} />
           </View>
         </View>
       ) : null}
@@ -583,26 +574,6 @@ function ActiveFeedVideoPlayer({
           gap: 8,
           zIndex: 4
         },
-        ctrlBtn: {
-          width: 42,
-          height: 42,
-          borderRadius: 21,
-          backgroundColor: "rgba(15,23,42,0.55)",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.28)",
-          alignItems: "center",
-          justifyContent: "center"
-        },
-        playGlyph: {
-          width: 72,
-          height: 72,
-          borderRadius: 36,
-          backgroundColor: "rgba(15,23,42,0.55)",
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.35)",
-          alignItems: "center",
-          justifyContent: "center"
-        },
         fsRoot: {
           flex: 1,
           backgroundColor: "#000",
@@ -716,8 +687,8 @@ function ActiveFeedVideoPlayer({
             accessibilityLabel={playing ? "Pause video" : "Play video"}
           >
             {showPausedGlyph ? (
-              <View style={s.playGlyph} pointerEvents="none">
-                <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+              <View style={feedVideoControlStyles.play} pointerEvents="none">
+                <Ionicons name="play" size={23} color="#15251F" style={feedVideoControlStyles.playIcon} />
               </View>
             ) : null}
           </Pressable>
@@ -725,20 +696,20 @@ function ActiveFeedVideoPlayer({
         {!fullscreen ? (
           <View style={s.controlsBar} pointerEvents="box-none">
             <Pressable
-              style={s.ctrlBtn}
+              style={({ pressed }) => [feedVideoControlStyles.button, pressed && feedVideoControlStyles.pressed]}
               onPress={toggleMute}
               accessibilityRole="button"
               accessibilityLabel={muted ? "Unmute video" : "Mute video"}
             >
-              <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color="#fff" />
+              <Ionicons name={muted ? "volume-mute-outline" : "volume-high-outline"} size={20} color="#fff" />
             </Pressable>
             <Pressable
-              style={s.ctrlBtn}
+              style={({ pressed }) => [feedVideoControlStyles.button, pressed && feedVideoControlStyles.pressed]}
               onPress={openFullscreen}
               accessibilityRole="button"
               accessibilityLabel="Fullscreen"
             >
-              <Ionicons name="expand" size={18} color="#fff" />
+              <Ionicons name="expand-outline" size={19} color="#fff" />
             </Pressable>
           </View>
         ) : null}
@@ -772,8 +743,8 @@ function ActiveFeedVideoPlayer({
             >
               {showFsPausedGlyph ? (
                 <View style={s.center} pointerEvents="none">
-                  <View style={s.playGlyph}>
-                    <Ionicons name="play" size={30} color="rgba(255,255,255,0.96)" style={{ marginLeft: 3 }} />
+                  <View style={feedVideoControlStyles.play}>
+                    <Ionicons name="play" size={23} color="#15251F" style={feedVideoControlStyles.playIcon} />
                   </View>
                 </View>
               ) : null}

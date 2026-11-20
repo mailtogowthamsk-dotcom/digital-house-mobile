@@ -99,8 +99,8 @@ function LikesBottomSheetInner({
           borderBottomColor: colors.border
         },
         headerText: { flex: 1 },
-        title: { fontSize: 18, fontWeight: "700", color: colors.text },
-        subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+        title: { fontSize: 17, fontWeight: "700", color: colors.text },
+        subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
         closeBtn: {
           width: 36,
           height: 36,
@@ -124,22 +124,22 @@ function LikesBottomSheetInner({
           justifyContent: "center",
           backgroundColor: mode === "dark" ? "#1E293B" : "#FEE2E2"
         },
-        emptyTitle: { fontSize: 17, fontWeight: "700", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
         emptyBody: {
-          fontSize: 14,
+          fontSize: 13,
           color: colors.textSecondary,
           textAlign: "center",
-          lineHeight: 20
+          lineHeight: 19
         },
         errorWrap: { padding: spacing.lg, alignItems: "center", gap: spacing.sm },
-        errorText: { color: colors.error, textAlign: "center", fontSize: 14 },
+        errorText: { color: colors.error, textAlign: "center", fontSize: 13 },
         retry: {
           paddingHorizontal: spacing.lg,
           paddingVertical: spacing.sm,
           borderRadius: radius.full,
           backgroundColor: colors.primary
         },
-        retryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+        retryText: { color: "#fff", fontWeight: "700", fontSize: 13 },
         footer: { paddingVertical: spacing.md, alignItems: "center" },
         listContent: { paddingBottom: spacing.lg, flexGrow: 1 }
       }),

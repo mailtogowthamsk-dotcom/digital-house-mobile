@@ -31,6 +31,7 @@ import { getAuthErrorMessage, getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { checkoutMatrimonyContactReveal } from "../../services/matrimonyCheckout";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { textFieldMultiline } from "../../theme/textField";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -444,7 +445,7 @@ export function MatrimonyCandidateScreen() {
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
           <View style={[styles.lockedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={{ fontSize: 40, textAlign: "center" }}>🔒</Text>
+            <Text style={{ fontSize: 38, textAlign: "center" }}>🔒</Text>
             <Text style={[styles.lockedTitle, { color: colors.text }]}>
               {teaser.name}
               {teaser.age != null ? ` · ${teaser.age}` : ""}
@@ -454,7 +455,7 @@ export function MatrimonyCandidateScreen() {
               <Text style={styles.starBadgeLocked}>{teaser.starLabel}</Text>
             </View>
             <MatrimonyChipRow labels={teaser.matchTags} />
-            <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20, marginTop: 12 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 19, marginTop: 12 }}>
               {teaser.canOpen
                 ? "Open this profile to see photo, horoscope, full details, and send interest."
                 : teaser.openRequiresPlan === "PLATINUM"
@@ -494,7 +495,7 @@ export function MatrimonyCandidateScreen() {
         contentContainerStyle={{ paddingBottom: spacing.xxxl }}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={["#1e3a5f", "#3B5BDB"]} style={[styles.hero, { paddingTop: insets.top }]}>
+        <LinearGradient colors={["#412438", "#753B56"]} style={[styles.hero, { paddingTop: insets.top }]}>
           <View style={styles.heroBar}>
             <HeaderBackButton onPress={() => navigation.goBack()} color="#fff" />
             <Text style={styles.heroBarTitle}>Profile</Text>
@@ -525,7 +526,7 @@ export function MatrimonyCandidateScreen() {
             <Image cachePolicy="memory-disk" contentFit="cover" source={{ uri }} style={styles.heroPhoto} />
           ) : (
             <View style={[styles.heroPhoto, styles.heroPhotoPh]}>
-              <Text style={{ fontSize: 36, color: "#fff" }}>👤</Text>
+              <Text style={{ fontSize: 34, color: "#fff" }}>👤</Text>
             </View>
           )}
           <Text style={styles.heroName}>
@@ -594,7 +595,7 @@ export function MatrimonyCandidateScreen() {
                   variant="outline"
                   onPress={confirmWithdrawInterest}
                   disabled={acting}
-                  style={{ marginTop: 10 }}
+                  style={{ ...matrimonyLayout.button, marginTop: 10 }}
                 />
               ) : null}
             </View>
@@ -611,13 +612,13 @@ export function MatrimonyCandidateScreen() {
                 multiline
                 style={[styles.introInput, { borderColor: colors.border, color: colors.text }]}
               />
-              <PrimaryButton title="Accept interest" onPress={() => onRespond("ACCEPT")} loading={acting} />
+              <PrimaryButton style={matrimonyLayout.button} title="Accept interest" onPress={() => onRespond("ACCEPT")} loading={acting} />
               <PrimaryButton
                 title="Decline"
                 variant="outline"
                 onPress={() => onRespond("DECLINE")}
                 disabled={acting}
-                style={{ marginTop: 8 }}
+                style={{ ...matrimonyLayout.button, marginTop: 8 }}
               />
             </View>
           ) : null}
@@ -633,7 +634,7 @@ export function MatrimonyCandidateScreen() {
                 multiline
                 style={[styles.introInput, { borderColor: colors.border, color: colors.text }]}
               />
-              <PrimaryButton
+              <PrimaryButton style={matrimonyLayout.button}
                 title="Express interest"
                 onPress={() => void onSendInterest()}
                 loading={acting}
@@ -650,7 +651,7 @@ export function MatrimonyCandidateScreen() {
               {profile.chatEnabled && (
                 <PrimaryButton
                   title="Open chat"
-                  style={{ marginTop: 10 }}
+                  style={{ ...matrimonyLayout.button, marginTop: 10 }}
                   onPress={() =>
                     navigation.navigate("Chat", {
                       otherUserId: userId,
@@ -667,14 +668,14 @@ export function MatrimonyCandidateScreen() {
                     variant="outline"
                     onPress={onRequestHoroscope}
                     loading={acting}
-                    style={{ marginTop: 8 }}
+                    style={{ ...matrimonyLayout.button, marginTop: 8 }}
                   />
                   <PrimaryButton
                     title="Share my horoscope"
                     variant="outline"
                     onPress={onShareHoroscope}
                     disabled={acting}
-                    style={{ marginTop: 8 }}
+                    style={{ ...matrimonyLayout.button, marginTop: 8 }}
                   />
                 </>
               )}
@@ -684,7 +685,7 @@ export function MatrimonyCandidateScreen() {
                   variant="outline"
                   onPress={onHoroscopePress}
                   disabled={acting}
-                  style={{ marginTop: 8 }}
+                  style={{ ...matrimonyLayout.button, marginTop: 8 }}
                 />
               )}
               <PrimaryButton
@@ -692,7 +693,7 @@ export function MatrimonyCandidateScreen() {
                 variant="outline"
                 onPress={confirmRemoveMatch}
                 disabled={acting}
-                style={{ marginTop: 8 }}
+                style={{ ...matrimonyLayout.button, marginTop: 8 }}
               />
               <View style={styles.matchSafetyRow}>
                 <Pressable onPress={openReportReasons} disabled={acting} hitSlop={6}>
@@ -781,7 +782,7 @@ export function MatrimonyCandidateScreen() {
                         : "Tap to request or share and unlock"}
                   </Text>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 13 }}>
+                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 12 }}>
                   {profile.horoscopeVisible ? "Open →" : profile.mutualMatch ? "Unlock →" : "Locked"}
                 </Text>
               </View>
@@ -790,14 +791,14 @@ export function MatrimonyCandidateScreen() {
 
           <View style={[styles.contactBox, { borderColor: colors.border }]}>
             <View style={styles.contactHead}>
-              <Text style={{ fontSize: 18 }}>📞</Text>
+              <Text style={{ fontSize: 17 }}>📞</Text>
               <Text style={[styles.contactTitle, { color: colors.text }]}>Contact details</Text>
             </View>
             {profile.mutualMatch &&
             (profile.contactVisible || profile.contactPaymentStatus === "PAID") ? (
-              <PrimaryButton title="Reveal contact" variant="outline" onPress={showContact} />
+              <PrimaryButton style={matrimonyLayout.button} title="Reveal contact" variant="outline" onPress={showContact} />
             ) : profile.mutualMatch ? (
-              <PrimaryButton
+              <PrimaryButton style={matrimonyLayout.button}
                 title={`Pay ₹${contactPriceInr} & reveal contact`}
                 onPress={showContact}
               />
@@ -812,7 +813,7 @@ export function MatrimonyCandidateScreen() {
                   <PrimaryButton
                     title="Send interest first"
                     onPress={() => void onSendInterest()}
-                    style={{ marginTop: 10 }}
+                    style={{ ...matrimonyLayout.button, marginTop: 10 }}
                   />
                 )}
               </>
@@ -838,7 +839,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  topBarTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
+  topBarTitle: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700" },
   topBarSpacer: { width: 40 },
   hero: { alignItems: "center", paddingBottom: spacing.md },
   heroBar: {
@@ -854,7 +855,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     color: "rgba(255,255,255,0.92)",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700"
   },
   heroBarActions: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -867,16 +868,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.14)"
   },
   heroPhoto: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.35)",
     marginBottom: spacing.sm
   },
   heroPhotoPh: { alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" },
-  heroName: { color: "#fff", fontSize: 20, fontWeight: "800" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 4 },
+  heroName: { color: "#fff", fontSize: 19, fontWeight: "800" },
+  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 4 },
   heroBadges: { flexDirection: "row", gap: 8, marginTop: 10, flexWrap: "wrap", justifyContent: "center" },
   verifiedPill: { backgroundColor: "#DCFCE7", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   verifiedText: { color: "#16A34A", fontSize: 11, fontWeight: "700" },
@@ -884,7 +885,7 @@ const styles = StyleSheet.create({
   statusPending: { backgroundColor: "#FEF3C7" },
   statusMatched: { backgroundColor: "#DCFCE7" },
   statusText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  body: { padding: spacing.lg, paddingTop: spacing.md },
+  body: { ...matrimonyLayout.content, paddingTop: spacing.md },
   sectionPad: { marginBottom: spacing.md },
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 6 },
   waitBanner: {
@@ -895,7 +896,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md
   },
-  waitTitle: { fontSize: 14, fontWeight: "800", color: "#92400E", marginBottom: 6 },
+  waitTitle: { fontSize: 13, fontWeight: "800", color: "#92400E", marginBottom: 6 },
   waitBody: { fontSize: 12, color: "#92400E", lineHeight: 18 },
   actionCard: { marginBottom: spacing.md },
   introInput: {
@@ -914,8 +915,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#86EFAC"
   },
-  matchTitle: { fontSize: 15, fontWeight: "800", color: "#14532D" },
-  matchBody: { fontSize: 13, color: "#166534", marginTop: 4, lineHeight: 18 },
+  matchTitle: { fontSize: 14, fontWeight: "800", color: "#14532D" },
+  matchBody: { fontSize: 12, color: "#166534", marginTop: 4, lineHeight: 17 },
   matchSafetyRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -923,8 +924,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12
   },
-  matchSafetyLink: { fontSize: 13, fontWeight: "700", color: "#475569" },
-  matchSafetyDot: { fontSize: 13, color: "#94A3B8" },
+  matchSafetyLink: { fontSize: 12, fontWeight: "700", color: "#475569" },
+  matchSafetyDot: { fontSize: 12, color: "#94A3B8" },
   mediaCard: {
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -936,7 +937,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12
   },
-  mediaTitle: { fontSize: 14, fontWeight: "800" },
+  mediaTitle: { fontSize: 13, fontWeight: "800" },
   contactBox: {
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -945,16 +946,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm
   },
   contactHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  contactTitle: { fontSize: 15, fontWeight: "800" },
-  contactLocked: { fontSize: 13, lineHeight: 20 },
+  contactTitle: { fontSize: 14, fontWeight: "800" },
+  contactLocked: { fontSize: 12, lineHeight: 19 },
   lockedCard: {
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg
   },
-  lockedTitle: { fontSize: 20, fontWeight: "800", textAlign: "center", marginTop: 8 },
+  lockedTitle: { fontSize: 19, fontWeight: "800", textAlign: "center", marginTop: 8 },
   starBadgeLocked: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
     color: "#B45309",
     backgroundColor: "#FEF3C7",

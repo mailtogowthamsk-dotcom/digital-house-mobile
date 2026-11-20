@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     color: "#fff",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700"
   },
   banner: {
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: "rgba(234, 179, 8, 0.18)"
   },
-  bannerText: { color: "#FDE68A", fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  bannerText: { color: "#FDE68A", fontSize: 12, lineHeight: 17, fontWeight: "600" },
   stage: {
     flex: 1,
     backgroundColor: "#000",
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm
   },
   meta: { color: "#94A3B8", fontSize: 12, fontWeight: "600" },
-  metaStrong: { fontSize: 13, fontWeight: "800" },
+  metaStrong: { fontSize: 12, fontWeight: "800" },
   timelineWrap: {
     marginHorizontal: spacing.lg,
     height: 56,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  primaryText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  primaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   secondaryBtn: {
     height: 44,
     borderRadius: radius.full,

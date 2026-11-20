@@ -287,7 +287,7 @@ function PhotoCropEditorInner({
                 }
               ]}
             >
-              <Text style={{ color: active ? "#fff" : textColor, fontWeight: "700", fontSize: 13 }}>
+              <Text style={{ color: active ? "#fff" : textColor, fontWeight: "700", fontSize: 12 }}>
                 {opt.label}
               </Text>
             </Pressable>

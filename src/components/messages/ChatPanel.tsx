@@ -106,10 +106,11 @@ function ChatPanelComponent({
       primary: colors.primary,
       text: colors.text,
       surfaceElevated: colors.surfaceElevated,
+      border: colors.border,
       textMuted: colors.textMuted,
       white: colors.white
     }),
-    [colors.primary, colors.text, colors.surfaceElevated, colors.textMuted, colors.white]
+    [colors.primary, colors.text, colors.surfaceElevated, colors.border, colors.textMuted, colors.white]
   );
 
   useEffect(() => {
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
     flexShrink: 0
   },
   bannerText: {
-    fontSize: 13,
+    fontSize: 12,
     textAlign: "center"
   },
   body: {
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     marginTop: 10,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "center"
   }

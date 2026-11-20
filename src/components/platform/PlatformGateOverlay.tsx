@@ -98,7 +98,7 @@ export function PlatformGateOverlay() {
         <Modal transparent animationType="fade" visible>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.title, { color: colors.text, fontSize: 20 }]}>
+              <Text style={[styles.title, { color: colors.text, fontSize: 19 }]}>
                 A new version is available.
               </Text>
               {version?.releaseNotes ? (
@@ -129,7 +129,7 @@ export function PlatformGateOverlay() {
         <Modal transparent animationType="fade" visible>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.title, { color: colors.text, fontSize: 20 }]}>
+              <Text style={[styles.title, { color: colors.text, fontSize: 19 }]}>
                 {activePopup.title}
               </Text>
               <Text style={[styles.body, { color: colors.textSecondary }]}>{activePopup.body}</Text>
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     justifyContent: "center"
   },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: spacing.md },
-  body: { fontSize: 15, lineHeight: 22, marginBottom: spacing.md },
-  meta: { fontSize: 13, marginTop: spacing.sm },
+  title: { fontSize: 22, fontWeight: "700", marginBottom: spacing.md },
+  body: { fontSize: 14, lineHeight: 21, marginBottom: spacing.md },
+  meta: { fontSize: 12, marginTop: spacing.sm },
   notes: { maxHeight: 160, marginBottom: spacing.lg },
   btn: {
     marginTop: spacing.md,
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center"
   },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   btnGhost: {
     borderWidth: 1,
     borderRadius: radius.md,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm
   },
-  bannerText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  bannerText: { color: "#fff", fontSize: 12, fontWeight: "600" },
   announcement: {
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
@@ -287,8 +287,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     marginBottom: spacing.sm
   },
-  announcementTitle: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  announcementBody: { fontSize: 13, lineHeight: 18 },
+  announcementTitle: { fontSize: 15, fontWeight: "700", marginBottom: 4 },
+  announcementBody: { fontSize: 12, lineHeight: 17 },
   adCard: {
     marginHorizontal: spacing.md,
     marginVertical: spacing.sm,
@@ -298,6 +298,6 @@ const styles = StyleSheet.create({
     padding: spacing.md
   },
   adImage: { width: "100%", height: 140, borderRadius: radius.sm, marginBottom: spacing.sm },
-  adTitle: { fontSize: 15, fontWeight: "600" },
+  adTitle: { fontSize: 14, fontWeight: "600" },
   adHint: { fontSize: 11, marginTop: 4, textTransform: "uppercase", letterSpacing: 0.5 }
 });

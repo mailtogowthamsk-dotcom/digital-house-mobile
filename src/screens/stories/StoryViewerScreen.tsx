@@ -267,7 +267,10 @@ export function StoryViewerScreen() {
     if (!story) return;
     if (!markedRef.current.has(story.id)) {
       markedRef.current.add(story.id);
-      void markStoryViewed(story.id).catch(() => undefined);
+      const storyId = story.id;
+      void markStoryViewed(storyId)
+        .then(() => emitStoriesChanged({ viewedId: storyId, reason: "viewed" }))
+        .catch(() => markedRef.current.delete(storyId));
     }
   }, [story?.id]);
 
@@ -773,9 +776,9 @@ const styles = StyleSheet.create({
   },
   textStoryBody: {
     color: "#F8FAFC",
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
-    lineHeight: 38,
+    lineHeight: 36,
     textAlign: "center"
   },
   mediaLoader: { ...StyleSheet.absoluteFill, justifyContent: "center", alignItems: "center" },
@@ -811,7 +814,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.28)"
   },
-  name: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  name: { color: "#fff", fontWeight: "800", fontSize: 13 },
   time: { color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 1 },
   bottomBar: {
     position: "absolute",
@@ -823,7 +826,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     textShadowColor: "rgba(0,0,0,0.55)",
     textShadowOffset: { width: 0, height: 1 },
@@ -836,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 18
   },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
-  actionCount: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  actionCount: { color: "#fff", fontWeight: "700", fontSize: 12 },
   seenChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -846,7 +849,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20
   },
-  seenText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  seenText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   replyRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -860,7 +863,7 @@ const styles = StyleSheet.create({
   replyInput: {
     flex: 1,
     color: "#fff",
-    fontSize: 15,
+    fontSize: 14,
     paddingVertical: 8,
     maxHeight: 80
   },
@@ -880,6 +883,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12
   },
-  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalTitle: { fontSize: 17, fontWeight: "800" },
   viewerRow: { flexDirection: "row", alignItems: "center" }
 });

@@ -65,7 +65,7 @@ export function MyActivityScreen() {
           backgroundColor: colors.surfaceElevated
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         toolbar: {
           backgroundColor: colors.surface,
@@ -99,7 +99,7 @@ export function MyActivityScreen() {
           shadowRadius: 2,
           elevation: 1
         },
-        segmentText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        segmentText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         segmentTextActive: { color: colors.primary, fontWeight: "700" },
         listContent: {
           paddingHorizontal: spacing.lg,
@@ -126,7 +126,7 @@ export function MyActivityScreen() {
           justifyContent: "center"
         },
         itemBody: { flex: 1, minWidth: 0 },
-        itemTitle: { fontSize: 15, fontWeight: "700", color: colors.text, lineHeight: 20 },
+        itemTitle: { fontSize: 14, fontWeight: "700", color: colors.text, lineHeight: 19 },
         metaRow: {
           marginTop: 6,
           flexDirection: "row",
@@ -156,12 +156,12 @@ export function MyActivityScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
         },
         center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl }

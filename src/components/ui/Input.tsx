@@ -4,7 +4,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
 import { fonts } from "../../theme/fonts";
-import { TEXT_FIELD_MIN_HEIGHT, textFieldPad } from "../../theme/textField";
+import { TEXT_FIELD_MIN_HEIGHT, settingsField, textFieldPad } from "../../theme/textField";
 
 type InputProps = TextInputProps & {
   label?: string;
@@ -12,7 +12,7 @@ type InputProps = TextInputProps & {
   containerStyle?: ViewStyle;
   leftIcon?: React.ReactNode;
   /** `onWhite` = light field on hardcoded white auth cards (theme-independent). */
-  variant?: "default" | "light" | "onWhite";
+  variant?: "default" | "light" | "onWhite" | "compact";
 };
 
 export function Input({
@@ -33,6 +33,7 @@ export function Input({
   const [focused, setFocused] = useState(false);
   const isLight = variant === "light";
   const onWhite = variant === "onWhite";
+  const compact = variant === "compact";
   const isDisabled = editable === false;
 
   const s = useMemo(
@@ -91,9 +92,23 @@ export function Input({
           paddingHorizontal: spacing.lg,
           ...textFieldPad,
           fontFamily: fonts.regular,
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: "400",
           color: colors.text
+        },
+        wrapCompact: { marginBottom: spacing.md },
+        labelCompact: { fontSize: 12, lineHeight: 16, marginBottom: 4 },
+        rowCompact: {
+          minHeight: settingsField.minHeight,
+          borderRadius: settingsField.borderRadius,
+          borderWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surfaceElevated
+        },
+        inputCompact: {
+          ...settingsField,
+          fontSize: 14,
+          paddingTop: multiline ? 9 : 6,
+          paddingBottom: multiline ? 9 : 6
         },
         inputWithIcon: { paddingLeft: 0 },
         inputOnWhite: { color: "#111827" },
@@ -108,11 +123,12 @@ export function Input({
   );
 
   return (
-    <View style={[s.wrap, containerStyle]}>
-      {label ? <Text style={s.label}>{label}</Text> : null}
+    <View style={[s.wrap, compact && s.wrapCompact, containerStyle]}>
+      {label ? <Text style={[s.label, compact && s.labelCompact]}>{label}</Text> : null}
       <View
         style={[
           s.inputRow,
+          compact && s.rowCompact,
           isLight && s.inputRowLight,
           onWhite && s.inputRowOnWhite,
           error && s.inputError,
@@ -124,11 +140,13 @@ export function Input({
       >
         {leftIcon ? <View style={s.iconWrap}>{leftIcon}</View> : null}
         <TextInput
+          accessibilityLabel={compact ? label : undefined}
           placeholderTextColor={
             placeholderTextColor ?? (onWhite ? "#9CA3AF" : colors.textMuted)
           }
           style={[
             s.input,
+            compact && s.inputCompact,
             leftIcon ? s.inputWithIcon : undefined,
             onWhite && s.inputOnWhite,
             multiline ? { textAlignVertical: "top" as const } : undefined,

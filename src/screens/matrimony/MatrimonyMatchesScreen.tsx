@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMatrimonyMatches, removeMatrimonyMatch } from "../../api/matrimony.api";
 import { getImageUrl } from "../../api/client";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
@@ -87,7 +88,7 @@ export function MatrimonyMatchesScreen() {
         <FlatList
           data={items}
           keyExtractor={(i, index) => `match-${i.matchId}-${index}`}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+          contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl + insets.bottom }]}
           ListHeaderComponent={
             items.length > 0 ? (
               <View style={styles.banner}>
@@ -100,7 +101,7 @@ export function MatrimonyMatchesScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>No mutual matches yet</Text>
+              <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>No mutual matches yet</Text>
               <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 }}>
                 When you and another member both send and accept interest, they appear here with chat unlocked.
               </Text>
@@ -122,11 +123,11 @@ export function MatrimonyMatchesScreen() {
                   <Image source={{ uri }} cachePolicy="memory-disk" contentFit="cover" style={styles.thumb} />
                 ) : (
                   <View style={[styles.thumb, styles.thumbPh, { backgroundColor: colors.border }]}>
-                    <Text style={{ fontSize: 22 }}>👤</Text>
+                    <Text style={{ fontSize: 20 }}>👤</Text>
                   </View>
                 )}
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>
+                  <Text style={{ fontWeight: "800", color: colors.text, fontSize: 14 }}>
                     {item.candidate.name}
                   </Text>
                   {item.candidate.district ? (
@@ -200,20 +201,20 @@ const styles = StyleSheet.create({
   banner: {
     backgroundColor: "#DCFCE7",
     borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
+    padding: spacing.sm + 2,
+    marginBottom: spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#86EFAC"
   },
-  bannerTitle: { fontSize: 15, fontWeight: "800", color: "#14532D" },
+  bannerTitle: { fontSize: 14, fontWeight: "800", color: "#14532D" },
   bannerBody: { fontSize: 12, color: "#166534", marginTop: 4, lineHeight: 18 },
   card: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
-    padding: spacing.md,
+    padding: spacing.sm + 2,
     marginBottom: spacing.sm
   },
   thumb: { width: 56, height: 56, borderRadius: radius.md },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#FECACA",
     backgroundColor: "#FEF2F2"
   }

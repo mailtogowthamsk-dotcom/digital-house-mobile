@@ -10,7 +10,7 @@ import { useWelcomeCardVisible } from "../../hooks/useWelcomeCardVisible";
 const DISMISS_DELAY_MS = 2500;
 const ANIM_DURATION_MS = 420;
 const COLLAPSE_DURATION_MS = 280;
-const CARD_MARGIN_BOTTOM = 28;
+const CARD_MARGIN_BOTTOM = 6;
 
 type Props = {
   userName: string;

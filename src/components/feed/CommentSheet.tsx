@@ -48,7 +48,7 @@ function MentionText({
 }) {
   const parts = body.split(/(@\w[\w\s]*\w|@\w+)/g);
   return (
-    <Text style={{ fontSize: 15, lineHeight: 22, color: textColor }}>
+    <Text style={{ fontSize: 14, lineHeight: 21, color: textColor }}>
       {parts.map((part, i) =>
         part.startsWith("@") ? (
           <Text key={`m-${i}-a`} style={{ color, fontWeight: "600" }}>
@@ -96,7 +96,7 @@ const CommentRow = memo(function CommentRow({
           justifyContent: "center"
         },
         avatarText: { fontSize: 12, fontWeight: "700", color: colors.primary },
-        meta: { fontSize: 13, color: colors.textSecondary, flex: 1 },
+        meta: { fontSize: 12, color: colors.textSecondary, flex: 1 },
         bodyWrap: { paddingLeft: 34 },
         actions: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.sm, paddingLeft: 34 },
         actionBtn: {
@@ -107,7 +107,7 @@ const CommentRow = memo(function CommentRow({
           paddingVertical: 6,
           borderRadius: radius.sm
         },
-        actionLabel: { fontSize: 13, fontWeight: "600", color: colors.textSecondary }
+        actionLabel: { fontSize: 12, fontWeight: "600", color: colors.textSecondary }
       }),
     [colors, mode, depth]
   );
@@ -390,8 +390,8 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           paddingBottom: spacing.md
         },
         headerText: { flex: 1, marginRight: spacing.md },
-        title: { fontSize: 18, fontWeight: "700", color: colors.text },
-        subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+        title: { fontSize: 17, fontWeight: "700", color: colors.text },
+        subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
         closeBtn: {
           width: 36,
           height: 36,
@@ -419,7 +419,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           backgroundColor: mode === "dark" ? colors.primary + "33" : "#EFF6FF",
           borderColor: colors.primary + "55"
         },
-        sortText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        sortText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         sortTextActive: { color: colors.primary },
         countBadge: {
           marginLeft: "auto",
@@ -464,7 +464,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           borderLeftWidth: 3,
           borderLeftColor: colors.primary
         },
-        contextText: { fontSize: 13, color: colors.text, flex: 1, fontWeight: "500" },
+        contextText: { fontSize: 12, color: colors.text, flex: 1, fontWeight: "500" },
         inputRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
         input: {
           flex: 1,
@@ -498,7 +498,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           borderRadius: radius.md,
           backgroundColor: mode === "dark" ? "#3F1D1D" : "#FEF2F2"
         },
-        errorText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "600", color: colors.error },
+        errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: "600", color: colors.error },
         confirmOverlay: {
           ...StyleSheet.absoluteFill,
           backgroundColor: "rgba(0,0,0,0.45)",
@@ -525,11 +525,11 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           backgroundColor: colors.error + "18",
           marginBottom: spacing.md
         },
-        confirmTitle: { fontSize: 17, fontWeight: "800", color: colors.text, textAlign: "center" },
+        confirmTitle: { fontSize: 16, fontWeight: "800", color: colors.text, textAlign: "center" },
         confirmMessage: {
           marginTop: spacing.sm,
-          fontSize: 14,
-          lineHeight: 20,
+          fontSize: 13,
+          lineHeight: 19,
           color: colors.textSecondary,
           textAlign: "center"
         },
@@ -548,8 +548,8 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           borderColor: colors.border
         },
         confirmDestructive: { backgroundColor: colors.error },
-        confirmCancelText: { fontSize: 15, fontWeight: "700", color: colors.text },
-        confirmDestructiveText: { fontSize: 15, fontWeight: "700", color: colors.white }
+        confirmCancelText: { fontSize: 14, fontWeight: "700", color: colors.text },
+        confirmDestructiveText: { fontSize: 14, fontWeight: "700", color: colors.white }
       }),
     [colors, mode]
   );
@@ -567,7 +567,7 @@ export function CommentSheet({ visible, postId, postTitle, onClose, onCommentCou
           <Text style={[s.listEmpty, { paddingTop: spacing.md, paddingBottom: 0 }]}>
             No comments yet
           </Text>
-          <Text style={[s.listEmpty, { paddingTop: 4, fontSize: 13 }]}>
+          <Text style={[s.listEmpty, { paddingTop: 4, fontSize: 12 }]}>
             Be the first to share your thoughts
           </Text>
         </View>

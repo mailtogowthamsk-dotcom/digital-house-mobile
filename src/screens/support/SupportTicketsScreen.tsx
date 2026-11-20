@@ -80,7 +80,8 @@ export function SupportMyTicketsScreen() {
       }
       renderItem={({ item }) => (
         <Pressable
-          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.card, { backgroundColor: pressed ? colors.surfaceElevated : colors.surface, borderColor: colors.border }]}
           onPress={() => navigation.navigate("SupportTicketDetail", { ticketId: item.id })}
         >
           <View style={styles.cardTop}>
@@ -160,13 +161,15 @@ export function SupportTicketDetailScreen() {
     <AppKeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.refBig, { color: colors.primary }]}>Ticket {ticket.ref}</Text>
-        <Text style={[styles.titleBig, { color: colors.text }]}>{ticket.title}</Text>
-        <Text style={[styles.badge, { color: STATUS_COLOR[ticket.status] ?? colors.text, marginBottom: 12 }]}>
-          {ticket.status.replace(/_/g, " ")}
-        </Text>
-        <Text style={[styles.body, { color: colors.textSecondary }]}>{ticket.description}</Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.refBig, { color: colors.primary }]}>Ticket {ticket.ref}</Text>
+          <Text style={[styles.titleBig, { color: colors.text }]}>{ticket.title}</Text>
+          <Text style={[styles.badge, { color: STATUS_COLOR[ticket.status] ?? colors.text, marginBottom: spacing.xs }]}>
+            {ticket.status.replace(/_/g, " ")}
+          </Text>
+          <Text style={[styles.body, { color: colors.textSecondary }]}>{ticket.description}</Text>
+        </View>
 
         <Text style={[styles.threadLabel, { color: colors.text }]}>Conversation</Text>
         {(ticket.messages ?? []).map((m) => (
@@ -193,6 +196,7 @@ export function SupportTicketDetailScreen() {
         {ticket.status !== "CLOSED" ? (
           <>
             <TextInput
+              accessibilityLabel="Reply"
               value={reply}
               onChangeText={setReply}
               placeholder="Write a reply…"
@@ -205,9 +209,11 @@ export function SupportTicketDetailScreen() {
             />
             {error ? <Text style={{ color: colors.error, marginBottom: 8 }}>{error}</Text> : null}
             <PrimaryButton
-              title={sending ? "Sending…" : "Send reply"}
+              title="Send reply"
+              loading={sending}
+              style={styles.sendButton}
               onPress={() => void onReply()}
-              disabled={sending || !reply.trim()}
+              disabled={!reply.trim()}
             />
           </>
         ) : null}
@@ -218,37 +224,43 @@ export function SupportTicketDetailScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  content: {
+    width: "100%", maxWidth: 640, alignSelf: "center",
+    paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xxl
+  },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
-    padding: 14,
-    marginBottom: 10
+    padding: spacing.sm + 2,
+    marginBottom: spacing.sm
   },
   cardTop: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  ref: { fontWeight: "800", fontSize: 13 },
+  ref: { fontWeight: "800", fontSize: 12 },
   badge: { fontWeight: "800", fontSize: 12, textTransform: "capitalize" },
-  title: { fontSize: 16, fontWeight: "700" },
+  title: { fontSize: 15, fontWeight: "700" },
   meta: { fontSize: 12, marginTop: 6 },
-  refBig: { fontWeight: "800", fontSize: 14, marginBottom: 4 },
-  titleBig: { fontSize: 20, fontWeight: "800", marginBottom: 6 },
-  body: { fontSize: 15, lineHeight: 22, marginBottom: spacing.lg },
-  threadLabel: { fontSize: 16, fontWeight: "800", marginBottom: 10 },
+  refBig: { fontWeight: "800", fontSize: 13, marginBottom: 4 },
+  titleBig: { fontSize: 16, fontWeight: "800", marginBottom: 6 },
+  body: { fontSize: 13, lineHeight: 19 },
+  threadLabel: { fontSize: 14, fontWeight: "700", marginVertical: spacing.sm },
   bubble: {
     maxWidth: "92%",
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 12,
-    padding: 12,
+    padding: spacing.sm,
     marginBottom: 8
   },
   bubbleMeta: { fontSize: 11, marginBottom: 4 },
+  sendButton: { alignSelf: "flex-end", minWidth: 120, minHeight: 44, paddingVertical: spacing.xs },
   replyInput: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
-    minHeight: 90,
     ...textFieldMultiline,
+    minHeight: 70,
+    fontSize: 14,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     marginTop: spacing.md,
-    marginBottom: 10
+    marginBottom: spacing.sm
   }
 });

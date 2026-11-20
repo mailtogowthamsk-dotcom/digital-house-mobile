@@ -51,16 +51,16 @@ export function RejectedScreen({ route }: RejectedScreenProps) {
           elevation: 6
         },
         title: {
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: "700",
           color: colors.text,
           marginBottom: spacing.lg,
           textAlign: "center"
         },
         subtitle: {
-          fontSize: 15,
+          fontSize: 14,
           color: colors.textSecondary,
-          lineHeight: 22,
+          lineHeight: 21,
           textAlign: "center",
           marginBottom: spacing.xxl
         },
@@ -78,8 +78,8 @@ export function RejectedScreen({ route }: RejectedScreenProps) {
           borderWidth: 1,
           borderColor: colors.border
         },
-        btnText: { fontSize: 17, fontWeight: "600", color: colors.white },
-        btnTextSecondary: { fontSize: 15, fontWeight: "600", color: colors.textSecondary }
+        btnText: { fontSize: 16, fontWeight: "600", color: colors.white },
+        btnTextSecondary: { fontSize: 14, fontWeight: "600", color: colors.textSecondary }
       }),
     [colors]
   );

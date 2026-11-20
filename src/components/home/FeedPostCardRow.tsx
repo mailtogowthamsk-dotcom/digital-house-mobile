@@ -27,6 +27,7 @@ export type FeedPostCardActions = {
 
 type Props = {
   post: PostCardData;
+  fullWidth?: boolean;
   /** Optional override — omit to read the shared feed media-focus store. */
   isMediaActive?: boolean;
   isMediaPreload?: boolean;
@@ -36,6 +37,7 @@ type Props = {
 
 function FeedPostCardRowInner({
   post,
+  fullWidth,
   isMediaActive: isMediaActiveProp,
   isMediaPreload: isMediaPreloadProp,
   isMediaRetain: isMediaRetainProp,
@@ -104,6 +106,7 @@ function FeedPostCardRowInner({
 
   return (
     <PostCard
+      fullWidth={fullWidth}
       post={post}
       isMediaActive={isMediaActive}
       isMediaPreload={isMediaPreload}
@@ -127,6 +130,7 @@ function FeedPostCardRowInner({
 function propsEqual(prev: Props, next: Props): boolean {
   return (
     prev.post === next.post &&
+    prev.fullWidth === next.fullWidth &&
     prev.isMediaActive === next.isMediaActive &&
     prev.isMediaPreload === next.isMediaPreload &&
     prev.isMediaRetain === next.isMediaRetain &&

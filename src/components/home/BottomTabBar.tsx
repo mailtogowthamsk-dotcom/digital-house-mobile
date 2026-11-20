@@ -30,8 +30,8 @@ const TABS: TabItem[] = [
 ];
 
 const BAR_HEIGHT = 60;
-const CREATE_SIZE = 40;
-const DOCK_H_PAD = 16;
+const CREATE_SIZE = 32;
+const DOCK_H_PAD = 12;
 
 type BottomTabBarProps = {
   activeTab: TabId;
@@ -64,15 +64,17 @@ function BottomTabBarInner({
           right: DOCK_H_PAD,
           bottom: Math.max(bottomInset, 10),
           zIndex: 50,
-          height: BAR_HEIGHT
+          height: BAR_HEIGHT,
+          borderRadius: 22,
+          backgroundColor: colors.surface,
+          ...navShadow(mode)
         },
         shell: {
           flex: 1,
-          borderRadius: 20,
+          borderRadius: 22,
           overflow: "hidden",
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : colors.border,
-          ...navShadow(mode)
+          borderColor: colors.border
         },
         blurFill: { ...StyleSheet.absoluteFill },
         tint: {
@@ -84,7 +86,7 @@ function BottomTabBarInner({
           flex: 1,
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 4
+          paddingHorizontal: 5
         },
         tab: {
           flex: 1,
@@ -92,26 +94,25 @@ function BottomTabBarInner({
           justifyContent: "center",
           minHeight: 44,
           height: "100%",
-          gap: 2,
-          paddingTop: 2
+          gap: 3
         },
         pressed: { opacity: 0.65 },
         iconWrap: {
-          width: 40,
-          height: 28,
+          width: 44,
+          height: 32,
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 14
+          borderRadius: 16
         },
         iconWrapActive: {
-          backgroundColor: mode === "dark" ? "rgba(22,128,60,0.22)" : "rgba(22,128,60,0.12)"
+          backgroundColor: mode === "dark" ? "rgba(34,197,94,0.16)" : "rgba(22,128,60,0.10)"
         },
         label: {
           fontFamily: fonts.medium,
           fontSize: 11,
           fontWeight: "500",
-          color: colors.textMuted,
-          letterSpacing: 0.1
+          color: colors.textSecondary,
+          letterSpacing: 0
         },
         labelActive: {
           fontFamily: fonts.semiBold,
@@ -167,9 +168,10 @@ function BottomTabBarInner({
           intensity={Platform.OS === "ios" ? 64 : 42}
           tint={mode === "dark" ? "dark" : "light"}
           style={s.blurFill}
+          pointerEvents="none"
         />
         <View style={s.tint} pointerEvents="none" />
-        <View style={s.bar}>
+        <View style={s.bar} accessibilityRole="tablist">
           {tabsWithBadge.map((tab) => {
             const isActive = activeTab === tab.id;
             const isCreate = tab.id === "create";
@@ -183,10 +185,8 @@ function BottomTabBarInner({
                   accessibilityRole="button"
                   accessibilityLabel="Create post"
                 >
-                  <View style={s.iconWrap}>
-                    <View style={s.createBtn}>
-                      <Ionicons name="add" size={22} color={colors.white} />
-                    </View>
+                  <View style={s.createBtn}>
+                    <Ionicons name="add" size={22} color={colors.white} />
                   </View>
                   <Text style={s.label} numberOfLines={1}>
                     {tab.label}
@@ -202,12 +202,13 @@ function BottomTabBarInner({
                 onPress={() => onTabPress(tab.id)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: isActive }}
+                accessibilityLabel={tab.badge ? `${tab.label}, ${tab.badge} unread` : tab.label}
               >
                 <View style={[s.iconWrap, isActive && s.iconWrapActive]}>
                   <Ionicons
-                    name={(isActive ? tab.iconActive : tab.icon) as keyof typeof Ionicons.glyphMap}
+                    name={isActive ? tab.iconActive ?? tab.icon : tab.icon}
                     size={22}
-                    color={isActive ? colors.primary : colors.textMuted}
+                    color={isActive ? colors.primary : colors.textSecondary}
                   />
                   {tab.badge != null && tab.badge > 0 ? (
                     <View style={s.badge}>
@@ -229,3 +230,5 @@ function BottomTabBarInner({
 
 export const BottomTabBar = memo(BottomTabBarInner);
 export const FLOATING_TAB_BAR_HEIGHT = BAR_HEIGHT + 12;
+
+export { BAR_HEIGHT as BOTTOM_TAB_BAR_HEIGHT };

@@ -135,7 +135,7 @@ function HeaderInner({
           height: 40
         },
         title: {
-          fontSize: 19,
+          fontSize: 15,
           fontWeight: "700",
           letterSpacing: -0.45,
           color: colors.text,

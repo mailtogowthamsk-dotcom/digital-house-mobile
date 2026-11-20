@@ -225,7 +225,7 @@ const s = StyleSheet.create({
     marginBottom: spacing.md,
     color: BRAND_DEEP,
     fontFamily: fonts.bold,
-    fontSize: 24
+    fontSize: 22
   },
   card: {
     width: "100%",
@@ -254,12 +254,12 @@ const s = StyleSheet.create({
   title: {
     color: BRAND_DEEP,
     fontFamily: fonts.bold,
-    fontSize: 22,
+    fontSize: 20,
     textAlign: "center",
     marginBottom: spacing.sm
   },
-  subtitle: { color: MUTED, fontSize: 14, lineHeight: 21 },
-  email: { color: BRAND_DEEP, fontSize: 13, textAlign: "center", marginTop: spacing.sm },
+  subtitle: { color: MUTED, fontSize: 13, lineHeight: 20 },
+  email: { color: BRAND_DEEP, fontSize: 12, textAlign: "center", marginTop: spacing.sm },
   referralBox: {
     backgroundColor: "#F6FAF7",
     borderWidth: 1,
@@ -268,7 +268,7 @@ const s = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md
   },
-  referralTitle: { color: BRAND_DEEP, fontFamily: fonts.bold, fontSize: 15, marginBottom: spacing.xs },
+  referralTitle: { color: BRAND_DEEP, fontFamily: fonts.bold, fontSize: 14, marginBottom: spacing.xs },
   input: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -276,11 +276,11 @@ const s = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     minHeight: 46,
-    fontSize: 16,
+    fontSize: 15,
     color: BRAND_DEEP,
     marginTop: spacing.sm
   },
-  success: { color: BRAND_PRIMARY, fontSize: 13, textAlign: "center", marginTop: spacing.sm },
+  success: { color: BRAND_PRIMARY, fontSize: 12, textAlign: "center", marginTop: spacing.sm },
   btnWrap: { width: "100%", marginTop: spacing.md },
   btn: { minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   btnSecondary: {
@@ -292,6 +292,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER
   },
-  btnText: { fontSize: 15, fontFamily: fonts.semiBold, color: "#FFFFFF" },
-  btnTextSecondary: { fontSize: 15, fontFamily: fonts.semiBold, color: BRAND_DEEP }
+  btnText: { fontSize: 14, fontFamily: fonts.semiBold, color: "#FFFFFF" },
+  btnTextSecondary: { fontSize: 14, fontFamily: fonts.semiBold, color: BRAND_DEEP }
 });

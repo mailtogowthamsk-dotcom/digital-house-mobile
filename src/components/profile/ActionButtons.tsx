@@ -44,7 +44,7 @@ export function ActionButtons({ onLogoutPress }: ActionButtonsProps) {
         pressed: { backgroundColor: colors.error + "0D" },
         logoutText: {
           fontFamily: fonts.semiBold,
-          fontSize: 15,
+          fontSize: 14,
           color: colors.error,
           fontWeight: "600"
         }

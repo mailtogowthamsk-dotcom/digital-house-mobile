@@ -17,6 +17,7 @@ export function RootNavigator() {
     <Stack.Navigator
       initialRouteName="Login"
       screenOptions={{
+        headerTitleStyle: { fontSize: 16 },
         headerStyle: { backgroundColor: "#0B1220" },
         headerTintColor: "#FFFFFF",
         contentStyle: { backgroundColor: "#0B1220" }

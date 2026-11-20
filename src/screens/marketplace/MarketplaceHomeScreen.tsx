@@ -298,26 +298,27 @@ export function MarketplaceHomeScreen() {
           gap: 8
         },
         backBtn: {
-          width: 40,
-          height: 40,
-          borderRadius: 20,
+          minHeight: 44,
+          paddingHorizontal: 10,
+          borderRadius: 12,
+          flexDirection: "row",
+          gap: 4,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: colors.surfaceElevated
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
-        headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        sellLabel: { fontSize: 12, fontWeight: "700", color: themeMode === "dark" ? "#FDBA74" : "#9A3412" },
         toolbar: {
           backgroundColor: colors.surface,
           paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
+          paddingTop: spacing.xs,
           paddingBottom: spacing.sm,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
-          gap: spacing.sm,
-          zIndex: 30,
-          elevation: 6
+          gap: 4,
+          zIndex: 30
         },
         segment: {
           flexDirection: "row",
@@ -328,33 +329,34 @@ export function MarketplaceHomeScreen() {
         },
         segmentBtn: {
           flex: 1,
-          paddingVertical: 9,
+          minHeight: 44,
+          justifyContent: "center",
           borderRadius: radius.sm,
           alignItems: "center"
         },
         segmentBtnActive: {
-          backgroundColor: colors.surface,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.06,
-          shadowRadius: 2,
-          elevation: 1
+          backgroundColor: themeMode === "dark" ? "#7C2D1240" : "#FFEDD5"
         },
         segmentText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
-        segmentTextActive: { color: ACCENT, fontWeight: "700" },
+        segmentTextActive: { color: themeMode === "dark" ? "#FDBA74" : "#9A3412", fontWeight: "700" },
+        searchRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+        searchIconBtn: { minHeight: 44, width: 32, alignItems: "center", justifyContent: "center" },
         searchWrap: {
+          flex: 1,
+          minWidth: 0,
           flexDirection: "row",
           alignItems: "center",
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md,
-          paddingHorizontal: spacing.md,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          gap: spacing.sm
+          paddingRight: 3
         },
         searchInput: {
           flex: 1,
           ...textFieldCompact,
+          minHeight: 44,
+          paddingVertical: 5,
           color: colors.text
         },
         priceRow: { flexDirection: "row", gap: spacing.sm },
@@ -364,18 +366,30 @@ export function MarketplaceHomeScreen() {
           borderRadius: radius.md,
           paddingHorizontal: spacing.md,
           ...textField,
-          borderWidth: 1,
+          minHeight: 44,
+          paddingVertical: 5,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           color: colors.text
         },
         filterToggle: {
+          minHeight: 44,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          paddingVertical: 4
+          gap: 4,
+          paddingHorizontal: 8,
+          borderRadius: radius.md,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          backgroundColor: colors.surface
         },
-        filterToggleLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
-        filterToggleText: { fontSize: 13, fontWeight: "700", color: colors.text },
+        filterToggleActive: { borderColor: ACCENT },
+        filterPanel: { gap: 5, paddingTop: 4 },
+        filterActions: { flexDirection: "row", justifyContent: "flex-end", gap: 6 },
+        filterAction: { minHeight: 44, paddingHorizontal: 10, justifyContent: "center", borderRadius: radius.md },
+        applyFilter: { backgroundColor: "#9A3412" },
+        applyFilterText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+        filterToggleText: { fontSize: 12, fontWeight: "700", color: colors.text },
         filterDot: {
           width: 8,
           height: 8,
@@ -386,7 +400,7 @@ export function MarketplaceHomeScreen() {
         chipScroll: { paddingVertical: 2 },
         chip: {
           paddingHorizontal: 12,
-          paddingVertical: 7,
+          paddingVertical: 5,
           borderRadius: radius.full,
           borderWidth: 1,
           borderColor: colors.border,
@@ -402,7 +416,7 @@ export function MarketplaceHomeScreen() {
         listContent: {
           paddingHorizontal: listPad,
           paddingTop: spacing.md,
-          paddingBottom: 100 + insets.bottom,
+          paddingBottom: spacing.md + insets.bottom,
           gap
         },
         columnWrap: { gap, justifyContent: "space-between" },
@@ -410,7 +424,7 @@ export function MarketplaceHomeScreen() {
           width: tileWidth,
           backgroundColor: colors.surface,
           borderRadius: radius.lg,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           overflow: "hidden",
           marginBottom: gap
@@ -418,7 +432,7 @@ export function MarketplaceHomeScreen() {
         cardPressed: { opacity: 0.92, borderColor: ACCENT + "66" },
         thumb: {
           width: "100%",
-          height: tileWidth * 0.85,
+          height: tileWidth * 0.75,
           backgroundColor: themeMode === "dark" ? colors.surfaceElevated : "#FFF7ED"
         },
         thumbWrap: { position: "relative" },
@@ -455,22 +469,10 @@ export function MarketplaceHomeScreen() {
           borderRadius: radius.full
         },
         intentText: { fontSize: 10, fontWeight: "800", color: "#fff" },
-        cardBody: { padding: spacing.sm + 2, gap: 4 },
-        title: { fontSize: 13, fontWeight: "700", color: colors.text, lineHeight: 18 },
-        price: { fontSize: 14, fontWeight: "800", color: ACCENT },
-        metaRow: {
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 4,
-          marginTop: 2
-        },
-        metaPill: {
-          backgroundColor: colors.surfaceElevated,
-          paddingHorizontal: 6,
-          paddingVertical: 2,
-          borderRadius: 6
-        },
-        metaPillText: { fontSize: 10, fontWeight: "600", color: colors.textSecondary },
+        cardBody: { padding: spacing.sm, gap: 3 },
+        title: { fontSize: 12, fontWeight: "700", color: colors.text, lineHeight: 17 },
+        price: { fontSize: 15, fontWeight: "800", color: themeMode === "dark" ? "#FDBA74" : "#9A3412" },
+        itemAttributes: { fontSize: 10, fontWeight: "600", color: colors.textSecondary },
         meta: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
         statusBadge: {
           alignSelf: "flex-start",
@@ -487,7 +489,7 @@ export function MarketplaceHomeScreen() {
         statusTextMuted: { color: colors.textMuted },
         statusTextWarn: { color: "#B45309" },
         statusTextDanger: { color: "#B91C1C" },
-        empty: { alignItems: "center", paddingTop: 48, paddingHorizontal: spacing.xl, width: "100%" },
+        empty: { alignItems: "center", paddingTop: 24, paddingHorizontal: spacing.xl, width: "100%" },
         emptyIcon: {
           width: 72,
           height: 72,
@@ -497,25 +499,15 @@ export function MarketplaceHomeScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
         },
-        footer: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          backgroundColor: colors.surface
-        },
+        retryBtn: { minHeight: 44, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
         center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.lg },
         errorText: { color: colors.error, textAlign: "center", marginBottom: spacing.md }
       }),
@@ -591,18 +583,11 @@ export function MarketplaceHomeScreen() {
               {item.title}
             </Text>
             {price ? <Text style={s.price}>{price}</Text> : null}
-            <View style={s.metaRow}>
-              {categoryLabel ? (
-                <View style={s.metaPill}>
-                  <Text style={s.metaPillText}>{categoryLabel}</Text>
-                </View>
-              ) : null}
-              {conditionLabel ? (
-                <View style={s.metaPill}>
-                  <Text style={s.metaPillText}>{conditionLabel}</Text>
-                </View>
-              ) : null}
-            </View>
+            {categoryLabel || conditionLabel ? (
+              <Text style={s.itemAttributes} numberOfLines={1}>
+                {[categoryLabel, conditionLabel].filter(Boolean).join(" · ")}
+              </Text>
+            ) : null}
             <Text style={s.meta} numberOfLines={1}>
               {[item.marketplaceDistrict, expiry, timeAgo(item.createdAt)].filter(Boolean).join(" · ")}
             </Text>
@@ -617,7 +602,7 @@ export function MarketplaceHomeScreen() {
     mode === "mine"
       ? {
           title: "No listings yet",
-          body: "Post your first item for the community. Tap Sell something below."
+          body: "Post your first item for the community. Tap Sell at the top."
         }
       : mode === "saved"
         ? {
@@ -635,7 +620,6 @@ export function MarketplaceHomeScreen() {
         <HeaderBackButton onPress={() => navigation.goBack()} />
         <View style={s.headerTextCol}>
           <Text style={s.headerTitle}>Marketplace</Text>
-          <Text style={s.headerSub}>Buy, sell & exchange in the community</Text>
         </View>
         <Pressable
           style={s.backBtn}
@@ -644,7 +628,8 @@ export function MarketplaceHomeScreen() {
           accessibilityRole="button"
           accessibilityLabel="Post an item"
         >
-          <Ionicons name="add" size={22} color={ACCENT} />
+          <Ionicons name="add" size={18} color={ACCENT} />
+          <Text style={s.sellLabel}>Sell</Text>
         </Pressable>
       </View>
 
@@ -693,62 +678,53 @@ export function MarketplaceHomeScreen() {
 
         {mode === "browse" ? (
           <>
-            <View style={s.searchWrap}>
-              <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-              <TextInput
-                style={s.searchInput}
-                placeholder="Search items…"
-                placeholderTextColor={colors.textMuted}
-                value={searchDraft}
-                onChangeText={setSearchDraft}
-                onSubmitEditing={applySearch}
-                returnKeyType="search"
-              />
-              {searchDraft.length > 0 ? (
-                <Pressable onPress={() => setSearchDraft("")} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            <View style={s.searchRow}>
+              <View style={s.searchWrap}>
+                <Pressable onPress={applySearch} style={s.searchIconBtn} accessibilityRole="button" accessibilityLabel="Search listings">
+                  <Ionicons name="search-outline" size={17} color={colors.textSecondary} />
                 </Pressable>
-              ) : (
-                <Pressable onPress={applySearch} hitSlop={8}>
-                  <Ionicons name="arrow-forward-circle" size={22} color={ACCENT} />
-                </Pressable>
-              )}
-            </View>
-
-            <MasterDataSuggestInput
-              value={districtDraft}
-              onChangeText={setDistrictDraft}
-              placeholder="District / town"
-              types={["DISTRICT", "TOWN", "TALUK"]}
-              onSelect={(label) => {
-                setDistrictDraft(label);
-                setDistrictQ(label);
-              }}
-              onSubmitEditing={applySearch}
-            />
-
-            <Pressable
-              style={s.filterToggle}
-              onPress={() => setFiltersExpanded((v) => !v)}
-            >
-              <View style={s.filterToggleLeft}>
-                <Ionicons
-                  name={filtersExpanded ? "options" : "options-outline"}
-                  size={18}
-                  color={colors.text}
+                <TextInput
+                  style={s.searchInput}
+                  placeholder="Search items…"
+                  placeholderTextColor={colors.textMuted}
+                  value={searchDraft}
+                  onChangeText={setSearchDraft}
+                  onSubmitEditing={applySearch}
+                  returnKeyType="search"
+                  accessibilityLabel="Search listings"
                 />
+                {searchDraft.length > 0 ? (
+                  <Pressable onPress={() => setSearchDraft("")} style={s.searchIconBtn} accessibilityRole="button" accessibilityLabel="Clear search text">
+                    <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable
+                style={[s.filterToggle, (filtersExpanded || hasActiveFilters) && s.filterToggleActive]}
+                onPress={() => setFiltersExpanded((value) => !value)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: filtersExpanded }}
+              >
+                <Ionicons name="options-outline" size={17} color={colors.text} />
                 <Text style={s.filterToggleText}>Filters</Text>
                 {hasActiveFilters ? <View style={s.filterDot} /> : null}
-              </View>
-              <Ionicons
-                name={filtersExpanded ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={colors.textMuted}
-              />
-            </Pressable>
+              </Pressable>
+            </View>
 
             {filtersExpanded ? (
-              <>
+              <View style={s.filterPanel}>
+                <MasterDataSuggestInput
+                  compact
+                  value={districtDraft}
+                  onChangeText={setDistrictDraft}
+                  placeholder="District / town"
+                  types={["DISTRICT", "TOWN", "TALUK"]}
+                  onSelect={(label) => {
+                    setDistrictDraft(label);
+                    setDistrictQ(label);
+                  }}
+                  onSubmitEditing={applySearch}
+                />
                 <View style={s.priceRow}>
                   <TextInput
                     style={s.priceInput}
@@ -842,12 +818,24 @@ export function MarketplaceHomeScreen() {
                   ))}
                 </ScrollView>
 
-                {hasActiveFilters ? (
-                  <Pressable onPress={clearFilters} style={{ alignSelf: "flex-end" }}>
-                    <Text style={s.clearText}>Clear filters</Text>
+                <View style={s.filterActions}>
+                  {hasActiveFilters ? (
+                    <Pressable onPress={clearFilters} style={s.filterAction} accessibilityRole="button">
+                      <Text style={s.clearText}>Clear filters</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    style={[s.filterAction, s.applyFilter]}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      applySearch();
+                      setFiltersExpanded(false);
+                    }}
+                  >
+                    <Text style={s.applyFilterText}>Show listings</Text>
                   </Pressable>
-                ) : null}
-              </>
+                </View>
+              </View>
             ) : null}
           </>
         ) : null}
@@ -860,7 +848,7 @@ export function MarketplaceHomeScreen() {
       ) : error && items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.errorText}>{error}</Text>
-          <PrimaryButton title="Retry" onPress={() => void onRefresh()} />
+          <PrimaryButton title="Retry" variant="secondary" style={s.retryBtn} onPress={() => void onRefresh()} />
         </View>
       ) : (
         <FlatList
@@ -896,12 +884,7 @@ export function MarketplaceHomeScreen() {
         />
       )}
 
-      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-        <PrimaryButton
-          title="Sell something"
-          onPress={() => navigation.navigate("CreatePost", { initialPostType: "MARKETPLACE" })}
-        />
-      </View>
+
     </View>
   );
 }

@@ -80,10 +80,11 @@ export function MatrimonyQuickFilterBar({ active, onChange, onOpenFilters, filte
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.sm },
-  scroll: { paddingHorizontal: spacing.lg, gap: 8, flexDirection: "row", alignItems: "center" },
+  scroll: { paddingHorizontal: spacing.md, gap: 5, flexDirection: "row", alignItems: "center" },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    minHeight: 44,
+    justifyContent: "center",
     borderRadius: 20,
     borderWidth: 1
   }

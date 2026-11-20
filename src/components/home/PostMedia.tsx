@@ -1,13 +1,13 @@
 /**
  * Feed media — layout sizing only. Playback behavior unchanged.
- * Images use natural aspect ratio so the full photo is visible (no crop).
+ * Images use their natural aspect ratio within the feed height limits.
  * Videos use a tall portrait frame (between 4:5 and 9:16).
  *
  * Feed photos use expo-image (same stack as avatars) — loader while cold download.
  */
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, StyleSheet, Dimensions, type LayoutChangeEvent } from "react-native";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import { getImageUrl } from "../../api/client";
@@ -58,6 +58,7 @@ type PostMediaProps = {
   height?: number;
   style?: object;
   feedMode?: boolean;
+  fullWidthImage?: boolean;
   cornerRadius?: number;
   onRequestPlay?: () => void;
   onDoubleTapLike?: () => void;
@@ -104,6 +105,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
       height: heightProp,
       style,
       feedMode = false,
+      fullWidthImage = false,
       cornerRadius = 14,
       onRequestPlay,
       onDoubleTapLike
@@ -130,6 +132,11 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
       imageUri ? !isImageUriWarmed(imageUri) : false
     );
 
+    const [measuredImageWidth, setMeasuredImageWidth] = useState(0);
+    const measureImageWidth = useCallback((event: LayoutChangeEvent) => {
+      setMeasuredImageWidth(event.nativeEvent.layout.width);
+    }, []);
+
     const contentWidth = feedMode
       ? Math.max(240, screenWidth - CARD_H_MARGIN * 2 - MEDIA_H_INSET * 2)
       : screenWidth - 32;
@@ -138,6 +145,7 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
       ? Math.max(240, screenWidth - CARD_H_MARGIN * 2)
       : contentWidth;
 
+    const imageWidth = fullWidthImage ? measuredImageWidth || screenWidth : contentWidth;
     const maxImageHeight = Math.round(screenHeight * 0.85);
 
     const videoFrameHeight = useMemo(() => {
@@ -189,9 +197,9 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
 
     const imageHeight = useMemo(() => {
       const ratio = aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO;
-      const natural = contentWidth * ratio;
-      return Math.round(Math.min(Math.max(natural, contentWidth * 0.45), maxImageHeight));
-    }, [aspectRatio, contentWidth, maxImageHeight]);
+      const natural = imageWidth * ratio;
+      return Math.round(Math.min(Math.max(natural, imageWidth * 0.45), maxImageHeight));
+    }, [aspectRatio, imageWidth, maxImageHeight]);
 
     const youtubeHeight = feedMode ? videoFrameHeight : heightProp ?? 220;
     const videoHeight = feedMode ? videoFrameHeight : heightProp ?? videoFrameHeight;
@@ -297,8 +305,8 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
 
     if (!imageUri) return null;
 
-    const naturalH = contentWidth * (aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO);
-    const contentFit = naturalH > maxImageHeight ? "contain" : "cover";
+    const naturalH = imageWidth * (aspectRatio ?? DEFAULT_FEED_ASPECT_RATIO);
+    const contentFit = !fullWidthImage && naturalH > maxImageHeight ? "contain" : "cover";
     // Always keep the Image mounted while the row is mounted. Gating on
     // active/preload/retain unmounted photos as soon as they left the 3-slot
     // video window — scroll-back then flashed a loader even from disk cache.
@@ -306,11 +314,14 @@ const PostMediaInner = React.forwardRef<FeedVideoPlayerHandle, PostMediaProps>(
 
     return (
       <View style={[s.wrapOuter, style]}>
-        <View style={[s.wrap, { height: imageHeight }]}>
+        <View
+          style={[s.wrap, { height: imageHeight }]}
+          onLayout={fullWidthImage ? measureImageWidth : undefined}
+        >
           <Image
             source={{ uri: imageUri }}
             style={{
-              width: contentWidth,
+              width: fullWidthImage ? "100%" : imageWidth,
               height: imageHeight,
               alignSelf: "center"
             }}
@@ -338,6 +349,7 @@ export const PostMedia = memo(PostMediaInner, (prev, next) => {
     prev.mediaType !== next.mediaType ||
     prev.thumbnailUrl !== next.thumbnailUrl ||
     prev.feedMode !== next.feedMode ||
+    prev.fullWidthImage !== next.fullWidthImage ||
     prev.cornerRadius !== next.cornerRadius ||
     prev.height !== next.height ||
     prev.onRequestPlay !== next.onRequestPlay ||

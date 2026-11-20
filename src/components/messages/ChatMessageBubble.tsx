@@ -12,6 +12,7 @@ type ThemeColors = {
   primary: string;
   text: string;
   surfaceElevated: string;
+  border: string;
   textMuted: string;
   white: string;
 };
@@ -202,8 +203,8 @@ function ChatMessageBubbleComponent({
           { maxWidth },
           mine ? styles.bubbleMe : styles.bubbleOther,
           mine
-            ? { backgroundColor: colors.primary }
-            : { backgroundColor: colors.surfaceElevated }
+            ? { backgroundColor: "#163E31" }
+            : { backgroundColor: colors.surfaceElevated, borderColor: colors.border }
         ]}
       >
         {sharedPostId ? (
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   rowMe: { justifyContent: "flex-end" },
   rowOther: { justifyContent: "flex-start" },
   rowTight: { marginBottom: 2 },
-  rowGap: { marginBottom: 8 },
+  rowGap: { marginBottom: 6 },
   avatarCol: {
     width: 26,
     marginRight: 6,
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
     maxWidth: "100%"
   },
   bubbleMe: { alignSelf: "flex-end" },
-  bubbleOther: { alignSelf: "flex-start" },
+  bubbleOther: { alignSelf: "flex-start", borderWidth: StyleSheet.hairlineWidth },
   pressed: { opacity: 0.92 },
   sharedCard: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
     gap: 5
   },
   sharedCardTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700"
   },
   sharedCardHint: {
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
   metaOnly: {
     alignSelf: "flex-end"
   },
-  time: { fontSize: 10, lineHeight: 13 },
+  time: { fontSize: 10, lineHeight: 13, fontVariant: ["tabular-nums"] },
   timeMe: { color: "rgba(255,255,255,0.78)" }
 });
 

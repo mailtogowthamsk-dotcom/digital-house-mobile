@@ -62,10 +62,10 @@ function MemberProfileStatsRowInner({
       StyleSheet.create({
         wrap: {
           flexDirection: "row",
-          marginTop: spacing.lg,
+          marginTop: spacing.sm,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          paddingTop: spacing.md
+          paddingTop: spacing.sm
         }
       }),
     [colors]
@@ -86,7 +86,7 @@ export const MemberProfileStatsRow = memo(MemberProfileStatsRowInner);
 
 const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: "center", gap: 2 },
-  value: { fontSize: 18, fontWeight: "800" },
+  value: { fontSize: 15, fontWeight: "700" },
   label: { fontSize: 12, fontWeight: "600" },
   divider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", marginVertical: 4 }
 });

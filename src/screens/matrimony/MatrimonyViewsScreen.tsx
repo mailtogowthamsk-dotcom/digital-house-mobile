@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useCallback, useState } from "react";
 import {
   View,
@@ -11,6 +12,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMatrimonyHub, getMatrimonyProfileViews } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -72,7 +74,7 @@ export function MatrimonyViewsScreen() {
       <MatrimonyScreenHeader title="Who viewed me" onBack={() => navigation.goBack()} />
 
       <View style={[styles.banner, { backgroundColor: "#EDE9FE" }]}>
-        <Text style={{ fontWeight: "800", color: "#5B21B6", fontSize: 13 }}>Platinum feature</Text>
+        <Text style={{ fontWeight: "800", color: "#5B21B6", fontSize: 12 }}>Platinum feature</Text>
         <Text style={{ color: "#6D28D9", fontSize: 12, marginTop: 4, lineHeight: 17 }}>
           See members who opened your full profile in the last 30 days.
         </Text>
@@ -82,8 +84,8 @@ export function MatrimonyViewsScreen() {
         <ActivityIndicator style={{ marginTop: 32 }} color={colors.primary} />
       ) : needsPlatinum ? (
         <View style={{ padding: spacing.lg, alignItems: "center", marginTop: 24 }}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>💎</Text>
-          <Text style={{ fontWeight: "800", fontSize: 17, color: colors.text, textAlign: "center" }}>
+          <Ionicons name="diamond-outline" color={colors.primary} size={30} style={{ marginBottom: 8 }} />
+          <Text style={{ fontWeight: "800", fontSize: 16, color: colors.text, textAlign: "center" }}>
             Upgrade to Platinum
           </Text>
           <Text
@@ -91,8 +93,8 @@ export function MatrimonyViewsScreen() {
               color: colors.textSecondary,
               textAlign: "center",
               marginTop: 10,
-              lineHeight: 20,
-              fontSize: 14
+              lineHeight: 19,
+              fontSize: 13
             }}
           >
             Gold plan opens profiles but does not include “Who viewed me”. Subscribe to Platinum to unlock
@@ -108,7 +110,7 @@ export function MatrimonyViewsScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => String(i.viewerId)}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+          contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl + insets.bottom }]}
           ListEmptyComponent={
             <Text style={{ textAlign: "center", color: colors.textSecondary, lineHeight: 20 }}>
               No one has opened your profile yet this month. Stay active in browse — views appear when
@@ -156,9 +158,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: spacing.md,
+    padding: spacing.sm + 2,
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: spacing.sm
   },
   av: {

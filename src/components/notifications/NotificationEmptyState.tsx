@@ -75,7 +75,7 @@ export function NotificationEmptyState({ category }: Props) {
           marginBottom: spacing.lg
         },
         title: {
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: "800",
           color: colors.text,
           textAlign: "center",
@@ -83,8 +83,8 @@ export function NotificationEmptyState({ category }: Props) {
         },
         body: {
           marginTop: spacing.sm,
-          fontSize: 15,
-          lineHeight: 22,
+          fontSize: 14,
+          lineHeight: 21,
           color: colors.textSecondary,
           textAlign: "center"
         }

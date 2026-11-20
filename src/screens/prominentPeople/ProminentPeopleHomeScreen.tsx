@@ -197,7 +197,7 @@ export function ProminentPeopleHomeScreen() {
           backgroundColor: colors.surfaceElevated
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         toolbar: {
           backgroundColor: colors.surface,
@@ -278,7 +278,7 @@ export function ProminentPeopleHomeScreen() {
           flexGrow: 1
         },
         sectionTitle: {
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "800",
           color: colors.text,
           letterSpacing: 0.3,
@@ -301,8 +301,8 @@ export function ProminentPeopleHomeScreen() {
         },
         bannerImage: { width: "100%", height: 150, backgroundColor: colors.surfaceElevated },
         bannerBody: { padding: spacing.md, gap: 4 },
-        bannerName: { fontSize: 17, fontWeight: "800", color: colors.text },
-        bannerRole: { fontSize: 13, fontWeight: "600", color: ACCENT },
+        bannerName: { fontSize: 16, fontWeight: "800", color: colors.text },
+        bannerRole: { fontSize: 12, fontWeight: "600", color: ACCENT },
         bannerDesc: {
           fontSize: 12,
           lineHeight: 17,
@@ -374,7 +374,7 @@ export function ProminentPeopleHomeScreen() {
           borderColor: "#fff"
         },
         cardBody: { padding: spacing.sm, gap: 3 },
-        cardName: { fontSize: 14, fontWeight: "800", color: colors.text },
+        cardName: { fontSize: 13, fontWeight: "800", color: colors.text },
         cardPos: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         catTag: {
           alignSelf: "flex-start",
@@ -401,12 +401,12 @@ export function ProminentPeopleHomeScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
         },
         columnWrap: { justifyContent: "space-between" }

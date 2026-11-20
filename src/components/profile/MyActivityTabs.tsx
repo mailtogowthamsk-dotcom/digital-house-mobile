@@ -78,7 +78,7 @@ export function MyActivityTabs({
           alignItems: "center",
           justifyContent: "center"
         },
-        title: { fontSize: 16, fontWeight: "800", color: colors.text },
+        title: { fontSize: 15, fontWeight: "800", color: colors.text },
         subtitle: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         segment: {
           flexDirection: "row",
@@ -125,11 +125,11 @@ export function MyActivityTabs({
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
-          fontSize: 13,
-          lineHeight: 19,
+          fontSize: 12,
+          lineHeight: 18,
           color: colors.textSecondary,
           textAlign: "center"
         },
@@ -153,10 +153,10 @@ export function MyActivityTabs({
         },
         itemBody: { flex: 1, minWidth: 0 },
         itemTitle: {
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "700",
           color: colors.text,
-          lineHeight: 19
+          lineHeight: 18
         },
         itemMeta: {
           marginTop: 4,

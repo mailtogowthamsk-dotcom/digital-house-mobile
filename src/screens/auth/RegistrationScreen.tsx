@@ -707,13 +707,13 @@ const s = StyleSheet.create({
     borderColor: "#DCE7DF",
     backgroundColor: "#FFFFFF"
   },
-  backText: { fontSize: 14, color: BRAND_DEEP, marginRight: spacing.xs },
+  backText: { fontSize: 13, color: BRAND_DEEP, marginRight: spacing.xs },
   header: { alignItems: "center", marginBottom: spacing.md },
   brandTitle: {
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
     fontFamily: fonts.bold,
-    fontSize: 24,
+    fontSize: 22,
     color: BRAND_DEEP,
     textAlign: "center"
   },
@@ -726,7 +726,7 @@ const s = StyleSheet.create({
   },
   progressDotActive: { backgroundColor: BRAND_DEEP },
   progressDotDone: { backgroundColor: "#529477" },
-  stepTitle: { fontSize: 13, fontFamily: fonts.semiBold, color: BRAND_DEEP },
+  stepTitle: { fontSize: 12, fontFamily: fonts.semiBold, color: BRAND_DEEP },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -742,7 +742,7 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4
   },
-  photoLabel: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 10 },
+  photoLabel: { fontSize: 12, fontWeight: "600", color: "#374151", marginBottom: 10 },
   photoRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg, gap: 14 },
   photoCircle: {
     width: 72,
@@ -766,9 +766,9 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DCE7DF"
   },
-  photoBtnText: { fontSize: 14, fontWeight: "600", color: BRAND_PRIMARY },
+  photoBtnText: { fontSize: 13, fontWeight: "600", color: BRAND_PRIMARY },
   photoRemove: { marginTop: 8, alignSelf: "flex-start", paddingVertical: 4 },
-  photoRemoveText: { fontSize: 13, color: "#EF4444", fontWeight: "500" },
+  photoRemoveText: { fontSize: 12, color: "#EF4444", fontWeight: "500" },
   photoHint: { marginTop: 8, fontSize: 12, color: "#9CA3AF", lineHeight: 16 },
   dateRow: {
     flexDirection: "row",
@@ -782,14 +782,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: spacing.lg
   },
-  dateText: { fontSize: 16, color: "#111827" },
+  dateText: { fontSize: 15, color: "#111827" },
   datePlaceholder: { color: "#9CA3AF" },
   reviewLabel: { fontSize: 12, color: "#6B7280", marginTop: spacing.sm },
-  reviewValue: { fontSize: 16, color: "#111827", marginBottom: spacing.xs },
+  reviewValue: { fontSize: 15, color: "#111827", marginBottom: spacing.xs },
   reviewHint: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#6B7280",
-    lineHeight: 20,
+    lineHeight: 19,
     marginTop: spacing.lg,
     marginBottom: spacing.md
   },
@@ -800,9 +800,9 @@ const s = StyleSheet.create({
     marginBottom: spacing.sm
   },
   legalCheck: { paddingTop: 2 },
-  legalText: { flex: 1, fontSize: 14, color: "#111827", lineHeight: 20 },
+  legalText: { flex: 1, fontSize: 13, color: "#111827", lineHeight: 19 },
   legalLink: { color: BRAND_PRIMARY, fontWeight: "700", textDecorationLine: "underline" },
-  messageError: { fontSize: 14, color: "#EF4444" },
+  messageError: { fontSize: 13, color: "#EF4444" },
   btnWrap: { width: "100%", marginTop: spacing.sm, marginBottom: spacing.lg },
   btnPressed: { opacity: 0.9 },
   btnDisabled: { opacity: 0.7 },
@@ -813,8 +813,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  btnText: { fontSize: 17, fontWeight: "600", color: "#FFFFFF" },
+  btnText: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
   loginWrap: { flexDirection: "row", flexWrap: "wrap", minHeight: 44, alignItems: "center", justifyContent: "center" },
-  loginText: { fontSize: 15, color: "#6B7280" },
-  loginLink: { fontSize: 15, fontWeight: "600", color: BRAND_PRIMARY }
+  loginText: { fontSize: 14, color: "#6B7280" },
+  loginLink: { fontSize: 14, fontWeight: "600", color: BRAND_PRIMARY }
 });

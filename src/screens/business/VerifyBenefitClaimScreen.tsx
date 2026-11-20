@@ -107,7 +107,7 @@ export function VerifyBenefitClaimScreen() {
         },
         fieldValue: { ...typography.body, color: colors.text, fontWeight: "600", marginTop: 2 },
         code: {
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: "800",
           letterSpacing: 1.2,
           color: colors.text,

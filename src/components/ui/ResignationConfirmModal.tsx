@@ -173,10 +173,10 @@ const s = StyleSheet.create({
     justifyContent: "center"
   },
   iconText: {
-    fontSize: 24
+    fontSize: 22
   },
   title: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "600",
     color: TEXT_PRIMARY,
     textAlign: "center",
@@ -184,11 +184,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 4
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "400",
     color: TEXT_SECONDARY,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 21,
     marginBottom: 24,
     paddingHorizontal: 4
   },
@@ -211,7 +211,7 @@ const s = StyleSheet.create({
     justifyContent: "center"
   },
   btnPrimaryText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#FFFFFF"
   },
@@ -225,7 +225,7 @@ const s = StyleSheet.create({
     justifyContent: "center"
   },
   btnSecondaryText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: RESIGN_COLOR
   },

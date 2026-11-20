@@ -18,43 +18,18 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
           alignItems: "center",
           backgroundColor: colors.surface,
           borderRadius: 16,
-          padding: 18,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 10,
-          elevation: 3
-        },
-        avatarWrap: {
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: mode === "dark" ? "#1E3A5F" : "#EFF6FF",
-          alignItems: "center",
-          justifyContent: "center",
-          marginRight: 16,
-          overflow: "hidden"
-        },
-        avatarImg: { width: 56, height: 56, borderRadius: 28 },
-        avatarText: {
-          fontSize: 24,
-          fontWeight: "700",
-          color: colors.primary
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          gap: 8
         },
         textWrap: { flex: 1, minWidth: 0 },
         greeting: {
-          fontSize: 19,
+          fontSize: 13,
           fontWeight: "600",
-          color: colors.text,
-          marginBottom: 4
-        },
-        welcome: {
-          fontSize: 14,
-          fontWeight: "500",
-          color: colors.textSecondary
+          color: colors.text
         }
       }),
-    [colors, mode]
+    [colors]
   );
 
   const displayName = userName.trim() || "User";
@@ -64,17 +39,13 @@ export function WelcomeCard({ userName, avatarUri }: WelcomeCardProps) {
       <AvatarImage
         uri={avatarUri}
         name={displayName}
-        size={56}
+        size={28}
         placeholderColor={mode === "dark" ? "#1E3A5F" : "#EFF6FF"}
         textColor={colors.primary}
-        containerStyle={s.avatarWrap}
       />
       <View style={s.textWrap}>
         <Text style={s.greeting} numberOfLines={1}>
           Hello, {displayName} 👋
-        </Text>
-        <Text style={s.welcome} numberOfLines={1}>
-          Welcome to Digital House
         </Text>
       </View>
     </View>

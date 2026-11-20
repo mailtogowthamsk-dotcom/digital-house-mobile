@@ -98,6 +98,7 @@ function isVideoPost(post: PostCardData): boolean {
 }
 
 type PostCardProps = {
+  fullWidth?: boolean;
   post: PostCardData;
   /** Prefer separate flags over mutating `post` — keeps React.memo effective. */
   isMediaActive?: boolean;
@@ -122,6 +123,7 @@ type PostCardProps = {
 };
 
 function PostCardInner({
+  fullWidth = false,
   post,
   isMediaActive: isMediaActiveProp,
   isMediaPreload: isMediaPreloadProp,
@@ -256,14 +258,15 @@ function PostCardInner({
     () =>
       StyleSheet.create({
         card: {
-          backgroundColor: mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
-          marginHorizontal: 6,
-          marginBottom: 10,
-          borderRadius: 18,
+          backgroundColor: fullWidth || mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
+          marginHorizontal: fullWidth ? 0 : 6,
+          marginBottom: fullWidth ? 8 : 10,
+          borderRadius: fullWidth ? 0 : 18,
           overflow: "hidden",
-          borderWidth: StyleSheet.hairlineWidth,
+          borderWidth: fullWidth ? 0 : StyleSheet.hairlineWidth,
+          borderBottomWidth: StyleSheet.hairlineWidth,
           borderColor: mode === "dark" ? colors.border : "rgba(15,23,42,0.05)",
-          ...feedCardShadow(mode)
+          ...(fullWidth ? undefined : feedCardShadow(mode))
         },
         cardVideo: {
           // Match video chrome so rounded corners don’t flash white gaps
@@ -278,7 +281,7 @@ function PostCardInner({
           paddingHorizontal: 20,
           paddingTop: 14,
           paddingBottom: video ? 8 : 0,
-          backgroundColor: mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)"
+          backgroundColor: fullWidth || mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)"
         },
         videoStage: {
           position: "relative",
@@ -287,7 +290,7 @@ function PostCardInner({
           overflow: "hidden"
         },
         videoFooter: {
-          backgroundColor: mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
+          backgroundColor: fullWidth || mode === "dark" ? colors.surface : "rgba(255,255,255,0.92)",
           borderTopLeftRadius: 0,
           borderTopRightRadius: 0
         },
@@ -339,7 +342,7 @@ function PostCardInner({
         },
         heartIconWrap: { alignItems: "center", justifyContent: "center" }
       }),
-    [colors, mode, video]
+    [colors, mode, video, fullWidth]
   );
 
   const heartLayer = heartVisible ? (
@@ -432,6 +435,42 @@ function PostCardInner({
     />
   ) : null;
 
+  const hasVisualMedia = hasImage || video;
+  const compactMediaFooter = fullWidth && hasVisualMedia;
+  const caption = (
+    <PostCaption
+      title={post.title}
+      description={post.description}
+      maxLines={hasVisualMedia ? 2 : 3}
+      compact={compactMediaFooter || (!fullWidth && hasVisualMedia)}
+      feedReading={fullWidth}
+    />
+  );
+  const comments = compactMediaFooter ? null : (
+    <CommentPreview
+      likeCount={post.likeCount}
+      commentCount={post.commentCount}
+      firstLikerName={post.firstLikerName}
+      onLikeCountPress={onLikeCountPress}
+      onViewComments={onCommentPress}
+      compact
+    />
+  );
+  const actions = (
+    <PostActions
+      compact={fullWidth || hasVisualMedia}
+      likedByMe={post.likedByMe}
+      savedByMe={post.savedByMe}
+      likeCount={post.likeCount}
+      commentCount={post.commentCount}
+      onLikePress={onLikePress}
+      onLikeCountPress={onLikeCountPress}
+      onCommentPress={onCommentPress}
+      onSharePress={onSharePress}
+      onSavePress={onSavePress}
+    />
+  );
+
   return (
     <View style={[s.card, video && s.cardVideo]}>
       {post.isRepost ? (
@@ -494,6 +533,7 @@ function PostCardInner({
                     isPreload={isMediaPreload}
                     isRetain={isMediaRetain}
                     feedMode
+                    fullWidthImage={fullWidth}
                     cornerRadius={0}
                   />
                 </View>
@@ -503,18 +543,11 @@ function PostCardInner({
         </View>
       )}
 
-      <View style={[video ? s.videoFooter : undefined, (hasImage || video) && s.mediaFooter]}>
+      <View style={[video && s.videoFooter, hasVisualMedia && !compactMediaFooter && s.mediaFooter]}>
         {isJob ? (
           <>
             {jobBlock}
-            <CommentPreview
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              firstLikerName={post.firstLikerName}
-              onLikeCountPress={onLikeCountPress}
-              onViewComments={onCommentPress}
-              compact
-            />
+            {comments}
             <PostActions
               compact={hasImage || video}
               likedByMe={post.likedByMe}
@@ -531,14 +564,7 @@ function PostCardInner({
         ) : isMarketplace ? (
           <>
             {marketplaceBlock}
-            <CommentPreview
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              firstLikerName={post.firstLikerName}
-              onLikeCountPress={onLikeCountPress}
-              onViewComments={onCommentPress}
-              compact
-            />
+            {comments}
             <PostActions
               compact={hasImage || video}
               likedByMe={post.likedByMe}
@@ -555,14 +581,7 @@ function PostCardInner({
         ) : isHelp ? (
           <>
             {helpBlock}
-            <CommentPreview
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              firstLikerName={post.firstLikerName}
-              onLikeCountPress={onLikeCountPress}
-              onViewComments={onCommentPress}
-              compact
-            />
+            {comments}
             <PostActions
               compact={hasImage || video}
               likedByMe={post.likedByMe}
@@ -576,63 +595,13 @@ function PostCardInner({
               onSavePress={onSavePress}
             />
           </>
-        ) : hasImage || video ? (
-          <>
-            <PostActions
-              compact
-              likedByMe={post.likedByMe}
-              savedByMe={post.savedByMe}
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              onLikePress={onLikePress}
-              onLikeCountPress={onLikeCountPress}
-              onCommentPress={onCommentPress}
-              onSharePress={onSharePress}
-              onSavePress={onSavePress}
-            />
-            <PostCaption
-              title={post.title}
-              description={post.description}
-              variant="full"
-              maxLines={2}
-              compact
-            />
-            <CommentPreview
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              firstLikerName={post.firstLikerName}
-              onLikeCountPress={onLikeCountPress}
-              onViewComments={onCommentPress}
-              compact
-            />
-          </>
         ) : (
           <>
-            <PostCaption
-              title={post.title}
-              description={post.description}
-              variant="full"
-              maxLines={3}
-            />
-            <CommentPreview
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              firstLikerName={post.firstLikerName}
-              onLikeCountPress={onLikeCountPress}
-              onViewComments={onCommentPress}
-              compact
-            />
-            <PostActions
-              likedByMe={post.likedByMe}
-              savedByMe={post.savedByMe}
-              likeCount={post.likeCount}
-              commentCount={post.commentCount}
-              onLikePress={onLikePress}
-              onLikeCountPress={onLikeCountPress}
-              onCommentPress={onCommentPress}
-              onSharePress={onSharePress}
-              onSavePress={onSavePress}
-            />
+            {(fullWidth || !hasVisualMedia) && caption}
+            {!fullWidth && !hasVisualMedia && comments}
+            {actions}
+            {!fullWidth && hasVisualMedia && caption}
+            {(fullWidth || hasVisualMedia) && comments}
           </>
         )}
       </View>
@@ -645,6 +614,7 @@ export const PostCard = memo(PostCardInner, (prev, next) => {
   const b = next.post;
   if (
     a !== b ||
+    prev.fullWidth !== next.fullWidth ||
     prev.onAuthorPress !== next.onAuthorPress ||
     prev.onDoubleTap !== next.onDoubleTap ||
     prev.onLikePress !== next.onLikePress ||

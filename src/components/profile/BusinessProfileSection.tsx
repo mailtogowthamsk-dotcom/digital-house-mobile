@@ -62,7 +62,7 @@ export function BusinessProfileSection({ business, visible = true }: BusinessPro
       StyleSheet.create({
         name: {
           ...typography.h3,
-          fontSize: 17,
+          fontSize: 16,
           color: colors.text,
           fontWeight: "700"
         },
@@ -206,13 +206,13 @@ export function BusinessProfileCard({
           alignItems: "stretch"
         },
         sectionTitle: {
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "800",
           marginBottom: spacing.sm,
           color: colors.text
         },
         name: {
-          fontSize: 17,
+          fontSize: 16,
           fontWeight: "700",
           color: colors.text
         },
@@ -229,14 +229,14 @@ export function BusinessProfileCard({
           color: colors.primary
         },
         type: {
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.textSecondary,
           marginBottom: spacing.sm
         },
         description: {
-          fontSize: 13,
-          lineHeight: 19,
+          fontSize: 12,
+          lineHeight: 18,
           color: colors.text,
           marginBottom: spacing.sm
         },
@@ -246,8 +246,8 @@ export function BusinessProfileCard({
           gap: spacing.sm,
           paddingVertical: 8
         },
-        rowText: { flex: 1, fontSize: 13, fontWeight: "500", color: colors.text },
-        linkText: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.primary },
+        rowText: { flex: 1, fontSize: 12, fontWeight: "500", color: colors.text },
+        linkText: { flex: 1, fontSize: 12, fontWeight: "600", color: colors.primary },
         contactBtn: {
           marginTop: spacing.md,
           flexDirection: "row",
@@ -259,7 +259,7 @@ export function BusinessProfileCard({
           backgroundColor: colors.primary
         },
         contactBtnText: {
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "700",
           color: colors.white
         }

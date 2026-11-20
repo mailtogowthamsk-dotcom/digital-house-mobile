@@ -221,7 +221,7 @@ export function JobApplicantsScreen() {
           gap: 8
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         chipRow: {
           flexGrow: 0,
@@ -251,7 +251,7 @@ export function JobApplicantsScreen() {
           borderColor: "#0D9488",
           backgroundColor: themeMode === "dark" ? "#134E4A" : "#F0FDFA"
         },
-        chipText: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+        chipText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
         chipTextActive: { color: themeMode === "dark" ? "#5EEAD4" : "#0F766E" },
         listContent: {
           paddingHorizontal: spacing.lg,
@@ -264,12 +264,12 @@ export function JobApplicantsScreen() {
           borderRadius: radius.lg,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          gap: spacing.sm
+          padding: spacing.sm + 2,
+          marginBottom: spacing.sm,
+          gap: spacing.xs
         },
-        name: { fontSize: 16, fontWeight: "700", color: colors.text },
-        message: { fontSize: 13, lineHeight: 19, color: colors.textSecondary },
+        name: { fontSize: 15, fontWeight: "700", color: colors.text },
+        message: { fontSize: 12, lineHeight: 18, color: colors.textSecondary },
         meta: { fontSize: 12, color: colors.textMuted },
         statusBadge: {
           alignSelf: "flex-start",
@@ -286,16 +286,18 @@ export function JobApplicantsScreen() {
         actionsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
         actionBtn: {
           paddingHorizontal: 10,
-          paddingVertical: 8,
+          minHeight: 44,
+          justifyContent: "center",
           borderRadius: radius.md,
           backgroundColor: colors.surfaceElevated,
           borderWidth: 1,
           borderColor: colors.border
         },
         actionBtnText: { fontSize: 11, fontWeight: "700", color: colors.primary },
+        compactButton: { alignSelf: "flex-start", minHeight: 44, paddingVertical: spacing.xs },
         notesInput: {
           ...textFieldMultiline,
-          minHeight: 72,
+          minHeight: 64,
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: radius.md,
@@ -307,10 +309,10 @@ export function JobApplicantsScreen() {
         center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
         errorText: { color: colors.error, textAlign: "center", marginBottom: spacing.md },
         empty: { alignItems: "center", paddingTop: 48, paddingHorizontal: spacing.xl },
-        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
-          fontSize: 13,
+          fontSize: 12,
           color: colors.textSecondary,
           textAlign: "center"
         },
@@ -389,6 +391,7 @@ export function JobApplicantsScreen() {
           />
           <PrimaryButton
             title="Save notes"
+            style={s.compactButton}
             variant="secondary"
             onPress={() => void saveNotes(item)}
             loading={savingId === item.id}
@@ -460,7 +463,7 @@ export function JobApplicantsScreen() {
       ) : error && items.length === 0 ? (
         <View style={s.center}>
           <Text style={s.errorText}>{error}</Text>
-          <PrimaryButton title="Retry" onPress={() => void load("replace", 1)} />
+          <PrimaryButton title="Retry" style={s.compactButton} onPress={() => void load("replace", 1)} />
         </View>
       ) : (
         <FlatList

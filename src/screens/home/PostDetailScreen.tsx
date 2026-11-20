@@ -903,7 +903,12 @@ export function PostDetailScreen() {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
-        content: { paddingBottom: spacing.xl * 2 },
+        content: {
+          width: "100%",
+          maxWidth: 680,
+          alignSelf: "center",
+          paddingBottom: spacing.xxl
+        },
         center: {
           flex: 1,
           justifyContent: "center",
@@ -923,19 +928,19 @@ export function PostDetailScreen() {
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: spacing.md,
-          paddingTop: spacing.md,
+          paddingTop: spacing.sm,
           marginBottom: spacing.sm
         },
         repostBanner: {
           marginHorizontal: spacing.md,
-          marginTop: spacing.md,
-          padding: spacing.md,
+          marginTop: spacing.sm,
+          padding: spacing.sm,
           borderRadius: radius.md,
           gap: 2
         },
         headerText: { flex: 1, minWidth: 0 },
-        authorName: { ...typography.h3, fontWeight: "600", color: colors.text },
-        metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+        authorName: { ...typography.label, fontWeight: "700", color: colors.text },
+        metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5, marginTop: 2 },
         meta: { ...typography.caption, color: colors.textSecondary },
         typePill: {
           paddingHorizontal: 8,
@@ -944,42 +949,71 @@ export function PostDetailScreen() {
           backgroundColor: colors.surfaceElevated
         },
         typePillText: { ...typography.caption, fontWeight: "600", color: colors.primary },
-        moreBtn: { padding: spacing.xs },
+        moreBtn: {
+          width: 44, height: 44, borderRadius: radius.md,
+          alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceElevated
+        },
         body: { paddingHorizontal: spacing.md },
-        title: { ...typography.h2, color: colors.text, marginBottom: spacing.sm },
-        description: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
-        mediaWrap: { marginBottom: spacing.sm, backgroundColor: colors.border },
+        listingFacts: {
+          gap: 6, marginBottom: spacing.sm, padding: spacing.sm,
+          borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border, backgroundColor: colors.surface
+        },
+        listingOwnerActions: {
+          flexDirection: "row", flexWrap: "wrap", gap: spacing.xs,
+          marginHorizontal: spacing.md, marginBottom: spacing.sm
+        },
+        listingOwnerButton: { minHeight: 44, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+        listingOwnerNotice: { width: "100%", fontSize: 12, color: colors.textMuted },
+        listingContact: {
+          alignSelf: "flex-start", minHeight: 44, paddingVertical: spacing.xs, backgroundColor: "#163E31"
+        },
+        title: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
+        description: { ...typography.bodySmall, color: colors.text, marginBottom: spacing.sm },
+        mediaWrap: {
+          marginHorizontal: spacing.md,
+          marginBottom: spacing.sm,
+          borderRadius: radius.lg,
+          overflow: "hidden",
+          backgroundColor: colors.surfaceElevated
+        },
         actions: {
           flexDirection: "row",
+          flexWrap: "wrap",
           alignItems: "center",
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.sm,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          gap: spacing.xs
+          paddingHorizontal: spacing.xs,
+          marginHorizontal: spacing.md,
+          borderRadius: radius.lg,
+          borderWidth: StyleSheet.hairlineWidth,
+          backgroundColor: colors.surface,
+          borderColor: colors.border
         },
+        actionGroup: { flexDirection: "row", alignItems: "center" },
+        actionEnd: { marginLeft: "auto" },
         actionBtn: {
+          minHeight: 44,
+          minWidth: 44,
           flexDirection: "row",
           alignItems: "center",
-          gap: 6,
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.sm,
+          justifyContent: "center",
+          gap: 5,
+          paddingHorizontal: spacing.xs,
           borderRadius: radius.md
         },
-        actionBtnPressed: { opacity: 0.65 },
+        actionBtnPressed: { backgroundColor: colors.surfaceElevated },
         actionCount: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
         actionCountActive: { color: HEART_COLOR },
         commentsTeaser: {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.md
+          minHeight: 44,
+          marginHorizontal: spacing.md,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs
         },
         commentsTeaserPressed: { opacity: 0.7 },
-        commentsTeaserText: { ...typography.body, fontWeight: "500", color: colors.text },
-        commentsTeaserHint: { ...typography.caption, color: colors.textSecondary }
+        commentsTeaserText: { ...typography.bodySmall, fontWeight: "600", color: colors.text }
       }),
     [colors]
   );
@@ -1050,7 +1084,7 @@ export function PostDetailScreen() {
           <View style={[s.repostBanner, { backgroundColor: colors.surfaceElevated }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Ionicons name="repeat" size={14} color={colors.textSecondary} />
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
                 {post.reposted_by?.name ? `${post.reposted_by.name} reposted` : "Reposted"}
               </Text>
             </View>
@@ -1061,7 +1095,7 @@ export function PostDetailScreen() {
           <AvatarImage
             uri={post.author.profile_image}
             name={post.author.name}
-            size={44}
+            size={36}
             containerStyle={{ marginRight: spacing.sm }}
           />
           <View style={s.headerText}>
@@ -1101,7 +1135,7 @@ export function PostDetailScreen() {
         <View style={s.body}>
           <Text style={s.title}>{post.title}</Text>
           {post.post_type === "JOB" ? (
-            <View style={{ gap: 10, marginBottom: spacing.md }}>
+            <View style={s.listingFacts}>
               {post.job_company ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   <View
@@ -1124,7 +1158,7 @@ export function PostDetailScreen() {
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
                       {post.job_company}
                     </Text>
                     {post.job_category ? (
@@ -1140,11 +1174,11 @@ export function PostDetailScreen() {
                 {post.job_location ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                     <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13, color: colors.textMuted }}>{post.job_location}</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>{post.job_location}</Text>
                   </View>
                 ) : null}
                 {formatJobSalary(post.job_salary_min, post.job_salary_max) ? (
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
                     {formatJobSalary(post.job_salary_min, post.job_salary_max)}
                   </Text>
                 ) : null}
@@ -1214,7 +1248,7 @@ export function PostDetailScreen() {
             </View>
           ) : null}
           {post.post_type === "MARKETPLACE" ? (
-            <View style={{ gap: 6, marginBottom: spacing.md }}>
+            <View style={s.listingFacts}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <View
                   style={[
@@ -1233,7 +1267,7 @@ export function PostDetailScreen() {
                   post.marketplace_price,
                   post.marketplace_negotiable
                 ) ? (
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.primary }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>
                     {formatMarketplacePrice(
                       post.marketplace_intent,
                       post.marketplace_price,
@@ -1290,13 +1324,13 @@ export function PostDetailScreen() {
               {post.help_location ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                   <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13, color: colors.textMuted }}>{post.help_location}</Text>
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>{post.help_location}</Text>
                 </View>
               ) : null}
               {post.help_contact_phone ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                   <Ionicons name="call-outline" size={14} color={colors.textMuted} />
-                  <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
                     {post.help_contact_phone}
                   </Text>
                 </View>
@@ -1311,7 +1345,7 @@ export function PostDetailScreen() {
           {post.description ? (
             <View style={{ gap: 6 }}>
               {post.post_type === "JOB" ? (
-                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary }}>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
                   Job Description
                 </Text>
               ) : null}
@@ -1339,7 +1373,7 @@ export function PostDetailScreen() {
               gap: spacing.sm
             }}
           >
-            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textSecondary, marginBottom: 2 }}>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: 2 }}>
               Manage listing
             </Text>
             <PrimaryButton
@@ -1350,9 +1384,9 @@ export function PostDetailScreen() {
                   jobTitle: post.title
                 })
               }
-              style={{ minHeight: 48, paddingVertical: spacing.md }}
+              style={s.listingOwnerButton}
             />
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               <PrimaryButton
                 title="Edit"
                 onPress={() =>
@@ -1362,14 +1396,14 @@ export function PostDetailScreen() {
                   })
                 }
                 variant="secondary"
-                style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+                style={s.listingOwnerButton}
               />
               <PrimaryButton
                 title={jobListingStatus === "OPEN" ? "Close" : "Reopen"}
                 onPress={handleToggleJobStatus}
                 loading={updatingJob}
                 variant="secondary"
-                style={{ flex: 1, minHeight: 44, paddingVertical: spacing.sm }}
+                style={s.listingOwnerButton}
               />
             </View>
             <Pressable
@@ -1383,7 +1417,7 @@ export function PostDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel="Delete job"
             >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.error }}>Delete job</Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.error }}>Delete job</Text>
             </Pressable>
           </View>
         ) : null}
@@ -1394,11 +1428,13 @@ export function PostDetailScreen() {
           post.marketplace_status === "PENDING_REVIEW" ||
           post.marketplace_status === "EXPIRED" ||
           post.marketplace_status === "SOLD") ? (
-          <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md, gap: 8 }}>
+          <View style={s.listingOwnerActions}>
             {listingLive ||
             post.marketplace_status === "CHANGES_REQUESTED" ||
             post.marketplace_status === "PENDING_REVIEW" ? (
               <PrimaryButton
+                style={s.listingOwnerButton}
+                textStyle={typography.buttonSmall}
                 title={
                   post.marketplace_status === "CHANGES_REQUESTED"
                     ? "Edit & resubmit"
@@ -1415,6 +1451,8 @@ export function PostDetailScreen() {
             ) : null}
             {listingLive ? (
               <PrimaryButton
+                style={s.listingOwnerButton}
+                textStyle={typography.buttonSmall}
                 title="Mark as sold"
                 onPress={handleMarkSold}
                 loading={updatingJob}
@@ -1423,6 +1461,8 @@ export function PostDetailScreen() {
             ) : null}
             {post.marketplace_status === "EXPIRED" ? (
               <PrimaryButton
+                style={s.listingOwnerButton}
+                textStyle={typography.buttonSmall}
                 title="Renew listing"
                 onPress={() => {
                   appAlert(
@@ -1458,6 +1498,8 @@ export function PostDetailScreen() {
             ) : null}
             {post.marketplace_status === "EXPIRED" || post.marketplace_status === "SOLD" ? (
               <PrimaryButton
+                style={s.listingOwnerButton}
+                textStyle={typography.buttonSmall}
                 title="Archive"
                 onPress={() => {
                   appAlert("Archive listing?", "It will move to Archived in My listings.", [
@@ -1491,11 +1533,7 @@ export function PostDetailScreen() {
             ) : null}
             {post.marketplace_expires_at && listingLive ? (
               <Text
-                style={{
-                  fontSize: 12,
-                  color: colors.textMuted,
-                  textAlign: "center"
-                }}
+                style={s.listingOwnerNotice}
               >
                 {formatMarketplaceExpiry(post.marketplace_expires_at) ??
                   `Expires ${new Date(post.marketplace_expires_at).toLocaleDateString()}`}
@@ -1518,13 +1556,13 @@ export function PostDetailScreen() {
 
         {post.post_type === "MARKETPLACE" && !isOwnListing && listingLive ? (
           <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
-            <PrimaryButton title="Contact seller" onPress={handleContactSeller} />
+            <PrimaryButton title="Contact seller" onPress={handleContactSeller} style={s.listingContact} />
             <Text
               style={{
                 marginTop: 8,
                 fontSize: 12,
                 color: colors.textMuted,
-                textAlign: "center"
+                textAlign: "left"
               }}
             >
               Negotiate offline. No in-app payments or delivery.
@@ -1542,7 +1580,7 @@ export function PostDetailScreen() {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  paddingVertical: 12,
+                  paddingVertical: 8,
                   borderRadius: radius.md,
                   backgroundColor: colors.surfaceElevated ?? colors.border,
                   opacity: pressed ? 0.88 : 1
@@ -1551,10 +1589,10 @@ export function PostDetailScreen() {
                 accessibilityLabel={`Call employer ${post.job_contact_phone}`}
               >
                 <Ionicons name="call" size={18} color={colors.primary} />
-                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.primary }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>
                   Call
                 </Text>
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>
                   {post.job_contact_phone}
                 </Text>
               </Pressable>
@@ -1568,11 +1606,11 @@ export function PostDetailScreen() {
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 6,
-                      paddingVertical: 12
+                      paddingVertical: 8
                     }}
                   >
                     <Ionicons name="checkmark-circle" size={20} color="#15803D" />
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#15803D" }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#15803D" }}>
                       Applied
                       {post.job_application_status
                         ? ` · ${formatApplicationStatus(post.job_application_status)}`
@@ -1583,7 +1621,7 @@ export function PostDetailScreen() {
                 {!post.job_interested_by_me && !jobAccepting ? (
                   <Text
                     style={{
-                      fontSize: 13,
+                      fontSize: 12,
                       color: colors.textMuted,
                       textAlign: "center",
                       marginBottom: 4
@@ -1593,6 +1631,7 @@ export function PostDetailScreen() {
                   </Text>
                 ) : null}
                 <PrimaryButton
+              style={s.listingOwnerButton}
                   title={
                     post.job_interested_by_me
                       ? post.job_can_message_poster
@@ -1626,6 +1665,7 @@ export function PostDetailScreen() {
         {post.post_type === "HELP_REQUEST" && !isOwnHelp && helpOpen ? (
           <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
             <PrimaryButton
+              style={s.listingOwnerButton}
               title={post.help_offered_by_me ? "Contact requester" : "I'm Ready to Help"}
               onPress={handleOfferHelp}
               loading={helpBusy}
@@ -1649,7 +1689,7 @@ export function PostDetailScreen() {
           >
             <Text
               style={{
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: "700",
                 color: colors.textSecondary,
                 marginBottom: 2
@@ -1692,7 +1732,7 @@ export function PostDetailScreen() {
                 />
               </>
             ) : (
-              <Text style={{ fontSize: 13, color: colors.textMuted, lineHeight: 18 }}>
+              <Text style={{ fontSize: 12, color: colors.textMuted, lineHeight: 17 }}>
                 This request is {String(post.help_status || "closed").toLowerCase()}. You can
                 delete it permanently below.
               </Text>
@@ -1708,7 +1748,7 @@ export function PostDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel="Delete help request"
             >
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.error }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.error }}>
                 Delete request
               </Text>
             </Pressable>
@@ -1717,7 +1757,7 @@ export function PostDetailScreen() {
 
         {post.post_type === "HELP_REQUEST" && helpHelpers.length > 0 ? (
           <View style={{ paddingHorizontal: spacing.md, marginBottom: spacing.md }}>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 8 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text, marginBottom: 8 }}>
               Current volunteers ({helpHelpersTotal || helpHelpers.length})
             </Text>
             {helpHelpers.map((item) => (
@@ -1763,7 +1803,7 @@ export function PostDetailScreen() {
                 {helpHelpersLoadingMore ? (
                   <ActivityIndicator color={colors.primary} />
                 ) : (
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
                     Load more volunteers
                   </Text>
                 )}
@@ -1792,7 +1832,7 @@ export function PostDetailScreen() {
                 marginBottom: spacing.sm
               }}
             >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text }}>
                 Interested members ({interestTotal || interestItems.length})
               </Text>
               <Pressable
@@ -1875,25 +1915,27 @@ export function PostDetailScreen() {
         ) : null}
 
         <View style={s.actions}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View style={s.actionGroup}>
             <Pressable
               style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
               onPress={handleLike}
               disabled={liking}
+              accessibilityRole="button"
               accessibilityLabel={post.liked_by_me ? "Unlike" : "Like"}
             >
               <Ionicons
                 name={post.liked_by_me ? "heart" : "heart-outline"}
-                size={22}
+                size={20}
                 color={post.liked_by_me ? HEART_COLOR : colors.textSecondary}
               />
             </Pressable>
             <Pressable
-              style={({ pressed }) => [s.actionBtn, { paddingLeft: 2 }, pressed && s.actionBtnPressed]}
+              style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
               onPress={() => {
                 if (post.like_count > 0) setLikesOpen(true);
                 else void handleLike();
               }}
+              accessibilityRole="button"
               accessibilityLabel={`${post.like_count} likes`}
             >
               <Text style={[s.actionCount, post.liked_by_me && s.actionCountActive]}>
@@ -1904,44 +1946,48 @@ export function PostDetailScreen() {
 
           <Pressable
             style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`${post.comment_count} comments`}
             onPress={() => setCommentsOpen(true)}
           >
-            <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} />
+            <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
             <Text style={s.actionCount}>{post.comment_count}</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            style={({ pressed }) => [s.actionBtn, s.actionEnd, pressed && s.actionBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? "Remove bookmark" : "Bookmark"}
             onPress={handleSave}
             disabled={saving}
           >
             <Ionicons
               name={saved ? "bookmark" : "bookmark-outline"}
-              size={22}
+              size={20}
               color={saved ? colors.primary : colors.textSecondary}
             />
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [s.actionBtn, pressed && s.actionBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Share post"
             onPress={openShareSheet}
           >
-            <Ionicons name="share-outline" size={22} color={colors.textSecondary} />
+            <Ionicons name="share-outline" size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
 
         <Pressable
           style={({ pressed }) => [s.commentsTeaser, pressed && s.commentsTeaserPressed]}
           onPress={() => setCommentsOpen(true)}
+          accessibilityRole="button"
         >
-          <View>
-            <Text style={s.commentsTeaserText}>
-              {post.comment_count > 0
-                ? `View all ${post.comment_count} comment${post.comment_count === 1 ? "" : "s"}`
-                : "Be the first to comment"}
-            </Text>
-            <Text style={s.commentsTeaserHint}>Tap to open comments</Text>
-          </View>
+          <Text style={s.commentsTeaserText}>
+            {post.comment_count > 0
+              ? `View all ${post.comment_count} comment${post.comment_count === 1 ? "" : "s"}`
+              : "Be the first to comment"}
+          </Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </Pressable>
       </ScrollView>
@@ -2013,22 +2059,22 @@ export function PostDetailScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
-                  gap: spacing.md,
+                  gap: spacing.sm,
                   paddingBottom: keyboardOpen
                     ? Math.max(keyboardHeight * 0.08, spacing.sm)
                     : spacing.sm
                 }}
               >
-                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+                <Text style={{ fontSize: 17, fontWeight: "800", color: colors.text }}>
                   Apply for this job
                 </Text>
-                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
                   {post.title}
                 </Text>
                 {post.job_company ? (
-                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>{post.job_company}</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>{post.job_company}</Text>
                 ) : null}
-                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 17 }}>
                   Share a mobile number so the employer can reach you. Required.
                 </Text>
                 <View>
@@ -2059,6 +2105,8 @@ export function PostDetailScreen() {
                       borderRadius: radius.md,
                       paddingHorizontal: spacing.md,
                       ...textField,
+                      minHeight: 44,
+                      paddingVertical: 6,
                       color: colors.text,
                       backgroundColor: colors.surfaceElevated
                     }}
@@ -2095,18 +2143,20 @@ export function PostDetailScreen() {
                       paddingHorizontal: spacing.md,
                       ...textFieldMultiline,
                       color: colors.text,
-                      minHeight: 80,
+                      minHeight: 68,
                       backgroundColor: colors.surfaceElevated
                     }}
                   />
                 </View>
                 <PrimaryButton
                   title="Submit application"
+                  style={s.listingOwnerButton}
                   onPress={handleConfirmApply}
                   loading={interestBusy}
                 />
                 <PrimaryButton
                   title="Cancel"
+                  style={s.listingOwnerButton}
                   onPress={() => setApplyModalOpen(false)}
                   variant="secondary"
                   disabled={interestBusy}
@@ -2152,10 +2202,10 @@ export function PostDetailScreen() {
                     : spacing.sm
                 }}
               >
-                <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+                <Text style={{ fontSize: 17, fontWeight: "800", color: colors.text }}>
                   Resolved by
                 </Text>
-                <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 17 }}>
                   Select the people who actually helped. Only they get Heroes credit.
                 </Text>
                 {(() => {
@@ -2192,7 +2242,7 @@ export function PostDetailScreen() {
                               size={40}
                             />
                             <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>
                                 {h.author.name}
                               </Text>
                               {h.message ? (
@@ -2225,7 +2275,7 @@ export function PostDetailScreen() {
                           {helpHelpersLoadingMore ? (
                             <ActivityIndicator color={colors.primary} />
                           ) : (
-                            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
                               Load more helpers
                             </Text>
                           )}

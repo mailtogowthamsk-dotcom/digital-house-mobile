@@ -32,6 +32,7 @@ type Props = {
   /** MDM types to suggest from. Default: DISTRICT (+ TOWN when typing). */
   types?: Array<"DISTRICT" | "TOWN" | "TALUK">;
   editable?: boolean;
+  compact?: boolean;
   containerStyle?: ViewStyle;
   autoApplyOnSelect?: boolean;
   returnKeyType?: TextInputProps["returnKeyType"];
@@ -64,6 +65,7 @@ export function MasterDataSuggestInput({
   placeholder = "City / district",
   types = ["DISTRICT", "TOWN"],
   editable = true,
+  compact = false,
   containerStyle,
   returnKeyType = "search"
 }: Props) {
@@ -197,6 +199,7 @@ export function MasterDataSuggestInput({
         input: {
           flex: 1,
           ...textFieldCompact,
+          ...(compact ? { minHeight: 44, paddingVertical: 5, fontSize: 13 } : {}),
           color: colors.text
         },
         list: {
@@ -222,7 +225,8 @@ export function MasterDataSuggestInput({
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: spacing.md,
-          paddingVertical: 12,
+          minHeight: compact ? 44 : undefined,
+          paddingVertical: compact ? 5 : 12,
           gap: spacing.sm,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border
@@ -230,7 +234,7 @@ export function MasterDataSuggestInput({
         rowPressed: {
           backgroundColor: mode === "dark" ? colors.surfaceElevated : "#F0FDFA"
         },
-        rowText: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
+        rowText: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.text },
         rowMeta: {
           fontSize: 11,
           fontWeight: "600",
@@ -249,7 +253,7 @@ export function MasterDataSuggestInput({
           color: colors.textMuted
         }
       }),
-    [colors, focused, mode]
+    [colors, compact, focused, mode]
   );
 
   return (

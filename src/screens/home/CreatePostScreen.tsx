@@ -14,7 +14,8 @@ import { deleteMediaUrls } from "../../api/media.api";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
 import { spacing, radius } from "../../theme/spacing";
-import { textField, textFieldMultiline } from "../../theme/textField";
+import { settingsField, textField, textFieldMultiline } from "../../theme/textField";
+import { Dropdown } from "../../components/ui/Dropdown";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
 import { MasterDataSuggestInput } from "../../components/masterData/MasterDataSuggestInput";
 import { MediaPreview } from "../../components/media/MediaPreview";
@@ -170,22 +171,17 @@ export function CreatePostScreen() {
     return d;
   });
   const [jobDeadlinePickerOpen, setJobDeadlinePickerOpen] = useState(false);
-  const [showWorkModePicker, setShowWorkModePicker] = useState(false);
   const [jobSalaryMin, setJobSalaryMin] = useState("");
   const [jobSalaryMax, setJobSalaryMax] = useState("");
   /** registered = use account mobile; custom = recruitment number field */
   const [jobContactSource, setJobContactSource] = useState<"registered" | "custom">("registered");
   const [jobContactPhone, setJobContactPhone] = useState("");
-  const [showEmploymentPicker, setShowEmploymentPicker] = useState(false);
   const [mpIntent, setMpIntent] = useState<string>("SALE");
   const [mpCategory, setMpCategory] = useState<string>("OTHERS");
   const [mpCondition, setMpCondition] = useState<string>("GOOD");
   const [mpPrice, setMpPrice] = useState("");
   const [mpNegotiable, setMpNegotiable] = useState(false);
   const [mpDistrict, setMpDistrict] = useState("");
-  const [showMpIntentPicker, setShowMpIntentPicker] = useState(false);
-  const [showMpCategoryPicker, setShowMpCategoryPicker] = useState(false);
-  const [showMpConditionPicker, setShowMpConditionPicker] = useState(false);
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaPreviewUri, setMediaPreviewUri] = useState<string | null>(null);
   const [mediaKind, setMediaKind] = useState<"image" | "video" | null>(null);
@@ -954,7 +950,7 @@ export function CreatePostScreen() {
     >
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.content}
+        contentContainerStyle={[s.content, (postType === "MARKETPLACE" || postType === "JOB") && s.listingContent]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.section}>
@@ -964,11 +960,11 @@ export function CreatePostScreen() {
               : "Photo or video"}
           </Text>
           <Pressable
-            style={[s.mediaBtn, (uploading || saving) && s.mediaBtnDisabled]}
+            style={[s.mediaBtn, postType === "MARKETPLACE" && s.listingControl, (uploading || saving) && s.mediaBtnDisabled]}
             onPress={pickMedia}
             disabled={uploading || saving}
           >
-            <View style={[s.mediaBtnIcon, { backgroundColor: colors.primary + "14" }]}>
+            <View style={[s.mediaBtnIcon, postType === "MARKETPLACE" && s.listingMediaIcon, { backgroundColor: colors.primary + "14" }]}>
               <Ionicons name="images-outline" size={20} color={colors.primary} />
             </View>
             <View style={s.mediaBtnCopy}>
@@ -1018,7 +1014,7 @@ export function CreatePostScreen() {
               <View key={`${uri}-${i}`} style={{ marginRight: 8, position: "relative" }}>
                 <Image
                   source={{ uri }}
-                  style={{ width: 88, height: 88, borderRadius: 8, backgroundColor: colors.surfaceElevated }}
+                  style={s.listingThumb}
                   resizeMode="cover"
                 />
                 {i === 0 ? (
@@ -1037,10 +1033,13 @@ export function CreatePostScreen() {
                   </View>
                 ) : null}
                 <Pressable
-                  style={{ position: "absolute", top: -6, right: -6 }}
+                  style={s.removeListingPhoto}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={i === 0 ? "Remove cover photo" : `Remove photo ${i + 1}`}
                   onPress={() => removeGalleryAt(i)}
                 >
-                  <Ionicons name="close-circle" size={22} color={colors.error} />
+                  <Ionicons name="close" size={14} color="#FFFFFF" />
                 </Pressable>
               </View>
             ))}
@@ -1074,7 +1073,7 @@ export function CreatePostScreen() {
         <View style={s.section}>
           <Text style={s.label}>Title *</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, postType === "MARKETPLACE" && [s.listingControl, s.listingInputText]]}
             placeholder={postType === "JOB" ? "Job title (e.g. Sales Executive)" : "Add a clear title"}
             placeholderTextColor={colors.textMuted}
             value={title}
@@ -1106,89 +1105,25 @@ export function CreatePostScreen() {
               returnKeyType="done"
             />
 
-            <Text style={s.label}>Employment type</Text>
-            <Pressable
-              style={s.picker}
-              onPress={() => setShowEmploymentPicker(!showEmploymentPicker)}
-            >
-              <Text style={s.pickerText}>
-                {JOB_EMPLOYMENT_TYPES.find((t) => t.value === jobEmploymentType)?.label ??
-                  jobEmploymentType}
-              </Text>
-              <Ionicons
-                name={showEmploymentPicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showEmploymentPicker ? (
-              <View style={s.pickerOptions}>
-                {JOB_EMPLOYMENT_TYPES.map((t) => (
-                  <Pressable
-                    key={t.value}
-                    style={[
-                      s.pickerOption,
-                      t.value === jobEmploymentType && s.pickerOptionActive
-                    ]}
-                    onPress={() => {
-                      setJobEmploymentType(t.value);
-                      setShowEmploymentPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        s.pickerOptionText,
-                        t.value === jobEmploymentType && s.pickerOptionTextActive
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-            <Text style={s.label}>Work mode</Text>
-            <Pressable
-              style={s.picker}
-              onPress={() => setShowWorkModePicker(!showWorkModePicker)}
-            >
-              <Text style={s.pickerText}>
-                {JOB_WORK_MODES.find((t) => t.value === jobWorkMode)?.label ?? jobWorkMode}
-              </Text>
-              <Ionicons
-                name={showWorkModePicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showWorkModePicker ? (
-              <View style={s.pickerOptions}>
-                {JOB_WORK_MODES.map((t) => (
-                  <Pressable
-                    key={t.value}
-                    style={[s.pickerOption, t.value === jobWorkMode && s.pickerOptionActive]}
-                    onPress={() => {
-                      setJobWorkMode(t.value);
-                      setShowWorkModePicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        s.pickerOptionText,
-                        t.value === jobWorkMode && s.pickerOptionTextActive
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
+            <Dropdown
+              variant="compact"
+              label="Employment type"
+              placeholder="Select employment type"
+              options={[...JOB_EMPLOYMENT_TYPES]}
+              value={jobEmploymentType}
+              onSelect={setJobEmploymentType}
+            />
+            <Dropdown
+              variant="compact"
+              label="Work mode"
+              placeholder="Select work mode"
+              options={[...JOB_WORK_MODES]}
+              value={jobWorkMode}
+              onSelect={setJobWorkMode}
+            />
             <Text style={s.label}>Experience (optional)</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, s.listingControl, s.listingInputText]}
               placeholder="e.g. Fresher, 2 years"
               placeholderTextColor={colors.textMuted}
               value={jobExperience}
@@ -1198,7 +1133,7 @@ export function CreatePostScreen() {
 
             <Text style={s.label}>Skills (optional)</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, s.listingControl, s.listingInputText]}
               placeholder="Comma-separated, e.g. Excel, Tamil"
               placeholderTextColor={colors.textMuted}
               value={jobSkills}
@@ -1208,7 +1143,7 @@ export function CreatePostScreen() {
 
             <Text style={s.label}>Category (optional)</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, s.listingControl, s.listingInputText]}
               placeholder="e.g. Retail, IT"
               placeholderTextColor={colors.textMuted}
               value={jobCategory}
@@ -1218,7 +1153,7 @@ export function CreatePostScreen() {
 
             <Text style={s.label}>Vacancies (optional)</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, s.listingControl, s.listingInputText]}
               placeholder="Number of openings"
               placeholderTextColor={colors.textMuted}
               value={jobVacancies}
@@ -1229,7 +1164,7 @@ export function CreatePostScreen() {
 
             <Text style={s.label}>Application deadline *</Text>
             <Pressable
-              style={s.picker}
+              style={[s.picker, s.listingControl]}
               onPress={() => setJobDeadlinePickerOpen(true)}
               disabled={saving}
             >
@@ -1253,7 +1188,7 @@ export function CreatePostScreen() {
             <Text style={s.label}>Salary range (₹ / month, optional)</Text>
             <View style={s.salaryRow}>
               <TextInput
-                style={[s.input, s.salaryInput]}
+                style={[s.input, s.listingControl, s.listingInputText, s.salaryInput]}
                 placeholder="Min"
                 placeholderTextColor={colors.textMuted}
                 value={jobSalaryMin}
@@ -1263,7 +1198,7 @@ export function CreatePostScreen() {
               />
               <Text style={s.salaryDash}>–</Text>
               <TextInput
-                style={[s.input, s.salaryInput]}
+                style={[s.input, s.listingControl, s.listingInputText, s.salaryInput]}
                 placeholder="Max"
                 placeholderTextColor={colors.textMuted}
                 value={jobSalaryMax}
@@ -1318,7 +1253,7 @@ export function CreatePostScreen() {
             </Pressable>
             {jobContactSource === "custom" ? (
               <TextInput
-                style={s.input}
+                style={[s.input, s.listingControl, s.listingInputText]}
                 placeholder="10-digit recruitment mobile"
                 placeholderTextColor={colors.textMuted}
                 value={jobContactPhone}
@@ -1332,121 +1267,39 @@ export function CreatePostScreen() {
         ) : null}
 
         {postType === "MARKETPLACE" ? (
-          <>
-            <Text style={s.label}>Listing type *</Text>
-            <Pressable style={s.picker} onPress={() => setShowMpIntentPicker(!showMpIntentPicker)}>
-              <Text style={s.pickerText}>
-                {MARKETPLACE_INTENTS.find((t) => t.value === mpIntent)?.label ?? mpIntent}
-              </Text>
-              <Ionicons
-                name={showMpIntentPicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showMpIntentPicker ? (
-              <View style={s.pickerOptions}>
-                {MARKETPLACE_INTENTS.map((t) => (
-                  <Pressable
-                    key={t.value}
-                    style={[s.pickerOption, t.value === mpIntent && s.pickerOptionActive]}
-                    onPress={() => {
-                      setMpIntent(t.value);
-                      setShowMpIntentPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        s.pickerOptionText,
-                        t.value === mpIntent && s.pickerOptionTextActive
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-            <Text style={s.label}>Category *</Text>
-            <Pressable
-              style={s.picker}
-              onPress={() => setShowMpCategoryPicker(!showMpCategoryPicker)}
-            >
-              <Text style={s.pickerText}>
-                {MARKETPLACE_CATEGORIES.find((t) => t.value === mpCategory)?.label ?? mpCategory}
-              </Text>
-              <Ionicons
-                name={showMpCategoryPicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showMpCategoryPicker ? (
-              <View style={s.pickerOptions}>
-                {MARKETPLACE_CATEGORIES.map((t) => (
-                  <Pressable
-                    key={t.value}
-                    style={[s.pickerOption, t.value === mpCategory && s.pickerOptionActive]}
-                    onPress={() => {
-                      setMpCategory(t.value);
-                      setShowMpCategoryPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        s.pickerOptionText,
-                        t.value === mpCategory && s.pickerOptionTextActive
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-            <Text style={s.label}>Condition *</Text>
-            <Pressable
-              style={s.picker}
-              onPress={() => setShowMpConditionPicker(!showMpConditionPicker)}
-            >
-              <Text style={s.pickerText}>
-                {MARKETPLACE_CONDITIONS.find((t) => t.value === mpCondition)?.label ?? mpCondition}
-              </Text>
-              <Ionicons
-                name={showMpConditionPicker ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-            {showMpConditionPicker ? (
-              <View style={s.pickerOptions}>
-                {MARKETPLACE_CONDITIONS.map((t) => (
-                  <Pressable
-                    key={t.value}
-                    style={[s.pickerOption, t.value === mpCondition && s.pickerOptionActive]}
-                    onPress={() => {
-                      setMpCondition(t.value);
-                      setShowMpConditionPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        s.pickerOptionText,
-                        t.value === mpCondition && s.pickerOptionTextActive
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
+          <View style={s.listingDetails}>
+            <Text style={s.listingHeading} accessibilityRole="header">Listing details</Text>
+            <Dropdown
+              variant="compact"
+              label="Listing type"
+              placeholder="Choose a listing type"
+              options={[...MARKETPLACE_INTENTS]}
+              value={mpIntent}
+              onSelect={setMpIntent}
+              required
+            />
+            <Dropdown
+              variant="compact"
+              label="Category"
+              placeholder="Choose a category"
+              options={[...MARKETPLACE_CATEGORIES]}
+              value={mpCategory}
+              onSelect={setMpCategory}
+              required
+            />
+            <Dropdown
+              variant="compact"
+              label="Condition"
+              placeholder="Choose a condition"
+              options={[...MARKETPLACE_CONDITIONS]}
+              value={mpCondition}
+              onSelect={setMpCondition}
+              required
+            />
 
             <Text style={s.label}>District *</Text>
             <TextInput
-              style={s.input}
+              style={[s.input, s.listingControl, s.listingInputText]}
               placeholder="e.g. Coimbatore"
               placeholderTextColor={colors.textMuted}
               value={mpDistrict}
@@ -1458,7 +1311,7 @@ export function CreatePostScreen() {
               <>
                 <Text style={s.label}>Price (₹) *</Text>
                 <TextInput
-                  style={s.input}
+                  style={[s.input, s.listingControl, s.listingInputText]}
                   placeholder="Asking price"
                   placeholderTextColor={colors.textMuted}
                   value={mpPrice}
@@ -1467,16 +1320,19 @@ export function CreatePostScreen() {
                   editable={!saving}
                 />
                 <Pressable
-                  style={[s.picker, { marginBottom: spacing.md }]}
+                  style={[s.picker, s.listingControl, { marginBottom: spacing.sm }]}
                   onPress={() => setMpNegotiable((v) => !v)}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: mpNegotiable }}
                 >
-                  <Text style={s.pickerText}>
-                    {mpNegotiable ? "Negotiable: Yes" : "Negotiable: No"}
+                  <Text style={[s.pickerText, s.listingOptionText]}>
+                    Negotiable price
                   </Text>
+                  <Ionicons name={mpNegotiable ? "checkmark-circle" : "ellipse-outline"} size={18} color={mpNegotiable ? colors.primary : colors.textMuted} />
                 </Pressable>
               </>
             ) : null}
-          </>
+          </View>
         ) : null}
 
         <View style={s.section}>
@@ -1484,7 +1340,7 @@ export function CreatePostScreen() {
             Description{postType === "MARKETPLACE" ? " * (min 20 chars)" : ""}
           </Text>
           <TextInput
-            style={[s.input, s.textArea]}
+            style={[s.input, s.textArea, (postType === "MARKETPLACE" || postType === "JOB") && s.listingArea]}
             placeholder={
               postType === "JOB"
                 ? "Role details, requirements, how to apply…"
@@ -1502,7 +1358,7 @@ export function CreatePostScreen() {
 
           <Text style={s.label}>Hashtags</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, postType === "MARKETPLACE" && [s.listingControl, s.listingInputText]]}
             placeholder="#Temple #Community"
             placeholderTextColor={colors.textMuted}
             value={hashtagsInput}
@@ -1588,6 +1444,7 @@ export function CreatePostScreen() {
             }
             onPress={handleSubmit}
             disabled={saving || uploading}
+            style={postType === "MARKETPLACE" || postType === "JOB" ? s.listingSubmit : undefined}
           />
         </View>
       </ScrollView>
@@ -1602,6 +1459,34 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
         container: { flex: 1, backgroundColor: colors.background },
         scroll: { flex: 1 },
         content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: 2 },
+        listingContent: { width: "100%", maxWidth: 640, alignSelf: "center", padding: spacing.md },
+        listingControl: {
+          ...settingsField,
+          paddingVertical: 5,
+          borderWidth: StyleSheet.hairlineWidth
+        },
+        listingArea: { minHeight: 72, paddingVertical: 7, fontSize: 13, borderWidth: StyleSheet.hairlineWidth },
+        listingDetails: {
+          padding: spacing.sm,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+          backgroundColor: colors.surface,
+          marginBottom: spacing.sm
+        },
+        listingHeading: { ...typography.label, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
+        listingThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.surfaceElevated },
+        removeListingPhoto: {
+          position: "absolute", top: 4, right: 4,
+          width: 28, height: 28, borderRadius: 8,
+          backgroundColor: "rgba(15,23,42,0.8)", alignItems: "center", justifyContent: "center"
+        },
+        listingInputText: { fontSize: 13 },
+        listingOptionText: { fontSize: 13, lineHeight: 18 },
+        listingMediaIcon: { width: 32, height: 32, borderRadius: 10 },
+        listingSubmit: {
+          alignSelf: "flex-end", minHeight: 44, paddingVertical: spacing.xs, backgroundColor: "#163E31"
+        },
         section: { marginBottom: spacing.sm },
         label: {
           ...typography.caption,
@@ -1634,7 +1519,7 @@ function useCreatePostStyles(colors: import("../../theme/ThemeContext").ThemeCol
           paddingHorizontal: 10,
           paddingVertical: 6
         },
-        hashtagChipText: { fontSize: 13, fontWeight: "600" },
+        hashtagChipText: { fontSize: 12, fontWeight: "600" },
         picker: {
           flexDirection: "row",
           alignItems: "center",

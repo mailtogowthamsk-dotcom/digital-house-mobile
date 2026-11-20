@@ -88,7 +88,7 @@ export function PersonalInfoSection({
         },
         rowLabel: {
           fontFamily: fonts.regular,
-          fontSize: 13,
+          fontSize: 12,
           color: colors.textSecondary,
           fontWeight: "400"
         },
@@ -109,10 +109,10 @@ export function PersonalInfoSection({
         },
         rowValue: {
           fontFamily: fonts.medium,
-          fontSize: 15,
+          fontSize: 14,
           color: colors.text,
           fontWeight: "500",
-          lineHeight: 20
+          lineHeight: 19
         },
         rowValueProtected: { color: colors.textSecondary },
         divider: {

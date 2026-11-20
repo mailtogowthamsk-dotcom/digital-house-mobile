@@ -9,7 +9,7 @@ export { PostActions } from "./PostActions";
 export { PostCaption } from "./PostCaption";
 export { CommentPreview } from "./CommentPreview";
 export { PostMedia } from "./PostMedia";
-export { BottomTabBar, type TabId, FLOATING_TAB_BAR_HEIGHT } from "./BottomTabBar";
+export { BottomTabBar, type TabId, BOTTOM_TAB_BAR_HEIGHT, FLOATING_TAB_BAR_HEIGHT } from "./BottomTabBar";
 export { SkeletonCard, WelcomeCardSkeleton, SkeletonLine } from "./SkeletonCard";
 export { FeedPostSkeleton } from "./FeedPostSkeleton";
 export { JobFeedBlock } from "./JobFeedBlock";

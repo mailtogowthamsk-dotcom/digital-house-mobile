@@ -1,3 +1,4 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useCallback, useState } from "react";
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -10,6 +11,7 @@ import {
   removeMatrimonyMatch
 } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { MatrimonyBrowseGate } from "../../components/matrimony/MatrimonyBrowseGate";
@@ -138,11 +140,11 @@ export function MatrimonyInterestsScreen() {
           <FlatList
             data={items}
             keyExtractor={(i) => `interest-${i.id}`}
-            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+            contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl + insets.bottom }]}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={{ fontSize: 40, marginBottom: 12 }}>💌</Text>
-                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 16 }}>No interests yet</Text>
+                <Ionicons name="mail-open-outline" size={28} color={colors.primary} style={{ marginBottom: 8 }} />
+                <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>No interests yet</Text>
                 <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 20 }}>
                   Browse profiles and tap Express interest. Received interests appear here for you to accept.
                 </Text>
@@ -165,10 +167,10 @@ export function MatrimonyInterestsScreen() {
                   }
                 >
                   <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 18 }}>{initial}</Text>
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 17 }}>{initial}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 15 }}>
+                    <Text style={{ fontWeight: "800", color: colors.text, fontSize: 14 }}>
                       {item.candidate.name}
                       {item.candidate.age != null ? ` · ${item.candidate.age}` : ""}
                     </Text>
@@ -252,9 +254,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
-    padding: spacing.md,
+    padding: spacing.sm + 2,
     marginBottom: spacing.sm
   },
   avatar: {

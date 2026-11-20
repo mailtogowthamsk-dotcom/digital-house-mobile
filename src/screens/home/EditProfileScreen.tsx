@@ -4,6 +4,7 @@ import { AppKeyboardAvoidingView } from "../../components/ui/AppKeyboardAvoiding
 import { DobDatePicker } from "../../components/ui/DobDatePicker";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { getProfile, putProfileSection, updateProfile } from "../../api/profile.api";
@@ -17,6 +18,7 @@ import { MatrimonyEditProfileCard } from "../../components/matrimony/MatrimonyEd
 import { ensureMediaLibraryRead } from "../../permissions";
 import { useTheme } from "../../theme/ThemeContext";
 import { typography } from "../../theme/typography";
+import { settingsField } from "../../theme/textField";
 import { spacing, radius } from "../../theme/spacing";
 import { Input } from "../../components/ui/Input";
 import { Dropdown } from "../../components/ui/Dropdown";
@@ -220,7 +222,7 @@ export function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { signOut } = useAuth();
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const [profile, setProfile] = useState<ProfileMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -598,7 +600,14 @@ export function EditProfileScreen() {
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
         scroll: { flex: 1 },
-        scrollContent: { flexGrow: 1, paddingHorizontal: spacing.xl },
+        scrollContent: {
+          width: "100%",
+          maxWidth: 640,
+          alignSelf: "center",
+          flexGrow: 1,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm
+        },
         centered: { justifyContent: "center", alignItems: "center" },
         loadingText: {
           ...typography.bodySmall,
@@ -618,84 +627,82 @@ export function EditProfileScreen() {
         },
         retryBtn: {
           marginTop: spacing.lg,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.xxl,
-          backgroundColor: colors.primary,
+          minHeight: 44,
+          justifyContent: "center",
+          paddingHorizontal: spacing.md,
+          backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md
         },
-        retryBtnText: { ...typography.buttonSmall, color: colors.white },
-        profilePhotoRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          marginBottom: spacing.xl,
-          gap: spacing.lg
+        retryBtnText: { ...typography.buttonSmall, color: colors.text },
+        profileOverview: {
+          backgroundColor: colors.surface,
+          borderRadius: radius.xl,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border,
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          overflow: "hidden"
         },
+        profilePhotoRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
         profilePhotoWrap: {
-          width: 88,
-          height: 88,
-          borderRadius: 44,
+          width: 64,
+          height: 64,
+          borderRadius: 32,
           backgroundColor: colors.surfaceElevated,
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden"
         },
-        profilePhotoImg: { width: 88, height: 88, borderRadius: 44 },
-        profilePhotoPlaceholder: {
-          width: 88,
-          height: 88,
-          borderRadius: 44,
-          alignItems: "center",
-          justifyContent: "center"
-        },
+        profilePhotoImg: { width: "100%", height: "100%" },
         profilePhotoInitial: { ...typography.h3, color: colors.textMuted },
+        photoDetails: { flex: 1, minWidth: 0, alignItems: "flex-start", gap: spacing.xs },
+        overviewTitle: { ...typography.label, color: colors.text },
         profilePhotoBtn: {
-          flex: 1,
+          minHeight: 44,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: spacing.sm,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.lg,
+          gap: spacing.xs,
+          paddingHorizontal: spacing.sm,
           backgroundColor: colors.surface,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           borderRadius: radius.md
         },
         profilePhotoBtnDisabled: { opacity: 0.7 },
-        profilePhotoBtnText: { ...typography.bodySmall, color: colors.primary },
-        completionRow: { marginBottom: spacing.xl },
-        completionLabel: {
-          ...typography.caption,
-          color: colors.textMuted,
+        profilePhotoBtnText: { ...typography.buttonSmall, color: colors.primary },
+        completionRow: { marginTop: spacing.sm },
+        completionTop: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: spacing.sm,
           marginBottom: spacing.xs
         },
+        completionLabel: { ...typography.caption, color: colors.textSecondary },
         completionBar: {
-          height: 6,
+          height: 5,
           backgroundColor: colors.border,
           borderRadius: 3,
-          overflow: "hidden",
-          marginBottom: spacing.xs
+          overflow: "hidden"
         },
         completionFill: {
           height: "100%",
           backgroundColor: colors.primary,
           borderRadius: 3
         },
-        completionPct: { ...typography.caption, color: colors.textMuted },
+        completionPct: { ...typography.caption, color: colors.primary },
         dateRow: {
+          ...settingsField,
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
+          gap: spacing.xs,
           backgroundColor: colors.surfaceElevated,
-          borderWidth: 1,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          borderRadius: radius.lg,
-          minHeight: 52,
-          paddingHorizontal: spacing.lg,
-          marginBottom: spacing.lg
+          marginBottom: spacing.md
         },
-        dateLabel: { ...typography.label, color: colors.textMuted, marginBottom: 0 },
-        dateValue: { ...typography.body, color: colors.text },
+        dateLabel: { ...typography.label, fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
+        dateValue: { flex: 1, fontSize: 14, color: colors.text },
         placeholder: { color: colors.textMuted },
         readOnlyRow: { marginBottom: spacing.lg },
         readOnlyLabel: {
@@ -734,7 +741,7 @@ export function EditProfileScreen() {
           marginBottom: spacing.md
         },
         restrictedSectionDisabled: { opacity: 0.7 },
-        textArea: { minHeight: 88 },
+        textArea: { minHeight: 72 },
         uploadRow: { marginBottom: spacing.lg },
         uploadLabel: {
           ...typography.label,
@@ -760,17 +767,21 @@ export function EditProfileScreen() {
           marginTop: spacing.xs
         },
         stickyBar: {
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
           backgroundColor: colors.surface,
-          borderTopWidth: 1,
+          borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          paddingHorizontal: spacing.xl,
-          paddingTop: spacing.md
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.sm
         },
-        saveBtn: {}
+        saveRow: { width: "100%", maxWidth: 608, alignSelf: "center", alignItems: "flex-end" },
+        saveBtn: {
+          minWidth: 128,
+          minHeight: 44,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.md,
+          backgroundColor: "#163E31"
+        }
       }),
     [colors]
   );
@@ -809,13 +820,68 @@ export function EditProfileScreen() {
     >
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[
-          s.scrollContent,
-          { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 88 }
-        ]}
+        contentContainerStyle={s.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={s.profileOverview}>
+          <LinearGradient
+            colors={[mode === "dark" ? "#173329" : "#E8F5EC", colors.surface]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={s.profilePhotoRow}>
+            <View style={s.profilePhotoWrap}>
+              {getImageUrl(profile.profile_image) ? (
+                <Image
+                  key={profile.profile_image}
+                  source={{ uri: getImageUrl(profile.profile_image)! }}
+                  style={s.profilePhotoImg}
+                />
+              ) : (
+                <Text style={s.profilePhotoInitial}>
+                  {(profile.name ?? "U").trim().charAt(0).toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <View style={s.photoDetails}>
+              <Text style={s.overviewTitle} accessibilityRole="header">Profile photo</Text>
+              <Pressable
+                style={[s.profilePhotoBtn, profilePhotoUploading && s.profilePhotoBtnDisabled]}
+                onPress={handleProfilePhotoUpload}
+                disabled={profilePhotoUploading}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: profilePhotoUploading, busy: profilePhotoUploading }}
+              >
+                {profilePhotoUploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="camera-outline" size={16} color={colors.primary} />
+                )}
+                <Text style={s.profilePhotoBtnText}>
+                  {profilePhotoUploading ? "Uploading…" : profile.profile_image ? "Change photo" : "Upload photo"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+          {profile.completion_percentage != null ? (
+            <View style={s.completionRow}>
+              <View style={s.completionTop}>
+                <Text style={s.completionLabel}>Profile completion</Text>
+                <Text style={s.completionPct}>{profile.completion_percentage}%</Text>
+              </View>
+              <View style={s.completionBar}>
+                <View
+                  style={[
+                    s.completionFill,
+                    { width: `${Math.max(0, Math.min(100, profile.completion_percentage))}%` }
+                  ]}
+                />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
         <ProfileIdentitySection
           username={profile.username ?? null}
           profileVisibility={profile.profile_visibility ?? "PUBLIC"}
@@ -831,58 +897,26 @@ export function EditProfileScreen() {
           }}
         />
 
-        <View style={s.profilePhotoRow}>
-          <View style={s.profilePhotoWrap}>
-            {getImageUrl(profile.profile_image) ? (
-              <Image key={profile.profile_image} source={{ uri: getImageUrl(profile.profile_image)! }} style={s.profilePhotoImg} />
-            ) : (
-              <View style={s.profilePhotoPlaceholder}>
-                <Text style={s.profilePhotoInitial}>
-                  {(profile.name ?? "U").trim().charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Pressable
-            style={[s.profilePhotoBtn, profilePhotoUploading ? s.profilePhotoBtnDisabled : null]}
-            onPress={handleProfilePhotoUpload}
-            disabled={profilePhotoUploading}
-          >
-            {profilePhotoUploading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons name="camera-outline" size={20} color={colors.primary} />
-            )}
-            <Text style={s.profilePhotoBtnText}>
-              {profile.profile_image ? "Change photo" : "Upload photo"}
-            </Text>
-          </Pressable>
-        </View>
-
-        {profile.completion_percentage != null ? (
-          <View style={s.completionRow}>
-            <Text style={s.completionLabel}>Profile completion</Text>
-            <View style={s.completionBar}>
-              <View style={[s.completionFill, { width: `${Math.min(100, profile.completion_percentage)}%` }]} />
-            </View>
-            <Text style={s.completionPct}>{String(profile.completion_percentage)}%</Text>
-          </View>
-        ) : null}
-
         <AccordionSection title="Basic Details" icon="person-outline" defaultExpanded>
           <Input
             label="Full Name"
             value={basic.full_name}
             onChangeText={(t) => setBasic((b) => ({ ...b, full_name: t }))}
             placeholder="Full name"
-            variant="light"
+            variant="compact"
           />
-          <Pressable style={s.dateRow} onPress={() => setShowDobPicker((v) => !v)}>
-            <Text style={s.dateLabel}>Date of Birth</Text>
+          <Text style={s.dateLabel}>Date of Birth</Text>
+          <Pressable
+            style={s.dateRow}
+            onPress={() => setShowDobPicker((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={`Date of birth, ${basic.date_of_birth || "not selected"}`}
+            accessibilityState={{ expanded: showDobPicker }}
+          >
             <Text style={[s.dateValue, !basic.date_of_birth ? s.placeholder : null]}>
               {basic.date_of_birth ?? "Select date"}
             </Text>
-            <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+            <Ionicons name="calendar-outline" size={16} color={colors.textMuted} />
           </Pressable>
           <DobDatePicker
             visible={showDobPicker}
@@ -897,7 +931,7 @@ export function EditProfileScreen() {
             value={basic.email}
             editable={!readOnlyEmailMobile}
             placeholder="Email"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Mobile"
@@ -905,7 +939,7 @@ export function EditProfileScreen() {
             onChangeText={(t) => setBasic((b) => ({ ...b, mobile: t || null }))}
             editable={!readOnlyEmailMobile}
             placeholder="Mobile"
-            variant="light"
+            variant="compact"
             keyboardType="phone-pad"
           />
           <Dropdown
@@ -914,7 +948,7 @@ export function EditProfileScreen() {
             value={basic.gender ?? ""}
             options={GENDER_OPTIONS}
             onSelect={(v) => setBasic((b) => ({ ...b, gender: v || null }))}
-            variant="light"
+            variant="compact"
           />
           <Dropdown
             label="Native District"
@@ -929,7 +963,7 @@ export function EditProfileScreen() {
                   : []
             }
             onSelect={(v) => setBasic((b) => ({ ...b, native_district: v || null }))}
-            variant="light"
+            variant="compact"
           />
           <View style={s.readOnlyRow}>
             <Text style={s.readOnlyLabel}>Role in App</Text>
@@ -951,28 +985,28 @@ export function EditProfileScreen() {
                   : []
             }
             onSelect={(v) => setCommunity((c) => ({ ...c, kulam: v || null }))}
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Kula Deivam"
             value={community.kulaDeivam ?? ""}
             onChangeText={(t) => setCommunity((c) => ({ ...c, kulaDeivam: t || null }))}
             placeholder="Kula Deivam"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Native Village"
             value={community.nativeVillage ?? ""}
             onChangeText={(t) => setCommunity((c) => ({ ...c, nativeVillage: t || null }))}
             placeholder="Native village"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Native Taluk"
             value={community.nativeTaluk ?? ""}
             onChangeText={(t) => setCommunity((c) => ({ ...c, nativeTaluk: t || null }))}
             placeholder="Native taluk (add under Master Data for dropdown)"
-            variant="light"
+            variant="compact"
           />
         </AccordionSection>
 
@@ -982,17 +1016,17 @@ export function EditProfileScreen() {
             value={personal.fatherName ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, fatherName: t || null }))}
             placeholder="Father's name"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Address"
             value={personal.address ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, address: t || null }))}
             placeholder="Enter your address"
-            variant="light"
+            variant="compact"
             multiline
             numberOfLines={3}
-            style={{ minHeight: 88 }}
+            style={s.textArea}
           />
           {occupationOptions.length > 0 ? (
             <Dropdown
@@ -1008,7 +1042,7 @@ export function EditProfileScreen() {
                     : []
               }
               onSelect={(v) => setPersonal((p) => ({ ...p, occupation: v || null }))}
-              variant="light"
+              variant="compact"
             />
           ) : (
             <Input
@@ -1016,7 +1050,7 @@ export function EditProfileScreen() {
               value={personal.occupation ?? ""}
               onChangeText={(t) => setPersonal((p) => ({ ...p, occupation: t || null }))}
               placeholder="Occupation"
-              variant="light"
+              variant="compact"
             />
           )}
           <Input
@@ -1024,24 +1058,24 @@ export function EditProfileScreen() {
             value={personal.workStudyDetails ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, workStudyDetails: t || null }))}
             placeholder="Tell us what you do or what you are studying"
-            variant="light"
+            variant="compact"
             multiline
             numberOfLines={4}
-            style={{ minHeight: 100 }}
+            style={s.textArea}
           />
           <Input
             label="Current Location (City, State) *"
             value={personal.currentLocation ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, currentLocation: t || null }))}
             placeholder="e.g. Chennai, Tamil Nadu"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Instagram URL"
             value={personal.instagram ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, instagram: t || null }))}
             placeholder="https://instagram.com/..."
-            variant="light"
+            variant="compact"
             autoCapitalize="none"
           />
           <Input
@@ -1049,7 +1083,7 @@ export function EditProfileScreen() {
             value={personal.facebook ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, facebook: t || null }))}
             placeholder="https://facebook.com/..."
-            variant="light"
+            variant="compact"
             autoCapitalize="none"
           />
           <Input
@@ -1057,7 +1091,7 @@ export function EditProfileScreen() {
             value={personal.linkedin ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, linkedin: t || null }))}
             placeholder="https://linkedin.com/in/..."
-            variant="light"
+            variant="compact"
             autoCapitalize="none"
           />
           <Input
@@ -1065,7 +1099,7 @@ export function EditProfileScreen() {
             value={personal.hobbies ?? ""}
             onChangeText={(t) => setPersonal((p) => ({ ...p, hobbies: t || null }))}
             placeholder="Comma-separated or tags"
-            variant="light"
+            variant="compact"
           />
           <Dropdown
             label="Marital Status"
@@ -1074,7 +1108,7 @@ export function EditProfileScreen() {
             required
             options={maritalOptions}
             onSelect={(v) => setPersonal((p) => ({ ...p, maritalStatus: v || null }))}
-            variant="light"
+            variant="compact"
           />
         </AccordionSection>
 
@@ -1084,35 +1118,35 @@ export function EditProfileScreen() {
             value={professional.education ?? ""}
             onChangeText={(t) => setProfessional((p) => ({ ...p, education: t || null }))}
             placeholder="Education"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Job title"
             value={professional.job_title ?? ""}
             onChangeText={(t) => setProfessional((p) => ({ ...p, job_title: t || null }))}
             placeholder="Job title"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Company"
             value={professional.company_name ?? ""}
             onChangeText={(t) => setProfessional((p) => ({ ...p, company_name: t || null }))}
             placeholder="Company"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Work location"
             value={professional.work_location ?? ""}
             onChangeText={(t) => setProfessional((p) => ({ ...p, work_location: t || null }))}
             placeholder="Work location"
-            variant="light"
+            variant="compact"
           />
           <Input
             label="Skills"
             value={professional.skills ?? ""}
             onChangeText={(t) => setProfessional((p) => ({ ...p, skills: t || null }))}
             placeholder="Skills"
-            variant="light"
+            variant="compact"
           />
         </AccordionSection>
 
@@ -1157,7 +1191,7 @@ export function EditProfileScreen() {
                 value={business.businessName ?? ""}
                 onChangeText={(t) => setBusiness((b) => ({ ...b, businessName: t || null }))}
                 placeholder="Business name"
-                variant="light"
+                variant="compact"
               />
               <Dropdown
                 label="Business Type"
@@ -1165,14 +1199,14 @@ export function EditProfileScreen() {
                 value={business.businessType ?? ""}
                 options={BUSINESS_TYPE_OPTIONS}
                 onSelect={(v) => setBusiness((b) => ({ ...b, businessType: v || null }))}
-                variant="light"
+                variant="compact"
               />
               <Input
                 label="Business Description"
                 value={business.businessDescription ?? ""}
                 onChangeText={(t) => setBusiness((b) => ({ ...b, businessDescription: t || null }))}
                 placeholder="Description"
-                variant="light"
+                variant="compact"
                 multiline
                 numberOfLines={3}
                 style={s.textArea}
@@ -1182,7 +1216,7 @@ export function EditProfileScreen() {
                 value={business.businessAddress ?? ""}
                 onChangeText={(t) => setBusiness((b) => ({ ...b, businessAddress: t || null }))}
                 placeholder="Full address"
-                variant="light"
+                variant="compact"
                 multiline
                 style={s.textArea}
               />
@@ -1191,7 +1225,7 @@ export function EditProfileScreen() {
                 value={business.businessPhone ?? ""}
                 onChangeText={(t) => setBusiness((b) => ({ ...b, businessPhone: t || null }))}
                 placeholder="Phone"
-                variant="light"
+                variant="compact"
                 keyboardType="phone-pad"
               />
               <Input
@@ -1199,7 +1233,7 @@ export function EditProfileScreen() {
                 value={business.businessWebsite ?? ""}
                 onChangeText={(t) => setBusiness((b) => ({ ...b, businessWebsite: t || null }))}
                 placeholder="https://..."
-                variant="light"
+                variant="compact"
                 autoCapitalize="none"
               />
             </View>
@@ -1207,12 +1241,12 @@ export function EditProfileScreen() {
         </AccordionSection>
 
         <AccordionSection title="Family Details" icon="people-circle-outline">
-          <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: spacing.sm, lineHeight: 18 }}>
+          <Text style={{ color: "#6B7280", fontSize: 12, marginBottom: spacing.sm, lineHeight: 17 }}>
             Add up to 5 family members from your connections. Search by @username. They will get a
             notification when you add them.
           </Text>
           {familyConnectionOptions.length === 0 ? (
-            <Text style={{ color: "#9CA3AF", fontSize: 13, marginBottom: spacing.md, lineHeight: 18 }}>
+            <Text style={{ color: "#9CA3AF", fontSize: 12, marginBottom: spacing.md, lineHeight: 17 }}>
               No connections yet. Connect with members first, then add them here.
             </Text>
           ) : null}
@@ -1244,7 +1278,7 @@ export function EditProfileScreen() {
                 forceSearchable
                 allowClear
                 clearLabel="Clear"
-                variant="light"
+                variant="compact"
                 onSelect={(v) => {
                   const n = v.trim() === "" ? null : parseInt(v, 10);
                   setFamily((f) => ({ ...f, [key]: Number.isFinite(n as number) ? n : null }));
@@ -1257,13 +1291,16 @@ export function EditProfileScreen() {
         {error ? <Text style={s.errorInline}>{error}</Text> : null}
       </ScrollView>
 
-      <View style={[s.stickyBar, { paddingBottom: insets.bottom + spacing.md }]}>
-        <PrimaryButton
-          title={saving ? "Saving…" : "Save Profile"}
-          onPress={handleSave}
-          disabled={saving}
-          style={s.saveBtn}
-        />
+      <View style={[s.stickyBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+        <View style={s.saveRow}>
+          <PrimaryButton
+            title="Save changes"
+            loading={saving}
+            onPress={handleSave}
+            style={s.saveBtn}
+            textStyle={typography.buttonSmall}
+          />
+        </View>
       </View>
     </AppKeyboardAvoidingView>
   );

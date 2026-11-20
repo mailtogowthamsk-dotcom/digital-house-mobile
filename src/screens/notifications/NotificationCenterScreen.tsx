@@ -26,13 +26,11 @@ import { navigateFromNotification } from "../../navigation/notificationNavigatio
 import { useNotifications } from "../../context/NotificationContext";
 import { subscribeNotifications } from "../../realtime/notificationsRealtime";
 import { NotificationActivityHeader } from "../../components/notifications/NotificationActivityHeader";
-import { NotificationSummaryStrip } from "../../components/notifications/NotificationSummaryStrip";
 import { NotificationFilterChips } from "../../components/notifications/NotificationFilterChips";
 import { NotificationListItem } from "../../components/notifications/NotificationListItem";
 import { NotificationSkeletonList } from "../../components/notifications/NotificationSkeletonList";
 import { NotificationEmptyState } from "../../components/notifications/NotificationEmptyState";
 import {
-  buildActivitySummary,
   collapseMessageNotifications,
   groupNotificationsByDate,
   isMessageNotificationType,
@@ -264,10 +262,6 @@ export function NotificationCenterScreen() {
   }, [items.length, setCounts, tab, total]);
 
   const sections = useMemo(() => groupNotificationsByDate(items), [items]);
-  const summaryLines = useMemo(
-    () => (tab === "ALL" ? buildActivitySummary(counts) : []),
-    [counts, tab]
-  );
   const hasMore = items.length < total;
   const hasUnread = items.some((n) => !n.isRead);
 
@@ -290,12 +284,12 @@ export function NotificationCenterScreen() {
       StyleSheet.create({
         fill: { flex: 1, backgroundColor: colors.background },
         sectionHeader: {
-          paddingHorizontal: spacing.lg,
-          paddingTop: spacing.md,
-          paddingBottom: spacing.sm
+          paddingHorizontal: spacing.md,
+          paddingTop: 7,
+          paddingBottom: 3
         },
         sectionTitle: {
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "800",
           letterSpacing: 0.4,
           color: colors.textMuted,
@@ -307,18 +301,8 @@ export function NotificationCenterScreen() {
   );
 
   const listHeader = useMemo(
-    () => (
-      <>
-        {summaryLines.length > 0 ? (
-          <NotificationSummaryStrip
-            lines={summaryLines}
-            onSelectCategory={(cat) => onTab(cat)}
-          />
-        ) : null}
-        <NotificationFilterChips active={tab} countFor={tabCount} onChange={onTab} />
-      </>
-    ),
-    [onTab, summaryLines, tab, tabCount]
+    () => <NotificationFilterChips active={tab} countFor={tabCount} onChange={onTab} />,
+    [onTab, tab, tabCount]
   );
 
   return (
@@ -342,7 +326,7 @@ export function NotificationCenterScreen() {
           renderItem={renderItem}
           renderSectionHeader={({ section }: { section: NotificationSection }) => (
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>{section.title}</Text>
+              <Text style={s.sectionTitle} accessibilityRole="header">{section.title}</Text>
             </View>
           )}
           ListHeaderComponent={listHeader}

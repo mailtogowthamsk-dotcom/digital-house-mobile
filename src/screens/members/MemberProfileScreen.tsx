@@ -10,6 +10,7 @@ import {
   useWindowDimensions
 } from "react-native";
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
@@ -196,7 +197,7 @@ export function MemberProfileScreen() {
         }
         return (
           <Pressable
-            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
             onPress={() =>
               void runAction(() => sendConnectionRequest(profile!.id), "Connection request sent.")
             }
@@ -208,7 +209,7 @@ export function MemberProfileScreen() {
       case "pending_sent":
         return (
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }, pressed && styles.pressed]}
             onPress={() =>
               appAlert("Cancel request?", "Withdraw your connection request?", [
                 { text: "Keep", style: "cancel" },
@@ -227,7 +228,7 @@ export function MemberProfileScreen() {
         return (
           <View style={styles.actionRow}>
             <Pressable
-              style={[styles.primaryBtn, { backgroundColor: colors.primary, flex: 1 }]}
+              style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
               onPress={() =>
                 void runAction(
                   () => acceptConnectionRequest(profile!.id),
@@ -238,7 +239,7 @@ export function MemberProfileScreen() {
               <Text style={[styles.primaryBtnText, { color: colors.white }]}>Accept</Text>
             </Pressable>
             <Pressable
-              style={[styles.secondaryBtn, { borderColor: colors.border, flex: 1 }]}
+              style={({ pressed }) => [styles.secondaryBtn, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }, pressed && styles.pressed]}
               onPress={() =>
                 appAlert("Decline request?", "Decline this connection request?", [
                   { text: "Cancel", style: "cancel" },
@@ -258,15 +259,17 @@ export function MemberProfileScreen() {
         return (
           <View style={styles.connectedRow}>
             <Pressable
-              style={[styles.primaryBtn, { backgroundColor: colors.primary, flex: 1, marginTop: 0 }]}
+              style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
               onPress={openChat}
+              accessibilityRole="button"
             >
               <Ionicons name="chatbubble-outline" size={18} color={colors.white} />
               <Text style={[styles.primaryBtnText, { color: colors.white }]}>Message</Text>
             </Pressable>
             <Pressable
-              style={[styles.moreBtn, { borderColor: colors.border }]}
+              style={({ pressed }) => [styles.moreBtn, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }, pressed && styles.pressed]}
               onPress={openMoreConnected}
+              accessibilityRole="button"
               accessibilityLabel="More options"
             >
               <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
@@ -344,38 +347,45 @@ export function MemberProfileScreen() {
 
     return (
       <View style={styles.headerBlock}>
-        {!profile.isSelf ? (
-          <Pressable
-            style={[styles.menuBtn, { alignSelf: "flex-end" }]}
-            onPress={openSafetyMenu}
-            hitSlop={8}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
-
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.avatarRing, { borderColor: colors.primary + "40" }]}>
-            <AvatarImage
-              uri={getImageUrl(profile.profileImage)}
-              name={profile.fullName}
-              size={72}
-              placeholderColor={colors.surfaceElevated}
-              textColor={colors.textMuted}
-            />
-          </View>
-          <Text style={[styles.name, { color: colors.text }]}>{profile.fullName}</Text>
-          {profile.username ? (
-            <Text style={[styles.username, { color: colors.primary }]}>
-              {formatUsername(profile.username)}
-            </Text>
-          ) : null}
-          {location ? (
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-              <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+        <View style={[styles.card, styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <LinearGradient
+            colors={[mode === "dark" ? "#173329" : "#E8F5EC", colors.surface]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.identityRow}>
+            <View style={[styles.avatarRing, { borderColor: colors.primary + "40", backgroundColor: colors.surface }]}>
+              <AvatarImage
+                uri={getImageUrl(profile.profileImage)}
+                name={profile.fullName}
+                size={58}
+                placeholderColor={colors.surfaceElevated}
+                textColor={colors.textMuted}
+              />
             </View>
-          ) : null}
+            <View style={styles.identity}>
+              <Text style={[styles.name, { color: colors.text }]} accessibilityRole="header">{profile.fullName}</Text>
+              {profile.username ? (
+                <Text style={[styles.username, { color: colors.primary }]}>{formatUsername(profile.username)}</Text>
+              ) : null}
+              {location ? (
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                  <Text style={[styles.location, { color: colors.textSecondary }]}>{location}</Text>
+                </View>
+              ) : null}
+            </View>
+            {!profile.isSelf ? (
+              <Pressable
+                style={({ pressed }) => [styles.menuBtn, { backgroundColor: colors.surface }, pressed && styles.pressed]}
+                onPress={openSafetyMenu}
+                accessibilityRole="button"
+                accessibilityLabel="Member safety options"
+              >
+                <Ionicons name="ellipsis-horizontal" size={19} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
           {statusLabel ? (
             <View style={[styles.statusBadge, { backgroundColor: colors.primary + "14" }]}>
               <Text style={[styles.statusText, { color: colors.primary }]}>{statusLabel}</Text>
@@ -445,7 +455,7 @@ export function MemberProfileScreen() {
             !profile.community &&
             !profile.kulam &&
             !profile.communityRole ? (
-              <Text style={{ color: colors.textMuted, fontSize: 13 }}>No community details yet.</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>No community details yet.</Text>
             ) : null}
           </View>
         ) : null}
@@ -551,7 +561,7 @@ export function MemberProfileScreen() {
           <View style={styles.postsHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Posts</Text>
             {postsTotal > 0 ? (
-              <Text style={{ color: colors.textMuted, fontSize: 13 }}>{postsTotal} total</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{postsTotal} total</Text>
             ) : null}
           </View>
         ) : null}
@@ -570,7 +580,7 @@ export function MemberProfileScreen() {
             }}
           >
             <Ionicons name="lock-closed" size={16} color={colors.textSecondary} />
-            <Text style={{ flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+            <Text style={{ flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 17 }}>
               Some posts are visible to connections only.
             </Text>
           </View>
@@ -752,7 +762,7 @@ export function MemberProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerBlock: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  headerBlock: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
   card: {
     borderRadius: radius.lg,
@@ -761,27 +771,31 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     alignItems: "center"
   },
+  heroCard: { alignItems: "stretch", overflow: "hidden" },
+  identityRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  identity: { flex: 1, minWidth: 0 },
+  pressed: { opacity: 0.74 },
   communityCard: { alignItems: "stretch" },
   avatarRing: {
     padding: 2,
-    borderRadius: 42,
+    borderRadius: 34,
     borderWidth: 2
   },
-  name: { marginTop: spacing.sm, fontSize: 20, fontWeight: "800", textAlign: "center", letterSpacing: -0.3 },
-  username: { marginTop: 2, fontSize: 14, fontWeight: "700" },
+  name: { fontSize: 17, fontWeight: "700", lineHeight: 22 },
+  username: { marginTop: 2, fontSize: 13, fontWeight: "700" },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 6
+    marginTop: 3
   },
-  location: { fontSize: 13 },
+  location: { flexShrink: 1, fontSize: 12 },
   statusBadge: {
     marginTop: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radius.full,
-    alignSelf: "center"
+    alignSelf: "flex-start"
   },
   statusText: { fontSize: 11, fontWeight: "700" },
   heroActions: { width: "100%", marginTop: spacing.xs },
@@ -807,48 +821,48 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(148,163,184,0.25)"
   },
-  infoLabel: { fontSize: 13, fontWeight: "600", paddingTop: 1, minWidth: 96 },
-  infoValue: { fontSize: 15, fontWeight: "700", flex: 1, textAlign: "right" },
-  connectTitle: { marginTop: spacing.sm, fontSize: 16, fontWeight: "800", textAlign: "center" },
-  connectSub: { marginTop: spacing.sm, fontSize: 13, lineHeight: 19, textAlign: "center", marginBottom: 2 },
+  infoLabel: { fontSize: 12, fontWeight: "600", paddingTop: 1, minWidth: 96 },
+  infoValue: { fontSize: 13, fontWeight: "600", flex: 1, textAlign: "right" },
+  connectSub: { marginTop: spacing.sm, fontSize: 12, lineHeight: 17, marginBottom: 2 },
   primaryBtn: {
-    marginTop: spacing.md,
+    alignSelf: "flex-start",
+    marginTop: spacing.xs,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    gap: 6,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    width: "100%"
+    backgroundColor: "#163E31"
   },
-  primaryBtnText: { fontSize: 15, fontWeight: "800" },
+  primaryBtnText: { fontSize: 13, fontWeight: "700" },
   secondaryBtn: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    alignSelf: "flex-start",
+    marginTop: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
     alignItems: "center"
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: "700" },
-  actionRow: { flexDirection: "row", gap: spacing.sm, width: "100%", marginTop: spacing.sm },
+  secondaryBtnText: { fontSize: 13, fontWeight: "600" },
+  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   connectedRow: {
     flexDirection: "row",
-    gap: spacing.sm,
-    width: "100%",
-    marginTop: spacing.md,
-    alignItems: "center"
+    gap: spacing.xs,
+    alignItems: "flex-end"
   },
   moreBtn: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -868,8 +882,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.xs
   },
-  privateTitle: { fontSize: 17, fontWeight: "800" },
-  privateBody: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  privateTitle: { fontSize: 16, fontWeight: "800" },
+  privateBody: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   postsHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -892,11 +906,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.xs
   },
-  emptyTitle: { fontSize: 16, fontWeight: "800" },
-  emptyBody: { fontSize: 13, textAlign: "center", lineHeight: 18 },
-  errorTitle: { marginTop: spacing.md, fontSize: 17, fontWeight: "800" },
+  emptyTitle: { fontSize: 15, fontWeight: "800" },
+  emptyBody: { fontSize: 12, textAlign: "center", lineHeight: 17 },
+  errorTitle: { marginTop: spacing.md, fontSize: 16, fontWeight: "800" },
   errorSub: { marginTop: spacing.sm, textAlign: "center", lineHeight: 20 },
-  menuBtn: { padding: spacing.sm, marginBottom: spacing.xs },
+  menuBtn: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   chipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -909,7 +923,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     maxWidth: "100%"
   },
-  chipText: { fontSize: 13, fontWeight: "700" },
+  chipText: { fontSize: 12, fontWeight: "700" },
   availabilityPill: {
     marginTop: spacing.md,
     alignSelf: "flex-start",
@@ -918,5 +932,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 8
   },
-  availabilityPillText: { fontSize: 13, fontWeight: "800" }
+  availabilityPillText: { fontSize: 12, fontWeight: "800" }
 });

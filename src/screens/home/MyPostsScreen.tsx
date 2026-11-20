@@ -121,7 +121,7 @@ export function MyPostsScreen() {
           backgroundColor: colors.surfaceElevated
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         listContent: {
           paddingHorizontal: pad,
@@ -144,12 +144,12 @@ export function MyPostsScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
         },
         createBtn: {
@@ -162,7 +162,7 @@ export function MyPostsScreen() {
           paddingHorizontal: spacing.lg,
           borderRadius: radius.md
         },
-        createBtnText: { fontSize: 14, fontWeight: "700", color: colors.white },
+        createBtnText: { fontSize: 13, fontWeight: "700", color: colors.white },
         center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
         errorText: { color: colors.error, textAlign: "center", marginBottom: spacing.md },
         retryBtn: {

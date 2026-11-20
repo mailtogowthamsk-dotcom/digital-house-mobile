@@ -4,7 +4,8 @@ export const STORIES_CHANGED_EVENT = "dh:stories:changed";
 
 export type StoriesChangedPayload = {
   deletedId?: number;
-  reason?: "deleted" | "created" | "refresh";
+  viewedId?: number;
+  reason?: "deleted" | "created" | "refresh" | "viewed";
 };
 
 export function emitStoriesChanged(payload: StoriesChangedPayload = {}): void {

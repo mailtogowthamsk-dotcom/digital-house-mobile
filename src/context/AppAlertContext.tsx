@@ -572,15 +572,15 @@ const s = StyleSheet.create({
     marginBottom: spacing.md
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     textAlign: "center",
-    lineHeight: 24
+    lineHeight: 23
   },
   message: {
     marginTop: spacing.sm,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
     textAlign: "center"
   },
   btnRow: {
@@ -612,7 +612,7 @@ const s = StyleSheet.create({
     paddingVertical: spacing.md
   },
   btnText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "center"
   },
@@ -634,14 +634,14 @@ const s = StyleSheet.create({
     marginBottom: spacing.md
   },
   sheetTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: spacing.xs
   },
   sheetMessage: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: "center",
     marginBottom: spacing.md
   },
@@ -662,7 +662,7 @@ const s = StyleSheet.create({
   },
   sheetOptionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600"
   },
   sheetCancel: {
@@ -674,7 +674,7 @@ const s = StyleSheet.create({
     marginTop: spacing.xs
   },
   sheetCancelText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700"
   }
 });

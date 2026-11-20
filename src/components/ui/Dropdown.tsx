@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { spacing, radius } from "../../theme/spacing";
-import { TEXT_FIELD_MIN_HEIGHT, textFieldCompact } from "../../theme/textField";
+import { TEXT_FIELD_MIN_HEIGHT, settingsField, textFieldCompact } from "../../theme/textField";
 import { ModalKeyboardAvoiding } from "./ModalKeyboardAvoiding";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
 import { useTheme } from "../../theme/ThemeContext";
@@ -25,7 +25,7 @@ type DropdownProps = {
   options: { label: string; value: string }[];
   onSelect: (value: string) => void;
   /** Force light field chrome (e.g. light form cards). Sheet still follows app theme. */
-  variant?: "default" | "light";
+  variant?: "default" | "light" | "compact";
   containerStyle?: ViewStyle;
   required?: boolean;
   /** Force search box even when options list is short (e.g. username picker). */
@@ -55,6 +55,7 @@ export function Dropdown({
   const { height: windowHeight } = useWindowDimensions();
   const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
 
+  const compact = variant === "compact";
   const forceLightField = variant === "light";
   const display = value ? options.find((o) => o.value === value)?.label ?? value : placeholder;
   const searchable = forceSearchable || options.length > 8;
@@ -70,7 +71,7 @@ export function Dropdown({
   }, [options, query]);
 
   const estimatedListH = Math.min(
-    filtered.length * 56 + (searchable ? 64 : 0) + 88,
+    (filtered.length + (compact && allowClear ? 1 : 0)) * (compact ? 50 : 56) + (searchable ? 64 : 0) + 88,
     Math.round(windowHeight * 0.72)
   );
   const sheetHeight = keyboardOpen
@@ -95,28 +96,32 @@ export function Dropdown({
   const titleColor = colors.text;
   const muted = colors.textSecondary;
   const optionIdleBg = mode === "dark" ? colors.surfaceElevated : colors.background;
-  const optionSelectedBg =
-    mode === "dark" ? "rgba(37, 99, 235, 0.22)" : "rgba(37, 99, 235, 0.1)";
+  const optionSelectedBg = compact
+    ? colors.primary + "18"
+    : mode === "dark" ? "rgba(37, 99, 235, 0.22)" : "rgba(37, 99, 235, 0.1)";
 
   return (
-    <View style={[s.wrap, containerStyle]}>
+    <View style={[s.wrap, compact && s.wrapCompact, containerStyle]}>
       {label ? (
-        <Text style={[s.label, { color: labelColor }]}>
+        <Text style={[s.label, compact && s.labelCompact, { color: labelColor }]}>
           {label}
           {required ? " *" : ""}
         </Text>
       ) : null}
       <Pressable
-        style={[s.inputRow, { backgroundColor: fieldBg, borderColor: fieldBorder }]}
+        style={[s.inputRow, compact && s.inputRowCompact, { backgroundColor: fieldBg, borderColor: fieldBorder }]}
         onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={label ? `${label}, ${display}` : display}
+        accessibilityState={{ expanded: open }}
       >
         <Text
-          style={[s.inputText, { color: value ? fieldText : fieldPlaceholder }]}
+          style={[s.inputText, compact && s.inputTextCompact, { color: value ? fieldText : fieldPlaceholder }]}
           numberOfLines={1}
         >
           {display}
         </Text>
-        <Ionicons name="chevron-down" size={20} color={fieldIcon} />
+        <Ionicons name="chevron-down" size={compact ? 16 : 20} color={fieldIcon} />
       </Pressable>
 
       <Modal
@@ -168,6 +173,7 @@ export function Dropdown({
                 <View
                   style={[
                     s.searchRow,
+                    compact && s.searchRowCompact,
                     { backgroundColor: optionIdleBg, borderColor: sheetBorder }
                   ]}
                 >
@@ -177,7 +183,7 @@ export function Dropdown({
                     onChangeText={setQuery}
                     placeholder={forceSearchable ? "Search username" : "Search Tamil or English"}
                     placeholderTextColor={colors.textMuted}
-                    style={[s.searchInput, { color: titleColor }]}
+                    style={[s.searchInput, compact && s.searchInputCompact, { color: titleColor }]}
                     autoCorrect={false}
                     autoCapitalize="none"
                   />
@@ -196,14 +202,15 @@ export function Dropdown({
                 keyExtractor={(item, index) => `${item.value}-${index}`}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                ItemSeparatorComponent={() => <View style={{ height: compact ? 4 : 8 }} />}
                 ListHeaderComponent={
                   allowClear ? (
                     <Pressable
                       style={[
                         s.option,
+                        compact && s.optionCompact,
                         {
-                          marginBottom: 8,
+                          marginBottom: compact ? 4 : 8,
                           backgroundColor: !value ? optionSelectedBg : optionIdleBg,
                           borderColor: !value ? colors.primary : sheetBorder
                         }
@@ -216,6 +223,7 @@ export function Dropdown({
                       <Text
                         style={[
                           s.optionText,
+                          compact && s.inputTextCompact,
                           { color: titleColor, fontWeight: !value ? "700" : "500" }
                         ]}
                       >
@@ -237,6 +245,7 @@ export function Dropdown({
                     <Pressable
                       style={[
                         s.option,
+                        compact && s.optionCompact,
                         {
                           backgroundColor: selected ? optionSelectedBg : optionIdleBg,
                           borderColor: selected ? colors.primary : sheetBorder
@@ -247,20 +256,23 @@ export function Dropdown({
                         close();
                       }}
                     >
-                      <View
-                        style={[
-                          s.radio,
-                          {
-                            borderColor: selected ? colors.primary : colors.textMuted,
-                            backgroundColor: selected ? colors.primary : "transparent"
-                          }
-                        ]}
-                      >
-                        {selected ? <View style={s.radioDot} /> : null}
-                      </View>
+                      {!compact ? (
+                        <View
+                          style={[
+                            s.radio,
+                            {
+                              borderColor: selected ? colors.primary : colors.textMuted,
+                              backgroundColor: selected ? colors.primary : "transparent"
+                            }
+                          ]}
+                        >
+                          {selected ? <View style={s.radioDot} /> : null}
+                        </View>
+                      ) : null}
                       <Text
                         style={[
                           s.optionText,
+                          compact && s.inputTextCompact,
                           { color: selected ? colors.primary : titleColor },
                           selected && s.optionTextSelected
                         ]}
@@ -269,10 +281,10 @@ export function Dropdown({
                         {item.label}
                       </Text>
                       {selected ? (
-                        <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                      ) : (
+                        <Ionicons name={compact ? "checkmark" : "checkmark-circle"} size={compact ? 18 : 22} color={colors.primary} />
+                      ) : !compact ? (
                         <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                      )}
+                      ) : null}
                     </Pressable>
                   );
                 }}
@@ -287,7 +299,7 @@ export function Dropdown({
 
 const s = StyleSheet.create({
   wrap: { marginBottom: spacing.lg },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -297,7 +309,14 @@ const s = StyleSheet.create({
     minHeight: TEXT_FIELD_MIN_HEIGHT,
     paddingHorizontal: 16
   },
-  inputText: { fontSize: 16, flex: 1, paddingRight: 8 },
+  inputText: { fontSize: 15, flex: 1, paddingRight: 8 },
+  wrapCompact: { marginBottom: spacing.md },
+  labelCompact: { fontSize: 12, lineHeight: 16, marginBottom: 4 },
+  inputRowCompact: { ...settingsField, borderWidth: StyleSheet.hairlineWidth },
+  inputTextCompact: { fontSize: 14 },
+  optionCompact: { minHeight: 44, paddingVertical: 8, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  searchRowCompact: { minHeight: 44, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  searchInputCompact: { minHeight: 42, paddingVertical: 6 },
   overlay: {
     flex: 1,
     justifyContent: "flex-end"
@@ -322,7 +341,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth
   },
-  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalTitle: { fontSize: 17, fontWeight: "700" },
   modalSubtitle: { fontSize: 12, marginTop: 2, fontWeight: "500" },
   closeBtn: {
     width: 36,
@@ -355,7 +374,7 @@ const s = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#FFFFFF"
   },
-  optionText: { fontSize: 16, flex: 1 },
+  optionText: { fontSize: 15, flex: 1 },
   optionTextSelected: { fontWeight: "700" },
   searchRow: {
     flexDirection: "row",
@@ -374,6 +393,6 @@ const s = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 28,
     paddingHorizontal: 20,
-    fontSize: 14
+    fontSize: 13
   }
 });

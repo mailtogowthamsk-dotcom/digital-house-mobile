@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { checkoutMatrimonySubscription } from "../../services/matrimonyCheckout";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -70,9 +71,9 @@ export function MatrimonyPlansScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="Choose a plan" onBack={() => navigation.goBack()} />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+        contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl + insets.bottom }]}
       >
-        <Text style={{ color: colors.textSecondary, fontSize: 13, lineHeight: 20, marginBottom: spacing.md }}>
+        <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 19, marginBottom: spacing.md }}>
           Open full profiles with photos and horoscope. Contact reveal is separate after mutual match (listed price +
           GST).
         </Text>
@@ -148,7 +149,7 @@ export function MatrimonyPlansScreen() {
                   title={`Subscribe — ₹${(p.priceInr + (p.gstAmountInr ?? 0)).toLocaleString("en-IN")}`}
                   onPress={() => onSubscribe(p.plan as "GOLD" | "PLATINUM")}
                   loading={acting}
-                  style={{ marginTop: spacing.md }}
+                  style={{ ...matrimonyLayout.button, marginTop: spacing.md }}
                 />
               ) : null}
             </View>
@@ -168,18 +169,18 @@ export function MatrimonyPlansScreen() {
 const styles = StyleSheet.create({
   current: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    padding: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: spacing.sm + 2,
     marginBottom: spacing.md
   },
   planCard: {
     borderRadius: radius.lg,
     borderWidth: 2,
-    padding: spacing.md,
+    padding: spacing.sm + 2,
     marginBottom: spacing.md
   },
   planHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  planName: { fontSize: 18, fontWeight: "800" },
+  planName: { fontSize: 17, fontWeight: "800" },
   popular: {
     backgroundColor: "#FEF3C7",
     color: "#D97706",
@@ -198,6 +199,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10
   },
-  price: { fontSize: 24, fontWeight: "800", marginTop: 8 },
-  note: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, marginTop: spacing.sm }
+  price: { fontSize: 20, fontWeight: "800", marginTop: 4 },
+  note: { borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, padding: spacing.md, marginTop: spacing.sm }
 });

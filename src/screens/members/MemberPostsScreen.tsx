@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   backBtn: { padding: spacing.sm },
-  title: { fontSize: 17, fontWeight: "800" },
+  title: { fontSize: 16, fontWeight: "800" },
   centered: {
     flex: 1,
     alignItems: "center",
@@ -293,6 +293,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.sm
   },
-  emptyTitle: { fontSize: 17, fontWeight: "800", marginTop: spacing.sm },
-  emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 20 }
+  emptyTitle: { fontSize: 16, fontWeight: "800", marginTop: spacing.sm },
+  emptyBody: { fontSize: 13, textAlign: "center", lineHeight: 19 }
 });

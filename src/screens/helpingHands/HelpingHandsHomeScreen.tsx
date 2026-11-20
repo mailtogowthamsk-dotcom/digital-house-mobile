@@ -406,7 +406,7 @@ export function HelpingHandsHomeScreen() {
           backgroundColor: colors.surfaceElevated
         },
         headerTextCol: { flex: 1, minWidth: 0 },
-        headerTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+        headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
         headerSub: { marginTop: 1, fontSize: 12, color: colors.textSecondary },
         toolbar: {
           backgroundColor: colors.surface,
@@ -458,7 +458,7 @@ export function HelpingHandsHomeScreen() {
           paddingVertical: 12,
           paddingHorizontal: 14
         },
-        bannerPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+        bannerPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 13 },
         statsRow: {
           flexDirection: "row",
           alignItems: "center",
@@ -480,7 +480,7 @@ export function HelpingHandsHomeScreen() {
           justifyContent: "center",
           paddingHorizontal: 4
         },
-        statValue: { fontSize: 16, fontWeight: "800", color: colors.text },
+        statValue: { fontSize: 15, fontWeight: "800", color: colors.text },
         statLabel: {
           marginTop: 1,
           fontSize: 11,
@@ -489,7 +489,7 @@ export function HelpingHandsHomeScreen() {
         },
         listSectionHead: { marginBottom: 6 },
         listSectionTitle: {
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: "800",
           color: colors.text
         },
@@ -546,16 +546,16 @@ export function HelpingHandsHomeScreen() {
         },
         badgeText: { fontSize: 11, fontWeight: "700" },
         cardTitle: {
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: "800",
           color: colors.text,
-          lineHeight: 22,
+          lineHeight: 21,
           marginBottom: 4
         },
         cardDesc: {
-          fontSize: 13,
+          fontSize: 12,
           color: colors.textSecondary,
-          lineHeight: 19,
+          lineHeight: 18,
           marginBottom: 10
         },
         metaRow: {
@@ -584,7 +584,7 @@ export function HelpingHandsHomeScreen() {
           alignItems: "center",
           backgroundColor: colors.surfaceElevated
         },
-        secondaryBtnText: { fontWeight: "700", color: colors.text, fontSize: 13 },
+        secondaryBtnText: { fontWeight: "700", color: colors.text, fontSize: 12 },
         helpBtn: {
           flex: 1.2,
           paddingVertical: 12,
@@ -597,9 +597,9 @@ export function HelpingHandsHomeScreen() {
           gap: 6
         },
         helpBtnPressed: { opacity: 0.9 },
-        helpBtnText: { fontWeight: "800", color: "#fff", fontSize: 13 },
+        helpBtnText: { fontWeight: "800", color: "#fff", fontSize: 12 },
         sectionTitle: {
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "800",
           color: colors.text,
           marginBottom: spacing.sm,
@@ -615,12 +615,12 @@ export function HelpingHandsHomeScreen() {
           justifyContent: "center",
           marginBottom: spacing.md
         },
-        emptyTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+        emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
         emptyText: {
           marginTop: spacing.sm,
           textAlign: "center",
-          fontSize: 13,
-          lineHeight: 20,
+          fontSize: 12,
+          lineHeight: 19,
           color: colors.textSecondary
         },
         heroCard: {
@@ -638,7 +638,7 @@ export function HelpingHandsHomeScreen() {
           borderRadius: 16,
           backgroundColor: themeMode === "dark" ? colors.surfaceElevated : "#F5F3FF"
         },
-        heroName: { fontSize: 16, fontWeight: "800", color: colors.text },
+        heroName: { fontSize: 15, fontWeight: "800", color: colors.text },
         heroIntro: { marginTop: 2, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
         heroStat: {
           marginTop: 6,
@@ -663,10 +663,10 @@ export function HelpingHandsHomeScreen() {
           borderLeftColor: ACCENT
         },
         quoteText: {
-          fontSize: 13,
+          fontSize: 12,
           fontStyle: "italic",
           color: colors.text,
-          lineHeight: 19
+          lineHeight: 18
         },
         activityCard: {
           backgroundColor: colors.surface,
@@ -676,7 +676,7 @@ export function HelpingHandsHomeScreen() {
           padding: spacing.md,
           marginBottom: spacing.sm
         },
-        activityTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+        activityTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
         activityMeta: { marginTop: 4, fontSize: 12, color: colors.textSecondary },
         footer: {
           position: "absolute",

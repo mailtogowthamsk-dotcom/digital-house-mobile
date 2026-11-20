@@ -86,12 +86,6 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
   const isArchived = folder === "archived";
   const isBlocked = folder === "blocked";
 
-  const subtitle = isBlocked
-    ? "People you blocked. Tap Unblock to allow messaging again."
-    : isArchived
-      ? "Archived chats stay here. Open a chat → ⋮ → Unarchive to bring it back to Inbox."
-      : "Archive a chat from its options menu. Find blocked people under Blocked.";
-
   const emptyTitle = isBlocked
     ? "No blocked members"
     : isArchived
@@ -129,24 +123,22 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.titleRow}>
           {onBack ? <HeaderBackButton onPress={onBack} /> : null}
-          <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>Messages</Text>
+          <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]} accessibilityRole="header">Messages</Text>
           {onSearch ? (
             <Pressable
               onPress={onSearch}
               hitSlop={8}
-              style={styles.searchBtn}
+              style={({ pressed }) => [styles.searchBtn, { backgroundColor: colors.surfaceElevated }, pressed && styles.pressed]}
               accessibilityLabel="Search members and chats"
               accessibilityRole="button"
             >
-              <Ionicons name="search-outline" size={22} color={colors.text} />
+              <Ionicons name="search-outline" size={19} color={colors.text} />
             </Pressable>
-          ) : (
-            <View style={styles.searchBtn} />
-          )}
+          ) : null}
         </View>
 
         {onFolderChange ? (
-          <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]}>
+          <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]} accessibilityRole="tablist">
             {(
               [
                 { id: "inbox", label: "Inbox" },
@@ -156,13 +148,10 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
             ).map((tab) => (
               <Pressable
                 key={tab.id}
-                style={[
+                style={({ pressed }) => [
                   styles.segmentBtn,
-                  folder === tab.id && {
-                    backgroundColor: colors.surface,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: colors.border
-                  }
+                  folder === tab.id && { backgroundColor: colors.primary + "18" },
+                  pressed && styles.pressed
                 ]}
                 onPress={() => onFolderChange(tab.id)}
                 accessibilityRole="tab"
@@ -175,6 +164,8 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
                     folder === tab.id && { color: colors.primary, fontWeight: "600" }
                   ]}
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {tab.label}
                 </Text>
@@ -183,7 +174,6 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
           </View>
         ) : null}
 
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
       </View>
 
       <View style={styles.listWrap}>
@@ -237,11 +227,11 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
                     {item.fullName}
                   </Text>
                   {item.username ? (
-                    <Text style={{ color: colors.textMuted, fontSize: 13 }} numberOfLines={1}>
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }} numberOfLines={1}>
                       @{item.username}
                     </Text>
                   ) : (
-                    <Text style={{ color: colors.textMuted, fontSize: 13 }}>Blocked</Text>
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>Blocked</Text>
                   )}
                 </View>
                 <Pressable
@@ -249,7 +239,7 @@ function ThreadListPanelComponent(props: ThreadListPanelProps) {
                   hitSlop={8}
                   style={styles.unblockBtn}
                 >
-                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
                     Unblock
                   </Text>
                 </Pressable>
@@ -302,7 +292,9 @@ function EmptyState({
 }) {
   return (
     <View style={styles.centered}>
-      <Ionicons name={icon} size={44} color={colors.textSecondary} />
+      <View style={[styles.emptyIcon, { backgroundColor: colors.surfaceElevated }]}>
+        <Ionicons name={icon} size={24} color={colors.primary} />
+      </View>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.emptySub, { color: colors.textSecondary }]}>{subtitle}</Text>
     </View>
@@ -317,9 +309,9 @@ const styles = StyleSheet.create({
     alignSelf: "stretch"
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexShrink: 0
   },
@@ -331,6 +323,7 @@ const styles = StyleSheet.create({
   searchBtn: {
     width: 44,
     height: 44,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0
@@ -340,13 +333,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0
   },
-  subtitle: {
-    marginTop: 10,
-    fontSize: 13,
-    lineHeight: 18
-  },
+  pressed: { opacity: 0.72 },
   segment: {
-    marginTop: 14,
+    marginTop: 6,
     flexDirection: "row",
     borderRadius: 12,
     padding: 4,
@@ -354,15 +343,17 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
-    minHeight: 36,
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center"
   },
   segmentText: {
-    fontSize: 13,
-    fontWeight: "500"
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600"
   },
   listWrap: {
     flex: 1,
@@ -377,18 +368,18 @@ const styles = StyleSheet.create({
   blockedRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 72
+    minHeight: 58
   },
   blockedTextCol: {
     flex: 1,
     minWidth: 0
   },
   blockedName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600"
   },
   unblockBtn: {
@@ -404,18 +395,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24
   },
+  emptyIcon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     marginTop: 10,
     textAlign: "center"
   },
   emptySub: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 6,
     textAlign: "center",
     paddingHorizontal: 16,
-    lineHeight: 19
+    lineHeight: 18
   }
 });
 
@@ -456,10 +448,12 @@ export function ThreadRow({
   return (
     <Pressable
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         rowStyles.row,
         { borderBottomColor: colors.border },
-        selected && { backgroundColor: colors.surfaceElevated }
+        (selected || pressed || hasUnread) && {
+          backgroundColor: selected || pressed ? colors.surfaceElevated : colors.primary + "08"
+        }
       ]}
       accessibilityRole="button"
     >
@@ -467,7 +461,7 @@ export function ThreadRow({
         <AvatarImage
           uri={avatarUri}
           name={name}
-          size={48}
+          size={40}
           placeholderColor={colors.surfaceElevated}
           textColor={colors.textMuted}
         />
@@ -549,16 +543,16 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     maxWidth: "100%",
-    minHeight: 76
+    minHeight: 62
   },
   avatarWrap: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     flexShrink: 0
   },
   dot: {
@@ -578,13 +572,13 @@ const rowStyles = StyleSheet.create({
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8
+    gap: 5
   },
   name: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    flex: 1
+    flex: 1,
+    minWidth: 0
   },
   nameUnread: {
     fontWeight: "700"
@@ -592,28 +586,27 @@ const rowStyles = StyleSheet.create({
   time: {
     fontSize: 12,
     flexShrink: 0,
-    alignSelf: "flex-start",
-    marginTop: 2
+    fontVariant: ["tabular-nums"]
   },
   laneIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0
   },
   previewRow: {
-    marginTop: 4,
+    marginTop: 2,
     flexDirection: "row",
     alignItems: "center",
     gap: 8
   },
   preview: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     minWidth: 0,
-    lineHeight: 18
+    lineHeight: 17
   },
   previewUnread: {
     fontWeight: "600"

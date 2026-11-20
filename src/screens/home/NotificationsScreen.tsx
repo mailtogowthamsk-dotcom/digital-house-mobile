@@ -84,7 +84,7 @@ export function NotificationsScreen() {
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
       {items.some((n) => !n.readAt) ? (
         <Pressable style={styles.markAll} onPress={onMarkAll}>
-          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>Mark all read</Text>
+          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>Mark all read</Text>
         </Pressable>
       ) : null}
       <FlatList
@@ -131,14 +131,14 @@ const styles = StyleSheet.create({
   markAll: { alignSelf: "flex-end", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   list: { padding: spacing.md, paddingBottom: spacing.xl },
   emptyList: { flexGrow: 1, justifyContent: "center", padding: spacing.xl },
-  empty: { textAlign: "center", fontSize: 15 },
+  empty: { textAlign: "center", fontSize: 14 },
   row: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
     marginBottom: spacing.sm
   },
-  title: { fontSize: 15, fontWeight: "700" },
-  body: { marginTop: 4, fontSize: 14, lineHeight: 20 },
+  title: { fontSize: 14, fontWeight: "700" },
+  body: { marginTop: 4, fontSize: 13, lineHeight: 19 },
   time: { marginTop: 8, fontSize: 12 }
 });

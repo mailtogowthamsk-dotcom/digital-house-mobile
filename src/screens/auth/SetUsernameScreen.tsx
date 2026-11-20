@@ -119,9 +119,9 @@ export function SetUsernameScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { paddingHorizontal: spacing.lg },
-  title: { fontSize: 24, fontWeight: "800" },
-  sub: { marginTop: spacing.sm, fontSize: 15, lineHeight: 22 },
-  hintOk: { marginTop: spacing.sm, fontSize: 13, fontWeight: "600" },
-  hintBad: { marginTop: spacing.sm, fontSize: 13, fontWeight: "600" },
-  error: { marginTop: spacing.md, fontSize: 14 }
+  title: { fontSize: 22, fontWeight: "800" },
+  sub: { marginTop: spacing.sm, fontSize: 14, lineHeight: 21 },
+  hintOk: { marginTop: spacing.sm, fontSize: 12, fontWeight: "600" },
+  hintBad: { marginTop: spacing.sm, fontSize: 12, fontWeight: "600" },
+  error: { marginTop: spacing.md, fontSize: 13 }
 });

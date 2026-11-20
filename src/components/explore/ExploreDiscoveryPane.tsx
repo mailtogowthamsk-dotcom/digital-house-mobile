@@ -135,15 +135,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.sm
   },
-  sectionTitle: { fontSize: 15, fontWeight: "700", marginBottom: spacing.sm },
-  clearText: { fontSize: 13, fontWeight: "600" },
+  sectionTitle: { fontSize: 14, fontWeight: "700", marginBottom: spacing.sm },
+  clearText: { fontSize: 12, fontWeight: "600" },
   recentRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: 10
   },
-  recentText: { flex: 1, fontSize: 15 },
+  recentText: { flex: 1, fontSize: 14 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -151,8 +151,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8
   },
-  chipText: { fontSize: 13, fontWeight: "600" },
-  hint: { fontSize: 13, lineHeight: 18 },
+  chipText: { fontSize: 12, fontWeight: "600" },
+  hint: { fontSize: 12, lineHeight: 17 },
   idleCard: {
     marginTop: spacing.md,
     borderRadius: radius.lg,
@@ -167,5 +167,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.md
   },
-  idleTitle: { fontSize: 16, fontWeight: "700", marginBottom: 6, textAlign: "center" }
+  idleTitle: { fontSize: 15, fontWeight: "700", marginBottom: 6, textAlign: "center" }
 });

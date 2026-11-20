@@ -12,7 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
-import { textFieldCompact } from "../../theme/textField";
+import { settingsField, textFieldCompact } from "../../theme/textField";
 import { searchUsers, type DirectoryUser } from "../../api/users.api";
 import { listThreads } from "../../api/messages.api";
 import {
@@ -221,12 +221,12 @@ export function SearchMembersScreen() {
         return (
           <Pressable
             onPress={() => openChat(item)}
-            hitSlop={6}
-            style={[styles.actionChip, { backgroundColor: colors.primary }]}
+            accessibilityRole="button"
+            style={[styles.actionChip, { backgroundColor: colors.surfaceElevated }]}
             accessibilityLabel="Open chat"
           >
-            <Ionicons name="chatbubble-outline" size={14} color={colors.white} />
-            <Text style={[styles.actionChipText, { color: colors.white }]}>Chat</Text>
+            <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
+            <Text style={[styles.actionChipText, { color: colors.primary }]}>Chat</Text>
           </Pressable>
         );
       }
@@ -235,12 +235,12 @@ export function SearchMembersScreen() {
         return (
           <Pressable
             onPress={() => void onConnect(item)}
-            hitSlop={6}
-            style={[styles.actionChip, { backgroundColor: colors.primary }]}
+            accessibilityRole="button"
+            style={[styles.actionChip, { backgroundColor: colors.surfaceElevated }]}
             accessibilityLabel="Send connection request"
           >
-            <Ionicons name="person-add-outline" size={14} color={colors.white} />
-            <Text style={[styles.actionChipText, { color: colors.white }]}>Connect</Text>
+            <Ionicons name="person-add-outline" size={14} color={colors.primary} />
+            <Text style={[styles.actionChipText, { color: colors.primary }]}>Connect</Text>
           </Pressable>
         );
       }
@@ -249,11 +249,11 @@ export function SearchMembersScreen() {
         return (
           <Pressable
             onPress={() => void onAccept(item)}
-            hitSlop={6}
-            style={[styles.actionChip, { backgroundColor: colors.primary }]}
+            accessibilityRole="button"
+            style={[styles.actionChip, { backgroundColor: colors.surfaceElevated }]}
             accessibilityLabel="Accept connection request"
           >
-            <Text style={[styles.actionChipText, { color: colors.white }]}>Accept</Text>
+            <Text style={[styles.actionChipText, { color: colors.primary }]}>Accept</Text>
           </Pressable>
         );
       }
@@ -267,13 +267,17 @@ export function SearchMembersScreen() {
     ({ item }: { item: DirectoryUser }) => {
       return (
         <Pressable
-          style={[styles.row, { borderBottomColor: colors.border }]}
+          style={({ pressed }) => [
+            styles.row,
+            { borderBottomColor: colors.border, backgroundColor: pressed ? colors.surfaceElevated : colors.surface }
+          ]}
           onPress={() => onRowPress(item)}
+          accessibilityRole={fromMessages ? undefined : "button"}
         >
           <AvatarImage
             uri={getImageUrl(item.profileImage)}
             name={item.fullName}
-            size={48}
+            size={36}
             placeholderColor={colors.surfaceElevated}
             textColor={colors.textMuted}
           />
@@ -291,93 +295,129 @@ export function SearchMembersScreen() {
         </Pressable>
       );
     },
-    [colors, onRowPress, renderTrailing]
+    [colors, fromMessages, onRowPress, renderTrailing]
   );
 
   const s = useMemo(
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: colors.background },
+        content: { flex: 1, width: "100%", maxWidth: 620, alignSelf: "center" },
         searchWrap: {
-          margin: spacing.lg,
+          ...settingsField,
+          marginHorizontal: spacing.md,
+          marginTop: spacing.sm,
+          marginBottom: spacing.sm,
           flexDirection: "row",
           alignItems: "center",
-          gap: spacing.sm,
-          backgroundColor: colors.surface,
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: colors.border,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.sm
+          gap: spacing.xs,
+          backgroundColor: colors.surfaceElevated,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border
         },
-        searchInput: { flex: 1, ...textFieldCompact, color: colors.text },
-        empty: { padding: spacing.xl, alignItems: "center" },
-        emptyText: { color: colors.textSecondary, textAlign: "center", lineHeight: 20 }
+        searchInput: { flex: 1, ...textFieldCompact, minHeight: 42, paddingVertical: 6, color: colors.text },
+        clearButton: {
+          width: 36,
+          minHeight: 44,
+          alignItems: "center",
+          justifyContent: "center"
+        },
+        resultCount: {
+          marginHorizontal: spacing.md,
+          marginBottom: spacing.xs,
+          fontSize: 12,
+          color: colors.textSecondary,
+          fontWeight: "600"
+        },
+        results: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
+        empty: { padding: spacing.lg, alignItems: "center", gap: spacing.xs },
+        emptyIcon: {
+          width: 48,
+          height: 48,
+          borderRadius: 14,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.surfaceElevated,
+          marginBottom: spacing.xs
+        },
+        emptyTitle: { fontSize: 14, fontWeight: "700", color: colors.text, textAlign: "center" },
+        emptyText: { fontSize: 13, color: colors.textSecondary, textAlign: "center", lineHeight: 19 }
       }),
     [colors]
   );
 
   const typed = searchNeedle(query);
   const waitingForMinChars = typed.length > 0 && typed.length < MIN_SEARCH_CHARS;
-  const emptyHint = fromMessages
-    ? "Type at least 3 letters to search by name or @username."
-    : "Type at least 3 letters to find members by name or @username.";
+  const emptyHint = "Enter at least 3 characters from a name or @username.";
   const remaining = MIN_SEARCH_CHARS - typed.length;
   const minCharsHint = `Type ${remaining} more letter${remaining === 1 ? "" : "s"} to search.`;
 
   return (
     <View style={s.container}>
-      <View style={s.searchWrap}>
-        <Ionicons name="search" size={18} color={colors.textMuted} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search name or @username"
-          placeholderTextColor={colors.textMuted}
-          style={s.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoFocus={fromMessages}
-        />
-        {query.length > 0 ? (
-          <Pressable onPress={() => setQuery("")} hitSlop={8} accessibilityLabel="Clear search">
-            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: spacing.lg }} color={colors.primary} />
-      ) : error ? (
-        <View style={s.empty}>
-          <Text style={s.emptyText}>{error}</Text>
-        </View>
-      ) : !query.trim() || waitingForMinChars ? (
-        <View style={s.empty}>
-          <Ionicons
-            name={fromMessages ? "chatbubbles-outline" : "people-outline"}
-            size={42}
-            color={colors.textSecondary}
+      <View style={s.content}>
+        <View style={s.searchWrap}>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search name or @username"
+            placeholderTextColor={colors.textMuted}
+            style={s.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus={fromMessages}
+            accessibilityLabel="Search members"
+            returnKeyType="search"
           />
-          <Text style={[s.emptyText, { marginTop: spacing.md }]}>
-            {waitingForMinChars ? minCharsHint : emptyHint}
-          </Text>
+          {query.length > 0 ? (
+            <Pressable style={s.clearButton} onPress={() => setQuery("")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Clear search">
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
-      ) : results.length === 0 ? (
-        <View style={s.empty}>
-          <Text style={s.emptyText}>No members found.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          keyboardShouldPersistTaps="handled"
-          initialNumToRender={12}
-          windowSize={8}
-          removeClippedSubviews
-        />
-      )}
+
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: spacing.lg }} color={colors.primary} />
+        ) : error ? (
+          <View style={s.empty}>
+            <Text style={s.emptyText}>{error}</Text>
+          </View>
+        ) : !query.trim() || waitingForMinChars ? (
+          <View style={s.empty}>
+            <View style={s.emptyIcon}>
+              <Ionicons
+                name={fromMessages ? "chatbubbles-outline" : "people-outline"}
+                size={23}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={s.emptyText}>
+              {waitingForMinChars ? minCharsHint : emptyHint}
+            </Text>
+          </View>
+        ) : results.length === 0 ? (
+          <View style={s.empty}>
+            <Text style={s.emptyTitle}>No members found</Text>
+            <Text style={s.emptyText}>Try another name or @username.</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={s.resultCount} accessibilityLiveRegion="polite">
+              {results.length} {results.length === 1 ? "member" : "members"} found
+            </Text>
+            <FlatList
+              contentContainerStyle={s.results}
+              data={results}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={renderItem}
+              keyboardShouldPersistTaps="handled"
+              initialNumToRender={12}
+              windowSize={8}
+              removeClippedSubviews
+            />
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -386,22 +426,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    minHeight: 54,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth
   },
   rowText: { flex: 1, minWidth: 0 },
-  name: { fontSize: 16, fontWeight: "800" },
-  username: { fontSize: 14, fontWeight: "600", marginTop: 2 },
+  name: { fontSize: 14, fontWeight: "700" },
+  username: { fontSize: 12, fontWeight: "500", marginTop: 2 },
   actionChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
+    minHeight: 44,
+    borderRadius: radius.md,
     flexShrink: 0
   },
-  actionChipText: { fontSize: 13, fontWeight: "700" }
+  actionChipText: { fontSize: 12, fontWeight: "700" }
 });

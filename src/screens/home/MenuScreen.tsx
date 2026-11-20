@@ -165,7 +165,6 @@ export function MenuScreen() {
     const featureOnlyIds = new Set([
       "posts",
       "community",
-      "create",
       "messages",
       "settings",
       "connections",
@@ -188,10 +187,11 @@ export function MenuScreen() {
   const exploreItems = useMemo(() => EXPLORE.filter(filterItem), [isFeatureEnabled, isMenuVisible]);
   const connectItems = useMemo(() => CONNECT.filter(filterItem), [isFeatureEnabled, isMenuVisible]);
 
-  const gridGap = spacing.md;
+  const gridGap = spacing.sm;
   const gridPad = spacing.lg;
-  const tileWidth = (width - gridPad * 2 - gridGap) / 2;
-  const wideTileWidth = width - gridPad * 2;
+  const contentWidth = Math.min(width, 640);
+  const wideTileWidth = contentWidth - gridPad * 2;
+  const tileWidth = (wideTileWidth - gridGap) / 2;
 
   const s = useMemo(
     () =>
@@ -217,100 +217,77 @@ export function MenuScreen() {
           backgroundColor: colors.surfaceElevated
         },
         iconBtnPressed: { opacity: 0.7 },
-        headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.text },
+        headerTitle: { flex: 1, fontSize: 17, fontWeight: "700", color: colors.text },
         scroll: { flex: 1 },
         content: {
+          width: "100%",
+          maxWidth: 640,
+          alignSelf: "center",
           paddingHorizontal: gridPad,
-          paddingTop: spacing.lg,
-          paddingBottom: spacing.xxxl + insets.bottom
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl + insets.bottom
         },
         greeting: {
-          backgroundColor: colors.surface,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.sm,
+          backgroundColor: mode === "dark" ? "#123128" : "#EDF6EF",
           borderRadius: radius.lg,
-          padding: spacing.lg,
-          marginBottom: spacing.xl,
-          borderWidth: 1,
+          padding: spacing.sm,
+          marginBottom: spacing.lg,
+          borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border
         },
         greetingTop: {
+          flex: 1,
+          minWidth: 0,
+          minHeight: 48,
           flexDirection: "row",
           alignItems: "center",
-          gap: spacing.md
+          gap: spacing.sm
         },
         greetingTopPressed: { opacity: 0.7 },
-        greetingHi: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
-        greetingName: {
-          marginTop: 1,
-          fontSize: 20,
-          fontWeight: "800",
-          color: colors.text
-        },
-        greetingHandle: { marginTop: 1, fontSize: 12, color: colors.textMuted },
-        greetingSub: {
-          marginTop: spacing.md,
-          fontSize: 13,
-          lineHeight: 18,
-          color: colors.textSecondary
-        },
-        createBtn: {
-          marginTop: spacing.md,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          backgroundColor: colors.primary,
-          borderRadius: radius.md,
-          paddingVertical: 14,
-          paddingHorizontal: spacing.lg
-        },
-        createBtnPressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-        createText: { fontSize: 15, fontWeight: "700", color: colors.white },
+        greetingName: { fontSize: 15, fontWeight: "700", color: colors.text },
+        greetingHandle: { marginTop: 2, fontSize: 12, color: colors.textSecondary },
         sectionLabel: {
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: "700",
-          color: colors.textMuted,
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-          marginBottom: spacing.md
+          color: colors.text,
+          marginBottom: spacing.sm
         },
         grid: {
           flexDirection: "row",
           flexWrap: "wrap",
           gap: gridGap,
-          marginBottom: spacing.xl
+          marginBottom: spacing.lg
         },
         tile: {
           width: tileWidth,
-          backgroundColor: colors.surface,
-          borderRadius: radius.lg,
-          padding: spacing.md,
-          borderWidth: 1,
-          borderColor: colors.border,
-          minHeight: 112
-        },
-        tileWide: {
-          width: wideTileWidth,
-          minHeight: 0,
+          minHeight: 76,
           flexDirection: "row",
           alignItems: "center",
-          gap: spacing.md,
-          paddingVertical: spacing.lg
+          gap: 8,
+          backgroundColor: colors.surface,
+          borderRadius: radius.lg,
+          padding: spacing.sm,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.border
         },
+        tileWide: { width: wideTileWidth, minHeight: 64 },
         tilePressed: {
           backgroundColor: mode === "dark" ? colors.surfaceElevated : "#F8FAFC",
           borderColor: colors.primary + "55",
           transform: [{ scale: 0.98 }]
         },
         tileIcon: {
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 34,
+          height: 34,
+          borderRadius: 10,
           alignItems: "center",
-          justifyContent: "center",
-          marginBottom: spacing.sm
+          justifyContent: "center"
         },
-        tileIconWide: { marginBottom: 0 },
-        tileIconWrap: { position: "relative", alignSelf: "flex-start" },
+        tileIconWrap: { position: "relative" },
+        tileBody: { flex: 1, minWidth: 0 },
         tileBadge: {
           position: "absolute",
           top: -6,
@@ -326,11 +303,11 @@ export function MenuScreen() {
           borderColor: colors.surface
         },
         tileBadgeText: { fontSize: 10, fontWeight: "800", color: colors.white },
-        tileLabel: { fontSize: 15, fontWeight: "700", color: colors.text },
+        tileLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
         tileSub: {
           marginTop: 2,
           fontSize: 12,
-          lineHeight: 16,
+          lineHeight: 15,
           color: colors.textSecondary
         },
         listCard: {
@@ -344,8 +321,8 @@ export function MenuScreen() {
         row: {
           flexDirection: "row",
           alignItems: "center",
-          minHeight: 60,
-          paddingVertical: spacing.md,
+          minHeight: 54,
+          paddingVertical: spacing.sm,
           paddingHorizontal: spacing.md,
           gap: spacing.md,
           borderBottomWidth: StyleSheet.hairlineWidth,
@@ -354,14 +331,14 @@ export function MenuScreen() {
         rowLast: { borderBottomWidth: 0 },
         rowPressed: { backgroundColor: colors.surfaceElevated },
         rowIcon: {
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 34,
+          height: 34,
+          borderRadius: 10,
           alignItems: "center",
           justifyContent: "center"
         },
         rowBody: { flex: 1 },
-        rowLabel: { fontSize: 15, fontWeight: "600", color: colors.text },
+        rowLabel: { fontSize: 13, fontWeight: "600", color: colors.text },
         rowSub: { marginTop: 2, fontSize: 12, lineHeight: 16, color: colors.textSecondary },
         rowRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
         badge: {
@@ -380,10 +357,10 @@ export function MenuScreen() {
           paddingVertical: spacing.xxxl,
           paddingHorizontal: spacing.lg
         },
-        emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+        emptyTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
         emptyText: {
-          fontSize: 13,
-          lineHeight: 18,
+          fontSize: 12,
+          lineHeight: 17,
           color: colors.textSecondary,
           textAlign: "center"
         }
@@ -392,8 +369,7 @@ export function MenuScreen() {
   );
 
   const onActionPress = (actionId: HeaderActionId) => {
-    if (actionId === "create") navigation.navigate("CreatePost");
-    else if (actionId === "posts" || actionId === "community") navigation.navigate("Home");
+    if (actionId === "posts" || actionId === "community") navigation.navigate("Home");
     else if (actionId === "search-members") navigation.navigate("SearchMembers");
     else if (actionId === "connections") navigation.navigate("Connections");
     else if (actionId === "messages") openMessagesInbox(navigation);
@@ -408,7 +384,6 @@ export function MenuScreen() {
   };
 
   const fullName = (user?.fullName || "Member").trim();
-  const firstName = fullName.split(/\s+/)[0];
   const chipBg = (item: MenuItem) => (mode === "dark" ? `${item.tint}26` : item.tintBg);
 
   return (
@@ -439,11 +414,10 @@ export function MenuScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open your profile"
           >
-            <AvatarImage uri={user?.profilePhoto} name={fullName} size={48} />
+            <AvatarImage uri={user?.profilePhoto} name={fullName} size={38} />
             <View style={{ flex: 1 }}>
-              <Text style={s.greetingHi}>Welcome back</Text>
               <Text style={s.greetingName} numberOfLines={1}>
-                {firstName}
+                {fullName}
               </Text>
               {user?.username ? (
                 <Text style={s.greetingHandle} numberOfLines={1}>
@@ -453,21 +427,11 @@ export function MenuScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </Pressable>
-          <Text style={s.greetingSub}>Jump into community modules or create something new.</Text>
-          <Pressable
-            style={({ pressed }) => [s.createBtn, pressed && s.createBtnPressed]}
-            onPress={() => onActionPress("create")}
-            accessibilityRole="button"
-            accessibilityLabel="Create post"
-          >
-            <Ionicons name="add-circle" size={20} color={colors.white} />
-            <Text style={s.createText}>Create Post</Text>
-          </Pressable>
         </View>
 
         {exploreItems.length > 0 ? (
           <>
-            <Text style={s.sectionLabel}>Explore</Text>
+            <Text style={s.sectionLabel} accessibilityRole="header">Explore</Text>
             <View style={s.grid}>
               {exploreItems.map((item, idx) => {
                 // An odd item count would leave a half-width tile alone on the last row.
@@ -493,14 +457,14 @@ export function MenuScreen() {
                       helpCount > 0 ? `${item.label}, ${helpCount} open` : item.label
                     }
                   >
-                    <View style={[s.tileIconWrap, !isWide && { marginBottom: spacing.sm }]}>
+                    <View style={s.tileIconWrap}>
                       <View
                         style={[
                           s.tileIcon,
-                          { backgroundColor: chipBg(item), marginBottom: 0 }
+                          { backgroundColor: chipBg(item) }
                         ]}
                       >
-                        <Ionicons name={item.icon as any} size={22} color={item.tint} />
+                        <Ionicons name={item.icon as any} size={19} color={item.tint} />
                       </View>
                       {helpCount > 0 ? (
                         <View style={s.tileBadge}>
@@ -510,7 +474,7 @@ export function MenuScreen() {
                         </View>
                       ) : null}
                     </View>
-                    <View style={isWide ? { flex: 1 } : undefined}>
+                    <View style={s.tileBody}>
                       <Text style={s.tileLabel}>{item.label}</Text>
                       {subtitle ? <Text style={s.tileSub}>{subtitle}</Text> : null}
                     </View>
@@ -526,7 +490,7 @@ export function MenuScreen() {
 
         {connectItems.length > 0 ? (
           <>
-            <Text style={s.sectionLabel}>Connect</Text>
+            <Text style={s.sectionLabel} accessibilityRole="header">Connect</Text>
             <View style={s.listCard}>
               {connectItems.map((item, idx) => {
                 const isLast = idx === connectItems.length - 1;

@@ -58,7 +58,7 @@ export function AccordionSection({
         },
         title: {
           fontFamily: fonts.semiBold,
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: "600",
           color: colors.text,
           flex: 1

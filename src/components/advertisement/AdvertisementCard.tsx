@@ -226,14 +226,14 @@ function AdvertisementCardInner({ ad, placement, preview }: Omit<Props, "slotVis
           gap: 8
         },
         title: {
-          fontSize: 17,
+          fontSize: 16,
           fontWeight: "800",
           color: colors.text,
-          lineHeight: 22
+          lineHeight: 21
         },
         desc: {
-          fontSize: 13,
-          lineHeight: 18,
+          fontSize: 12,
+          lineHeight: 17,
           color: colors.textSecondary
         },
         meta: {
@@ -264,7 +264,7 @@ function AdvertisementCardInner({ ad, placement, preview }: Omit<Props, "slotVis
           borderColor: colors.border
         },
         pillSolo: { flexGrow: 1 },
-        pillText: { fontSize: 13, fontWeight: "700", color: colors.text }
+        pillText: { fontSize: 12, fontWeight: "700", color: colors.text }
       }),
     [colors, mode, placement]
   );

@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E7EB",
     backgroundColor: "#fff"
   },
-  title: { fontSize: 16, fontWeight: "700", color: "#0B1220" },
-  close: { fontSize: 15, fontWeight: "600", color: "#2563EB" },
+  title: { fontSize: 15, fontWeight: "700", color: "#0B1220" },
+  close: { fontSize: 14, fontWeight: "600", color: "#2563EB" },
   web: { flex: 1, backgroundColor: "#0B1220" }
 });

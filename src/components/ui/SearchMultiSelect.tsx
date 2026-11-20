@@ -279,7 +279,7 @@ export function SearchMultiSelect({
 
 const s = StyleSheet.create({
   wrap: { marginBottom: spacing.lg },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
   note: { fontSize: 12, lineHeight: 16, marginBottom: 8, marginTop: -4 },
   inputRow: {
     flexDirection: "row",
@@ -290,7 +290,7 @@ const s = StyleSheet.create({
     minHeight: TEXT_FIELD_MIN_HEIGHT,
     paddingHorizontal: 16
   },
-  inputText: { fontSize: 16, flex: 1, paddingRight: 8 },
+  inputText: { fontSize: 15, flex: 1, paddingRight: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   chip: {
     flexDirection: "row",
@@ -327,7 +327,7 @@ const s = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth
   },
-  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalTitle: { fontSize: 17, fontWeight: "700" },
   modalSubtitle: { fontSize: 12, marginTop: 2, fontWeight: "500" },
   doneBtn: {
     minHeight: 36,
@@ -337,7 +337,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth
   },
-  doneText: { fontSize: 15, fontWeight: "700" },
+  doneText: { fontSize: 14, fontWeight: "700" },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -368,12 +368,12 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  optionText: { fontSize: 16, flex: 1 },
+  optionText: { fontSize: 15, flex: 1 },
   optionTextSelected: { fontWeight: "700" },
   empty: {
     textAlign: "center",
     paddingVertical: 28,
     paddingHorizontal: 20,
-    fontSize: 14
+    fontSize: 13
   }
 });

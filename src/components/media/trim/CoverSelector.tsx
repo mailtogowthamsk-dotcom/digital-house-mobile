@@ -117,7 +117,7 @@ export const CoverSelector = memo(CoverSelectorInner);
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  title: { fontSize: 15, fontWeight: "700" },
+  title: { fontSize: 14, fontWeight: "700" },
   hint: { fontSize: 12, marginTop: 2, marginBottom: spacing.sm },
   row: { gap: spacing.sm, paddingVertical: spacing.xs },
   thumb: {

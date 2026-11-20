@@ -925,7 +925,7 @@ export function ChatScreen() {
             </Text>
             {canRestoreMessaging ? (
               <Pressable onPress={restoreMessaging} hitSlop={6}>
-                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
                   Restore messaging
                 </Text>
               </Pressable>

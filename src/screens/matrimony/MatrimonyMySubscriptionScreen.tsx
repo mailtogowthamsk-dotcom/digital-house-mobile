@@ -10,6 +10,7 @@ import {
   type MyMatrimonySubscriptionDetail
 } from "../../api/matrimony.api";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing, radius } from "../../theme/spacing";
 import { MatrimonyScreenHeader } from "../../components/matrimony/MatrimonyScreenHeader";
 import { PrimaryButton } from "../../components/ui/PrimaryButton";
@@ -57,7 +58,7 @@ export function MatrimonyMySubscriptionScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MatrimonyScreenHeader title="My subscription" onBack={() => navigation.goBack()} />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }}
+        contentContainerStyle={[matrimonyLayout.content, { paddingBottom: spacing.xl + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
       >
         {loading && !detail ? (
@@ -117,14 +118,14 @@ export function MatrimonyMySubscriptionScreen() {
                 <PrimaryButton
                   title={detail.subscriptionStatus === "ACTIVE" ? "Renew / upgrade" : "Subscribe again"}
                   onPress={renew}
-                  style={{ marginTop: spacing.md }}
+                  style={{ ...matrimonyLayout.button, marginTop: spacing.sm }}
                 />
               )}
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment history</Text>
             {history.length === 0 ? (
-              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>No payments yet.</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>No payments yet.</Text>
             ) : (
               history.map((h) => (
                 <View
@@ -159,10 +160,10 @@ export function MatrimonyMySubscriptionScreen() {
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="card-outline" size={32} color={colors.textSecondary} />
             <Text style={{ color: colors.text, fontWeight: "700", marginTop: spacing.sm }}>No active plan</Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
               Subscribe to Gold or Platinum to open full profiles.
             </Text>
-            <PrimaryButton title="View plans" onPress={renew} style={{ marginTop: spacing.md }} />
+            <PrimaryButton title="View plans" onPress={renew} style={{ ...matrimonyLayout.button, marginTop: spacing.sm }} />
           </View>
         )}
       </ScrollView>
@@ -186,7 +187,7 @@ function MetaRow({
       <Text style={{ fontSize: 11, color: colors.textSecondary }}>{label}</Text>
       <Text
         style={{
-          fontSize: 13,
+          fontSize: 12,
           color: colors.text,
           fontWeight: "600",
           fontFamily: mono ? "monospace" : undefined
@@ -214,12 +215,12 @@ function formatDate(iso: string): string {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: spacing.sm + 2,
     marginBottom: spacing.lg
   },
   label: { fontSize: 12, fontWeight: "600" },
-  planName: { fontSize: 22, fontWeight: "800", marginTop: 4 },
+  planName: { fontSize: 20, fontWeight: "800", marginTop: 4 },
   badge: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
@@ -229,13 +230,13 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: "800" },
   metaGrid: { marginTop: spacing.sm },
-  sectionTitle: { fontSize: 16, fontWeight: "800", marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 15, fontWeight: "800", marginBottom: spacing.sm },
   historyRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm + 2,
     marginBottom: spacing.sm
   }
 });

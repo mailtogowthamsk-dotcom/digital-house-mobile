@@ -280,19 +280,20 @@ export function SettingsScreen() {
       }
     >
       <SectionHeader label="Appearance" colors={colors} first />
-      <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]}>
+      <View style={[styles.segment, { backgroundColor: colors.surfaceElevated }]} accessibilityRole="tablist">
         {(["light", "dark"] as const).map((option) => {
           const active = mode === option;
           return (
             <Pressable
               key={option}
               onPress={() => setMode(option)}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={option === "light" ? "Light mode" : "Dark mode"}
-              style={[
+              style={({ pressed }) => [
                 styles.segmentItem,
-                active && { backgroundColor: colors.surface, borderColor: colors.border }
+                active && { backgroundColor: colors.primary + "18" },
+                pressed && styles.pressed
               ]}
             >
               <Ionicons
@@ -303,7 +304,7 @@ export function SettingsScreen() {
               <Text
                 style={[
                   styles.segmentLabel,
-                  { color: active ? colors.text : colors.textSecondary }
+                  { color: active ? colors.primary : colors.textSecondary }
                 ]}
               >
                 {option === "light" ? "Light" : "Dark"}
@@ -466,44 +467,51 @@ export function SettingsScreen() {
             <Card colors={colors}>
               <View style={[styles.row, styles.rowLast, { borderBottomColor: colors.border }]}>
                 <View style={styles.rowBody}>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>{referral?.code ?? "—"}</Text>
+                  <Text selectable style={[styles.referralCode, { color: colors.text }]}>{referral?.code ?? "—"}</Text>
                   <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>
                     Share this code only with people you know. Regenerating does not change past referrals.
                   </Text>
                 </View>
               </View>
-              <Pressable
-                onPress={async () => {
-                  if (!referral?.code) return;
-                  await Clipboard.setStringAsync(referral.code);
-                  appAlert("Copied", "Referral code copied.");
-                }}
-                style={({ pressed }) => [styles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.8 }]}
-              >
-                <Text style={[styles.rowLabel, { color: colors.primary }]}>Copy code</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  if (!referral?.code) return;
-                  await Share.share({ message: `Digital House referral code: ${referral.code}` });
-                }}
-                style={({ pressed }) => [styles.row, { borderBottomColor: colors.border }, pressed && { opacity: 0.8 }]}
-              >
-                <Text style={[styles.rowLabel, { color: colors.primary }]}>Share</Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  try {
-                    setReferral(await regenerateOwnReferralCode());
-                    appAlert("Updated", "Your new referral code is ready. Previous referrals are unchanged.");
-                  } catch {
-                    appAlert("Couldn't regenerate", "Please try again.");
-                  }
-                }}
-                style={({ pressed }) => [styles.row, styles.rowLast, pressed && { opacity: 0.8 }]}
-              >
-                <Text style={[styles.rowLabel, { color: colors.primary }]}>Regenerate code</Text>
-              </Pressable>
+              <View style={styles.referralActions}>
+                <Pressable
+                  onPress={async () => {
+                    if (!referral?.code) return;
+                    await Clipboard.setStringAsync(referral.code);
+                    appAlert("Copied", "Referral code copied.");
+                  }}
+                  accessibilityRole="button"
+                  disabled={!referral?.code}
+                  style={({ pressed }) => [styles.referralButton, { backgroundColor: colors.surfaceElevated }, (pressed || !referral?.code) && styles.pressed]}
+                >
+                  <Text style={[styles.referralActionText, { color: colors.primary }]}>Copy code</Text>
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    if (!referral?.code) return;
+                    await Share.share({ message: `Digital House referral code: ${referral.code}` });
+                  }}
+                  accessibilityRole="button"
+                  disabled={!referral?.code}
+                  style={({ pressed }) => [styles.referralButton, { backgroundColor: colors.surfaceElevated }, (pressed || !referral?.code) && styles.pressed]}
+                >
+                  <Text style={[styles.referralActionText, { color: colors.primary }]}>Share</Text>
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    try {
+                      setReferral(await regenerateOwnReferralCode());
+                      appAlert("Updated", "Your new referral code is ready. Previous referrals are unchanged.");
+                    } catch {
+                      appAlert("Couldn't regenerate", "Please try again.");
+                    }
+                  }}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.referralButton, { backgroundColor: colors.surfaceElevated }, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.referralActionText, { color: colors.primary }]}>Regenerate code</Text>
+                </Pressable>
+              </View>
             </Card>
           )}
         </>
@@ -606,10 +614,11 @@ function SectionHeader({
 }) {
   return (
     <Text
+      accessibilityRole="header"
       style={[
         styles.sectionTitle,
-        { color: colors.textMuted },
-        first && { marginTop: spacing.lg }
+        { color: colors.text },
+        first && { marginTop: spacing.sm }
       ]}
     >
       {label}
@@ -637,7 +646,7 @@ function IconChip({
   const { fg, bg } = TINTS[tint];
   return (
     <View style={[styles.iconWrap, { backgroundColor: mode === "dark" ? `${fg}26` : bg }]}>
-      <Ionicons name={icon} size={19} color={fg} />
+      <Ionicons name={icon} size={17} color={fg} />
     </View>
   );
 }
@@ -654,7 +663,7 @@ function SkeletonCard({ colors, rows }: { colors: ThemeColors; rows: number }) {
             idx === rows - 1 && styles.rowLast
           ]}
         >
-          <Shimmer width={36} height={36} borderRadius={12} />
+          <Shimmer width={32} height={32} borderRadius={10} />
           <View style={styles.rowBody}>
             <Shimmer width="55%" height={13} />
             <Shimmer width="80%" height={10} style={{ marginTop: 6 }} />
@@ -703,7 +712,7 @@ function NavRow({
           <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>{subtitle}</Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
     </Pressable>
   );
 }
@@ -810,18 +819,17 @@ function ToggleRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg },
+  scrollContent: { width: "100%", maxWidth: 640, alignSelf: "center", paddingHorizontal: spacing.md },
+  pressed: { opacity: 0.65 },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs
   },
   groupLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -829,27 +837,27 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden"
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 60,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.md,
+    minHeight: 52,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth
   },
   rowPlain: { paddingHorizontal: spacing.lg },
   rowLast: { borderBottomWidth: 0 },
-  rowBody: { flex: 1 },
-  rowLabel: { fontSize: 15, fontWeight: "600" },
+  rowBody: { flex: 1, minWidth: 0 },
+  rowLabel: { fontSize: 13, fontWeight: "600" },
   rowSubtitle: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -865,12 +873,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "transparent"
+    minHeight: 44,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm
   },
-  segmentLabel: { fontSize: 14, fontWeight: "700" },
+  segmentLabel: { fontSize: 13, fontWeight: "700" },
+  referralCode: { fontSize: 16, fontWeight: "700", letterSpacing: 0.8 },
+  referralActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm
+  },
+  referralButton: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm
+  },
+  referralActionText: { fontSize: 12, fontWeight: "700" },
   badge: {
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
@@ -883,7 +906,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg
   },
-  emptyText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  emptyText: { flex: 1, fontSize: 12, lineHeight: 17 },
   footnote: {
     fontSize: 12,
     lineHeight: 17,

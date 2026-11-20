@@ -388,7 +388,7 @@ const s = StyleSheet.create({
   brandTitle: {
     marginTop: spacing.xs,
     fontFamily: fonts.bold,
-    fontSize: 24,
+    fontSize: 22,
     color: BRAND_DEEP
   },
   card: {
@@ -405,7 +405,7 @@ const s = StyleSheet.create({
   cardTitle: {
     marginBottom: spacing.md,
     fontFamily: fonts.bold,
-    fontSize: 24,
+    fontSize: 22,
     color: BRAND_DEEP
   },
   googleBtn: {
@@ -421,7 +421,7 @@ const s = StyleSheet.create({
   },
   googleBtnText: {
     fontFamily: fonts.semiBold,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#111827"
   },
@@ -447,28 +447,28 @@ const s = StyleSheet.create({
   },
   existingLabel: {
     fontFamily: fonts.semiBold,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#111827",
     marginBottom: 4
   },
   emailHelper: {
     fontFamily: fonts.regular,
-    fontSize: 13,
+    fontSize: 12,
     color: "#6B7280",
-    lineHeight: 18,
+    lineHeight: 17,
     marginBottom: spacing.md
   },
   message: { marginTop: spacing.sm },
   messageError: {
     fontFamily: fonts.medium,
-    fontSize: 13,
+    fontSize: 12,
     color: "#DC2626",
     fontWeight: "500"
   },
   messageSuccess: {
     fontFamily: fonts.medium,
-    fontSize: 13,
+    fontSize: 12,
     color: BRAND_PRIMARY,
     fontWeight: "500"
   },
@@ -486,7 +486,7 @@ const s = StyleSheet.create({
   loginBtnText: {
     fontFamily: fonts.semiBold,
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600"
   },
   registerWrap: {
@@ -499,12 +499,12 @@ const s = StyleSheet.create({
   },
   registerText: {
     fontFamily: fonts.regular,
-    fontSize: 14,
+    fontSize: 13,
     color: "#6B7280"
   },
   registerLink: {
     fontFamily: fonts.semiBold,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: BRAND_PRIMARY
   }

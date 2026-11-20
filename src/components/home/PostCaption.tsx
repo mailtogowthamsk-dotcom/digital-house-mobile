@@ -17,6 +17,7 @@ type Props = {
   /** title | caption | full (both) */
   variant?: "title" | "caption" | "full";
   compact?: boolean;
+  feedReading?: boolean;
 };
 
 function renderTokens(
@@ -45,7 +46,8 @@ function PostCaptionInner({
   description,
   maxLines = 2,
   variant = "full",
-  compact = false
+  compact = false,
+  feedReading = false
 }: Props) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -69,20 +71,31 @@ function PostCaptionInner({
 
   const onMeasureLayout = useCallback(
     (e: { nativeEvent: { lines: Array<unknown> } }) => {
-      if (e.nativeEvent.lines.length > maxLines) setNeedsMore(true);
+      setNeedsMore(e.nativeEvent.lines.length > maxLines);
     },
     [maxLines]
   );
 
   if (!showTitle && !captionText) return null;
 
-  const titleStyle = compact ? styles.titleCompact : styles.title;
+  const titleStyle = feedReading ? styles.feedTitle : compact ? styles.titleCompact : styles.title;
+  const captionStyle = feedReading ? styles.feedCaption : styles.caption;
+  const captionColor = feedReading ? colors.text : colors.textSecondary;
 
   return (
-    <View style={[styles.wrap, compact ? styles.wrapCompact : styles.wrapDefault]}>
+    <View
+      style={[
+        styles.wrap,
+        compact ? styles.wrapCompact : styles.wrapDefault,
+        feedReading && !compact && styles.feedWrap,
+        feedReading && compact && styles.feedMediaWrap
+      ]}
+    >
       {captionText && !expanded ? (
         <Text
-          style={[typography.feedCaption, styles.measure, compact ? styles.measureCompact : styles.measureDefault]}
+          accessible={false}
+          importantForAccessibility="no"
+          style={[typography.feedCaption, captionStyle, styles.measure, compact ? styles.measureCompact : styles.measureDefault]}
           onTextLayout={onMeasureLayout}
         >
           {captionText}
@@ -97,16 +110,16 @@ function PostCaptionInner({
 
       {captionText ? (
         <Text
-          style={[typography.feedCaption, styles.caption, { color: colors.textSecondary }]}
+          style={[typography.feedCaption, captionStyle, { color: captionColor }]}
           numberOfLines={expanded ? undefined : maxLines}
         >
-          {renderTokens(captionText, { ...colors, text: colors.textSecondary }, styles.caption)}
+          {renderTokens(captionText, { ...colors, text: captionColor }, captionStyle)}
         </Text>
       ) : null}
 
       {needsMore && !expanded && captionText ? (
-        <Pressable onPress={() => setExpanded(true)} hitSlop={6} style={styles.moreBtn}>
-          <Text style={[typography.feedCount, styles.more, { color: colors.primary }]}>See more</Text>
+        <Pressable onPress={() => setExpanded(true)} hitSlop={6} style={styles.moreBtn} accessibilityRole="button">
+          <Text style={[typography.feedCount, styles.more, { color: colors.primary }]}>{feedReading ? "More" : "See more"}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -129,6 +142,10 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingBottom: 2
   },
+  feedWrap: { paddingTop: 7, paddingBottom: 4 },
+  feedMediaWrap: { paddingTop: 4, paddingBottom: 0, gap: 1 },
+  feedTitle: { fontSize: 13, fontWeight: "700", lineHeight: 19 },
+  feedCaption: { fontSize: 12, lineHeight: 18 },
   title: {
     fontSize: 16,
     fontWeight: "700",

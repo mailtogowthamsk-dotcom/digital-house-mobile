@@ -1011,15 +1011,15 @@ const styles = StyleSheet.create({
     padding: 32
   },
   emptyChatTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
     marginTop: 14
   },
   emptyChatSub: {
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 8,
     textAlign: "center",
-    lineHeight: 20
+    lineHeight: 19
   },
   lockBanner: {
     flexDirection: "row",

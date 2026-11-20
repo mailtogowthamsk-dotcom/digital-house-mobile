@@ -158,8 +158,8 @@ const styles = StyleSheet.create({
   },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
   hint: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.xs
   },
@@ -172,8 +172,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg
   },
-  title: { fontSize: 16, fontWeight: "600" },
-  desc: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  title: { fontSize: 15, fontWeight: "600" },
+  desc: { fontSize: 12, lineHeight: 17, marginTop: 4 },
   version: { fontSize: 12, marginTop: 6, fontWeight: "600" },
   separator: { height: 0 }
 });

@@ -4,7 +4,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { fonts } from "../../theme/fonts";
 import { spacing, radius } from "../../theme/spacing";
-import { cardShadow } from "../../theme/shadows";
 
 type Props = {
   totalPosts?: number;
@@ -29,7 +28,7 @@ export function ProfileContentLinks({
         section: { marginBottom: spacing.lg },
         sectionTitle: {
           fontFamily: fonts.semiBold,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: "600",
           color: colors.textSecondary,
           letterSpacing: 0.4,
@@ -40,37 +39,39 @@ export function ProfileContentLinks({
         row: { flexDirection: "row", gap: spacing.sm },
         tile: {
           flex: 1,
-          minHeight: 112,
+          minHeight: 64,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing.xs,
           backgroundColor: colors.surface,
           borderRadius: radius.xl,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
-          paddingVertical: spacing.lg,
-          paddingHorizontal: spacing.lg,
-          ...cardShadow(mode)
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.sm
         },
         tilePressed: { backgroundColor: colors.surfaceElevated },
         icon: {
-          width: 40,
-          height: 40,
-          borderRadius: 12,
+          width: 32,
+          height: 32,
+          borderRadius: 10,
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: spacing.sm,
           backgroundColor: mode === "dark" ? colors.surfaceElevated : colors.primary + "14"
         },
+        tileBody: { flex: 1, minWidth: 0 },
         title: {
           fontFamily: fonts.semiBold,
-          fontSize: 16,
+          fontSize: 13,
           fontWeight: "600",
           color: colors.text
         },
         sub: {
-          marginTop: 4,
+          marginTop: 2,
           fontFamily: fonts.regular,
-          fontSize: 13,
+          fontSize: 11,
           color: colors.textSecondary,
-          lineHeight: 18
+          lineHeight: 15
         }
       }),
     [colors, mode]
@@ -121,47 +122,29 @@ export function ProfileContentLinks({
 
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle}>Your content</Text>
-      <View style={s.row}>
-        {tiles.map((tile) => (
-          <Pressable
-            key={tile.key}
-            style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
-            onPress={tile.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={tile.title}
-          >
-            <View style={s.icon}>
-              <Ionicons name={tile.icon} size={18} color={colors.primary} />
-            </View>
-            <Text style={s.title}>{tile.title}</Text>
-            <Text style={s.sub} numberOfLines={1}>
-              {tile.sub}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {benefitTiles.length ? (
-        <View style={[s.row, { marginTop: spacing.sm }]}>
-          {benefitTiles.map((tile) => (
+      <Text style={s.sectionTitle} accessibilityRole="header">Your content</Text>
+      {[tiles, benefitTiles].filter((row) => row.length > 0).map((row, index) => (
+        <View key={row[0].key} style={[s.row, index > 0 && { marginTop: spacing.sm }]}>
+          {row.map((tile) => (
             <Pressable
               key={tile.key}
               style={({ pressed }) => [s.tile, pressed && s.tilePressed]}
               onPress={tile.onPress}
               accessibilityRole="button"
               accessibilityLabel={tile.title}
+              accessibilityHint={tile.sub}
             >
               <View style={s.icon}>
-                <Ionicons name={tile.icon} size={18} color={colors.primary} />
+                <Ionicons name={tile.icon} size={16} color={colors.primary} />
               </View>
-              <Text style={s.title}>{tile.title}</Text>
-              <Text style={s.sub} numberOfLines={1}>
-                {tile.sub}
-              </Text>
+              <View style={s.tileBody}>
+                <Text style={s.title}>{tile.title}</Text>
+                <Text style={s.sub} numberOfLines={1}>{tile.sub}</Text>
+              </View>
             </Pressable>
           ))}
         </View>
-      ) : null}
+      ))}
     </View>
   );
 }

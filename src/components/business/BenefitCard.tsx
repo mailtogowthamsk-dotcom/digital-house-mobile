@@ -60,7 +60,7 @@ export function BenefitCard({
           marginBottom: spacing.md
         },
         value: {
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: "800",
           color: colors.primary,
           letterSpacing: 0.2

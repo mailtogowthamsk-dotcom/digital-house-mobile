@@ -38,12 +38,12 @@ function LikerRowInner({ liker, onPress }: LikerRowProps) {
         textCol: { flex: 1, minWidth: 0 },
         nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
         name: {
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: liker.isCurrentUser ? "700" : "600",
           color: colors.text,
           flexShrink: 1
         },
-        subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+        subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
         heart: { marginLeft: 4 }
       }),
     [colors, mode, liker.isCurrentUser]

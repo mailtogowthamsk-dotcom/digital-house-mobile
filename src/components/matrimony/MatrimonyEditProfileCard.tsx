@@ -124,7 +124,7 @@ export function MatrimonyEditProfileCard({ hub, loading, onOpen }: Props) {
           gap: spacing.sm,
           marginBottom: spacing.sm
         },
-        title: { fontSize: 16, fontWeight: "700", color: colors.text, flex: 1 },
+        title: { fontSize: 15, fontWeight: "700", color: colors.text, flex: 1 },
         chip: {
           alignSelf: "flex-start",
           paddingHorizontal: 10,
@@ -133,15 +133,15 @@ export function MatrimonyEditProfileCard({ hub, loading, onOpen }: Props) {
           marginBottom: spacing.sm
         },
         chipText: { fontSize: 12, fontWeight: "700" },
-        body: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.md },
+        body: { fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginBottom: spacing.md },
         note: {
-          fontSize: 13,
+          fontSize: 12,
           color: "#9A3412",
           backgroundColor: "#FFF7ED",
           padding: spacing.md,
           borderRadius: radius.md,
           marginBottom: spacing.md,
-          lineHeight: 18
+          lineHeight: 17
         },
         progressBg: {
           height: 6,
@@ -161,7 +161,15 @@ export function MatrimonyEditProfileCard({ hub, loading, onOpen }: Props) {
           borderRadius: radius.md,
           marginBottom: spacing.md
         },
-        hintText: { flex: 1, fontSize: 12, color: "#1E40AF", lineHeight: 17 }
+        hintText: { flex: 1, fontSize: 12, color: "#1E40AF", lineHeight: 17 },
+        openButton: {
+          alignSelf: "flex-start",
+          minHeight: 44,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.md
+        },
+        openButtonText: { fontSize: 13 }
       }),
     [colors]
   );
@@ -208,7 +216,13 @@ export function MatrimonyEditProfileCard({ hub, loading, onOpen }: Props) {
             </Text>
           </View>
 
-          <PrimaryButton title={meta.cta} onPress={onOpen} />
+          <PrimaryButton
+            title={meta.cta}
+            onPress={onOpen}
+            variant="secondary"
+            style={s.openButton}
+            textStyle={s.openButtonText}
+          />
         </>
       )}
     </View>

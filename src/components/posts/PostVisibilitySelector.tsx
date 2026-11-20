@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.md, marginTop: spacing.xs },
   label: {
     fontFamily: fonts.semiBold,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     marginBottom: spacing.sm
   },
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.semiBold,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600"
   }
 });

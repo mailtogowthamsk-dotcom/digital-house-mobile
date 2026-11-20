@@ -18,6 +18,7 @@ import {
 } from "../../api/matrimony.api";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../theme/ThemeContext";
+import { matrimonyLayout } from "../../components/matrimony/matrimonyLayout";
 import { spacing } from "../../theme/spacing";
 import {
   MatrimonyBrowseFilters,
@@ -38,7 +39,7 @@ const PAGE_SIZE = 20;
 function MatrimonyBrowseBody() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const gateHub = useMatrimonyHubFromGate();
   const [items, setItems] = useState<DiscoverCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +175,7 @@ function MatrimonyBrowseBody() {
     [viewerDistrict, onOpenCandidate]
   );
   const browseContentStyle = useMemo(
-    () => ({ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl + insets.bottom }),
+    () => ({ ...matrimonyLayout.content, paddingBottom: spacing.xl + insets.bottom }),
     [insets.bottom]
   );
 
@@ -211,18 +212,18 @@ function MatrimonyBrowseBody() {
           style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
         >
           <LinearGradient
-            colors={["#EFF6FF", "#FEF3C7"]}
+            colors={mode === "dark" ? ["#372331", colors.surface] : ["#FCECF1", "#FFF4E7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.upgradeStrip}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: "800", fontSize: 13, color: colors.text }}>Unlock full profiles</Text>
+              <Text style={{ fontWeight: "800", fontSize: 12, color: colors.text }}>Unlock full profiles</Text>
               <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
                 Photos, horoscope & details · from ₹699
               </Text>
             </View>
-            <Text style={{ fontWeight: "800", color: "#D97706", fontSize: 12 }}>Upgrade</Text>
+            <Text style={{ fontWeight: "700", color: colors.primary, fontSize: 12 }}>Upgrade</Text>
           </LinearGradient>
         </Pressable>
       ) : null}

@@ -378,10 +378,10 @@ function PostActionsBottomSheetInner({
             textColor={colors.textMuted}
           />
           <View style={{ flex: 1, marginLeft: spacing.md }}>
-            <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }} numberOfLines={1}>
+            <Text style={{ color: colors.text, fontWeight: "700", fontSize: 14 }} numberOfLines={1}>
               {item.fullName}
             </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }} numberOfLines={1}>
               {item.kind === "matrimony"
                 ? "Matrimony match"
                 : item.kind === "connection"
@@ -438,7 +438,7 @@ function PostActionsBottomSheetInner({
               <Text style={[styles.title, { color: colors.text }]}>
                 {panel === "menu" ? "Share Post" : "Send to Chat"}
               </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }} numberOfLines={1}>
                 {post.title}
               </Text>
             </View>
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm
   },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "800" },
+  title: { fontSize: 17, fontWeight: "800" },
   closeBtn: {
     width: 36,
     height: 36,
@@ -660,8 +660,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
-  actionLabel: { fontSize: 16, fontWeight: "700" },
-  actionSub: { fontSize: 13, marginTop: 2 },
+  actionLabel: { fontSize: 15, fontWeight: "700" },
+  actionSub: { fontSize: 12, marginTop: 2 },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -707,15 +707,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.sm
   },
-  emptyTitle: { fontSize: 17, fontWeight: "800" },
-  emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  emptyTitle: { fontSize: 16, fontWeight: "800" },
+  emptyBody: { fontSize: 13, textAlign: "center", lineHeight: 19 },
   findBtn: {
     marginTop: spacing.md,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: radius.md
   },
-  findBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  findBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   sendBtn: {
     borderRadius: radius.md,
     paddingVertical: spacing.md,
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 48
   },
-  sendBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  sendBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   errorBanner: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -734,5 +734,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md
   },
-  errorText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "600" }
+  errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: "600" }
 });

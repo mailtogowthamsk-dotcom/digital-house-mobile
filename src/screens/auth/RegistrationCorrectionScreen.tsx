@@ -74,16 +74,16 @@ export function RegistrationCorrectionScreen() {
           alignSelf: "center"
         },
         title: {
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: "700",
           color: colors.text,
           marginBottom: spacing.sm,
           textAlign: "center"
         },
         subtitle: {
-          fontSize: 14,
+          fontSize: 13,
           color: colors.textSecondary,
-          lineHeight: 21,
+          lineHeight: 20,
           textAlign: "center",
           marginBottom: spacing.lg
         },
@@ -100,8 +100,8 @@ export function RegistrationCorrectionScreen() {
           marginBottom: 6,
           textTransform: "uppercase"
         },
-        remarksText: { fontSize: 14, color: colors.text, lineHeight: 20 },
-        label: { fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: 8 },
+        remarksText: { fontSize: 13, color: colors.text, lineHeight: 19 },
+        label: { fontSize: 12, fontWeight: "600", color: colors.text, marginBottom: 8 },
         input: {
           borderWidth: 1,
           borderColor: colors.border,
@@ -119,7 +119,7 @@ export function RegistrationCorrectionScreen() {
           alignItems: "center",
           marginBottom: spacing.md
         },
-        photoBtnText: { fontSize: 15, fontWeight: "600", color: colors.primary },
+        photoBtnText: { fontSize: 14, fontWeight: "600", color: colors.primary },
         preview: {
           width: 96,
           height: 96,
@@ -140,9 +140,9 @@ export function RegistrationCorrectionScreen() {
           alignItems: "center",
           marginBottom: spacing.md
         },
-        btnText: { fontSize: 17, fontWeight: "600", color: colors.white },
+        btnText: { fontSize: 16, fontWeight: "600", color: colors.white },
         logout: { alignItems: "center", paddingVertical: 10 },
-        logoutText: { fontSize: 15, fontWeight: "600", color: colors.textSecondary }
+        logoutText: { fontSize: 14, fontWeight: "600", color: colors.textSecondary }
       }),
     [colors]
   );

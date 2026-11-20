@@ -55,6 +55,7 @@ type Props = {
     primary: string;
     text: string;
     surfaceElevated: string;
+    border: string;
     textMuted: string;
     white: string;
   };

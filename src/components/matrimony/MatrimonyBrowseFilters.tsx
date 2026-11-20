@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "../../theme/ThemeContext";
 import { spacing, radius } from "../../theme/spacing";
-import { textField, textFieldCompact } from "../../theme/textField";
+import { settingsField, textFieldCompactPad } from "../../theme/textField";
+import { matrimonyLayout } from "./matrimonyLayout";
 import { PrimaryButton } from "../ui/PrimaryButton";
 import { getLocations, type OptionItem } from "../../api/options.api";
 import { useModalKeyboardPad } from "../../hooks/useModalKeyboardPad";
@@ -81,7 +82,9 @@ type Props = {
 };
 
 export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onClear }: Props) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
+  const accent = mode === "dark" ? "#F3B5D0" : "#753B56";
+  const selectedFill = mode === "dark" ? "#753B5655" : "#FCECF1";
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { keyboardHeight, keyboardOpen } = useModalKeyboardPad();
@@ -136,7 +139,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
   const sheetBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
   const scrollBottomPad = keyboardOpen ? spacing.xl : spacing.md;
   const sheetMaxHeight = windowHeight * (keyboardOpen ? 0.72 : 0.88);
-  const scrollMaxHeight = Math.max(200, sheetMaxHeight - 168 - sheetBottomPad);
+  const scrollMaxHeight = Math.max(120, sheetMaxHeight - 120 - sheetBottomPad);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent>
@@ -157,14 +160,15 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
 
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: colors.text }]}>Filter profiles</Text>
+              <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">Filter profiles</Text>
               <Text style={[styles.hint, { color: colors.textSecondary }]}>
                 Same-kulam and partner preferences still apply.
               </Text>
             </View>
             <Pressable
               onPress={onClose}
-              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close filters"
               style={[styles.closeBtn, { backgroundColor: colors.surfaceElevated }]}
             >
               <Ionicons name="close" size={22} color={colors.text} />
@@ -180,19 +184,17 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
             showsVerticalScrollIndicator
             nestedScrollEnabled
           >
-            <View style={[styles.switchRow, { borderColor: colors.border, marginTop: 0 }]}>
+            <View style={[styles.switchRow, { backgroundColor: selectedFill }]}>
               <View style={{ flex: 1, paddingRight: spacing.sm }}>
                 <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
-                  Horoscope available only
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  Show profiles with horoscope on file
+                  Horoscope on file only
                 </Text>
               </View>
               <Switch
+                accessibilityLabel="Horoscope on file only"
                 value={draft.horoscopeOnly}
                 onValueChange={(horoscopeOnly) => setDraft((d) => ({ ...d, horoscopeOnly }))}
-                trackColor={{ false: colors.border, true: colors.primary }}
+                trackColor={{ false: colors.border, true: accent }}
               />
             </View>
 
@@ -201,7 +203,8 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
               <TextInput
                 value={draft.ageMin}
                 onChangeText={(ageMin) => setDraft((d) => ({ ...d, ageMin: ageMin.replace(/\D/g, "") }))}
-                placeholder="Min"
+                placeholder="Min age"
+                accessibilityLabel="Minimum age"
                 keyboardType="number-pad"
                 maxLength={2}
                 placeholderTextColor={colors.textMuted}
@@ -217,7 +220,8 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
               <TextInput
                 value={draft.ageMax}
                 onChangeText={(ageMax) => setDraft((d) => ({ ...d, ageMax: ageMax.replace(/\D/g, "") }))}
-                placeholder="Max"
+                placeholder="Max age"
+                accessibilityLabel="Maximum age"
                 keyboardType="number-pad"
                 maxLength={2}
                 placeholderTextColor={colors.textMuted}
@@ -236,11 +240,13 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                 return (
                   <Pressable
                     key={preset.label}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.chip,
                       {
                         borderColor: colors.border,
-                        backgroundColor: active ? colors.primary : colors.surfaceElevated
+                        backgroundColor: active ? selectedFill : colors.surfaceElevated
                       }
                     ]}
                     onPress={() =>
@@ -255,7 +261,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                       style={{
                         fontSize: 12,
                         fontWeight: "600",
-                        color: active ? colors.white : colors.text
+                        color: active ? accent : colors.text
                       }}
                     >
                       {preset.label}
@@ -271,9 +277,6 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
               }}
             >
               <Text style={[styles.sectionTitle, { color: colors.text }]}>District</Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>
-                Search or tap a district below
-              </Text>
               <View
                 style={[
                   styles.searchRow,
@@ -288,6 +291,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                   value={draft.district}
                   onChangeText={(district) => setDraft((d) => ({ ...d, district }))}
                   placeholder="Search district"
+                  accessibilityLabel="Search district"
                   placeholderTextColor={colors.textMuted}
                   returnKeyType="search"
                   blurOnSubmit
@@ -312,7 +316,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
               {loadingLoc ? (
                 <ActivityIndicator style={{ marginVertical: spacing.md }} color={colors.primary} />
               ) : filteredLocations.length === 0 ? (
-                <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: spacing.sm }}>
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: spacing.sm }}>
                   {draft.district.trim()
                     ? "No matching districts. Try a different spelling."
                     : "District list unavailable."}
@@ -331,11 +335,13 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                       return (
                         <Pressable
                           key={`loc-${loc.id}-${index}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
                           style={[
                             styles.chip,
                             {
                               borderColor: colors.border,
-                              backgroundColor: selected ? colors.primary : colors.surfaceElevated
+                              backgroundColor: selected ? selectedFill : colors.surfaceElevated
                             }
                           ]}
                           onPress={() => selectDistrict(loc.name)}
@@ -344,7 +350,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                             style={{
                               fontSize: 12,
                               fontWeight: "600",
-                              color: selected ? colors.white : colors.text
+                              color: selected ? accent : colors.text
                             }}
                           >
                             {loc.name}
@@ -359,7 +365,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <Pressable onPress={onClear} style={styles.clearBtn}>
+            <Pressable onPress={onClear} style={styles.clearBtn} accessibilityRole="button">
               <Text style={{ color: colors.textSecondary, fontWeight: "700" }}>Clear all</Text>
             </Pressable>
             <PrimaryButton
@@ -368,7 +374,7 @@ export function MatrimonyBrowseFilters({ visible, initial, onClose, onApply, onC
                 Keyboard.dismiss();
                 onApply(draft);
               }}
-              style={{ flex: 1 }}
+              style={{ ...matrimonyLayout.button, flex: 1, backgroundColor: "#753B56" }}
             />
           </View>
           </View>
@@ -387,64 +393,71 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
+    paddingHorizontal: spacing.md,
+    paddingTop: 6
   },
   handle: {
     alignSelf: "center",
     width: 40,
     height: 4,
     borderRadius: 2,
-    marginBottom: spacing.sm
+    marginBottom: 3
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
-    marginBottom: spacing.sm
+    marginBottom: spacing.xs
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center"
   },
-  title: { fontSize: 18, fontWeight: "800" },
+  title: { fontSize: 17, fontWeight: "800" },
   hint: { fontSize: 12, marginTop: 4, lineHeight: 17 },
   scroll: { flexGrow: 0, flexShrink: 1 },
   scrollContent: { paddingTop: spacing.xs },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm
+    marginTop: spacing.md,
+    marginBottom: spacing.xs
   },
-  label: { fontSize: 14, fontWeight: "700" },
+  label: { fontSize: 13, fontWeight: "700" },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    minHeight: 48
+    ...settingsField,
+    borderWidth: StyleSheet.hairlineWidth
   },
   searchInput: {
     flex: 1,
-    ...textFieldCompact
+    ...textFieldCompactPad,
+    minHeight: 44,
+    paddingVertical: 6,
+    fontSize: 14
   },
   input: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    ...textField
+    ...settingsField,
+    ...textFieldCompactPad,
+    paddingVertical: 6,
+    fontSize: 14,
+    borderWidth: StyleSheet.hairlineWidth
   },
   chipHint: { fontSize: 12, marginTop: spacing.sm, marginBottom: 6 },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
   chip: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingVertical: 5,
+    minHeight: 38,
+    justifyContent: "center",
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth
   },
   ageRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -453,15 +466,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingBottom: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 12
   },
   footer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth
   },
-  clearBtn: { paddingVertical: 12, paddingHorizontal: 4 }
+  clearBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }
 });

@@ -55,8 +55,8 @@ export function InAppNotificationBanner({ item, onDismiss, onCountsUpdate }: Pro
           justifyContent: "center",
           backgroundColor: isHighPriority ? colors.primary : colors.surfaceElevated
         },
-        title: { fontSize: 14, fontWeight: "800", color: colors.text },
-        body: { marginTop: 2, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+        title: { fontSize: 13, fontWeight: "800", color: colors.text },
+        body: { marginTop: 2, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
         close: { padding: 4 }
       }),
     [colors, insets.top, isHighPriority]

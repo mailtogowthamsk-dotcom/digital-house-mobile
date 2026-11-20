@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     color: "#fff",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700"
   },
   body: { flex: 1 },
@@ -362,14 +362,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: "rgba(255,255,255,0.08)"
   },
-  ghostBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  ghostBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   continueBtn: {
     height: 52,
     borderRadius: radius.full,
     alignItems: "center",
     justifyContent: "center"
   },
-  continueText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  continueText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   errorText: {
     color: "#F8FAFC",
     textAlign: "center",

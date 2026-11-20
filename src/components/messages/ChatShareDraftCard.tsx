@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   body: { flex: 1, minWidth: 0, gap: 1 },
   kicker: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.3 },
-  title: { fontSize: 14, fontWeight: "700", lineHeight: 18 },
+  title: { fontSize: 13, fontWeight: "700", lineHeight: 17 },
   meta: { fontSize: 12, lineHeight: 16 },
   close: {
     width: 28,
